@@ -229,6 +229,23 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
     state = state.copyWith(groups: groups);
   }
 
+  // Create a new group — returns (success, errorMessage)
+  Future<(bool, String?)> createGroup(String groupName) async {
+    try {
+      final resp = await ApiService.dio.post(
+        '/groups/create',
+        data: {'group_name': groupName.trim()},
+      );
+      final created = ModeratorGroup.fromJson(resp.data as Map<String, dynamic>);
+      state = state.copyWith(groups: [...state.groups, created]);
+      return (true, null);
+    } on DioException catch (e) {
+      return (false, ApiService.parseError(e));
+    } catch (e) {
+      return (false, e.toString());
+    }
+  }
+
   // Broadcast urgent SOS message to all pilgrims in the current group
   Future<bool> broadcastSOS() async {
     final group = state.currentGroup;

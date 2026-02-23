@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../providers/moderator_provider.dart';
+import 'create_group_screen.dart';
 import 'moderator_group_map_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -59,21 +60,11 @@ class _ModeratorDashboardScreenState
         width: 56.w,
         height: 56.w,
         child: FloatingActionButton(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text(
-                  'Create group — coming soon',
-                  style: TextStyle(fontFamily: 'Lexend'),
-                ),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-                backgroundColor: AppColors.primaryDark,
-              ),
-            );
-          },
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const CreateGroupScreen(),
+            ),
+          ),
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           shape: const CircleBorder(),
@@ -819,7 +810,9 @@ class _CreateGroupButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
-      onTap: () {},
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const CreateGroupScreen()),
+      ),
       child: Container(
         padding: EdgeInsets.symmetric(vertical: 24.h),
         decoration: BoxDecoration(
