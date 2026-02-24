@@ -121,7 +121,12 @@ class SuggestedAreaNotifier extends Notifier<SuggestedAreaState> {
     try {
       final area = SuggestedArea.fromJson(json);
       if (state.areas.any((a) => a.id == area.id)) return;
-      state = state.copyWith(areas: [area, ...state.areas]);
+      // If a new meetpoint arrives, purge any stale meetpoint that
+      // may have been missed by a dropped area_deleted socket event.
+      final updatedAreas = area.isMeetpoint
+          ? state.areas.where((a) => !a.isMeetpoint).toList()
+          : [...state.areas];
+      state = state.copyWith(areas: [area, ...updatedAreas]);
     } catch (_) {}
   }
 

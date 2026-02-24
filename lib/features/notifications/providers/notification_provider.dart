@@ -91,6 +91,24 @@ class NotificationNotifier extends Notifier<NotificationState> {
     } catch (_) {}
   }
 
+  // ── Silent refresh (socket push) — updates list + badge without marking read ──
+  Future<void> refetch() async {
+    try {
+      final res = await ApiService.dio.get('/notifications');
+      final data = res.data as Map<String, dynamic>;
+      if (data['success'] == true) {
+        final list = (data['notifications'] as List)
+            .map((e) => AppNotification.fromJson(e as Map<String, dynamic>))
+            .toList();
+        final unread = data['unread_count'] as int? ?? 0;
+        state = state.copyWith(
+          notifications: list,
+          unreadCount: unread,
+        );
+      }
+    } catch (_) {}
+  }
+
   // ── Delete single notification ────────────────────────────────────────────
   Future<void> delete(String id) async {
     final prev = state.notifications;

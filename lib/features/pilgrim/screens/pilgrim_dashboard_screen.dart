@@ -160,10 +160,11 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           }
         });
 
-        // Listen for notification badge refresh (new area/meetpoint/SOS notifications)
+        // Listen for notification refresh (new area/meetpoint/SOS notifications)
+        // refetch() updates the full list + badge without auto-marking as read
         SocketService.on('notification_refresh', (_) {
           if (!mounted) return;
-          ref.read(notificationProvider.notifier).fetchUnreadCount();
+          ref.read(notificationProvider.notifier).refetch();
         });
       }
       // Fetch notification badge count
