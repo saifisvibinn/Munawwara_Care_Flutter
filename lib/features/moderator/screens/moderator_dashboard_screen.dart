@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/services/api_service.dart';
@@ -34,12 +35,70 @@ class _ModeratorDashboardScreenState
     extends ConsumerState<ModeratorDashboardScreen> {
   int _currentTab = 0; // 0=Home, 1=Alerts
   final _searchController = TextEditingController();
+  final _alertTts = FlutterTts();
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  /// Join every group room so we receive group-scoped socket events (SOS, etc.)
+  void _joinAllGroupRooms() {
+    for (final g in ref.read(moderatorProvider).groups) {
+      SocketService.emit('join_group', g.id);
+    }
+  }
+
+  Future<void> _onSosAlertArrived(dynamic data) async {
+    if (!mounted) return;
+    // Refresh the alerts list immediately
+    ref.read(notificationProvider.notifier).fetch();
+    // Auto-navigate to Alerts tab so the moderator sees it
+    setState(() => _currentTab = 1);
+    // Speak the alert aloud
+    final map = data is Map ? data : <String, dynamic>{};
+    final name = map['pilgrim_name'] as String? ?? 'A pilgrim';
+    await _alertTts.setVolume(1.0);
+    await _alertTts.setSpeechRate(0.42);
+    await _alertTts.speak('SOS Alert! $name needs immediate help!');
+    // Show a persistent red SnackBar
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14.r),
+        ),
+        content: Row(
+          children: [
+            const Icon(Symbols.sos, color: Colors.white, size: 22),
+            SizedBox(width: 10.w),
+            Expanded(
+              child: Text(
+                '🚨 SOS — $name',
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14.sp,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'View',
+          textColor: Colors.white,
+          onPressed: () => setState(() => _currentTab = 1),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(moderatorProvider.notifier).loadDashboard();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(moderatorProvider.notifier).loadDashboard();
       // Connect socket with this moderator's identity
       final auth = ref.read(authProvider);
       if (auth.userId != null) {
@@ -53,6 +112,20 @@ class _ModeratorDashboardScreenState
         ref.read(callProvider.notifier).reRegisterListeners();
         // Fetch unread notification count for badge
         ref.read(notificationProvider.notifier).fetchUnreadCount();
+        // Join all group rooms so we receive SOS events
+        _joinAllGroupRooms();
+        // Re-join on reconnect
+        SocketService.on('connect', (_) {
+          if (mounted) _joinAllGroupRooms();
+        });
+        // Listen for real-time SOS alerts
+        SocketService.on('sos-alert-received', _onSosAlertArrived);
+        // Listen for SOS cancellations
+        SocketService.on('sos-alert-cancelled', (_) {
+          if (!mounted) return;
+          _alertTts.stop();
+          ref.read(notificationProvider.notifier).fetch();
+        });
       }
     });
   }
@@ -60,6 +133,10 @@ class _ModeratorDashboardScreenState
   @override
   void dispose() {
     _searchController.dispose();
+    _alertTts.stop();
+    SocketService.off('sos-alert-received');
+    SocketService.off('sos-alert-cancelled');
+    SocketService.off('connect');
     super.dispose();
   }
 

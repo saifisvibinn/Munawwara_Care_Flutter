@@ -9,6 +9,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/services/socket_service.dart';
@@ -41,7 +43,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   late AnimationController _sosHoldController;
   late AnimationController _sosPulseController;
   Timer? _sosTimer;
+  Timer? _sosCountdownTimer;
   bool _isSosHolding = false;
+  int _sosCountdown = 3;
 
   // Location
   StreamSubscription<Position>? _locationSub;
@@ -82,6 +86,29 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           role: auth.role ?? 'pilgrim',
         );
         ref.read(callProvider.notifier).reRegisterListeners();
+        // Join group socket room so we receive group-scoped events
+        final gId = ref.read(pilgrimProvider).groupInfo?.groupId;
+        if (gId != null) SocketService.emit('join_group', gId);
+        // Re-join group room on every reconnect (so beacon state is re-synced)
+        SocketService.on('connect', (_) {
+          if (!mounted) return;
+          final reconnectGroupId = ref.read(pilgrimProvider).groupInfo?.groupId;
+          if (reconnectGroupId != null)
+            SocketService.emit('join_group', reconnectGroupId);
+        });
+        // Listen for moderator navigation beacon
+        SocketService.on('mod_nav_beacon', (data) {
+          if (!mounted) return;
+          final map = data as Map<String, dynamic>;
+          final modId = map['moderatorId'] as String? ?? '';
+          final modName = map['moderatorName'] as String? ?? 'Moderator';
+          final enabled = map['enabled'] as bool? ?? false;
+          final lat = (map['lat'] as num?)?.toDouble();
+          final lng = (map['lng'] as num?)?.toDouble();
+          ref
+              .read(pilgrimProvider.notifier)
+              .updateModeratorBeacon(modId, modName, enabled, lat, lng);
+        });
       }
       _initLocation();
     });
@@ -93,7 +120,10 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _sosPulseController.dispose();
     _mapController.dispose();
     _sosTimer?.cancel();
+    _sosCountdownTimer?.cancel();
     _locationSub?.cancel();
+    SocketService.off('mod_nav_beacon');
+    SocketService.off('connect');
     super.dispose();
   }
 
@@ -132,20 +162,45 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   // ── SOS Logic ───────────────────────────────────────────────────────────────
 
   void _onSosHoldStart() {
-    setState(() => _isSosHolding = true);
+    HapticFeedback.heavyImpact();
+    SystemSound.play(SystemSoundType.alert);
+    setState(() {
+      _isSosHolding = true;
+      _sosCountdown = 3;
+    });
     _sosHoldController.forward(from: 0);
     _sosTimer = Timer(const Duration(seconds: 3), _fireSOS);
+    _sosCountdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      if (_sosCountdown > 1) {
+        HapticFeedback.mediumImpact();
+        SystemSound.play(SystemSoundType.alert);
+        setState(() => _sosCountdown--);
+      }
+    });
   }
 
   void _onSosHoldEnd() {
     if (!_isSosHolding) return;
     _sosHoldController.reverse();
     _sosTimer?.cancel();
-    setState(() => _isSosHolding = false);
+    _sosCountdownTimer?.cancel();
+    setState(() {
+      _isSosHolding = false;
+      _sosCountdown = 3;
+    });
   }
 
   Future<void> _fireSOS() async {
-    setState(() => _isSosHolding = false);
+    _sosCountdownTimer?.cancel();
+    HapticFeedback.vibrate();
+    setState(() {
+      _isSosHolding = false;
+      _sosCountdown = 3;
+    });
     _sosHoldController.value = 0;
     final ok = await ref.read(pilgrimProvider.notifier).triggerSOS();
     if (!mounted) return;
@@ -162,6 +217,51 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         ),
       ),
     );
+  }
+
+  void _cancelSOS() {
+    ref.read(pilgrimProvider.notifier).cancelSOS();
+    final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
+    if (groupId != null) {
+      SocketService.emit('sos_cancel', {
+        'groupId': groupId,
+        'pilgrimId': ref.read(authProvider).userId,
+      });
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.green.shade700,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12.r),
+        ),
+        content: Text(
+          'sos_cancelled'.tr(),
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  // ── Navigate to Moderator ──────────────────────────────────────────────────
+
+  Future<void> _navigateToModerator(ModeratorBeacon beacon) async {
+    final lat = beacon.lat;
+    final lng = beacon.lng;
+    final googleMapsApp = Uri.parse('google.navigation:q=$lat,$lng&mode=w');
+    final googleMapsWeb = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking',
+    );
+    try {
+      if (await canLaunchUrl(googleMapsApp)) {
+        await launchUrl(googleMapsApp);
+      } else {
+        await launchUrl(googleMapsWeb, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      await launchUrl(googleMapsWeb, mode: LaunchMode.externalApplication);
+    }
   }
 
   // ── Build ────────────────────────────────────────────────────────────────────
@@ -193,13 +293,17 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         onSosHoldStart: _onSosHoldStart,
         onSosHoldEnd: _onSosHoldEnd,
         onRefresh: () => ref.read(pilgrimProvider.notifier).loadDashboard(),
+        sosCountdown: _sosCountdown,
+        onCancelSos: _cancelSOS,
+        navBeacons: pilgrimState.navBeacons,
+        onNavigateToModerator: _navigateToModerator,
       ),
       _PilgrimMapTab(
         myLocation: _myLatLng,
         mapController: _mapController,
         pilgrimState: pilgrimState,
       ),
-      _PlaceholderTab(icon: Symbols.calendar_month, label: 'tab_plan'.tr()),
+      _PlaceholderTab(icon: Symbols.calendar_month, label: 'tab_plan'),
       pilgrimState.groupInfo != null
           ? GroupInboxScreen(
               groupId: pilgrimState.groupInfo!.groupId,
@@ -209,7 +313,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               icon: Symbols.chat_bubble,
               label: 'pilgrim_no_group',
             ),
-      _PlaceholderTab(icon: Symbols.person, label: 'tab_me'.tr()),
+      _PlaceholderTab(icon: Symbols.person, label: 'tab_me'),
     ];
 
     return Scaffold(
@@ -249,6 +353,10 @@ class _HomeTab extends StatelessWidget {
   final VoidCallback onSosHoldStart;
   final VoidCallback onSosHoldEnd;
   final Future<void> Function() onRefresh;
+  final int sosCountdown;
+  final VoidCallback onCancelSos;
+  final Map<String, ModeratorBeacon> navBeacons;
+  final void Function(ModeratorBeacon) onNavigateToModerator;
 
   const _HomeTab({
     required this.pilgrimState,
@@ -259,6 +367,10 @@ class _HomeTab extends StatelessWidget {
     required this.onSosHoldStart,
     required this.onSosHoldEnd,
     required this.onRefresh,
+    required this.sosCountdown,
+    required this.onCancelSos,
+    required this.navBeacons,
+    required this.onNavigateToModerator,
   });
 
   @override
@@ -484,6 +596,7 @@ class _HomeTab extends StatelessWidget {
                       isHolding: isSosHolding,
                       isLoading: pilgrimState.isSosLoading,
                       sosActive: pilgrimState.sosActive,
+                      countdown: sosCountdown,
                       onHoldStart: onSosHoldStart,
                       onHoldEnd: onSosHoldEnd,
                     ),
@@ -499,18 +612,194 @@ class _HomeTab extends StatelessWidget {
                     ),
                     SizedBox(height: 4.h),
                     Text(
-                      'sos_subtitle'.tr(),
+                      pilgrimState.sosActive
+                          ? 'sos_active_label'.tr()
+                          : isSosHolding
+                          ? ''
+                          : 'sos_hold_hint'.tr(),
                       style: TextStyle(
                         fontFamily: 'Lexend',
                         fontSize: 13.sp,
-                        color: AppColors.textMutedLight,
+                        color: pilgrimState.sosActive
+                            ? Colors.red.shade600
+                            : AppColors.textMutedLight,
+                        fontWeight: pilgrimState.sosActive
+                            ? FontWeight.w700
+                            : FontWeight.normal,
                       ),
                     ),
+                    if (pilgrimState.sosActive) ...[
+                      SizedBox(height: 12.h),
+                      GestureDetector(
+                        onTap: onCancelSos,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 28.w,
+                            vertical: 10.h,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Colors.red.shade400,
+                              width: 1.5,
+                            ),
+                            borderRadius: BorderRadius.circular(20.r),
+                          ),
+                          child: Text(
+                            'sos_cancel'.tr(),
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14.sp,
+                              color: Colors.red.shade500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     SizedBox(height: 24.h),
                   ],
                 ),
               ),
             ),
+
+            // ── Navigate to Moderator ────────────────────────────────────
+            if (navBeacons.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xff1e2a24) : Colors.white,
+                      borderRadius: BorderRadius.circular(20.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 8.h),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Symbols.my_location,
+                                size: 18.w,
+                                color: AppColors.primary,
+                              ),
+                              SizedBox(width: 8.w),
+                              Text(
+                                'nav_to_moderator'.tr(),
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14.sp,
+                                  color: isDark
+                                      ? Colors.white
+                                      : AppColors.textDark,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        ...navBeacons.values.map(
+                          (beacon) => Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16.w,
+                              vertical: 10.h,
+                            ),
+                            child: Row(
+                              children: [
+                                // Avatar
+                                Container(
+                                  width: 40.w,
+                                  height: 40.w,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withOpacity(0.12),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Symbols.person_pin_circle,
+                                    size: 22.w,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                SizedBox(width: 12.w),
+                                // Name
+                                Expanded(
+                                  child: Text(
+                                    beacon.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontFamily: 'Lexend',
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14.sp,
+                                      color: isDark
+                                          ? Colors.white
+                                          : AppColors.textDark,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: 10.w),
+                                // Navigate button
+                                GestureDetector(
+                                  onTap: () => onNavigateToModerator(beacon),
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 14.w,
+                                      vertical: 9.h,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary,
+                                      borderRadius: BorderRadius.circular(14.r),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppColors.primary.withOpacity(
+                                            0.35,
+                                          ),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Symbols.navigation,
+                                          color: Colors.white,
+                                          size: 16.w,
+                                        ),
+                                        SizedBox(width: 6.w),
+                                        Text(
+                                          'nav_go'.tr(),
+                                          style: TextStyle(
+                                            fontFamily: 'Lexend',
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13.sp,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 8.h),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -528,6 +817,7 @@ class _SosButton extends StatelessWidget {
   final bool isHolding;
   final bool isLoading;
   final bool sosActive;
+  final int countdown;
   final VoidCallback onHoldStart;
   final VoidCallback onHoldEnd;
 
@@ -537,6 +827,7 @@ class _SosButton extends StatelessWidget {
     required this.isHolding,
     required this.isLoading,
     required this.sosActive,
+    required this.countdown,
     required this.onHoldStart,
     required this.onHoldEnd,
   });
@@ -604,11 +895,35 @@ class _SosButton extends StatelessWidget {
                         strokeWidth: 3,
                       ),
                     )
+                  : isHolding
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '$countdown',
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 56.sp,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          'sec',
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 14.sp,
+                            color: Colors.white70,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    )
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          '505',
+                          sosActive ? 'ACTIVE' : '505',
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 20.sp,

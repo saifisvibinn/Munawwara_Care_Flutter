@@ -100,6 +100,22 @@ class ModeratorInfo {
   );
 }
 
+// ── Moderator Beacon Model ──────────────────────────────────────────────────
+
+class ModeratorBeacon {
+  final String id;
+  final String name;
+  final double lat;
+  final double lng;
+
+  const ModeratorBeacon({
+    required this.id,
+    required this.name,
+    required this.lat,
+    required this.lng,
+  });
+}
+
 // ── Pilgrim State ─────────────────────────────────────────────────────────────
 
 class PilgrimState {
@@ -111,6 +127,8 @@ class PilgrimState {
   final bool isSharingLocation;
   final int? batteryLevel;
   final bool sosActive;
+  // key = moderatorId, value = active beacon info
+  final Map<String, ModeratorBeacon> navBeacons;
 
   const PilgrimState({
     this.isLoading = false,
@@ -121,6 +139,7 @@ class PilgrimState {
     this.isSharingLocation = true,
     this.batteryLevel,
     this.sosActive = false,
+    this.navBeacons = const {},
   });
 
   PilgrimState copyWith({
@@ -132,6 +151,7 @@ class PilgrimState {
     bool? isSharingLocation,
     int? batteryLevel,
     bool? sosActive,
+    Map<String, ModeratorBeacon>? navBeacons,
     bool clearError = false,
     bool clearGroup = false,
   }) => PilgrimState(
@@ -143,6 +163,7 @@ class PilgrimState {
     isSharingLocation: isSharingLocation ?? this.isSharingLocation,
     batteryLevel: batteryLevel ?? this.batteryLevel,
     sosActive: sosActive ?? this.sosActive,
+    navBeacons: navBeacons ?? this.navBeacons,
   );
 }
 
@@ -239,6 +260,31 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
 
   void setBattery(int percent) {
     state = state.copyWith(batteryLevel: percent);
+  }
+
+  void updateModeratorBeacon(
+    String modId,
+    String modName,
+    bool enabled,
+    double? lat,
+    double? lng,
+  ) {
+    final updated = Map<String, ModeratorBeacon>.from(state.navBeacons);
+    if (enabled && lat != null && lng != null) {
+      updated[modId] = ModeratorBeacon(
+        id: modId,
+        name: modName,
+        lat: lat,
+        lng: lng,
+      );
+    } else {
+      updated.remove(modId);
+    }
+    state = state.copyWith(navBeacons: updated);
+  }
+
+  void cancelSOS() {
+    state = state.copyWith(sosActive: false);
   }
 }
 

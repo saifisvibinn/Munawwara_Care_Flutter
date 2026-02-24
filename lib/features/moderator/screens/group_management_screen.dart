@@ -17,8 +17,10 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/api_service.dart';
+import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../providers/moderator_provider.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
 import '../../calling/screens/voice_call_screen.dart';
 import 'group_messages_screen.dart';
@@ -51,11 +53,14 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
   LatLng? _myLocation;
   StreamSubscription<Position>? _locationSub;
   String? _focusedPilgrimId;
+  bool _navBeaconEnabled = false;
 
   @override
   void initState() {
     super.initState();
     _initLocation();
+    // Join the group socket room so moderator receives group events
+    SocketService.emit('join_group', widget.groupId);
     _searchController.addListener(() {
       if (mounted) setState(() => _searchQuery = _searchController.text);
     });
@@ -67,6 +72,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     _dssController.dispose();
     _searchController.dispose();
     _locationSub?.cancel();
+    SocketService.emit('leave_group', widget.groupId);
     super.dispose();
   }
 
@@ -94,6 +100,18 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
         ).listen((pos) {
           if (mounted) {
             setState(() => _myLocation = LatLng(pos.latitude, pos.longitude));
+            // Keep beacon coords fresh while enabled
+            if (_navBeaconEnabled) {
+              final auth = ref.read(authProvider);
+              SocketService.emit('mod_nav_beacon', {
+                'groupId': widget.groupId,
+                'enabled': true,
+                'lat': pos.latitude,
+                'lng': pos.longitude,
+                'moderatorId': auth.userId,
+                'moderatorName': auth.fullName ?? 'Moderator',
+              });
+            }
           }
         });
   }
@@ -140,6 +158,36 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
       // Final fallback — open in browser
       await launchUrl(googleMapsWeb, mode: LaunchMode.externalApplication);
     }
+  }
+
+  // ── Navigation Beacon ───────────────────────────────────────────────────────
+
+  void _toggleNavBeacon(ModeratorGroup group) {
+    setState(() => _navBeaconEnabled = !_navBeaconEnabled);
+    final auth = ref.read(authProvider);
+    SocketService.emit('mod_nav_beacon', {
+      'groupId': group.id,
+      'enabled': _navBeaconEnabled,
+      'lat': _myLocation?.latitude,
+      'lng': _myLocation?.longitude,
+      'moderatorId': auth.userId,
+      'moderatorName': auth.fullName ?? 'Moderator',
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _navBeaconEnabled ? 'nav_beacon_on'.tr() : 'nav_beacon_off'.tr(),
+        ),
+        backgroundColor: _navBeaconEnabled
+            ? AppColors.primary
+            : Colors.grey.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12.r),
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   // ── Add Pilgrim ───────────────────────────────────────────────────────────
@@ -820,6 +868,17 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                           ),
                         ),
                       ),
+                    ),
+                    SizedBox(width: 8.w),
+                    _CircleButton(
+                      icon: Symbols.navigation,
+                      backgroundColor: _navBeaconEnabled
+                          ? AppColors.primary
+                          : Colors.white,
+                      iconColor: _navBeaconEnabled
+                          ? Colors.white
+                          : AppColors.textMutedLight,
+                      onTap: () => _toggleNavBeacon(group),
                     ),
                     SizedBox(width: 8.w),
                     _CircleButton(
