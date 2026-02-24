@@ -265,15 +265,20 @@ class _NotificationTile extends StatelessWidget {
                       SizedBox(height: 8.h),
                       GestureDetector(
                         onTap: () {
-                          final loc = n.data!['location'] as Map<String, dynamic>;
+                          final loc =
+                              n.data!['location'] as Map<String, dynamic>;
                           final lat = (loc['lat'] as num).toDouble();
                           final lng = (loc['lng'] as num).toDouble();
                           final url = Uri.parse(
-                              'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+                            'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
+                          );
                           launchUrl(url, mode: LaunchMode.externalApplication);
                         },
                         child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 7.h),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12.w,
+                            vertical: 7.h,
+                          ),
                           decoration: BoxDecoration(
                             color: n.iconColor,
                             borderRadius: BorderRadius.circular(10.r),
@@ -281,7 +286,12 @@ class _NotificationTile extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Symbols.navigation, size: 14.w, color: Colors.white, fill: 1),
+                              Icon(
+                                Symbols.navigation,
+                                size: 14.w,
+                                color: Colors.white,
+                                fill: 1,
+                              ),
                               SizedBox(width: 4.w),
                               Text(
                                 'area_navigate'.tr(),

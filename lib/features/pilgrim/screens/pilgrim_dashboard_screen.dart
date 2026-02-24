@@ -1596,7 +1596,11 @@ class _PilgrimMapTab extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Icon(Symbols.crisis_alert, color: Colors.white, size: 22.w),
+                child: Icon(
+                  Symbols.crisis_alert,
+                  color: Colors.white,
+                  size: 22.w,
+                ),
               ),
             ),
           ),
@@ -1750,7 +1754,8 @@ class _SuggestionsCycleButton extends StatefulWidget {
   });
 
   @override
-  State<_SuggestionsCycleButton> createState() => _SuggestionsCycleButtonState();
+  State<_SuggestionsCycleButton> createState() =>
+      _SuggestionsCycleButtonState();
 }
 
 class _SuggestionsCycleButtonState extends State<_SuggestionsCycleButton> {
@@ -1784,7 +1789,12 @@ class _SuggestionsCycleButtonState extends State<_SuggestionsCycleButton> {
                 ),
               ],
             ),
-            child: Icon(Symbols.pin_drop, color: Colors.white, size: 22.w, fill: 1),
+            child: Icon(
+              Symbols.pin_drop,
+              color: Colors.white,
+              size: 22.w,
+              fill: 1,
+            ),
           ),
           if (count > 1)
             Positioned(
@@ -1793,7 +1803,10 @@ class _SuggestionsCycleButtonState extends State<_SuggestionsCycleButton> {
               child: Container(
                 width: 18.w,
                 height: 18.w,
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
                 child: Center(
                   child: Text(
                     '$count',

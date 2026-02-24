@@ -2,10 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // ─── Change this to your machine's LAN IP when testing on a physical device ──
-  // Android Emulator uses 10.0.2.2 to reach host's localhost.
-  // Physical device: use the host machine's local network IP.
-  static const String baseUrl = 'http://192.168.1.14:5000/api';
+  // ─── Backend URL ─────────────────────────────────────────────────────────────
+  // Deployed Cloud Run backend — works from any network.
+  // For local development, change to: 'http://192.168.x.x:5000/api'
+  static const String baseUrl = 'https://mcbackendapp-199324116788.europe-west8.run.app/api';
 
   static final Dio _dio = Dio(
     BaseOptions(
