@@ -1134,3 +1134,4 @@ class _TypeButton extends StatelessWidget {
     );
   }
 }
+

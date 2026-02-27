@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/services/socket_service.dart';
 
-const String _agoraAppId = '9373634e6f454b15a30dab9ed985658d';
+/// Read at first use (after dotenv.load has run in main).
+String get _agoraAppId => dotenv.env['AGORA_APP_ID'] ?? '';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Call State
@@ -21,7 +24,8 @@ class CallState {
   final bool isMuted;
   final bool isSpeakerOn;
   final int durationSeconds;
-  final String? endReason; // 'declined' | 'busy' | 'ended' | 'cancelled' | 'error'
+  final String?
+  endReason; // 'declined' | 'busy' | 'ended' | 'cancelled' | 'error'
 
   const CallState({
     this.status = CallStatus.idle,
@@ -83,6 +87,7 @@ class CallNotifier extends Notifier<CallState> {
 
   // ── Register socket listeners ─────────────────────────────────────────────
   void _registerSocketListeners() {
+    debugPrint('[CallProvider] Registering socket listeners');
     SocketService.on('call-offer', _onIncomingOffer);
     SocketService.on('call-answer', _onAnswer);
     SocketService.on('call-declined', _onRemoteDecline);
@@ -113,7 +118,9 @@ class CallNotifier extends Notifier<CallState> {
     try {
       await [Permission.microphone].request();
       final channelName = 'call_${DateTime.now().millisecondsSinceEpoch}';
+      debugPrint('[CallProvider] Setting up Agora engine…');
       await _setupEngine();
+      debugPrint('[CallProvider] Joining Agora channel: $channelName');
       await _engine!.joinChannel(
         token: '',
         channelId: channelName,
@@ -122,6 +129,9 @@ class CallNotifier extends Notifier<CallState> {
           channelProfile: ChannelProfileType.channelProfileCommunication,
           clientRoleType: ClientRoleType.clientRoleBroadcaster,
         ),
+      );
+      debugPrint(
+        '[CallProvider] → Emitting call-offer to $remoteUserId on channel $channelName',
       );
       SocketService.emit('call-offer', {
         'to': remoteUserId,
@@ -136,7 +146,9 @@ class CallNotifier extends Notifier<CallState> {
 
   /// Accept an incoming call (status must be [CallStatus.ringing]).
   Future<void> acceptCall() async {
-    if (state.status != CallStatus.ringing || _pendingChannelName == null) return;
+    if (state.status != CallStatus.ringing || _pendingChannelName == null) {
+      return;
+    }
 
     final fromId = _pendingFromId!;
     final channelName = _pendingChannelName!;
@@ -144,6 +156,7 @@ class CallNotifier extends Notifier<CallState> {
 
     try {
       await [Permission.microphone].request();
+      debugPrint('[CallProvider] Accepting call on channel: $channelName');
       await _setupEngine();
       await _engine!.joinChannel(
         token: '',
@@ -202,20 +215,35 @@ class CallNotifier extends Notifier<CallState> {
   // ════════════════════════════════════════════════════════════════════════════
 
   void _onIncomingOffer(dynamic data) {
+    debugPrint('[CallProvider] ← call-offer received: $data');
+
+    // data may arrive as Map or as List([Map]) depending on socket.io
+    // serialisation – normalise first so all paths use the same payload.
+    final Map<String, dynamic> payload = (data is List)
+        ? Map<String, dynamic>.from(data.first as Map? ?? {})
+        : Map<String, dynamic>.from(data as Map? ?? {});
+
     if (state.isInCall) {
-      SocketService.emit('call-busy', {'to': data['from']});
+      debugPrint('[CallProvider] Already in call – sending busy');
+      SocketService.emit('call-busy', {'to': payload['from']});
       return;
     }
 
-    final channelName = data['channelName'] as String?;
-    if (channelName == null) return;
+    final channelName = payload['channelName'] as String?;
+    if (channelName == null) {
+      debugPrint('[CallProvider] ✗ call-offer missing channelName, ignored');
+      return;
+    }
 
     _pendingChannelName = channelName;
-    _pendingFromId = data['from'] as String?;
+    _pendingFromId = payload['from'] as String?;
 
-    final callerInfo = data['callerInfo'] as Map?;
+    final callerInfo = payload['callerInfo'] as Map?;
     final callerName = callerInfo?['name'] as String? ?? 'Unknown';
 
+    debugPrint(
+      '[CallProvider] ✓ Incoming call from $callerName ($_pendingFromId) on channel $channelName',
+    );
     state = CallState(
       status: CallStatus.ringing,
       remoteUserId: _pendingFromId,
@@ -260,16 +288,44 @@ class CallNotifier extends Notifier<CallState> {
     _engine = createAgoraRtcEngine();
     await _engine!.initialize(RtcEngineContext(appId: _agoraAppId));
     await _engine!.enableAudio();
+    // Use default speech profile & 1-on-1 scenario for voice calls
     await _engine!.setAudioProfile(
-      profile: AudioProfileType.audioProfileMusicHighQuality,
-      scenario: AudioScenarioType.audioScenarioChatroom,
+      profile: AudioProfileType.audioProfileDefault,
+      scenario: AudioScenarioType.audioScenarioDefault,
     );
+
     _engine!.registerEventHandler(
       RtcEngineEventHandler(
+        onJoinChannelSuccess: (connection, elapsed) {
+          debugPrint(
+            '[Agora] ✓ Joined channel ${connection.channelId} '
+            'as uid ${connection.localUid} (${elapsed}ms)',
+          );
+          // These must run AFTER joining the channel (not during setup),
+          // otherwise the SDK returns ERR_NOT_READY (-3).
+          _engine?.setEnableSpeakerphone(true);
+          _engine?.muteLocalAudioStream(false);
+          _engine?.muteAllRemoteAudioStreams(false);
+          _engine?.adjustRecordingSignalVolume(400);
+          _engine?.adjustPlaybackSignalVolume(400);
+        },
+        onUserJoined: (connection, remoteUid, elapsed) {
+          debugPrint('[Agora] Remote user $remoteUid joined');
+        },
         onUserOffline: (connection, remoteUid, reason) {
+          debugPrint('[Agora] Remote user $remoteUid offline: $reason');
           if (state.status == CallStatus.connected) {
             endCall();
           }
+        },
+        onError: (err, msg) {
+          debugPrint('[Agora] ✗ Error: $err — $msg');
+        },
+        onConnectionStateChanged: (connection, stateType, reason) {
+          debugPrint('[Agora] Connection state: $stateType reason: $reason');
+        },
+        onTokenPrivilegeWillExpire: (connection, token) {
+          debugPrint('[Agora] ⚠ Token will expire');
         },
       ),
     );

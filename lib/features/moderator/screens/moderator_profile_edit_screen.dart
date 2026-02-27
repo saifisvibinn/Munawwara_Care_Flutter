@@ -409,8 +409,8 @@ class _EditField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dividerColor = isDark
-        ? const Color(0xFF2D4A3A)
-        : const Color(0xFFE2E8F0);
+        ? const Color(0xFF383018)
+        : const Color(0xFFE2E2F0);
     return Column(
       children: [
         Padding(
@@ -558,3 +558,4 @@ class _ReadOnlyField extends StatelessWidget {
     );
   }
 }
+

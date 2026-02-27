@@ -336,7 +336,7 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen>
                         // Animated scan line
                         AnimatedBuilder(
                           animation: _scanLineAnimation,
-                          builder: (_, __) {
+                          builder: (_, _) {
                             final top = _scanLineAnimation.value * (260.w - 4);
                             return Positioned(
                               top: top,

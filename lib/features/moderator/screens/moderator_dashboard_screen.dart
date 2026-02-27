@@ -46,6 +46,11 @@ class _ModeratorDashboardScreenState
     }
   }
 
+  /// Named reconnect callback so offConnected can remove it.
+  void _onSocketConnected() {
+    if (mounted) _joinAllGroupRooms();
+  }
+
   Future<void> _onSosAlertArrived(dynamic data) async {
     if (!mounted) return;
     // Refresh the alerts list immediately
@@ -115,9 +120,7 @@ class _ModeratorDashboardScreenState
         // Join all group rooms so we receive SOS events
         _joinAllGroupRooms();
         // Re-join on reconnect
-        SocketService.on('connect', (_) {
-          if (mounted) _joinAllGroupRooms();
-        });
+        SocketService.onConnected(_onSocketConnected);
         // Listen for real-time SOS alerts
         SocketService.on('sos-alert-received', _onSosAlertArrived);
         // Listen for SOS cancellations
@@ -136,7 +139,7 @@ class _ModeratorDashboardScreenState
     _alertTts.stop();
     SocketService.off('sos-alert-received');
     SocketService.off('sos-alert-cancelled');
-    SocketService.off('connect');
+    SocketService.offConnected(_onSocketConnected);
     super.dispose();
   }
 
@@ -159,7 +162,7 @@ class _ModeratorDashboardScreenState
     return Scaffold(
       backgroundColor: isDark
           ? AppColors.backgroundDark
-          : AppColors.backgroundLight,
+          : const Color(0xFFF0F0F8),
       body: IndexedStack(
         index: _currentTab,
         children: [
@@ -174,7 +177,7 @@ class _ModeratorDashboardScreenState
           onPressed: () => Navigator.of(
             context,
           ).push(MaterialPageRoute(builder: (_) => const CreateGroupScreen())),
-          backgroundColor: AppColors.primary,
+          backgroundColor: const Color(0xFFF97316),
           foregroundColor: Colors.white,
           shape: const CircleBorder(),
           elevation: 6,
@@ -257,11 +260,11 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                                 'dashboard_my_groups'.tr(),
                                 style: TextStyle(
                                   fontFamily: 'Lexend',
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 24.sp,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 28.sp,
                                   color: isDark
                                       ? Colors.white
-                                      : AppColors.textDark,
+                                      : const Color(0xFF1A1A4E),
                                 ),
                               ),
                               SizedBox(height: 2.h),
@@ -283,17 +286,17 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                             ),
                           ),
                           child: Container(
-                            width: 42.w,
-                            height: 42.w,
+                            width: 44.w,
+                            height: 44.w,
                             decoration: BoxDecoration(
                               color: isDark
-                                  ? const Color(0xFF1A2C24)
-                                  : Colors.white,
+                                  ? const Color(0xFF383018)
+                                  : const Color(0xFFEEEEFB),
                               shape: BoxShape.circle,
                               border: Border.all(
                                 color: isDark
-                                    ? const Color(0xFF2D4A3A)
-                                    : const Color(0xFFE2E8F0),
+                                    ? const Color(0xFF5A4A28)
+                                    : const Color(0xFFD0D0F0),
                               ),
                               boxShadow: [
                                 BoxShadow(
@@ -305,10 +308,10 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                             ),
                             child: Icon(
                               Symbols.person,
-                              size: 20.w,
+                              size: 22.w,
                               color: isDark
-                                  ? const Color(0xFFCBD5E1)
-                                  : const Color(0xFF475569),
+                                  ? const Color(0xFFD4B896)
+                                  : const Color(0xFF8A6A30),
                             ),
                           ),
                         ),
@@ -331,13 +334,13 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                             height: 48.h,
                             decoration: BoxDecoration(
                               color: isDark
-                                  ? const Color(0xFF1A2C24)
+                                  ? const Color(0xFF272210)
                                   : Colors.white,
                               borderRadius: BorderRadius.circular(14.r),
                               border: Border.all(
                                 color: isDark
-                                    ? const Color(0xFF2D4A3A)
-                                    : const Color(0xFFE2E8F0),
+                                    ? const Color(0xFF383018)
+                                    : const Color(0xFFE2E2F0),
                               ),
                               boxShadow: [
                                 BoxShadow(
@@ -382,13 +385,13 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                           height: 48.h,
                           decoration: BoxDecoration(
                             color: isDark
-                                ? const Color(0xFF1A2C24)
+                                ? const Color(0xFF272210)
                                 : Colors.white,
                             borderRadius: BorderRadius.circular(14.r),
                             border: Border.all(
                               color: isDark
-                                  ? const Color(0xFF2D4A3A)
-                                  : const Color(0xFFE2E8F0),
+                                  ? const Color(0xFF383018)
+                                  : const Color(0xFFE2E2F0),
                             ),
                             boxShadow: [
                               BoxShadow(
@@ -399,11 +402,11 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                             ],
                           ),
                           child: Icon(
-                            Symbols.filter_list,
+                            Symbols.tune,
                             size: 20.w,
                             color: isDark
-                                ? const Color(0xFFCBD5E1)
-                                : const Color(0xFF475569),
+                                ? const Color(0xFFD4B896)
+                                : const Color(0xFF8A6A30),
                           ),
                         ),
                       ],
@@ -652,10 +655,10 @@ class _GroupCard extends ConsumerWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1A2C24) : Colors.white,
+          color: isDark ? const Color(0xFF272210) : Colors.white,
           borderRadius: BorderRadius.circular(24.r),
           border: Border.all(
-            color: isDark ? const Color(0xFF2D4A3A) : const Color(0xFFF1F5F4),
+            color: isDark ? const Color(0xFF383018) : const Color(0xFFEEEEF8),
           ),
           boxShadow: [
             BoxShadow(
@@ -667,19 +670,20 @@ class _GroupCard extends ConsumerWidget {
         ),
         child: Stack(
           children: [
-            // Watermark icon (top-right)
+            // Decorative mosque illustration (top-right)
             Positioned(
-              top: 0,
-              right: 0,
-              child: Padding(
-                padding: EdgeInsets.all(14.w),
-                child: Opacity(
-                  opacity: 0.07,
-                  child: Icon(
-                    Symbols.mosque,
-                    size: 100.w,
-                    color: isDark ? Colors.white : const Color(0xFF94A3B8),
-                  ),
+              top: -8,
+              right: -4,
+              child: Opacity(
+                opacity: isDark ? 0.18 : 1.0,
+                child: ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [Color(0xFFFFD5A0), Color(0xFFFFB06A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ).createShader(bounds),
+                  blendMode: BlendMode.srcIn,
+                  child: Icon(Symbols.mosque, size: 110.w, color: Colors.white),
                 ),
               ),
             ),
@@ -726,7 +730,7 @@ class _GroupCard extends ConsumerWidget {
                       fontFamily: 'Lexend',
                       fontWeight: FontWeight.w700,
                       fontSize: 20.sp,
-                      color: isDark ? Colors.white : AppColors.textDark,
+                      color: isDark ? Colors.white : const Color(0xFF1A1A4E),
                     ),
                   ),
 
@@ -761,8 +765,8 @@ class _GroupCard extends ConsumerWidget {
                       border: Border(
                         top: BorderSide(
                           color: isDark
-                              ? const Color(0xFF2D4A3A)
-                              : const Color(0xFFF1F5F4),
+                              ? const Color(0xFF383018)
+                              : const Color(0xFFEEEEF8),
                         ),
                       ),
                     ),
@@ -772,9 +776,7 @@ class _GroupCard extends ConsumerWidget {
                           child: _StatCell(
                             label: 'dashboard_stat_pilgrims'.tr(),
                             value: '${group.totalPilgrims}',
-                            valueColor: isDark
-                                ? Colors.white
-                                : AppColors.textDark,
+                            valueColor: const Color(0xFFF97316),
                           ),
                         ),
                         _VertDivider(isDark: isDark),
@@ -782,7 +784,7 @@ class _GroupCard extends ConsumerWidget {
                           child: _StatCell(
                             label: 'dashboard_stat_online'.tr(),
                             value: '${group.onlineCount}',
-                            valueColor: const Color(0xFF16A34A),
+                            valueColor: const Color(0xFFF97316),
                           ),
                         ),
                         _VertDivider(isDark: isDark),
@@ -793,7 +795,7 @@ class _GroupCard extends ConsumerWidget {
                                 ? '${group.batteryLowCount}'
                                 : '—',
                             valueColor: group.batteryLowCount > 0
-                                ? const Color(0xFFF59E0B)
+                                ? const Color(0xFFF97316)
                                 : AppColors.textMutedLight,
                           ),
                         ),
@@ -816,16 +818,16 @@ class _GroupCard extends ConsumerWidget {
                           'dashboard_view_on_map'.tr(),
                           style: TextStyle(
                             fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             fontSize: 13.sp,
-                            color: AppColors.primary,
+                            color: const Color(0xFF6B7BAE),
                           ),
                         ),
                         const Spacer(),
                         Icon(
                           Symbols.arrow_forward,
                           size: 18.w,
-                          color: AppColors.primary,
+                          color: const Color(0xFF6B7BAE),
                         ),
                       ],
                     ),
@@ -846,33 +848,26 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
       decoration: BoxDecoration(
-        color: const Color(0xFFD1FAE5),
+        color: const Color(0xFFF97316),
         borderRadius: BorderRadius.circular(100.r),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 7.w,
-            height: 7.w,
-            decoration: const BoxDecoration(
-              color: Color(0xFF10B981),
-              shape: BoxShape.circle,
-            ),
-          ),
-          SizedBox(width: 5.w),
-          Text(
-            'dashboard_active'.tr(),
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontWeight: FontWeight.w700,
-              fontSize: 11.sp,
-              color: const Color(0xFF065F46),
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF97316).withOpacity(0.30),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
+      ),
+      child: Text(
+        'dashboard_active'.tr(),
+        style: TextStyle(
+          fontFamily: 'Lexend',
+          fontWeight: FontWeight.w700,
+          fontSize: 12.sp,
+          color: Colors.white,
+        ),
       ),
     );
   }
@@ -964,7 +959,7 @@ class _VertDivider extends StatelessWidget {
     return Container(
       width: 1,
       height: 40.h,
-      color: isDark ? const Color(0xFF2D4A3A) : const Color(0xFFF1F5F4),
+      color: isDark ? const Color(0xFF383018) : const Color(0xFFEEEEF8),
     );
   }
 }
@@ -983,7 +978,7 @@ class _DeleteGroupSheet extends StatelessWidget {
     return Container(
       margin: EdgeInsets.fromLTRB(12.w, 0, 12.w, 24.h),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A2C24) : Colors.white,
+        color: isDark ? const Color(0xFF272210) : Colors.white,
         borderRadius: BorderRadius.circular(28.r),
       ),
       padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 12.h),
@@ -995,7 +990,7 @@ class _DeleteGroupSheet extends StatelessWidget {
             width: 36.w,
             height: 4.h,
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF2D4A3A) : const Color(0xFFE2E8F0),
+              color: isDark ? const Color(0xFF383018) : const Color(0xFFE2E8F0),
               borderRadius: BorderRadius.circular(2.r),
             ),
           ),
@@ -1108,7 +1103,7 @@ class _CreateGroupButton extends StatelessWidget {
         padding: EdgeInsets.symmetric(vertical: 24.h),
         decoration: BoxDecoration(
           border: Border.all(
-            color: isDark ? const Color(0xFF2D4A3A) : const Color(0xFFCBD5E1),
+            color: isDark ? const Color(0xFF383018) : const Color(0xFFCBD5E1),
             width: 2,
           ),
           borderRadius: BorderRadius.circular(24.r),
@@ -1119,8 +1114,8 @@ class _CreateGroupButton extends StatelessWidget {
               padding: EdgeInsets.all(12.w),
               decoration: BoxDecoration(
                 color: isDark
-                    ? const Color(0xFF1A2C24)
-                    : const Color(0xFFF1F5F4),
+                    ? const Color(0xFF272210)
+                    : const Color(0xFFEEEEF8),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -1161,23 +1156,27 @@ class _ModBottomNav extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return BottomAppBar(
       height: 70.h,
-      color: Colors.white,
+      color: isDark ? AppColors.surfaceDark : Colors.white,
       shape: const CircularNotchedRectangle(),
       notchMargin: 8,
       padding: EdgeInsets.zero,
       surfaceTintColor: Colors.transparent,
+      elevation: 8,
+      shadowColor: Colors.black.withOpacity(isDark ? 0.4 : 0.12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           Expanded(
             child: _NavItem(
-              icon: Symbols.grid_view,
+              icon: Symbols.home,
               label: 'dashboard_nav_home'.tr(),
               index: 0,
               current: currentIndex,
               onTap: onTap,
+              activeColor: AppColors.primary,
             ),
           ),
           SizedBox(width: 64.w),
@@ -1189,6 +1188,7 @@ class _ModBottomNav extends ConsumerWidget {
               current: currentIndex,
               onTap: onTap,
               badge: ref.watch(notificationProvider).unreadCount > 0,
+              activeColor: AppColors.primary,
             ),
           ),
         ],
@@ -1204,6 +1204,7 @@ class _NavItem extends StatelessWidget {
   final int current;
   final ValueChanged<int> onTap;
   final bool badge;
+  final Color activeColor;
 
   const _NavItem({
     required this.icon,
@@ -1211,12 +1212,17 @@ class _NavItem extends StatelessWidget {
     required this.index,
     required this.current,
     required this.onTap,
+    required this.activeColor,
     this.badge = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final isSelected = index == current;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isSelected
+        ? activeColor
+        : (isDark ? const Color(0xFF7A6E58) : AppColors.textMutedLight);
     return GestureDetector(
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
@@ -1228,14 +1234,7 @@ class _NavItem extends StatelessWidget {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Icon(
-                  icon,
-                  size: 24.w,
-                  fill: isSelected ? 1 : 0,
-                  color: isSelected
-                      ? AppColors.primary
-                      : AppColors.textMutedLight,
-                ),
+                Icon(icon, size: 24.w, fill: isSelected ? 1 : 0, color: color),
                 if (badge)
                   Positioned(
                     top: -2,
@@ -1259,9 +1258,7 @@ class _NavItem extends StatelessWidget {
                 fontFamily: 'Lexend',
                 fontSize: 10.sp,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-                color: isSelected
-                    ? AppColors.primary
-                    : AppColors.textMutedLight,
+                color: color,
               ),
             ),
           ],

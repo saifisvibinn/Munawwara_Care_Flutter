@@ -95,8 +95,8 @@ class _ModeratorProfileScreenState
         ? AppColors.textMutedLight
         : AppColors.textMutedDark;
     final dividerColor = isDark
-        ? const Color(0xFF2D4A3A)
-        : const Color(0xFFE2E8F0);
+        ? const Color(0xFF383018)
+        : const Color(0xFFE2E2F0);
 
     return Scaffold(
       backgroundColor: bg,
@@ -556,8 +556,8 @@ class _LanguageRow extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isDark
-                        ? const Color(0xFF1A2C24)
-                        : const Color(0xFFF0FDF8),
+                        ? const Color(0xFF272210)
+                        : const Color(0xFFEEEEFB),
                   ),
                   child: Center(
                     child: Text(
@@ -616,3 +616,4 @@ class _LanguageRow extends StatelessWidget {
     );
   }
 }
+

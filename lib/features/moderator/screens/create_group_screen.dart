@@ -107,12 +107,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                       width: 42.w,
                       height: 42.w,
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1A2C24) : Colors.white,
+                        color: isDark ? const Color(0xFF272210) : Colors.white,
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: isDark
-                              ? const Color(0xFF2D4A3A)
-                              : const Color(0xFFE2E8F0),
+                              ? const Color(0xFF383018)
+                              : const Color(0xFFE2E2F0),
                         ),
                         boxShadow: [
                           BoxShadow(
@@ -207,7 +207,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
 
         Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1A2C24) : Colors.white,
+            color: isDark ? const Color(0xFF272210) : Colors.white,
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: _fieldError != null
@@ -215,8 +215,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                   : (_focusNode.hasFocus
                         ? AppColors.primary
                         : (isDark
-                              ? const Color(0xFF2D4A3A)
-                              : const Color(0xFFE2E8F0))),
+                              ? const Color(0xFF383018)
+                              : const Color(0xFFE2E2F0))),
               width: _focusNode.hasFocus ? 1.5 : 1,
             ),
             boxShadow: [
@@ -422,12 +422,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
             width: double.infinity,
             padding: EdgeInsets.all(24.w),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1A2C24) : Colors.white,
+              color: isDark ? const Color(0xFF272210) : Colors.white,
               borderRadius: BorderRadius.circular(24.r),
               border: Border.all(
                 color: isDark
-                    ? const Color(0xFF2D4A3A)
-                    : const Color(0xFFF1F5F4),
+                    ? const Color(0xFF383018)
+                    : const Color(0xFFEEEEF8),
               ),
               boxShadow: [
                 BoxShadow(
@@ -573,3 +573,4 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
     );
   }
 }
+

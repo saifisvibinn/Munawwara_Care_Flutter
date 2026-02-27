@@ -394,7 +394,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                         color: AppColors.textMutedLight,
                       ),
                       filled: true,
-                      fillColor: const Color(0xFFF6F8F7),
+                      fillColor: const Color(0xFFF0F0F8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.r),
                         borderSide: BorderSide.none,
@@ -592,7 +592,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                           horizontal: 12.w,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF6F8F7),
+                          color: const Color(0xFFF0F0F8),
                           borderRadius: BorderRadius.circular(16.r),
                           border: Border.all(
                             color: AppColors.primary.withOpacity(0.2),
@@ -1034,7 +1034,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                   width: double.infinity,
                   padding: EdgeInsets.symmetric(vertical: 14.h),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF6F8F7),
+                    color: const Color(0xFFF0F0F8),
                     borderRadius: BorderRadius.circular(14.r),
                   ),
                   child: Row(
@@ -1147,7 +1147,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                               decoration: BoxDecoration(
                                 color: area.isMeetpoint
                                     ? const Color(0xFFFEF2F2)
-                                    : const Color(0xFFF6F8F7),
+                                    : const Color(0xFFF0F0F8),
                                 borderRadius: BorderRadius.circular(14.r),
                                 border: Border.all(
                                   color: area.isMeetpoint
@@ -1797,7 +1797,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                         child: Container(
                           height: 40.h,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF6F8F7),
+                            color: const Color(0xFFF0F0F8),
                             borderRadius: BorderRadius.circular(12.r),
                           ),
                           child: TextField(
@@ -2222,7 +2222,7 @@ class _QrShareSheetState extends State<_QrShareSheet> {
           SizedBox(height: 16.h),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF6F8F7),
+              color: const Color(0xFFF0F0F8),
               borderRadius: BorderRadius.circular(12.r),
               border: Border.all(
                 color: const Color(0xFFE8C97A).withOpacity(0.5),
@@ -2631,7 +2631,7 @@ class _ModeratorManageSheet extends ConsumerWidget {
                         color: AppColors.textMutedLight,
                       ),
                       filled: true,
-                      fillColor: const Color(0xFFF6F8F7),
+                      fillColor: const Color(0xFFF0F0F8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.r),
                         borderSide: BorderSide.none,
@@ -2736,7 +2736,7 @@ class _PilgrimManageTile extends StatelessWidget {
               ? AppColors.primary.withOpacity(0.08)
               : pilgrim.hasSOS
               ? const Color(0xFFFFF1F2)
-              : const Color(0xFFF6F8F7),
+              : const Color(0xFFF0F0F8),
           borderRadius: BorderRadius.circular(14.r),
           border: Border.all(
             color: isSelected
@@ -3418,7 +3418,7 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: const Color(0xFFF6F8F7),
+                fillColor: const Color(0xFFF0F0F8),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14.r),
                   borderSide: BorderSide.none,
@@ -3539,7 +3539,7 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                       color: accentColor,
                     ),
                     filled: true,
-                    fillColor: const Color(0xFFF6F8F7),
+                    fillColor: const Color(0xFFF0F0F8),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14.r),
                       borderSide: BorderSide.none,
@@ -3565,7 +3565,7 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                       color: AppColors.textMutedLight,
                     ),
                     filled: true,
-                    fillColor: const Color(0xFFF6F8F7),
+                    fillColor: const Color(0xFFF0F0F8),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14.r),
                       borderSide: BorderSide.none,
@@ -3628,3 +3628,4 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
     );
   }
 }
+

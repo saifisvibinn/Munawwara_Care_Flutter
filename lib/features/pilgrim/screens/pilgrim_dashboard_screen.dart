@@ -60,6 +60,15 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   final MapController _mapController = MapController();
   LatLng? _myLatLng;
 
+  // Named reconnect handler so offConnected can find it.
+  void _onSocketConnected() {
+    if (!mounted) return;
+    final reconnectGroupId = ref.read(pilgrimProvider).groupInfo?.groupId;
+    if (reconnectGroupId != null) {
+      SocketService.emit('join_group', reconnectGroupId);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +84,12 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
+
+    // Eagerly initialise callProvider so its socket listeners are registered
+    // in SocketService._pendingListeners BEFORE the socket is connected below.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(callProvider.notifier).reRegisterListeners();
+    });
 
     // Load data after first frame so the provider is ready
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -97,13 +112,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         final gId = ref.read(pilgrimProvider).groupInfo?.groupId;
         if (gId != null) SocketService.emit('join_group', gId);
         // Re-join group room on every reconnect (so beacon state is re-synced)
-        SocketService.on('connect', (_) {
-          if (!mounted) return;
-          final reconnectGroupId = ref.read(pilgrimProvider).groupInfo?.groupId;
-          if (reconnectGroupId != null) {
-            SocketService.emit('join_group', reconnectGroupId);
-          }
-        });
+        SocketService.onConnected(_onSocketConnected);
         // Listen for moderator navigation beacon
         SocketService.on('mod_nav_beacon', (data) {
           if (!mounted) return;
@@ -194,7 +203,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     SocketService.off('area_added');
     SocketService.off('area_deleted');
     SocketService.off('notification_refresh');
-    SocketService.off('connect');
+    SocketService.offConnected(_onSocketConnected);
     super.dispose();
   }
 

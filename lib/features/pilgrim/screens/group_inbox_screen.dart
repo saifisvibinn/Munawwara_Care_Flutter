@@ -785,8 +785,8 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     final today = DateTime(now.year, now.month, now.day);
     final msgDay = DateTime(dt.year, dt.month, dt.day);
     final diff = today.difference(msgDay).inDays;
-    if (diff == 0) return '${'inbox_today'.tr()}  ${_formatTime(dt)}';
-    if (diff == 1) return '${'inbox_yesterday'.tr()}  ${_formatTime(dt)}';
-    return '${dt.day}/${dt.month}/${dt.year}  ${_formatTime(dt)}';
+    if (diff == 0) return 'inbox_today'.tr();
+    if (diff == 1) return 'inbox_yesterday'.tr();
+    return '${dt.day}/${dt.month}/${dt.year}';
   }
 }

@@ -537,7 +537,7 @@ class _ModeratorGroupMapScreenState
                     child: Container(
                       height: 40.h,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF6F8F7),
+                        color: const Color(0xFFF0F0F8),
                         borderRadius: BorderRadius.circular(12.r),
                       ),
                       child: TextField(
@@ -714,7 +714,7 @@ class _PilgrimListTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: pilgrim.hasSOS
               ? const Color(0xFFFFF1F2)
-              : const Color(0xFFF6F8F7),
+              : const Color(0xFFF0F0F8),
           borderRadius: BorderRadius.circular(14.r),
           border: Border.all(
             color: pilgrim.hasSOS
@@ -832,3 +832,4 @@ class _PilgrimListTile extends StatelessWidget {
     );
   }
 }
+
