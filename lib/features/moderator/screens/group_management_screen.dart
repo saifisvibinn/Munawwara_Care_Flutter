@@ -3037,9 +3037,6 @@ class _CircleButton extends StatelessWidget {
   const _CircleButton({
     required this.icon,
     required this.onTap,
-    this.backgroundColor,
-    this.iconColor,
-    this.size,
   });
 
   @override
