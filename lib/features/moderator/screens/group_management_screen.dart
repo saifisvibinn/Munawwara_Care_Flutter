@@ -396,7 +396,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                         color: AppColors.textMutedLight,
                       ),
                       filled: true,
-                      fillColor: isDark ? AppColors.backgroundDark : const Color(0xFFF0F0F8),
+                      fillColor: isDark
+                          ? AppColors.backgroundDark
+                          : const Color(0xFFF0F0F8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.r),
                         borderSide: BorderSide.none,
@@ -594,7 +596,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                           horizontal: 12.w,
                         ),
                         decoration: BoxDecoration(
-                          color: isDark ? AppColors.backgroundDark : const Color(0xFFF0F0F8),
+                          color: isDark
+                              ? AppColors.backgroundDark
+                              : const Color(0xFFF0F0F8),
                           borderRadius: BorderRadius.circular(16.r),
                           border: Border.all(
                             color: AppColors.primary.withOpacity(0.2),
@@ -622,7 +626,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                 fontFamily: 'Lexend',
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13.sp,
-                                color: isDark ? Colors.white : AppColors.textDark,
+                                color: isDark
+                                    ? Colors.white
+                                    : AppColors.textDark,
                               ),
                             ),
                             SizedBox(height: 4.h),
@@ -1036,7 +1042,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                   width: double.infinity,
                   padding: EdgeInsets.symmetric(vertical: 14.h),
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.backgroundDark : const Color(0xFFF0F0F8),
+                    color: isDark
+                        ? AppColors.backgroundDark
+                        : const Color(0xFFF0F0F8),
                     borderRadius: BorderRadius.circular(14.r),
                   ),
                   child: Row(
@@ -1149,7 +1157,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                               decoration: BoxDecoration(
                                 color: area.isMeetpoint
                                     ? const Color(0xFFFEF2F2)
-                                    : isDark ? AppColors.backgroundDark : const Color(0xFFF0F0F8),
+                                    : isDark
+                                    ? AppColors.backgroundDark
+                                    : const Color(0xFFF0F0F8),
                                 borderRadius: BorderRadius.circular(14.r),
                                 border: Border.all(
                                   color: area.isMeetpoint
@@ -1193,7 +1203,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                                   fontFamily: 'Lexend',
                                                   fontWeight: FontWeight.w600,
                                                   fontSize: 13.sp,
-                                                  color: isDark ? Colors.white : AppColors.textDark,
+                                                  color: isDark
+                                                      ? Colors.white
+                                                      : AppColors.textDark,
                                                 ),
                                               ),
                                             ),
@@ -1452,7 +1464,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                           borderRadius: BorderRadius.circular(14.r),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+                              color: Colors.black.withOpacity(
+                                isDark ? 0.3 : 0.08,
+                              ),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -1486,7 +1500,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                       fontFamily: 'Lexend',
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13.sp,
-                                      color: isDark ? Colors.white : AppColors.textDark,
+                                      color: isDark
+                                          ? Colors.white
+                                          : AppColors.textDark,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -1572,7 +1588,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                             size: 18.w,
                             color: _navBeaconEnabled
                                 ? AppColors.primary
-                                : (isDark ? Colors.white70 : AppColors.textMutedLight),
+                                : (isDark
+                                      ? Colors.white70
+                                      : AppColors.textMutedLight),
                           ),
                           SizedBox(width: 12.w),
                           Text(
@@ -1692,7 +1710,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                             width: 36.w,
                             height: 4.h,
                             decoration: BoxDecoration(
-                              color: isDark ? Colors.white24 : const Color(0xFFE2E8F0),
+                              color: isDark
+                                  ? Colors.white24
+                                  : const Color(0xFFE2E8F0),
                               borderRadius: BorderRadius.circular(2.r),
                             ),
                           ),
@@ -1713,7 +1733,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                 fontFamily: 'Lexend',
                                 fontWeight: FontWeight.w700,
                                 fontSize: 15.sp,
-                                color: isDark ? Colors.white : AppColors.textDark,
+                                color: isDark
+                                    ? Colors.white
+                                    : AppColors.textDark,
                               ),
                             ),
                             const Spacer(),
@@ -1804,7 +1826,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                         child: Container(
                           height: 40.h,
                           decoration: BoxDecoration(
-                            color: isDark ? AppColors.backgroundDark : const Color(0xFFF0F0F8),
+                            color: isDark
+                                ? AppColors.backgroundDark
+                                : const Color(0xFFF0F0F8),
                             borderRadius: BorderRadius.circular(12.r),
                           ),
                           child: TextField(
@@ -2231,7 +2255,9 @@ class _QrShareSheetState extends State<_QrShareSheet> {
           SizedBox(height: 16.h),
           Container(
             decoration: BoxDecoration(
-              color: isDark ? AppColors.backgroundDark : const Color(0xFFF0F0F8),
+              color: isDark
+                  ? AppColors.backgroundDark
+                  : const Color(0xFFF0F0F8),
               borderRadius: BorderRadius.circular(12.r),
               border: Border.all(
                 color: const Color(0xFFE8C97A).withOpacity(0.5),
@@ -2353,9 +2379,8 @@ class _ModeratorManageSheet extends ConsumerWidget {
             .firstWhere((g) => g?.id == group.id, orElse: () => null) ??
         group;
 
-    
     final isDark = Theme.of(context).brightness == Brightness.dark;
-return Container(
+    return Container(
       decoration: BoxDecoration(
         color: isDark ? AppColors.surfaceDark : Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
@@ -2643,7 +2668,9 @@ return Container(
                         color: AppColors.textMutedLight,
                       ),
                       filled: true,
-                      fillColor: isDark ? AppColors.backgroundDark : const Color(0xFFF0F0F8),
+                      fillColor: isDark
+                          ? AppColors.backgroundDark
+                          : const Color(0xFFF0F0F8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.r),
                         borderSide: BorderSide.none,
@@ -2806,7 +2833,10 @@ class _PilgrimManageTile extends StatelessWidget {
                             ? AppColors.primary
                             : Colors.grey,
                         shape: BoxShape.circle,
-                        border: Border.all(color: isDark ? AppColors.surfaceDark : Colors.white, width: 1.5),
+                        border: Border.all(
+                          color: isDark ? AppColors.surfaceDark : Colors.white,
+                          width: 1.5,
+                        ),
                       ),
                     ),
                   ),
@@ -3058,7 +3088,8 @@ class _CircleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = backgroundColor ?? (isDark ? AppColors.surfaceDark : Colors.white);
+    final bg =
+        backgroundColor ?? (isDark ? AppColors.surfaceDark : Colors.white);
     final fg = iconColor ?? (isDark ? Colors.white : AppColors.textDark);
     final sz = size ?? 42.w;
     return GestureDetector(
@@ -3137,7 +3168,9 @@ class _ProfileRow extends StatelessWidget {
                     fontFamily: 'Lexend',
                     fontWeight: FontWeight.w600,
                     fontSize: 14.sp,
-                    color: valueColor ?? (isDark ? Colors.white : AppColors.textDark),
+                    color:
+                        valueColor ??
+                        (isDark ? Colors.white : AppColors.textDark),
                   ),
                 ),
               ],
@@ -3386,7 +3419,10 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
         backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Symbols.arrow_back, color: isDark ? Colors.white : AppColors.textDark),
+          icon: Icon(
+            Symbols.arrow_back,
+            color: isDark ? Colors.white : AppColors.textDark,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -3408,7 +3444,11 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
             child: TextField(
               controller: _searchController,
               onChanged: _onSearchChanged,
-              style: TextStyle(fontFamily: 'Lexend', fontSize: 13.sp, color: isDark ? Colors.white : AppColors.textDark),
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 13.sp,
+                color: isDark ? Colors.white : AppColors.textDark,
+              ),
               decoration: InputDecoration(
                 hintText: 'area_search_hint'.tr(),
                 hintStyle: TextStyle(
@@ -3435,7 +3475,9 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: isDark ? AppColors.backgroundDark : const Color(0xFFF0F0F8),
+                fillColor: isDark
+                    ? AppColors.backgroundDark
+                    : const Color(0xFFF0F0F8),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14.r),
                   borderSide: BorderSide.none,
@@ -3463,8 +3505,10 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: _searchResults.length,
-                separatorBuilder: (_, _) =>
-                    Divider(height: 1, color: isDark ? Colors.white12 : Colors.grey.shade200),
+                separatorBuilder: (_, _) => Divider(
+                  height: 1,
+                  color: isDark ? Colors.white12 : Colors.grey.shade200,
+                ),
                 itemBuilder: (_, i) {
                   final r = _searchResults[i];
                   return ListTile(
@@ -3542,7 +3586,11 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
               children: [
                 TextField(
                   controller: _nameController,
-                  style: TextStyle(fontFamily: 'Lexend', fontSize: 13.sp, color: isDark ? Colors.white : AppColors.textDark),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 13.sp,
+                    color: isDark ? Colors.white : AppColors.textDark,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'area_name_hint'.tr(),
                     hintStyle: TextStyle(
@@ -3556,7 +3604,9 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                       color: accentColor,
                     ),
                     filled: true,
-                    fillColor: isDark ? AppColors.backgroundDark : const Color(0xFFF0F0F8),
+                    fillColor: isDark
+                        ? AppColors.backgroundDark
+                        : const Color(0xFFF0F0F8),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14.r),
                       borderSide: BorderSide.none,
@@ -3567,7 +3617,11 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                 SizedBox(height: 8.h),
                 TextField(
                   controller: _descController,
-                  style: TextStyle(fontFamily: 'Lexend', fontSize: 13.sp, color: isDark ? Colors.white : AppColors.textDark),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 13.sp,
+                    color: isDark ? Colors.white : AppColors.textDark,
+                  ),
                   maxLines: 1,
                   decoration: InputDecoration(
                     hintText: 'area_desc_hint'.tr(),
@@ -3582,7 +3636,9 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                       color: AppColors.textMutedLight,
                     ),
                     filled: true,
-                    fillColor: isDark ? AppColors.backgroundDark : const Color(0xFFF0F0F8),
+                    fillColor: isDark
+                        ? AppColors.backgroundDark
+                        : const Color(0xFFF0F0F8),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14.r),
                       borderSide: BorderSide.none,

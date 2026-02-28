@@ -89,10 +89,8 @@ class SuggestedAreaNotifier extends Notifier<SuggestedAreaState> {
           'area_type': areaType,
         },
       );
-      final area = SuggestedArea.fromJson(
-        res.data['area'] as Map<String, dynamic>,
-      );
-      state = state.copyWith(areas: [area, ...state.areas]);
+      // Don't update state here - let the socket event handle it
+      // to avoid duplicates and ensure consistency across all clients
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));

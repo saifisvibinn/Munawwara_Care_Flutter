@@ -1092,66 +1092,6 @@ class _DeleteGroupSheet extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Create New Group Button
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _CreateGroupButton extends StatelessWidget {
-  const _CreateGroupButton();
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: () => Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const CreateGroupScreen())),
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 24.h),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: isDark ? const Color(0xFF383018) : const Color(0xFFCBD5E1),
-            width: 2,
-          ),
-          borderRadius: BorderRadius.circular(24.r),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: EdgeInsets.all(12.w),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF272210)
-                    : const Color(0xFFEEEEF8),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Symbols.add,
-                size: 24.w,
-                color: isDark
-                    ? const Color(0xFF94A3B8)
-                    : const Color(0xFF64748B),
-              ),
-            ),
-            SizedBox(height: 8.h),
-            Text(
-              'dashboard_create_group'.tr(),
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontWeight: FontWeight.w700,
-                fontSize: 13.sp,
-                color: isDark
-                    ? const Color(0xFF94A3B8)
-                    : const Color(0xFF64748B),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Bottom Nav
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1269,47 +1209,6 @@ class _NavItem extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Placeholder Tabs
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _PlaceholderTab extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _PlaceholderTab({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 48.w, color: AppColors.textMutedLight),
-          SizedBox(height: 12.h),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textMutedLight,
-            ),
-          ),
-          SizedBox(height: 6.h),
-          Text(
-            'dashboard_coming_soon'.tr(),
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 13.sp,
-              color: AppColors.textMutedLight,
-            ),
-          ),
-        ],
       ),
     );
   }

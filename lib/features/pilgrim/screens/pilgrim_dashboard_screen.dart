@@ -1848,7 +1848,7 @@ class _PlaceholderTab extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Suggestions cycle button (tapping cycles through all suggested areas)
+// Suggestions button (tapping shows all suggested areas in a list)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SuggestionsCycleButton extends StatefulWidget {
@@ -1867,7 +1867,237 @@ class _SuggestionsCycleButton extends StatefulWidget {
 }
 
 class _SuggestionsCycleButtonState extends State<_SuggestionsCycleButton> {
-  int _index = 0;
+  void _showAreaList() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.65,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surfaceDark : Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        ),
+        padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40.w,
+              height: 4.h,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white24 : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2.r),
+              ),
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'area_view_all'.tr(),
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontWeight: FontWeight.w700,
+                fontSize: 17.sp,
+                color: isDark ? Colors.white : AppColors.textDark,
+              ),
+            ),
+            SizedBox(height: 16.h),
+            Flexible(
+              child: widget.areas.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.w),
+                        child: Text(
+                          'area_empty'.tr(),
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 13.sp,
+                            color: AppColors.textMutedLight,
+                          ),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: widget.areas.length,
+                      itemBuilder: (_, i) {
+                        final area = widget.areas[i];
+                        return Container(
+                          margin: EdgeInsets.only(bottom: 10.h),
+                          padding: EdgeInsets.all(12.w),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.backgroundDark
+                                : const Color(0xFFF0F0F8),
+                            borderRadius: BorderRadius.circular(14.r),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36.w,
+                                height: 36.w,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Symbols.pin_drop,
+                                  color: Colors.white,
+                                  size: 18.w,
+                                ),
+                              ),
+                              SizedBox(width: 10.w),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      area.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13.sp,
+                                        color: isDark
+                                            ? Colors.white
+                                            : AppColors.textDark,
+                                      ),
+                                    ),
+                                    if (area.description.isNotEmpty) ...[
+                                      SizedBox(height: 3.h),
+                                      Text(
+                                        area.description,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          fontSize: 11.sp,
+                                          color: AppColors.textMutedLight,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () async {
+                                  final confirmed = await showDialog<bool>(
+                                    context: ctx,
+                                    builder: (dialogCtx) => AlertDialog(
+                                      backgroundColor: isDark
+                                          ? AppColors.surfaceDark
+                                          : Colors.white,
+                                      title: Text(
+                                        'area_navigate_confirm_title'.tr(),
+                                        style: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          color: isDark
+                                              ? Colors.white
+                                              : AppColors.textDark,
+                                        ),
+                                      ),
+                                      content: Text(
+                                        'area_navigate_confirm_message'.tr(),
+                                        style: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          color: isDark
+                                              ? Colors.white70
+                                              : AppColors.textDark,
+                                        ),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(dialogCtx, false),
+                                          child: Text(
+                                            'area_cancel'.tr(),
+                                            style: const TextStyle(
+                                              fontFamily: 'Lexend',
+                                              color: AppColors.textMutedLight,
+                                            ),
+                                          ),
+                                        ),
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(dialogCtx, true),
+                                          child: Text(
+                                            'area_open_maps'.tr(),
+                                            style: const TextStyle(
+                                              fontFamily: 'Lexend',
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirmed == true) {
+                                    final lat = area.latitude;
+                                    final lng = area.longitude;
+                                    final googleMapsApp = Uri.parse(
+                                      'google.navigation:q=$lat,$lng&mode=w',
+                                    );
+                                    final googleMapsWeb = Uri.parse(
+                                      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking',
+                                    );
+                                    try {
+                                      if (await canLaunchUrl(googleMapsApp)) {
+                                        await launchUrl(googleMapsApp);
+                                      } else {
+                                        await launchUrl(
+                                          googleMapsWeb,
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      }
+                                    } catch (_) {
+                                      await launchUrl(
+                                        googleMapsWeb,
+                                        mode: LaunchMode.externalApplication,
+                                      );
+                                    }
+                                  }
+                                },
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 8.w,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Symbols.navigation,
+                                        size: 20.w,
+                                        color: AppColors.primary,
+                                        fill: 1,
+                                      ),
+                                      SizedBox(height: 2.h),
+                                      Text(
+                                        'area_navigate'.tr(),
+                                        style: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          fontSize: 9.sp,
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1875,10 +2105,7 @@ class _SuggestionsCycleButtonState extends State<_SuggestionsCycleButton> {
     return GestureDetector(
       onTap: () {
         if (widget.areas.isEmpty) return;
-        final area = widget.areas[_index % widget.areas.length];
-        widget.mapController.move(LatLng(area.latitude, area.longitude), 17);
-        widget.onAreaSelected(area);
-        setState(() => _index = (_index + 1) % widget.areas.length);
+        _showAreaList();
       },
       child: Stack(
         clipBehavior: Clip.none,
@@ -2034,12 +2261,77 @@ void _showAreaInfo(BuildContext context, SuggestedArea area) {
             width: double.infinity,
             height: 50.h,
             child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pop(ctx);
-                final url = Uri.parse(
-                  'https://www.google.com/maps/dir/?api=1&destination=${area.latitude},${area.longitude}',
+              onPressed: () async {
+                final confirmed = await showDialog<bool>(
+                  context: ctx,
+                  builder: (dialogCtx) => AlertDialog(
+                    backgroundColor: isDark
+                        ? AppColors.surfaceDark
+                        : Colors.white,
+                    title: Text(
+                      'area_navigate_confirm_title'.tr(),
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        color: isDark ? Colors.white : AppColors.textDark,
+                      ),
+                    ),
+                    content: Text(
+                      'area_navigate_confirm_message'.tr(),
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        color: isDark ? Colors.white70 : AppColors.textDark,
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogCtx, false),
+                        child: Text(
+                          'area_cancel'.tr(),
+                          style: const TextStyle(
+                            fontFamily: 'Lexend',
+                            color: AppColors.textMutedLight,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogCtx, true),
+                        child: Text(
+                          'area_open_maps'.tr(),
+                          style: const TextStyle(
+                            fontFamily: 'Lexend',
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 );
-                launchUrl(url, mode: LaunchMode.externalApplication);
+                if (confirmed == true) {
+                  Navigator.pop(ctx);
+                  final lat = area.latitude;
+                  final lng = area.longitude;
+                  final googleMapsApp = Uri.parse(
+                    'google.navigation:q=$lat,$lng&mode=w',
+                  );
+                  final googleMapsWeb = Uri.parse(
+                    'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking',
+                  );
+                  try {
+                    if (await canLaunchUrl(googleMapsApp)) {
+                      await launchUrl(googleMapsApp);
+                    } else {
+                      await launchUrl(
+                        googleMapsWeb,
+                        mode: LaunchMode.externalApplication,
+                      );
+                    }
+                  } catch (_) {
+                    await launchUrl(
+                      googleMapsWeb,
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
+                }
               },
               icon: Icon(
                 Symbols.navigation,
