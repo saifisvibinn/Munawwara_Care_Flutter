@@ -15,6 +15,9 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/rendering.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/api_service.dart';
@@ -27,6 +30,7 @@ import '../../calling/screens/voice_call_screen.dart';
 import '../../shared/providers/suggested_area_provider.dart';
 import '../../shared/models/suggested_area_model.dart';
 import 'group_messages_screen.dart';
+import 'individual_messages_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Beacon state: static map survives hot-reload (widget recreation).
@@ -97,6 +101,36 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
         ref.read(suggestedAreaProvider.notifier).removeArea(areaId);
       }
     });
+    // Real-time pilgrim updates
+    SocketService.on('location_update', (data) {
+      if (!mounted) return;
+      final map = data as Map<String, dynamic>;
+      final pilgrimId = map['pilgrimId'] as String?;
+      final lat = map['latitude'] as double?;
+      final lng = map['longitude'] as double?;
+      final battery = map['battery_percent'] as int?;
+      if (pilgrimId != null && lat != null && lng != null) {
+        ref
+            .read(moderatorProvider.notifier)
+            .updatePilgrimLocation(pilgrimId, lat, lng, battery);
+      }
+    });
+    SocketService.on('status_update', (data) {
+      if (!mounted) return;
+      final map = data as Map<String, dynamic>;
+      final pilgrimId = map['pilgrimId'] as String?;
+      final active = map['active'] == true;
+      final lastStr = map['last_active_at']?.toString();
+      DateTime lastActiveAt = DateTime.now();
+      if (lastStr != null) {
+        lastActiveAt = DateTime.tryParse(lastStr) ?? DateTime.now();
+      }
+      if (pilgrimId != null) {
+        ref
+            .read(moderatorProvider.notifier)
+            .updatePilgrimStatus(pilgrimId, active, lastActiveAt);
+      }
+    });
   }
 
   @override
@@ -107,6 +141,8 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     _locationSub?.cancel();
     SocketService.off('area_added');
     SocketService.off('area_deleted');
+    SocketService.off('location_update');
+    SocketService.off('status_update');
     SocketService.emit('leave_group', widget.groupId);
     super.dispose();
   }
@@ -796,6 +832,28 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                     width: 8.w,
                     height: 8.w,
                     decoration: BoxDecoration(
+                      color: pilgrim.isOnline
+                          ? const Color(0xFF16A34A)
+                          : Colors.grey,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  SizedBox(width: 6.w),
+                  Text(
+                    pilgrim.isOnline ? 'Online' : 'Offline',
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 12.sp,
+                      color: pilgrim.isOnline
+                          ? const Color(0xFF16A34A)
+                          : AppColors.textMutedLight,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Container(
+                    width: 8.w,
+                    height: 8.w,
+                    decoration: BoxDecoration(
                       color: pilgrim.hasLocation
                           ? AppColors.primary
                           : Colors.grey,
@@ -844,6 +902,47 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                   label: 'Last seen',
                   value: pilgrim.lastSeenText,
                 ),
+              SizedBox(height: 20.h),
+              // Message Button
+              SizedBox(
+                width: double.infinity,
+                height: 48.h,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => IndividualMessagesScreen(
+                          groupId: widget.groupId,
+                          groupName: 'group_name'
+                              .tr(), // Provide actual group name if available remotely, but this works
+                          recipientId: pilgrim.id,
+                          recipientName: pilgrim.fullName,
+                          currentUserId: widget.currentUserId,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: Icon(Symbols.chat, color: Colors.white, size: 20.w),
+                  label: Text(
+                    'Message',
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
               SizedBox(height: 12.h),
             ],
           ),
@@ -1446,80 +1545,79 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
             child: SafeArea(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 0),
-                child: Row(
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    _CircleButton(
-                      icon: Symbols.arrow_back,
-                      onTap: () => Navigator.of(context).pop(),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _CircleButton(
+                        icon: Symbols.arrow_back,
+                        onTap: () => Navigator.of(context).pop(),
+                      ),
                     ),
-                    SizedBox(width: 10.w),
-                    Flexible(
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 14.w,
-                          vertical: 10.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppColors.surfaceDark : Colors.white,
-                          borderRadius: BorderRadius.circular(14.r),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(
-                                isDark ? 0.3 : 0.08,
-                              ),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 14.w,
+                        vertical: 10.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.surfaceDark : Colors.white,
+                        borderRadius: BorderRadius.circular(14.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(
+                              isDark ? 0.3 : 0.08,
                             ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 30.w,
-                              height: 30.w,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.15),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Symbols.group,
-                                color: AppColors.primary,
-                                size: 16.w,
-                              ),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 30.w,
+                            height: 30.w,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.15),
+                              shape: BoxShape.circle,
                             ),
-                            SizedBox(width: 8.w),
-                            Flexible(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    group.groupName,
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13.sp,
-                                      color: isDark
-                                          ? Colors.white
-                                          : AppColors.textDark,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    '${group.onlineCount}/${group.totalPilgrims} ${'dashboard_stat_online'.tr()}',
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      fontSize: 11.sp,
-                                      color: AppColors.textMutedLight,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            child: Icon(
+                              Symbols.group,
+                              color: AppColors.primary,
+                              size: 16.w,
                             ),
-                          ],
-                        ),
+                          ),
+                          SizedBox(width: 8.w),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                group.groupName,
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13.sp,
+                                  color: isDark
+                                      ? Colors.white
+                                      : AppColors.textDark,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '${group.onlineCount}/${group.totalPilgrims} ${'dashboard_stat_online'.tr()}',
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 11.sp,
+                                  color: AppColors.textMutedLight,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -2147,6 +2245,8 @@ class _QrShareSheetState extends State<_QrShareSheet> {
   Uint8List? _qrBytes;
   bool _loading = true;
   String? _error;
+  bool _isSharing = false;
+  final GlobalKey _posterKey = GlobalKey();
 
   @override
   void initState() {
@@ -2183,172 +2283,364 @@ class _QrShareSheetState extends State<_QrShareSheet> {
     }
   }
 
+  Future<void> _sharePoster() async {
+    if (_qrBytes == null) return;
+    setState(() => _isSharing = true);
+    try {
+      final boundary =
+          _posterKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+      if (boundary == null) throw Exception('Boundary not found');
+
+      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      final ByteData? byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      if (byteData == null) throw Exception('Failed to encode image');
+      final Uint8List pngBytes = byteData.buffer.asUint8List();
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/invite_${widget.group.groupCode}.png');
+      await file.writeAsBytes(pngBytes);
+
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        subject: 'Join ${widget.group.groupName}',
+        text:
+            'Join my Munawwara group!\n\nGroup: ${widget.group.groupName}\nCode: ${widget.group.groupCode}',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to share: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSharing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-      ),
-      padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 32.h),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40.w,
-            height: 4.h,
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white24 : Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2.r),
+
+    final creator = widget.group.moderators
+        .where((m) => m.id == widget.group.createdBy)
+        .toList();
+    final String modName = creator.isNotEmpty
+        ? creator.first.fullName
+        : 'Moderator';
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          left: -10000,
+          top: -10000,
+          child: RepaintBoundary(
+            key: _posterKey,
+            child: _InvitePosterWidget(
+              group: widget.group,
+              moderatorName: modName,
+              qrBytes: _qrBytes ?? Uint8List(0),
             ),
           ),
-          SizedBox(height: 20.h),
-          Text(
-            'group_scan_join'.tr(),
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontWeight: FontWeight.w700,
-              fontSize: 18.sp,
-              color: isDark ? Colors.white : AppColors.textDark,
-            ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
           ),
-          SizedBox(height: 4.h),
-          Text(
-            'group_scan_join_sub'.tr(),
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 12.sp,
-              color: AppColors.textMutedLight,
-            ),
-          ),
-          SizedBox(height: 20.h),
-          Container(
-            width: 200.w,
-            height: 200.w,
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFE8C97A), width: 2),
-              borderRadius: BorderRadius.circular(12.r),
-              color: isDark ? AppColors.surfaceDark : Colors.white,
-            ),
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                ? Center(
-                    child: Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 12.sp,
-                        color: Colors.red,
-                      ),
-                    ),
-                  )
-                : _qrBytes != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(10.r),
-                    child: Image.memory(_qrBytes!, fit: BoxFit.contain),
-                  )
-                : const SizedBox.shrink(),
-          ),
-          SizedBox(height: 16.h),
-          Container(
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.backgroundDark
-                  : const Color(0xFFF0F0F8),
-              borderRadius: BorderRadius.circular(12.r),
-              border: Border.all(
-                color: const Color(0xFFE8C97A).withOpacity(0.5),
+          padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 32.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
               ),
-            ),
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-            child: Row(
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              SizedBox(height: 20.h),
+              Text(
+                'group_scan_join'.tr(),
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18.sp,
+                  color: isDark ? Colors.white : AppColors.textDark,
+                ),
+              ),
+              SizedBox(height: 4.h),
+              Text(
+                'group_scan_join_sub'.tr(),
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 12.sp,
+                  color: AppColors.textMutedLight,
+                ),
+              ),
+              SizedBox(height: 20.h),
+              Container(
+                width: 200.w,
+                height: 200.w,
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFE8C97A), width: 2),
+                  borderRadius: BorderRadius.circular(12.r),
+                  color: isDark ? AppColors.surfaceDark : Colors.white,
+                ),
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                    ? Center(
+                        child: Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 12.sp,
+                            color: Colors.red,
+                          ),
+                        ),
+                      )
+                    : _qrBytes != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(10.r),
+                        child: Image.memory(_qrBytes!, fit: BoxFit.contain),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              SizedBox(height: 16.h),
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.backgroundDark
+                      : const Color(0xFFF0F0F8),
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(
+                    color: const Color(0xFFE8C97A).withOpacity(0.5),
+                  ),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                child: Row(
                   children: [
-                    Text(
-                      'group_code_label'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFFB0924A),
-                        letterSpacing: 1.2,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'group_code_label'.tr(),
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFB0924A),
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          widget.group.groupCode,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 22.sp,
+                            letterSpacing: 4,
+                            color: const Color(0xFFB0924A),
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 4.h),
-                    Text(
-                      widget.group.groupCode,
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 22.sp,
-                        letterSpacing: 4,
-                        color: const Color(0xFFB0924A),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () {
+                        Clipboard.setData(
+                          ClipboardData(text: widget.group.groupCode),
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('group_code_copied'.tr())),
+                        );
+                      },
+                      child: Container(
+                        width: 36.w,
+                        height: 36.w,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8C97A).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                        child: Icon(
+                          Symbols.content_copy,
+                          size: 18.w,
+                          color: const Color(0xFFB0924A),
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () {
-                    Clipboard.setData(
-                      ClipboardData(text: widget.group.groupCode),
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('group_code_copied'.tr())),
-                    );
-                  },
-                  child: Container(
-                    width: 36.w,
-                    height: 36.w,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8C97A).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8.r),
+              ),
+              SizedBox(height: 12.h),
+              SizedBox(
+                width: double.infinity,
+                height: 50.h,
+                child: OutlinedButton.icon(
+                  onPressed: _isSharing || _qrBytes == null
+                      ? null
+                      : _sharePoster,
+                  icon: _isSharing
+                      ? SizedBox(
+                          width: 18.w,
+                          height: 18.w,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : Icon(
+                          Symbols.share,
+                          size: 18.w,
+                          color: AppColors.primary,
+                        ),
+                  label: Text(
+                    _isSharing ? 'Generating...' : 'group_share_invite'.tr(),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14.sp,
+                      color: AppColors.primary,
                     ),
-                    child: Icon(
-                      Symbols.content_copy,
-                      size: 18.w,
-                      color: const Color(0xFFB0924A),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AppColors.primary),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14.r),
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          SizedBox(height: 12.h),
-          SizedBox(
-            width: double.infinity,
-            height: 50.h,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                Share.share(
-                  'Join my Munawwara group!\n\nGroup: ${widget.group.groupName}\nCode: ${widget.group.groupCode}\n\nDownload the Munawwara Care app and enter this code to join.',
-                  subject: 'Join ${widget.group.groupName}',
-                );
-              },
-              icon: Icon(Symbols.share, size: 18.w, color: AppColors.primary),
-              label: Text(
-                'Share Invite Link',
+        ),
+      ],
+    );
+  }
+}
+
+class _InvitePosterWidget extends StatelessWidget {
+  final ModeratorGroup group;
+  final String moderatorName;
+  final Uint8List qrBytes;
+
+  const _InvitePosterWidget({
+    required this.group,
+    required this.moderatorName,
+    required this.qrBytes,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
+      child: Container(
+        width: 400.w,
+        padding: EdgeInsets.all(32.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/static/logo.jpeg',
+              width: 80.w,
+              height: 80.w,
+              fit: BoxFit.cover,
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              group.groupName,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontWeight: FontWeight.w700,
+                fontSize: 24.sp,
+                color: AppColors.textDark,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              'Moderated by $moderatorName',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 14.sp,
+                color: AppColors.textMutedLight,
+              ),
+            ),
+            SizedBox(height: 32.h),
+            Text(
+              'SCAN TO JOIN',
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontWeight: FontWeight.w700,
+                fontSize: 18.sp,
+                color: AppColors.textDark,
+                letterSpacing: 2,
+              ),
+            ),
+            SizedBox(height: 16.h),
+            if (qrBytes.isNotEmpty)
+              Container(
+                padding: EdgeInsets.all(16.w),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFE8C97A), width: 3),
+                  borderRadius: BorderRadius.circular(16.r),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8.r),
+                  child: Image.memory(qrBytes, width: 220.w, height: 220.w),
+                ),
+              ),
+            SizedBox(height: 32.h),
+            Text(
+              'Or join using code:',
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 14.sp,
+                color: AppColors.textMutedLight,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F0F8),
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(
+                  color: const Color(0xFFE8C97A).withOpacity(0.5),
+                ),
+              ),
+              child: Text(
+                group.groupCode,
                 style: TextStyle(
                   fontFamily: 'Lexend',
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14.sp,
-                  color: AppColors.primary,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: AppColors.primary),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14.r),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 28.sp,
+                  letterSpacing: 6,
+                  color: const Color(0xFFB0924A),
                 ),
               ),
             ),
-          ),
-        ],
+            SizedBox(height: 32.h),
+            Text(
+              'Download Munawwara Care to get started.',
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 12.sp,
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2910,6 +3202,8 @@ class _PilgrimManageTile extends StatelessWidget {
               constraints: BoxConstraints(minWidth: 180.w),
               onSelected: (value) {
                 switch (value) {
+                  case 'profile':
+                    onViewProfile?.call();
                   case 'navigate':
                     onNavigate();
                   case 'call':
@@ -2919,6 +3213,27 @@ class _PilgrimManageTile extends StatelessWidget {
                 }
               },
               itemBuilder: (_) => [
+                if (onViewProfile != null)
+                  PopupMenuItem(
+                    value: 'profile',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Symbols.person,
+                          size: 16.w,
+                          color: AppColors.primary,
+                        ),
+                        SizedBox(width: 10.w),
+                        Text(
+                          'View Profile',
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 13.sp,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 PopupMenuItem(
                   value: 'navigate',
                   child: Row(

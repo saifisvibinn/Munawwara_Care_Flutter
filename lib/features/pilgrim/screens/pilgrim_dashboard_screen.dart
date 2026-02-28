@@ -349,18 +349,13 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   Future<void> _navigateToModerator(ModeratorBeacon beacon) async {
     final lat = beacon.lat;
     final lng = beacon.lng;
-    final googleMapsApp = Uri.parse('google.navigation:q=$lat,$lng&mode=w');
     final googleMapsWeb = Uri.parse(
       'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking',
     );
     try {
-      if (await canLaunchUrl(googleMapsApp)) {
-        await launchUrl(googleMapsApp);
-      } else {
-        await launchUrl(googleMapsWeb, mode: LaunchMode.externalApplication);
-      }
-    } catch (_) {
       await launchUrl(googleMapsWeb, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // Ignore
     }
   }
 
@@ -1537,7 +1532,7 @@ class _PilgrimMapTab extends StatelessWidget {
                   for (var area in areas)
                     Marker(
                       point: LatLng(area.latitude, area.longitude),
-                      width: 80.w,
+                      width: 120.w,
                       height: 82.h,
                       child: GestureDetector(
                         onTap: () => _showAreaInfo(context, area),
@@ -1930,170 +1925,171 @@ class _SuggestionsCycleButtonState extends State<_SuggestionsCycleButton> {
                       itemCount: widget.areas.length,
                       itemBuilder: (_, i) {
                         final area = widget.areas[i];
-                        return Container(
-                          margin: EdgeInsets.only(bottom: 10.h),
-                          padding: EdgeInsets.all(12.w),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.backgroundDark
-                                : const Color(0xFFF0F0F8),
-                            borderRadius: BorderRadius.circular(14.r),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 36.w,
-                                height: 36.w,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  shape: BoxShape.circle,
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            widget.mapController.move(
+                              LatLng(area.latitude, area.longitude),
+                              widget.mapController.camera.zoom > 16.0
+                                  ? widget.mapController.camera.zoom
+                                  : 16.5,
+                            );
+                            widget.onAreaSelected(area);
+                          },
+                          child: Container(
+                            margin: EdgeInsets.only(bottom: 10.h),
+                            padding: EdgeInsets.all(12.w),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppColors.backgroundDark
+                                  : const Color(0xFFF0F0F8),
+                              borderRadius: BorderRadius.circular(14.r),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36.w,
+                                  height: 36.w,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Symbols.pin_drop,
+                                    color: Colors.white,
+                                    size: 18.w,
+                                  ),
                                 ),
-                                child: Icon(
-                                  Symbols.pin_drop,
-                                  color: Colors.white,
-                                  size: 18.w,
-                                ),
-                              ),
-                              SizedBox(width: 10.w),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      area.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontFamily: 'Lexend',
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13.sp,
-                                        color: isDark
-                                            ? Colors.white
-                                            : AppColors.textDark,
-                                      ),
-                                    ),
-                                    if (area.description.isNotEmpty) ...[
-                                      SizedBox(height: 3.h),
+                                SizedBox(width: 10.w),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
                                       Text(
-                                        area.description,
+                                        area.name,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontFamily: 'Lexend',
-                                          fontSize: 11.sp,
-                                          color: AppColors.textMutedLight,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: () async {
-                                  final confirmed = await showDialog<bool>(
-                                    context: ctx,
-                                    builder: (dialogCtx) => AlertDialog(
-                                      backgroundColor: isDark
-                                          ? AppColors.surfaceDark
-                                          : Colors.white,
-                                      title: Text(
-                                        'area_navigate_confirm_title'.tr(),
-                                        style: TextStyle(
-                                          fontFamily: 'Lexend',
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13.sp,
                                           color: isDark
                                               ? Colors.white
                                               : AppColors.textDark,
                                         ),
                                       ),
-                                      content: Text(
-                                        'area_navigate_confirm_message'.tr(),
-                                        style: TextStyle(
-                                          fontFamily: 'Lexend',
-                                          color: isDark
-                                              ? Colors.white70
-                                              : AppColors.textDark,
-                                        ),
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(dialogCtx, false),
-                                          child: Text(
-                                            'area_cancel'.tr(),
-                                            style: const TextStyle(
-                                              fontFamily: 'Lexend',
-                                              color: AppColors.textMutedLight,
-                                            ),
-                                          ),
-                                        ),
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(dialogCtx, true),
-                                          child: Text(
-                                            'area_open_maps'.tr(),
-                                            style: const TextStyle(
-                                              fontFamily: 'Lexend',
-                                              color: AppColors.primary,
-                                            ),
+                                      if (area.description.isNotEmpty) ...[
+                                        SizedBox(height: 3.h),
+                                        Text(
+                                          area.description,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontFamily: 'Lexend',
+                                            fontSize: 11.sp,
+                                            color: AppColors.textMutedLight,
                                           ),
                                         ),
                                       ],
-                                    ),
-                                  );
-                                  if (confirmed == true) {
-                                    final lat = area.latitude;
-                                    final lng = area.longitude;
-                                    final googleMapsApp = Uri.parse(
-                                      'google.navigation:q=$lat,$lng&mode=w',
+                                    ],
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: () async {
+                                    final confirmed = await showDialog<bool>(
+                                      context: ctx,
+                                      builder: (dialogCtx) => AlertDialog(
+                                        backgroundColor: isDark
+                                            ? AppColors.surfaceDark
+                                            : Colors.white,
+                                        title: Text(
+                                          'area_navigate_confirm_title'.tr(),
+                                          style: TextStyle(
+                                            fontFamily: 'Lexend',
+                                            color: isDark
+                                                ? Colors.white
+                                                : AppColors.textDark,
+                                          ),
+                                        ),
+                                        content: Text(
+                                          'area_navigate_confirm_message'.tr(),
+                                          style: TextStyle(
+                                            fontFamily: 'Lexend',
+                                            color: isDark
+                                                ? Colors.white70
+                                                : AppColors.textDark,
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(dialogCtx, false),
+                                            child: Text(
+                                              'area_cancel'.tr(),
+                                              style: const TextStyle(
+                                                fontFamily: 'Lexend',
+                                                color: AppColors.textMutedLight,
+                                              ),
+                                            ),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(dialogCtx, true),
+                                            child: Text(
+                                              'area_open_maps'.tr(),
+                                              style: const TextStyle(
+                                                fontFamily: 'Lexend',
+                                                color: AppColors.primary,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     );
-                                    final googleMapsWeb = Uri.parse(
-                                      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking',
-                                    );
-                                    try {
-                                      if (await canLaunchUrl(googleMapsApp)) {
-                                        await launchUrl(googleMapsApp);
-                                      } else {
+                                    if (confirmed == true) {
+                                      final lat = area.latitude;
+                                      final lng = area.longitude;
+                                      final googleMapsWeb = Uri.parse(
+                                        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking',
+                                      );
+                                      try {
                                         await launchUrl(
                                           googleMapsWeb,
                                           mode: LaunchMode.externalApplication,
                                         );
-                                      }
-                                    } catch (_) {
-                                      await launchUrl(
-                                        googleMapsWeb,
-                                        mode: LaunchMode.externalApplication,
-                                      );
+                                      } catch (_) {}
                                     }
-                                  }
-                                },
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 8.w,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Symbols.navigation,
-                                        size: 20.w,
-                                        color: AppColors.primary,
-                                        fill: 1,
-                                      ),
-                                      SizedBox(height: 2.h),
-                                      Text(
-                                        'area_navigate'.tr(),
-                                        style: TextStyle(
-                                          fontFamily: 'Lexend',
-                                          fontSize: 9.sp,
+                                  },
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 8.w,
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Symbols.navigation,
+                                          size: 20.w,
                                           color: AppColors.primary,
-                                          fontWeight: FontWeight.w600,
+                                          fill: 1,
                                         ),
-                                      ),
-                                    ],
+                                        SizedBox(height: 2.h),
+                                        Text(
+                                          'area_navigate'.tr(),
+                                          style: TextStyle(
+                                            fontFamily: 'Lexend',
+                                            fontSize: 9.sp,
+                                            color: AppColors.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -2316,27 +2312,15 @@ void _showAreaInfo(BuildContext context, SuggestedArea area) {
                   Navigator.pop(ctx);
                   final lat = area.latitude;
                   final lng = area.longitude;
-                  final googleMapsApp = Uri.parse(
-                    'google.navigation:q=$lat,$lng&mode=w',
-                  );
                   final googleMapsWeb = Uri.parse(
                     'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking',
                   );
                   try {
-                    if (await canLaunchUrl(googleMapsApp)) {
-                      await launchUrl(googleMapsApp);
-                    } else {
-                      await launchUrl(
-                        googleMapsWeb,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    }
-                  } catch (_) {
                     await launchUrl(
                       googleMapsWeb,
                       mode: LaunchMode.externalApplication,
                     );
-                  }
+                  } catch (_) {}
                 }
               },
               icon: Icon(

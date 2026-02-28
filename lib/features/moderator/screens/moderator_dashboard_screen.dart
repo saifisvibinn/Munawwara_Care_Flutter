@@ -681,10 +681,10 @@ class _GroupCard extends ConsumerWidget {
         ),
         child: Stack(
           children: [
-            // Decorative mosque illustration (top-right)
+            // Decorative mosque illustration
             Positioned(
-              top: -8,
-              right: -4,
+              right: 74.w,
+              top: 14.h,
               child: Opacity(
                 opacity: isDark ? 0.18 : 1.0,
                 child: ShaderMask(

@@ -16,6 +16,7 @@ class PilgrimInGroup {
   final DateTime? lastUpdated;
   // Set to true when an SOS notification is received via push (FCM)
   final bool hasSOS;
+  final bool isOnline;
 
   const PilgrimInGroup({
     required this.id,
@@ -27,6 +28,7 @@ class PilgrimInGroup {
     this.batteryPercent,
     this.lastUpdated,
     this.hasSOS = false,
+    this.isOnline = false,
   });
 
   factory PilgrimInGroup.fromJson(Map<String, dynamic> j) {
@@ -42,19 +44,28 @@ class PilgrimInGroup {
       lastUpdated: j['last_updated'] != null
           ? DateTime.tryParse(j['last_updated'].toString())
           : null,
+      isOnline: j['is_online'] == true,
     );
   }
 
-  PilgrimInGroup copyWith({bool? hasSOS}) => PilgrimInGroup(
+  PilgrimInGroup copyWith({
+    bool? hasSOS,
+    double? lat,
+    double? lng,
+    int? batteryPercent,
+    DateTime? lastUpdated,
+    bool? isOnline,
+  }) => PilgrimInGroup(
     id: id,
     fullName: fullName,
     nationalId: nationalId,
     phoneNumber: phoneNumber,
-    lat: lat,
-    lng: lng,
-    batteryPercent: batteryPercent,
-    lastUpdated: lastUpdated,
+    lat: lat ?? this.lat,
+    lng: lng ?? this.lng,
+    batteryPercent: batteryPercent ?? this.batteryPercent,
+    lastUpdated: lastUpdated ?? this.lastUpdated,
     hasSOS: hasSOS ?? this.hasSOS,
+    isOnline: isOnline ?? this.isOnline,
   );
 
   bool get hasLocation => lat != null && lng != null;
@@ -79,9 +90,10 @@ class PilgrimInGroup {
 
   /// Human-readable "last seen" text
   String get lastSeenText {
-    if (lastUpdated == null) return '';
+    if (isOnline) return 'Active now';
+    if (lastUpdated == null) return 'Offline';
     final diff = DateTime.now().difference(lastUpdated!);
-    if (diff.inSeconds < 60) return 'Just now';
+    if (diff.inMinutes < 1) return 'Updated just now';
     if (diff.inMinutes < 60) return 'Updated ${diff.inMinutes}m ago';
     if (diff.inHours < 24) return 'Updated ${diff.inHours}h ago';
     return 'Updated ${diff.inDays}d ago';
@@ -159,7 +171,7 @@ class ModeratorGroup {
   );
 
   int get totalPilgrims => pilgrims.length;
-  int get onlineCount => pilgrims.where((p) => p.hasLocation).length;
+  int get onlineCount => pilgrims.where((p) => p.isOnline).length;
   int get sosCount => pilgrims.where((p) => p.hasSOS).length;
   int get batteryLowCount =>
       pilgrims.where((p) => p.batteryStatus == BatteryStatus.low).length;
@@ -266,6 +278,51 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
     final groups = state.groups.map((g) {
       final pilgrims = g.pilgrims.map((p) {
         if (p.id == pilgrimId) return p.copyWith(hasSOS: active);
+        return p;
+      }).toList();
+      return g.copyWith(pilgrims: pilgrims);
+    }).toList();
+    state = state.copyWith(groups: groups);
+  }
+
+  // Update a specific pilgrim's location internally from socket event
+  void updatePilgrimLocation(
+    String pilgrimId,
+    double lat,
+    double lng,
+    int? batteryPercent,
+  ) {
+    final groups = state.groups.map((g) {
+      final pilgrims = g.pilgrims.map((p) {
+        if (p.id == pilgrimId) {
+          return p.copyWith(
+            lat: lat,
+            lng: lng,
+            batteryPercent: batteryPercent ?? p.batteryPercent,
+            lastUpdated: DateTime.now(),
+          );
+        }
+        return p;
+      }).toList();
+      return g.copyWith(pilgrims: pilgrims);
+    }).toList();
+    state = state.copyWith(groups: groups);
+  }
+
+  // Update a specific pilgrim's status internally from socket event
+  void updatePilgrimStatus(
+    String pilgrimId,
+    bool isOnline,
+    DateTime lastActiveAt,
+  ) {
+    final groups = state.groups.map((g) {
+      final pilgrims = g.pilgrims.map((p) {
+        if (p.id == pilgrimId) {
+          return p.copyWith(
+            isOnline: isOnline,
+            lastUpdated: isOnline ? DateTime.now() : lastActiveAt,
+          );
+        }
         return p;
       }).toList();
       return g.copyWith(pilgrims: pilgrims);

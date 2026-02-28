@@ -125,19 +125,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     vertical: 8.h,
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          Symbols.arrow_back,
-                          color: isDark
-                              ? AppColors.textMutedLight
-                              : AppColors.textMutedDark,
-                        ),
-                        onPressed: () {},
-                      ),
-                      _buildLanguageDropdown(isDark),
-                    ],
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [_buildLanguageDropdown(isDark)],
                   ),
                 ),
 
@@ -155,7 +144,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Align(
                           alignment: Alignment.center,
                           child: Transform.rotate(
-                            angle: 0.05, // ~3 degrees
+                            angle: 0.0, // Straight
                             child: Container(
                               width: 64.w,
                               height: 64.w,
@@ -178,10 +167,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ),
                                 ],
                               ),
-                              child: Icon(
-                                Symbols.mosque,
-                                size: 32.w,
-                                color: AppColors.primary,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(16.r),
+                                child: Image.asset(
+                                  'assets/static/logo.jpeg',
+                                  width: 64.w,
+                                  height: 64.w,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             ),
                           ),
@@ -280,12 +273,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       Container(
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
-                                          color: isDark ? const Color(0xFF3A1010) : Colors.red.shade50,
+                                          color: isDark
+                                              ? const Color(0xFF3A1010)
+                                              : Colors.red.shade50,
                                           borderRadius: BorderRadius.circular(
                                             10.r,
                                           ),
                                           border: Border.all(
-                                            color: isDark ? const Color(0xFF5C1515) : Colors.red.shade200,
+                                            color: isDark
+                                                ? const Color(0xFF5C1515)
+                                                : Colors.red.shade200,
                                           ),
                                         ),
                                         child: Row(

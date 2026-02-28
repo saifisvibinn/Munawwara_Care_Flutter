@@ -8,6 +8,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/notification_model.dart';
 import '../providers/notification_provider.dart';
+import '../../moderator/providers/moderator_provider.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../moderator/widgets/pilgrim_profile_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Alerts Tab — shown when the user taps "Alerts" in the bottom nav
@@ -133,7 +136,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
 // Notification tile — swipe right to dismiss
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _NotificationTile extends StatelessWidget {
+class _NotificationTile extends ConsumerWidget {
   final AppNotification notification;
   final bool isDark;
   final VoidCallback onDelete;
@@ -145,7 +148,7 @@ class _NotificationTile extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final n = notification;
     final bg = isDark ? const Color(0xFF1A2C24) : Colors.white;
 
@@ -294,6 +297,73 @@ class _NotificationTile extends StatelessWidget {
                               SizedBox(width: 4.w),
                               Text(
                                 'area_navigate'.tr(),
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11.sp,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    // View Profile button for SOS alerts
+                    if (n.type == 'sos_alert' &&
+                        n.data?['pilgrim_id'] != null) ...[
+                      SizedBox(height: 8.h),
+                      GestureDetector(
+                        onTap: () {
+                          final pId = n.data!['pilgrim_id'] as String;
+                          final gId = n.data!['group_id'] as String?;
+
+                          final modState = ref.read(moderatorProvider);
+                          PilgrimInGroup? pilgrim;
+                          for (final g in modState.groups) {
+                            try {
+                              pilgrim = g.pilgrims.firstWhere(
+                                (p) => p.id == pId,
+                              );
+                              break;
+                            } catch (_) {}
+                          }
+                          if (pilgrim != null && gId != null) {
+                            final uid = ref.read(authProvider).userId ?? '';
+                            showPilgrimProfileSheet(context, pilgrim, gId, uid);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Pilgrim not found in your groups',
+                                  style: const TextStyle(fontFamily: 'Lexend'),
+                                ),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12.w,
+                            vertical: 7.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: n.iconColor,
+                            borderRadius: BorderRadius.circular(10.r),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Symbols.person,
+                                size: 14.w,
+                                color: Colors.white,
+                                fill: 1,
+                              ),
+                              SizedBox(width: 4.w),
+                              Text(
+                                'View Profile',
                                 style: TextStyle(
                                   fontFamily: 'Lexend',
                                   fontWeight: FontWeight.w700,

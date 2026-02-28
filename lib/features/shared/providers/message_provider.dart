@@ -144,6 +144,40 @@ class MessageNotifier extends Notifier<MessageState> {
     }
   }
 
+  Future<bool> sendIndividualTextMessage({
+    required String groupId,
+    required String recipientId,
+    required String content,
+    required bool isUrgent,
+    bool isTts = false,
+  }) async {
+    state = state.copyWith(isSending: true);
+    try {
+      final response = await ApiService.dio.post(
+        '/messages/individual',
+        data: {
+          'group_id': groupId,
+          'recipient_id': recipientId,
+          'type': isTts ? 'tts' : 'text',
+          'content': content,
+          if (isTts) 'original_text': content,
+          'is_urgent': isUrgent,
+        },
+      );
+      final msg = GroupMessage.fromJson(
+        response.data['data'] as Map<String, dynamic>,
+      );
+      state = state.copyWith(
+        messages: [...state.messages, msg],
+        isSending: false,
+      );
+      return true;
+    } catch (_) {
+      state = state.copyWith(isSending: false);
+      return false;
+    }
+  }
+
   // ── Send Voice ─────────────────────────────────────────────────────────────
 
   Future<bool> sendVoiceMessage({
@@ -165,6 +199,44 @@ class MessageNotifier extends Notifier<MessageState> {
         ),
       });
       final response = await ApiService.dio.post('/messages', data: formData);
+      final msg = GroupMessage.fromJson(
+        response.data['data'] as Map<String, dynamic>,
+      );
+      state = state.copyWith(
+        messages: [...state.messages, msg],
+        isSending: false,
+      );
+      return true;
+    } catch (_) {
+      state = state.copyWith(isSending: false);
+      return false;
+    }
+  }
+
+  Future<bool> sendIndividualVoiceMessage({
+    required String groupId,
+    required String recipientId,
+    required String filePath,
+    required bool isUrgent,
+    int durationSeconds = 0,
+  }) async {
+    state = state.copyWith(isSending: true);
+    try {
+      final formData = FormData.fromMap({
+        'group_id': groupId,
+        'recipient_id': recipientId,
+        'type': 'voice',
+        'is_urgent': isUrgent.toString(),
+        'duration': durationSeconds.toString(),
+        'file': await MultipartFile.fromFile(
+          filePath,
+          filename: 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
+        ),
+      });
+      final response = await ApiService.dio.post(
+        '/messages/individual',
+        data: formData,
+      );
       final msg = GroupMessage.fromJson(
         response.data['data'] as Map<String, dynamic>,
       );
