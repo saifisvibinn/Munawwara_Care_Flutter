@@ -133,6 +133,12 @@ class SuggestedAreaNotifier extends Notifier<SuggestedAreaState> {
       areas: state.areas.where((a) => a.id != areaId).toList(),
     );
   }
+
+  // ── Clear all areas (used when pilgrim removed from group) ────────────────
+
+  void clear() {
+    state = const SuggestedAreaState();
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

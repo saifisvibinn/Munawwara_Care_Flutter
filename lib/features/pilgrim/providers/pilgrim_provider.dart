@@ -287,6 +287,15 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
     state = state.copyWith(sosActive: false);
   }
 
+  /// Clear all group-related state when pilgrim is removed from group
+  void clearGroupState() {
+    state = state.copyWith(
+      clearGroup: true,
+      navBeacons: const {},
+      sosActive: false,
+    );
+  }
+
   Future<(bool, String?)> joinGroup(String groupCode) async {
     try {
       final res = await ApiService.dio.post(

@@ -170,6 +170,8 @@ class _ModeratorDashboardScreenState
       }
     });
 
+    final hasGroups = ref.watch(moderatorProvider).groups.isNotEmpty;
+
     return Scaffold(
       backgroundColor: isDark
           ? AppColors.backgroundDark
@@ -683,7 +685,7 @@ class _GroupCard extends ConsumerWidget {
           children: [
             // Decorative mosque illustration
             Positioned(
-              right: 74.w,
+              right: 54.w,
               top: 14.h,
               child: Opacity(
                 opacity: isDark ? 0.18 : 1.0,

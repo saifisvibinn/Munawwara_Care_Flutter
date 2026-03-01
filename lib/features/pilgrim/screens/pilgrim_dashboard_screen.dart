@@ -124,6 +124,25 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               .updateModeratorBeacon(modId, modName, enabled, lat, lng);
         });
 
+        // Listen for removal from group
+        SocketService.on('removed-from-group', (data) {
+          if (!mounted) return;
+          // Clear all group-related state
+          ref.read(pilgrimProvider.notifier).clearGroupState();
+          // Clear suggested areas
+          ref.read(suggestedAreaProvider.notifier).clear();
+          // Show notification to user
+          final map = data as Map<String, dynamic>;
+          final groupName = map['group_name'] as String? ?? 'the group';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('You have been removed from $groupName'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        });
+
         // Listen for new group messages — append silently to avoid flicker
         SocketService.on('new_message', (data) {
           if (!mounted) return;
@@ -201,6 +220,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _sosCountdownTimer?.cancel();
     _locationSub?.cancel();
     SocketService.off('mod_nav_beacon');
+    SocketService.off('removed-from-group');
     SocketService.off('new_message');
     SocketService.off('message_deleted');
     SocketService.off('area_added');
@@ -349,6 +369,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         ),
       );
     } else {
+      // Get the actual error message from the provider
+      final errorMsg = ref.read(pilgrimProvider).error ?? 'sos_failed'.tr();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: Colors.grey.shade700,
@@ -356,10 +379,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.r),
           ),
-          content: Text(
-            'sos_failed'.tr(),
-            style: const TextStyle(color: Colors.white),
-          ),
+          content: Text(errorMsg, style: const TextStyle(color: Colors.white)),
         ),
       );
     }
@@ -508,8 +528,26 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           width: 56.w,
           height: 56.w,
           child: FloatingActionButton(
-            onPressed: _openJoinGroup,
-            backgroundColor: AppColors.primary,
+            onPressed: pilgrimState.groupInfo != null
+                ? () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'You are already in a group. Leave your current group to join another.',
+                          style: const TextStyle(fontFamily: 'Lexend'),
+                        ),
+                        backgroundColor: Colors.grey.shade700,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                      ),
+                    );
+                  }
+                : _openJoinGroup,
+            backgroundColor: pilgrimState.groupInfo != null
+                ? Colors.grey
+                : AppColors.primary,
             foregroundColor: Colors.white,
             shape: const CircleBorder(),
             elevation: 6,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/api_service.dart';
+import '../../../core/services/socket_service.dart';
 import '../../../core/utils/app_logger.dart';
 
 // ── Auth State ────────────────────────────────────────────────────────────────
@@ -382,6 +383,18 @@ class AuthNotifier extends Notifier<AuthState> {
 
   // ── Logout ──────────────────────────────────────────────────────────────────
   Future<void> logout() async {
+    try {
+      // Call backend to clear FCM token
+      await ApiService.dio.post('/auth/logout');
+    } catch (e) {
+      // Log error but continue with logout
+      AppLogger.e('Logout API call failed', e);
+    }
+
+    // Disconnect socket
+    SocketService.disconnect();
+
+    // Clear local auth token and state
     await ApiService.clearAuthToken();
     state = const AuthState();
   }
