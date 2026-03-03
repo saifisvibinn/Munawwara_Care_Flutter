@@ -1757,8 +1757,8 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                           SizedBox(width: 12.w),
                           Text(
                             _navBeaconEnabled
-                                ? 'Disable Beacon'
-                                : 'Enable Beacon',
+                                ? 'group_menu_disable_beacon'.tr()
+                                : 'group_menu_enable_beacon'.tr(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 14.sp,
@@ -1779,7 +1779,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                           ),
                           SizedBox(width: 12.w),
                           Text(
-                            'Manage Group',
+                            'group_menu_manage'.tr(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 14.sp,
@@ -1800,7 +1800,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                           ),
                           SizedBox(width: 12.w),
                           Text(
-                            'Suggested Areas',
+                            'group_menu_areas'.tr(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 14.sp,
@@ -1930,7 +1930,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                   ),
                                   SizedBox(width: 6.w),
                                   Text(
-                                    'Chat',
+                                    'group_menu_chat'.tr(),
                                     style: TextStyle(
                                       fontFamily: 'Lexend',
                                       fontWeight: FontWeight.w600,

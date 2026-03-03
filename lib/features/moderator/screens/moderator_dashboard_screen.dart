@@ -796,7 +796,8 @@ class _GroupCard extends ConsumerWidget {
           children: [
             // Decorative mosque illustration
             Positioned(
-              right: 54.w,
+              right: context.locale.languageCode == 'ar' ? null : 54.w,
+              left: context.locale.languageCode == 'ar' ? 54.w : null,
               top: 14.h,
               child: Opacity(
                 opacity: isDark ? 0.18 : 1.0,
@@ -807,7 +808,14 @@ class _GroupCard extends ConsumerWidget {
                     end: Alignment.bottomRight,
                   ).createShader(bounds),
                   blendMode: BlendMode.srcIn,
-                  child: Icon(Symbols.mosque, size: 110.w, color: Colors.white),
+                  child: Transform.scale(
+                    scaleX: context.locale.languageCode == 'ar' ? -1 : 1,
+                    child: Icon(
+                      Symbols.mosque,
+                      size: 110.w,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
             ),

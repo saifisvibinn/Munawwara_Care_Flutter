@@ -331,5 +331,10 @@
     "meetpoint": "نقطة التلاقي",
     "area_empty": "لا توجد مناطق متاحة",
     "error_generic": "حدث خطأ ما. يُرجى المحاولة مرة أخرى.",
-    "group_name": "اسم المجموعة"
+    "group_name": "اسم المجموعة",
+    "group_menu_chat": "محادثة",
+    "group_menu_enable_beacon": "تفعيل المنارة",
+    "group_menu_disable_beacon": "إيقاف المنارة",
+    "group_menu_manage": "إدارة المجموعة",
+    "group_menu_areas": "المناطق المقترحة"
 }
