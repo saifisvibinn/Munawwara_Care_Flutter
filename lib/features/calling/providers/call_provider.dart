@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../core/services/api_service.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/utils/app_logger.dart';
@@ -181,6 +183,9 @@ class CallNotifier extends Notifier<CallState> {
         ),
       );
       SocketService.emit('call-answer', {'to': fromId});
+      // HTTP fallback — critical for killed/background state where socket
+      // is not yet connected, so the socket emit above is a silent no-op.
+      _notifyCallAnswerViaHttp(fromId);
       _pendingChannelName = null;
       _pendingFromId = null;
       _startTimer();
@@ -198,8 +203,12 @@ class CallNotifier extends Notifier<CallState> {
 
   /// Decline an incoming call.
   void declineCall() {
-    if (state.remoteUserId != null) {
-      SocketService.emit('call-declined', {'to': state.remoteUserId});
+    final remoteId = state.remoteUserId;
+    if (remoteId != null) {
+      SocketService.emit('call-declined', {'to': remoteId});
+      // HTTP fallback — critical for killed/background state where socket
+      // is not yet connected, so the socket emit above is a silent no-op.
+      _notifyCallDeclineViaHttp(remoteId);
     }
     // Dismiss native call screen
     CallKitService.instance.endCurrentCall();
@@ -429,6 +438,33 @@ class CallNotifier extends Notifier<CallState> {
   // ════════════════════════════════════════════════════════════════════════════
   // PRIVATE HELPERS
   // ════════════════════════════════════════════════════════════════════════════
+
+  /// HTTP fallback: notify the moderator (caller) that the call was answered.
+  /// Used when the app cold-starts from killed state and the socket is not
+  /// connected yet.  Fire-and-forget — errors are logged but don't block the
+  /// call flow.
+  void _notifyCallAnswerViaHttp(String callerId) {
+    final selfId = SocketService.connectedUserId;
+    Dio()
+        .post(
+          '${ApiService.baseUrl}/call-history/answer',
+          data: {'callerId': callerId, 'answererId': selfId ?? ''},
+        )
+        .then((_) => AppLogger.i('[CallProvider] HTTP call-answer sent to $callerId'))
+        .catchError((e) => AppLogger.e('[CallProvider] HTTP call-answer failed: $e'));
+  }
+
+  /// HTTP fallback: notify the moderator (caller) that the call was declined.
+  void _notifyCallDeclineViaHttp(String callerId) {
+    final selfId = SocketService.connectedUserId;
+    Dio()
+        .post(
+          '${ApiService.baseUrl}/call-history/decline',
+          data: {'callerId': callerId, 'declinerId': selfId ?? ''},
+        )
+        .then((_) => AppLogger.i('[CallProvider] HTTP call-declined sent to $callerId'))
+        .catchError((e) => AppLogger.e('[CallProvider] HTTP call-declined failed: $e'));
+  }
 
   Future<void> _setupEngine() async {
     _engine = createAgoraRtcEngine();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:dio/dio.dart';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -15,6 +16,7 @@ import 'core/theme/app_theme.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/env/env_check.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/api_service.dart';
 import 'core/router/app_router.dart' show AppRouter;
 import 'features/auth/providers/auth_provider.dart';
 import 'features/calling/providers/call_provider.dart';
@@ -215,6 +217,22 @@ void _setupCallKitListeners() {
           final currentState = _globalContainer!.read(callProvider);
           if (currentState.status == CallStatus.ringing) {
             _globalContainer!.read(callProvider.notifier).declineCall();
+          } else {
+            // Killed/background cold-start: provider state is idle (not ringing)
+            // because socket never delivered the call-offer. Use HTTP fallback
+            // to notify the caller directly.
+            final extra = event.body?['extra'] as Map<dynamic, dynamic>? ?? {};
+            final callerId = extra['callerId']?.toString() ?? '';
+            if (callerId.isNotEmpty) {
+              AppLogger.w('❌ Decline via HTTP fallback (cold-start, state=${currentState.status})');
+              Dio()
+                  .post(
+                    '${ApiService.baseUrl}/call-history/decline',
+                    data: {'callerId': callerId, 'declinerId': ''},
+                  )
+                  .then((_) => AppLogger.i('[Main] HTTP call-declined sent to $callerId'))
+                  .catchError((e) => AppLogger.e('[Main] HTTP call-declined failed: $e'));
+            }
           }
         }
         break;
@@ -226,6 +244,20 @@ void _setupCallKitListeners() {
           final currentState = _globalContainer!.read(callProvider);
           if (currentState.status == CallStatus.ringing) {
             _globalContainer!.read(callProvider.notifier).declineCall();
+          } else {
+            // Killed/background cold-start: same HTTP fallback as decline
+            final extra = event.body?['extra'] as Map<dynamic, dynamic>? ?? {};
+            final callerId = extra['callerId']?.toString() ?? '';
+            if (callerId.isNotEmpty) {
+              AppLogger.w('⏰ Timeout via HTTP fallback (cold-start, state=${currentState.status})');
+              Dio()
+                  .post(
+                    '${ApiService.baseUrl}/call-history/decline',
+                    data: {'callerId': callerId, 'declinerId': ''},
+                  )
+                  .then((_) => AppLogger.i('[Main] HTTP call-declined (timeout) sent to $callerId'))
+                  .catchError((e) => AppLogger.e('[Main] HTTP call-declined (timeout) failed: $e'));
+            }
           }
         }
         break;
