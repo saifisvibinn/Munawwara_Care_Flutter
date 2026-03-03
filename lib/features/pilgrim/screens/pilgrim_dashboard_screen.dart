@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui' as ui;
+import 'package:audioplayers/audioplayers.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -69,6 +70,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   final MapController _mapController = MapController();
   LatLng? _myLatLng;
 
+  // SFX player for incoming chat messages
+  final AudioPlayer _sfxPlayer = AudioPlayer();
+
   // Named reconnect handler so offConnected can find it.
   void _onSocketConnected() {
     if (!mounted) return;
@@ -136,8 +140,18 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           role: auth.role ?? 'pilgrim',
         );
         ref.read(callProvider.notifier).reRegisterListeners();
-        // Check if there's a pending call accepted from native call screen
-        ref.read(callProvider.notifier).checkPendingAcceptedCall();
+        // Check if there's a pending call accepted from native call screen.
+        // Must run AFTER the socket handshake so the call-answer emit goes through.
+        if (SocketService.isConnected) {
+          ref.read(callProvider.notifier).checkPendingAcceptedCall();
+        } else {
+          void checkOnce() {
+            ref.read(callProvider.notifier).checkPendingAcceptedCall();
+            SocketService.offConnected(checkOnce);
+          }
+
+          SocketService.onConnected(checkOnce);
+        }
         // Join group socket room so we receive group-scoped events
         final gId = ref.read(pilgrimProvider).groupInfo?.groupId;
         if (gId != null) SocketService.emit('join_group', gId);
@@ -274,6 +288,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _sosCountdownTimer?.cancel();
     _roleSyncTimer?.cancel();
     _locationSub?.cancel();
+    _sfxPlayer.dispose();
     SocketService.off('mod_nav_beacon');
     SocketService.off('removed-from-group');
     SocketService.off('new_message');
@@ -302,6 +317,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       final myId = ref.read(authProvider).userId;
       if (msg.sender?.id == myId) return;
 
+      // ── Play SFX for every incoming message (regardless of urgency) ─────────
+      _sfxPlayer.play(AssetSource('static/chat_sfx.mp3'));
+
       final senderName = msg.sender?.fullName ?? 'notification_title'.tr();
 
       if (msg.type == 'meetpoint') {
@@ -325,7 +343,31 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         );
       } else {
         // Only show popup for urgent messages
-        if (!msg.isUrgent) return;
+        if (!msg.isUrgent) {
+          // Non-urgent: brief auto-dismissing popup (no lock, no TTS)
+          final body =
+              msg.content ??
+              (msg.type == 'voice'
+                  ? '\ud83c\udfa4 ${'voice_message'.tr()}'
+                  : '');
+          InAppPopup.show(
+            context,
+            title: senderName,
+            body: body,
+            isUrgent: false,
+            lockUntilDismiss: false,
+            duration: const Duration(seconds: 4),
+            onViewChat: () {
+              setState(() => _currentTab = 3);
+              final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
+              if (groupId != null) {
+                ref.read(messageProvider.notifier).markAllRead(groupId);
+              }
+              _chatScrollNotifier.value++;
+            },
+          );
+          return;
+        }
 
         final body =
             msg.content ??

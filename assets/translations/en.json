@@ -325,5 +325,11 @@
     "popup_play_voice": "Play Voice",
     "popup_play_tts": "Play TTS",
     "popup_view_chat": "View Chat",
-    "popup_dismiss": "Dismiss"
+    "popup_dismiss": "Dismiss",
+    "notification_title": "Notification",
+    "voice_message": "Voice Message",
+    "meetpoint": "Meeting Point",
+    "area_empty": "No areas available",
+    "error_generic": "Something went wrong. Please try again.",
+    "group_name": "Group Name"
 }

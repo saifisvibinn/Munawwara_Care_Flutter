@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 import 'callkit_service.dart';
 import '../../core/utils/app_logger.dart';
@@ -55,6 +56,28 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
   // ── Data-only messages → show local notification ────────────────────────
   await NotificationService.instance.initialize();
+
+  // ── Urgent TTS: speak the message aloud even when app is killed ─────────
+  if (dataType == 'urgent' && msgType == 'tts') {
+    final text =
+        message.data['body']?.toString() ??
+        message.data['content']?.toString() ??
+        '';
+    AppLogger.i('🔊 Urgent TTS: speaking aloud in background: "$text"');
+    if (text.isNotEmpty) {
+      try {
+        final tts = FlutterTts();
+        await tts.awaitSpeakCompletion(true);
+        await tts.setVolume(1.0);
+        await tts.setSpeechRate(0.4);
+        await tts.setPitch(1.0);
+        await tts.speak(text);
+      } catch (e) {
+        AppLogger.e('🔊 Background TTS error: $e');
+      }
+    }
+  }
+
   await NotificationService.instance.showNotificationFromMessage(message);
 }
 
@@ -114,16 +137,16 @@ class NotificationService {
 
     if (androidPlugin == null) return;
 
-    // Default channel for regular messages
-    const defaultChannel = AndroidNotificationChannel(
+    // Default channel for regular messages — uses custom notification sound
+    final defaultChannel = AndroidNotificationChannel(
       'default',
       'Default Notifications',
       description: 'General notifications for messages and updates',
       importance: Importance.high,
       playSound: true,
+      sound: const RawResourceAndroidNotificationSound('notification_sound'),
       enableVibration: true,
     );
-
     // Urgent channel with custom sound
     final urgentChannel = AndroidNotificationChannel(
       'urgent',
@@ -265,6 +288,7 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
+      sound: const RawResourceAndroidNotificationSound('notification_sound'),
       enableVibration: true,
       icon: '@mipmap/ic_launcher',
       styleInformation: BigTextStyleInformation(body),
@@ -336,6 +360,10 @@ class NotificationService {
     );
 
     if (notificationType == 'new_message' && groupId.isNotEmpty) {
+      _navigateToChat(groupId: groupId, groupName: groupName);
+    } else if (notificationType == 'meetpoint' && groupId.isNotEmpty) {
+      _navigateToChat(groupId: groupId, groupName: groupName);
+    } else if (notificationType == 'meetpoint' && groupId.isNotEmpty) {
       _navigateToChat(groupId: groupId, groupName: groupName);
     }
   }

@@ -8,7 +8,6 @@ Future<void> verifyEnv() async {
   final optionalKeys = <String>[
     'AGORA_APP_ID',
     'GOOGLE_MAPS_API_KEY',
-    'SENTRY_DSN',
   ];
 
   final missingRequired = requiredKeys

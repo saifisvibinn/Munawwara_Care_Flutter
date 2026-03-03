@@ -218,323 +218,319 @@ class _EmailVerificationDialogState
       insetPadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
       backgroundColor: bgColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-      child: AnimatedPadding(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        padding: EdgeInsets.only(bottom: viewInsets.bottom),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: screenHeight * 0.88),
-          child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.all(24.w),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      _isVerificationStep
-                          ? 'email_verify_title'.tr()
-                          : 'email_add_title'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 20.sp,
-                        color: textPrimary,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: screenHeight - viewInsets.bottom - 40.h,
+        ),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.all(24.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _isVerificationStep
+                        ? 'email_verify_title'.tr()
+                        : 'email_add_title'.tr(),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 20.sp,
+                      color: textPrimary,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: textMuted),
+                    onPressed: () => Navigator.of(context).pop(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                _isVerificationStep
+                    ? 'email_verify_description'.tr()
+                    : 'email_add_description'.tr(),
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 13.sp,
+                  color: textMuted,
+                ),
+              ),
+              SizedBox(height: 24.h),
+
+              // Content
+              if (!_isVerificationStep) ...[
+                // Email input step
+                Form(
+                  key: _formKey,
+                  child: TextFormField(
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 14.sp,
+                      color: textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'email_address'.tr(),
+                      hintText: 'example@email.com',
+                      prefixIcon: Icon(
+                        Icons.email_rounded,
+                        color: AppColors.primary,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                        borderSide: BorderSide(
+                          color: textMuted.withOpacity(0.3),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                        borderSide: const BorderSide(
+                          color: AppColors.primary,
+                          width: 2,
+                        ),
                       ),
                     ),
-                    IconButton(
-                      icon: Icon(Icons.close, color: textMuted),
-                      onPressed: () => Navigator.of(context).pop(),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8.h),
-                Text(
-                  _isVerificationStep
-                      ? 'email_verify_description'.tr()
-                      : 'email_add_description'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 13.sp,
-                    color: textMuted,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) {
+                        return 'email_required'.tr();
+                      }
+                      if (!RegExp(
+                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                      ).hasMatch(v)) {
+                        return 'email_invalid'.tr();
+                      }
+                      return null;
+                    },
                   ),
                 ),
-                SizedBox(height: 24.h),
+                SizedBox(height: 20.h),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48.h,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _addEmail,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      disabledBackgroundColor: AppColors.primary.withOpacity(
+                        0.6,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? SizedBox(
+                            width: 20.w,
+                            height: 20.w,
+                            child: const CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            'continue'.tr(),
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15.sp,
+                              color: Colors.white,
+                            ),
+                          ),
+                  ),
+                ),
+              ] else ...[
+                // Verification code input step
+                Center(
+                  child: Text(
+                    'Enter the 6-digit code',
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 12.sp,
+                      color: textMuted,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16.h),
 
-                // Content
-                if (!_isVerificationStep) ...[
-                  // Email input step
-                  Form(
-                    key: _formKey,
-                    child: TextFormField(
-                      controller: _emailCtrl,
-                      keyboardType: TextInputType.emailAddress,
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 14.sp,
-                        color: textPrimary,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'email_address'.tr(),
-                        hintText: 'example@email.com',
-                        prefixIcon: Icon(
-                          Icons.email_rounded,
-                          color: AppColors.primary,
+                // OTP Input Boxes - Tap to focus
+                GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _focusCodeInput,
+                  child: Container(
+                    color: Colors.transparent,
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(6, (index) {
+                            final hasValue = _codeCtrl.text.length > index;
+                            final isFocused =
+                                _codeFocusNode.hasFocus &&
+                                _codeCtrl.text.length == index;
+
+                            return Container(
+                              margin: EdgeInsets.symmetric(horizontal: 3.w),
+                              width: 38.w,
+                              height: 52.h,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppColors.surfaceDark.withOpacity(0.5)
+                                    : Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(12.r),
+                                border: Border.all(
+                                  color: isFocused
+                                      ? AppColors.primary
+                                      : hasValue
+                                      ? AppColors.primary.withOpacity(0.5)
+                                      : textMuted.withOpacity(0.3),
+                                  width: isFocused ? 2 : 1.5,
+                                ),
+                                boxShadow: isFocused
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.primary.withOpacity(
+                                            0.2,
+                                          ),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  hasValue ? _codeCtrl.text[index] : '',
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 20.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: textPrimary,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                          borderSide: BorderSide(
-                            color: textMuted.withOpacity(0.3),
+                        SizedBox(height: 12.h),
+
+                        // Tap to focus hint
+                        Text(
+                          'Tap boxes to enter code',
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 11.sp,
+                            color: textMuted.withOpacity(0.6),
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                          borderSide: const BorderSide(
-                            color: AppColors.primary,
-                            width: 2,
-                          ),
-                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Hidden TextField for input (kept at 1x1 to ensure keyboard can re-open)
+                SizedBox(
+                  height: 1,
+                  width: 1,
+                  child: Opacity(
+                    opacity: 0,
+                    child: TextField(
+                      controller: _codeCtrl,
+                      focusNode: _codeFocusNode,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      maxLength: 6,
+                      autofocus: false,
+                      decoration: const InputDecoration(
+                        counterText: '',
+                        border: InputBorder.none,
+                        isCollapsed: true,
                       ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'email_required'.tr();
-                        }
-                        if (!RegExp(
-                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                        ).hasMatch(v)) {
-                          return 'email_invalid'.tr();
-                        }
-                        return null;
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      onChanged: (value) {
+                        setState(() {}); // Rebuild to update boxes
                       },
                     ),
                   ),
-                  SizedBox(height: 20.h),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48.h,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _addEmail,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        disabledBackgroundColor: AppColors.primary.withOpacity(
-                          0.6,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                      ),
-                      child: _isLoading
-                          ? SizedBox(
-                              width: 20.w,
-                              height: 20.w,
-                              child: const CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : Text(
-                              'continue'.tr(),
-                              style: TextStyle(
-                                fontFamily: 'Lexend',
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15.sp,
-                                color: Colors.white,
-                              ),
-                            ),
-                    ),
-                  ),
-                ] else ...[
-                  // Verification code input step
-                  Center(
+                ),
+
+                SizedBox(height: 8.h),
+
+                // Resend button
+                Center(
+                  child: TextButton(
+                    onPressed: _resendCountdown > 0 || _isLoading
+                        ? null
+                        : _sendVerificationCode,
                     child: Text(
-                      'Enter the 6-digit code',
+                      _resendCountdown > 0
+                          ? 'resend_code_countdown'.tr(
+                              args: ['$_resendCountdown'],
+                            )
+                          : 'resend_code'.tr(),
                       style: TextStyle(
                         fontFamily: 'Lexend',
-                        fontSize: 12.sp,
-                        color: textMuted,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 13.sp,
+                        color: _resendCountdown > 0
+                            ? textMuted
+                            : AppColors.primary,
                       ),
                     ),
                   ),
-                  SizedBox(height: 16.h),
+                ),
 
-                  // OTP Input Boxes - Tap to focus
-                  GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: _focusCodeInput,
-                    child: Container(
-                      color: Colors.transparent,
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(6, (index) {
-                              final hasValue = _codeCtrl.text.length > index;
-                              final isFocused =
-                                  _codeFocusNode.hasFocus &&
-                                  _codeCtrl.text.length == index;
+                SizedBox(height: 12.h),
 
-                              return Container(
-                                margin: EdgeInsets.symmetric(horizontal: 3.w),
-                                width: 38.w,
-                                height: 52.h,
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? AppColors.surfaceDark.withOpacity(0.5)
-                                      : Colors.grey.shade50,
-                                  borderRadius: BorderRadius.circular(12.r),
-                                  border: Border.all(
-                                    color: isFocused
-                                        ? AppColors.primary
-                                        : hasValue
-                                        ? AppColors.primary.withOpacity(0.5)
-                                        : textMuted.withOpacity(0.3),
-                                    width: isFocused ? 2 : 1.5,
-                                  ),
-                                  boxShadow: isFocused
-                                      ? [
-                                          BoxShadow(
-                                            color: AppColors.primary
-                                                .withOpacity(0.2),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ]
-                                      : null,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    hasValue ? _codeCtrl.text[index] : '',
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      fontSize: 20.sp,
-                                      fontWeight: FontWeight.w700,
-                                      color: textPrimary,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }),
-                          ),
-                          SizedBox(height: 12.h),
-
-                          // Tap to focus hint
-                          Text(
-                            'Tap boxes to enter code',
+                // Verify button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48.h,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _verifyCode,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      disabledBackgroundColor: AppColors.primary.withOpacity(
+                        0.6,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? SizedBox(
+                            width: 20.w,
+                            height: 20.w,
+                            child: const CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            'verify'.tr(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
-                              fontSize: 11.sp,
-                              color: textMuted.withOpacity(0.6),
-                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15.sp,
+                              color: Colors.white,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
                   ),
-
-                  // Hidden TextField for input (kept at 1x1 to ensure keyboard can re-open)
-                  SizedBox(
-                    height: 1,
-                    width: 1,
-                    child: Opacity(
-                      opacity: 0,
-                      child: TextField(
-                        controller: _codeCtrl,
-                        focusNode: _codeFocusNode,
-                        keyboardType: TextInputType.number,
-                        textInputAction: TextInputAction.done,
-                        maxLength: 6,
-                        autofocus: false,
-                        decoration: const InputDecoration(
-                          counterText: '',
-                          border: InputBorder.none,
-                          isCollapsed: true,
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        onChanged: (value) {
-                          setState(() {}); // Rebuild to update boxes
-                        },
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: 8.h),
-
-                  // Resend button
-                  Center(
-                    child: TextButton(
-                      onPressed: _resendCountdown > 0 || _isLoading
-                          ? null
-                          : _sendVerificationCode,
-                      child: Text(
-                        _resendCountdown > 0
-                            ? 'resend_code_countdown'.tr(
-                                args: ['$_resendCountdown'],
-                              )
-                            : 'resend_code'.tr(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 13.sp,
-                          color: _resendCountdown > 0
-                              ? textMuted
-                              : AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: 12.h),
-
-                  // Verify button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48.h,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _verifyCode,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        disabledBackgroundColor: AppColors.primary.withOpacity(
-                          0.6,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                      ),
-                      child: _isLoading
-                          ? SizedBox(
-                              width: 20.w,
-                              height: 20.w,
-                              child: const CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : Text(
-                              'verify'.tr(),
-                              style: TextStyle(
-                                fontFamily: 'Lexend',
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15.sp,
-                                color: Colors.white,
-                              ),
-                            ),
-                    ),
-                  ),
-                ],
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),
