@@ -120,9 +120,11 @@ class _ModeratorDashboardScreenState
         // Must run AFTER the socket handshake so the call-answer emit goes through.
         if (SocketService.isConnected) {
           ref.read(callProvider.notifier).checkPendingAcceptedCall();
+          ref.read(callProvider.notifier).checkPendingDeclinedCall();
         } else {
           void checkOnce() {
             ref.read(callProvider.notifier).checkPendingAcceptedCall();
+            ref.read(callProvider.notifier).checkPendingDeclinedCall();
             SocketService.offConnected(checkOnce);
           }
 

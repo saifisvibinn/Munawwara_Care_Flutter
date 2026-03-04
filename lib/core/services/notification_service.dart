@@ -226,9 +226,9 @@ class NotificationService {
       return;
     }
 
-    // Handle incoming call → route to native CallKit screen
-    if (type == 'incoming_call') {
-      AppLogger.i('📞 INCOMING CALL DETECTED → routing to native call screen');
+    // Handle call-control notifications (incoming/cancel) via CallKit service
+    if (type == 'incoming_call' || type == 'call_cancel') {
+      AppLogger.i('📞 CALL CONTROL message detected (type=$type)');
       await CallKitService.handleFcmMessage(message);
       return;
     }
