@@ -17,7 +17,8 @@ import '../../moderator/widgets/pilgrim_profile_sheet.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class AlertsTab extends ConsumerStatefulWidget {
-  const AlertsTab({super.key});
+  final VoidCallback? onBack;
+  const AlertsTab({super.key, this.onBack});
 
   @override
   ConsumerState<AlertsTab> createState() => _AlertsTabState();
@@ -43,9 +44,24 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
         children: [
           // ── Header ──────────────────────────────────────────────────────
           Padding(
-            padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 0),
+            padding: EdgeInsets.fromLTRB(
+              widget.onBack != null ? 4.w : 20.w,
+              16.h,
+              20.w,
+              0,
+            ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                if (widget.onBack != null)
+                  IconButton(
+                    icon: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: isDark ? Colors.white : AppColors.textDark,
+                      size: 20.sp,
+                    ),
+                    onPressed: widget.onBack,
+                  ),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,26 +256,102 @@ class _NotificationTile extends ConsumerWidget {
                       ),
                     ),
                     SizedBox(height: 6.h),
-                    // Type badge
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 8.w,
-                        vertical: 2.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: n.iconColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4.r),
-                      ),
-                      child: Text(
-                        n.typeLabel.toUpperCase(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 9.sp,
-                          fontWeight: FontWeight.w700,
-                          color: n.iconColor,
-                          letterSpacing: 0.5,
+                    // Type badge + inline action button row
+                    Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8.w,
+                            vertical: 2.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: n.iconColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4.r),
+                          ),
+                          child: Text(
+                            n.typeLabel.toUpperCase(),
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 9.sp,
+                              fontWeight: FontWeight.w700,
+                              color: n.iconColor,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
                         ),
-                      ),
+                        const Spacer(),
+                        // View Profile button inline for SOS alerts
+                        if (n.type == 'sos_alert' &&
+                            n.data?['pilgrim_id'] != null)
+                          GestureDetector(
+                            onTap: () {
+                              final pId = n.data!['pilgrim_id'] as String;
+                              final gId = n.data!['group_id'] as String?;
+                              final modState = ref.read(moderatorProvider);
+                              PilgrimInGroup? pilgrim;
+                              for (final g in modState.groups) {
+                                try {
+                                  pilgrim = g.pilgrims.firstWhere(
+                                    (p) => p.id == pId,
+                                  );
+                                  break;
+                                } catch (_) {}
+                              }
+                              if (pilgrim != null && gId != null) {
+                                final uid = ref.read(authProvider).userId ?? '';
+                                showPilgrimProfileSheet(
+                                  context,
+                                  pilgrim,
+                                  gId,
+                                  uid,
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Pilgrim not found in your groups',
+                                      style: const TextStyle(
+                                        fontFamily: 'Lexend',
+                                      ),
+                                    ),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                            },
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 10.w,
+                                vertical: 4.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: n.iconColor,
+                                borderRadius: BorderRadius.circular(8.r),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Symbols.person,
+                                    size: 12.w,
+                                    color: Colors.white,
+                                    fill: 1,
+                                  ),
+                                  SizedBox(width: 4.w),
+                                  Text(
+                                    'View Profile',
+                                    style: TextStyle(
+                                      fontFamily: 'Lexend',
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 10.sp,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                     // Navigate button for area/meetpoint notifications
                     if ((n.type == 'suggested_area' || n.type == 'meetpoint') &&
@@ -297,73 +389,6 @@ class _NotificationTile extends ConsumerWidget {
                               SizedBox(width: 4.w),
                               Text(
                                 'area_navigate'.tr(),
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 11.sp,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                    // View Profile button for SOS alerts
-                    if (n.type == 'sos_alert' &&
-                        n.data?['pilgrim_id'] != null) ...[
-                      SizedBox(height: 8.h),
-                      GestureDetector(
-                        onTap: () {
-                          final pId = n.data!['pilgrim_id'] as String;
-                          final gId = n.data!['group_id'] as String?;
-
-                          final modState = ref.read(moderatorProvider);
-                          PilgrimInGroup? pilgrim;
-                          for (final g in modState.groups) {
-                            try {
-                              pilgrim = g.pilgrims.firstWhere(
-                                (p) => p.id == pId,
-                              );
-                              break;
-                            } catch (_) {}
-                          }
-                          if (pilgrim != null && gId != null) {
-                            final uid = ref.read(authProvider).userId ?? '';
-                            showPilgrimProfileSheet(context, pilgrim, gId, uid);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Pilgrim not found in your groups',
-                                  style: const TextStyle(fontFamily: 'Lexend'),
-                                ),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          }
-                        },
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 12.w,
-                            vertical: 7.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: n.iconColor,
-                            borderRadius: BorderRadius.circular(10.r),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Symbols.person,
-                                size: 14.w,
-                                color: Colors.white,
-                                fill: 1,
-                              ),
-                              SizedBox(width: 4.w),
-                              Text(
-                                'View Profile',
                                 style: TextStyle(
                                   fontFamily: 'Lexend',
                                   fontWeight: FontWeight.w700,

@@ -776,175 +776,251 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
           BatteryStatus.low => const Color(0xFFDC2626),
           BatteryStatus.unknown => AppColors.textMutedLight,
         };
-        return Container(
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.surfaceDark : Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.85,
           ),
-          padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 32.h),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40.w,
-                height: 4.h,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white24 : Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2.r),
-                ),
-              ),
-              SizedBox(height: 20.h),
-              // Avatar
-              Container(
-                width: 72.w,
-                height: 72.w,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    pilgrim.initials,
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.surfaceDark : Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+            ),
+            padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 32.h),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40.w,
+                    height: 4.h,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2.r),
+                    ),
+                  ),
+                  SizedBox(height: 20.h),
+                  // Avatar
+                  Container(
+                    width: 72.w,
+                    height: 72.w,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        pilgrim.initials,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 26.sp,
+                          color: AppColors.primaryDark,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 12.h),
+                  Text(
+                    pilgrim.fullName,
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontWeight: FontWeight.w700,
-                      fontSize: 26.sp,
-                      color: AppColors.primaryDark,
+                      fontSize: 20.sp,
+                      color: isDark ? Colors.white : AppColors.textDark,
                     ),
                   ),
-                ),
-              ),
-              SizedBox(height: 12.h),
-              Text(
-                pilgrim.fullName,
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 20.sp,
-                  color: isDark ? Colors.white : AppColors.textDark,
-                ),
-              ),
-              SizedBox(height: 4.h),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 8.w,
-                    height: 8.w,
-                    decoration: BoxDecoration(
-                      color: pilgrim.isOnline
-                          ? const Color(0xFF16A34A)
-                          : Colors.grey,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  SizedBox(width: 6.w),
-                  Text(
-                    pilgrim.isOnline ? 'Online' : 'Offline',
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 12.sp,
-                      color: pilgrim.isOnline
-                          ? const Color(0xFF16A34A)
-                          : AppColors.textMutedLight,
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Container(
-                    width: 8.w,
-                    height: 8.w,
-                    decoration: BoxDecoration(
-                      color: pilgrim.hasLocation
-                          ? AppColors.primary
-                          : Colors.grey,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  SizedBox(width: 6.w),
-                  Text(
-                    pilgrim.hasLocation ? 'Location sharing ON' : 'No location',
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 12.sp,
-                      color: pilgrim.hasLocation
-                          ? AppColors.primary
-                          : AppColors.textMutedLight,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 20.h),
-              Divider(color: Colors.grey.shade200),
-              SizedBox(height: 12.h),
-              // Info rows
-              if (pilgrim.nationalId != null)
-                _ProfileRow(
-                  icon: Symbols.badge,
-                  label: 'National ID',
-                  value: pilgrim.nationalId!,
-                ),
-              if (pilgrim.phoneNumber != null)
-                _ProfileRow(
-                  icon: Symbols.phone,
-                  label: 'Phone',
-                  value: pilgrim.phoneNumber!,
-                ),
-              if (pilgrim.batteryPercent != null)
-                _ProfileRow(
-                  icon: Symbols.battery_5_bar,
-                  label: 'Battery',
-                  value: '${pilgrim.batteryPercent}%',
-                  valueColor: battColor,
-                ),
-              if (pilgrim.lastSeenText.isNotEmpty)
-                _ProfileRow(
-                  icon: Symbols.schedule,
-                  label: 'Last seen',
-                  value: pilgrim.lastSeenText,
-                ),
-              SizedBox(height: 20.h),
-              // Message Button
-              SizedBox(
-                width: double.infinity,
-                height: 48.h,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => IndividualMessagesScreen(
-                          groupId: widget.groupId,
-                          groupName: 'group_name'
-                              .tr(), // Provide actual group name if available remotely, but this works
-                          recipientId: pilgrim.id,
-                          recipientName: pilgrim.fullName,
-                          currentUserId: widget.currentUserId,
+                  SizedBox(height: 4.h),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 8.w,
+                        height: 8.w,
+                        decoration: BoxDecoration(
+                          color: pilgrim.isOnline
+                              ? const Color(0xFF16A34A)
+                              : Colors.grey,
+                          shape: BoxShape.circle,
                         ),
                       ),
-                    );
-                  },
-                  icon: Icon(Symbols.chat, color: Colors.white, size: 20.w),
-                  label: Text(
-                    'Message',
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      SizedBox(width: 6.w),
+                      Text(
+                        pilgrim.isOnline ? 'Online' : 'Offline',
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 12.sp,
+                          color: pilgrim.isOnline
+                              ? const Color(0xFF16A34A)
+                              : AppColors.textMutedLight,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Container(
+                        width: 8.w,
+                        height: 8.w,
+                        decoration: BoxDecoration(
+                          color: pilgrim.hasLocation
+                              ? AppColors.primary
+                              : Colors.grey,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      SizedBox(width: 6.w),
+                      Text(
+                        pilgrim.hasLocation
+                            ? 'Location sharing ON'
+                            : 'No location',
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 12.sp,
+                          color: pilgrim.hasLocation
+                              ? AppColors.primary
+                              : AppColors.textMutedLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 20.h),
+                  Divider(color: Colors.grey.shade200),
+                  SizedBox(height: 12.h),
+                  // Info rows — wrap in a shrink-wrapped ListView so the sheet
+                  // can scroll if there is a lot of content (e.g. medical history)
+                  if (pilgrim.nationalId != null)
+                    _ProfileRow(
+                      icon: Symbols.badge,
+                      label: 'profile_national_id'.tr(),
+                      value: pilgrim.nationalId!,
+                    ),
+                  if (pilgrim.phoneNumber != null)
+                    _ProfileRow(
+                      icon: Symbols.phone,
+                      label: 'profile_phone'.tr(),
+                      value: pilgrim.phoneNumber!,
+                    ),
+                  if (pilgrim.batteryPercent != null)
+                    _ProfileRow(
+                      icon: Symbols.battery_5_bar,
+                      label: 'profile_battery'.tr(),
+                      value: '${pilgrim.batteryPercent}%',
+                      valueColor: battColor,
+                    ),
+                  if (pilgrim.lastSeenText.isNotEmpty)
+                    _ProfileRow(
+                      icon: Symbols.schedule,
+                      label: 'profile_last_seen'.tr(),
+                      value: pilgrim.lastSeenText,
+                    ),
+                  if (pilgrim.age != null)
+                    _ProfileRow(
+                      icon: Symbols.cake,
+                      label: 'profile_age'.tr(),
+                      value: '${pilgrim.age}',
+                    ),
+                  if (pilgrim.gender != null && pilgrim.gender!.isNotEmpty)
+                    _ProfileRow(
+                      icon: Symbols.person,
+                      label: 'profile_gender'.tr(),
+                      value: 'profile_gender_${pilgrim.gender}'.tr(),
+                    ),
+                  if (pilgrim.medicalHistory != null &&
+                      pilgrim.medicalHistory!.isNotEmpty) ...[
+                    SizedBox(height: 4.h),
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(14.w),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.primary.withOpacity(0.08)
+                            : const Color(0xFFF0F7F4),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(
+                          color: AppColors.primary.withOpacity(0.2),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.medical_information_rounded,
+                                size: 16.sp,
+                                color: AppColors.primary,
+                              ),
+                              SizedBox(width: 6.w),
+                              Text(
+                                'profile_medical_history'.tr(),
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12.sp,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 6.h),
+                          Text(
+                            pilgrim.medicalHistory!,
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 13.sp,
+                              color: isDark
+                                  ? Colors.white70
+                                  : AppColors.textDark,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
+                  ],
+                  SizedBox(height: 20.h),
+                  // Message Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48.h,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => IndividualMessagesScreen(
+                              groupId: widget.groupId,
+                              groupName: 'group_name'
+                                  .tr(), // Provide actual group name if available remotely, but this works
+                              recipientId: pilgrim.id,
+                              recipientName: pilgrim.fullName,
+                              currentUserId: widget.currentUserId,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: Icon(Symbols.chat, color: Colors.white, size: 20.w),
+                      label: Text(
+                        'Message',
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                        elevation: 0,
+                      ),
                     ),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    elevation: 0,
-                  ),
-                ),
+                  SizedBox(height: 12.h),
+                ],
               ),
-              SizedBox(height: 12.h),
-            ],
+            ),
           ),
         );
       },

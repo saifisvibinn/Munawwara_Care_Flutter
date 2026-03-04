@@ -19,6 +19,9 @@ class AuthState {
   final String? email;
   final bool emailVerified;
   final String? phoneNumber;
+  final int? age;
+  final String? gender;
+  final String? medicalHistory;
   final String?
   moderatorRequestStatus; // 'pending', 'approved', 'rejected', or null
   final bool promotedToModeratorPending;
@@ -34,6 +37,9 @@ class AuthState {
     this.email,
     this.emailVerified = false,
     this.phoneNumber,
+    this.age,
+    this.gender,
+    this.medicalHistory,
     this.moderatorRequestStatus,
     this.promotedToModeratorPending = false,
   });
@@ -51,12 +57,18 @@ class AuthState {
     String? email,
     bool? emailVerified,
     String? phoneNumber,
+    int? age,
+    String? gender,
+    String? medicalHistory,
     String? moderatorRequestStatus,
     bool? promotedToModeratorPending,
     bool clearError = false,
     bool clearPhoneNumber = false,
     bool clearEmail = false,
     bool clearPromotionFlag = false,
+    bool clearAge = false,
+    bool clearGender = false,
+    bool clearMedicalHistory = false,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
@@ -69,6 +81,11 @@ class AuthState {
       email: clearEmail ? null : (email ?? this.email),
       emailVerified: emailVerified ?? this.emailVerified,
       phoneNumber: clearPhoneNumber ? null : (phoneNumber ?? this.phoneNumber),
+      age: clearAge ? null : (age ?? this.age),
+      gender: clearGender ? null : (gender ?? this.gender),
+      medicalHistory: clearMedicalHistory
+          ? null
+          : (medicalHistory ?? this.medicalHistory),
       moderatorRequestStatus:
           moderatorRequestStatus ?? this.moderatorRequestStatus,
       promotedToModeratorPending: clearPromotionFlag
@@ -319,6 +336,9 @@ class AuthNotifier extends Notifier<AuthState> {
         email: data['email'] as String?,
         emailVerified: data['email_verified'] as bool? ?? false,
         phoneNumber: data['phone_number'] as String?,
+        age: (data['age'] as num?)?.toInt(),
+        gender: data['gender'] as String?,
+        medicalHistory: data['medical_history'] as String?,
         moderatorRequestStatus: data['moderator_request_status'] as String?,
       );
       // Persist updated full_name to prefs
@@ -335,6 +355,9 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<bool> updateProfile({
     required String fullName,
     String? phoneNumber,
+    int? age,
+    String? gender,
+    String? medicalHistory,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
@@ -342,6 +365,11 @@ class AuthNotifier extends Notifier<AuthState> {
       if (phoneNumber != null && phoneNumber.trim().isNotEmpty) {
         body['phone_number'] = phoneNumber.trim();
       }
+      if (age != null) body['age'] = age;
+      if (gender != null && gender.isNotEmpty) body['gender'] = gender;
+      // Always send medical_history so user can clear it by leaving it empty
+      body['medical_history'] = medicalHistory ?? '';
+
       final response = await ApiService.dio.put(
         '/auth/update-profile',
         data: body,
@@ -352,6 +380,9 @@ class AuthNotifier extends Notifier<AuthState> {
 
       final newName = userData['full_name'] as String? ?? fullName;
       final newPhone = userData['phone_number'] as String?;
+      final newAge = (userData['age'] as num?)?.toInt();
+      final newGender = userData['gender'] as String?;
+      final newMedical = userData['medical_history'] as String?;
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_full_name', newName);
@@ -360,6 +391,9 @@ class AuthNotifier extends Notifier<AuthState> {
         isLoading: false,
         fullName: newName,
         phoneNumber: newPhone,
+        age: newAge,
+        gender: newGender,
+        medicalHistory: newMedical,
         clearError: true,
       );
       return true;

@@ -135,21 +135,21 @@ void showPilgrimProfileSheet(
               if (pilgrim.nationalId != null)
                 _ProfileRow(
                   icon: Symbols.badge,
-                  label: 'National ID',
+                  label: 'profile_national_id'.tr(),
                   value: pilgrim.nationalId!,
                   isDark: isDark,
                 ),
               if (pilgrim.phoneNumber != null)
                 _ProfileRow(
                   icon: Symbols.phone,
-                  label: 'Phone',
+                  label: 'profile_phone'.tr(),
                   value: pilgrim.phoneNumber!,
                   isDark: isDark,
                 ),
               if (pilgrim.batteryPercent != null)
                 _ProfileRow(
                   icon: Symbols.battery_5_bar,
-                  label: 'Battery',
+                  label: 'profile_battery'.tr(),
                   value: '${pilgrim.batteryPercent}%',
                   valueColor: battColor,
                   isDark: isDark,
@@ -157,10 +157,33 @@ void showPilgrimProfileSheet(
               if (pilgrim.lastSeenText.isNotEmpty)
                 _ProfileRow(
                   icon: Symbols.schedule,
-                  label: 'Last seen',
+                  label: 'profile_last_seen'.tr(),
                   value: pilgrim.lastSeenText,
                   isDark: isDark,
                 ),
+              if (pilgrim.age != null)
+                _ProfileRow(
+                  icon: Symbols.cake,
+                  label: 'profile_age'.tr(),
+                  value: '${pilgrim.age}',
+                  isDark: isDark,
+                ),
+              if (pilgrim.gender != null && pilgrim.gender!.isNotEmpty)
+                _ProfileRow(
+                  icon: Symbols.person,
+                  label: 'profile_gender'.tr(),
+                  value: 'profile_gender_${pilgrim.gender}'.tr(),
+                  isDark: isDark,
+                ),
+              if (pilgrim.medicalHistory != null &&
+                  pilgrim.medicalHistory!.isNotEmpty) ...[
+                SizedBox(height: 4.h),
+                _MedicalHistoryCard(
+                  text: pilgrim.medicalHistory!,
+                  isDark: isDark,
+                ),
+                SizedBox(height: 8.h),
+              ],
               SizedBox(height: 20.h),
               // Buttons row: Message + Call via Internet
               Row(
@@ -269,9 +292,10 @@ void showPilgrimProfileSheet(
                         '',
                       );
                       final uri = Uri.parse('tel:$cleaned');
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri);
-                      }
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
                     },
                     icon: Icon(
                       Icons.phone_rounded,
@@ -303,6 +327,65 @@ void showPilgrimProfileSheet(
       );
     },
   );
+}
+
+class _MedicalHistoryCard extends StatelessWidget {
+  final String text;
+  final bool isDark;
+  const _MedicalHistoryCard({required this.text, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(14.w),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.red.shade900.withOpacity(0.18)
+            : const Color(0xFFFFF1F2),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: isDark
+              ? Colors.red.shade800.withOpacity(0.4)
+              : const Color(0xFFFFE4E6),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Symbols.medical_information,
+                size: 16.w,
+                color: const Color(0xFFDC2626),
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                'profile_medical_history'.tr(),
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.sp,
+                  color: const Color(0xFFDC2626),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            text,
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 13.sp,
+              color: isDark ? Colors.white70 : AppColors.textDark,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ProfileRow extends StatelessWidget {

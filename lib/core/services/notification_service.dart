@@ -57,25 +57,34 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // ── Data-only messages → show local notification ────────────────────────
   await NotificationService.instance.initialize();
 
-  // ── Urgent TTS: speak the message aloud even when app is killed ─────────
+  // ── Urgent TTS: urgent.wav → "Urgent message." → speak text ─────────────
   if (dataType == 'urgent' && msgType == 'tts') {
     final text =
         message.data['body']?.toString() ??
         message.data['content']?.toString() ??
         '';
-    AppLogger.i('🔊 Urgent TTS: speaking aloud in background: "$text"');
+    AppLogger.i('🔊 Urgent TTS: background handler, text: "$text"');
+
+    // 1. Show notification first — the urgent channel plays urgent.wav as its sound
+    await NotificationService.instance.showNotificationFromMessage(message);
+
     if (text.isNotEmpty) {
       try {
+        // 2. Wait for urgent.wav to finish before TTS begins
+        await Future.delayed(const Duration(milliseconds: 2200));
+
+        // 3. Speak "Urgent message." prefix then the actual message text
         final tts = FlutterTts();
         await tts.awaitSpeakCompletion(true);
         await tts.setVolume(1.0);
         await tts.setSpeechRate(0.4);
         await tts.setPitch(1.0);
-        await tts.speak(text);
+        await tts.speak('Urgent message. $text');
       } catch (e) {
         AppLogger.e('🔊 Background TTS error: $e');
       }
     }
+    return; // notification already shown above, skip the call below
   }
 
   await NotificationService.instance.showNotificationFromMessage(message);
@@ -137,24 +146,37 @@ class NotificationService {
 
     if (androidPlugin == null) return;
 
+    // ── Delete legacy channels so Android creates fresh ones with correct sounds
+    // Android caches channel sound on first creation and never updates it.
+    for (final oldId in [
+      'default',
+      'urgent',
+      'calls',
+      'mc_default',
+      'mc_urgent',
+      'mc_calls',
+    ]) {
+      await androidPlugin.deleteNotificationChannel(oldId);
+    }
+
     // Default channel for regular messages — uses custom notification sound
     final defaultChannel = AndroidNotificationChannel(
-      'default',
+      'mc_default_v2',
       'Default Notifications',
       description: 'General notifications for messages and updates',
       importance: Importance.high,
       playSound: true,
-      sound: const RawResourceAndroidNotificationSound('notification_sound'),
+      sound: const RawResourceAndroidNotificationSound('background_app'),
       enableVibration: true,
     );
     // Urgent channel with custom sound
     final urgentChannel = AndroidNotificationChannel(
-      'urgent',
+      'mc_urgent_v2',
       'Urgent Notifications',
       description: 'High-priority urgent messages and alerts',
       importance: Importance.max,
       playSound: true,
-      sound: const RawResourceAndroidNotificationSound('urgent'),
+      sound: const RawResourceAndroidNotificationSound('urgent_tts'),
       enableVibration: true,
       enableLights: true,
       ledColor: const Color(0xFFF97316), // AppColors.primary
@@ -162,12 +184,12 @@ class NotificationService {
 
     // Call channel with full-screen intent
     final callChannel = AndroidNotificationChannel(
-      'calls',
+      'mc_calls_v2',
       'Incoming Calls',
       description: 'Incoming voice calls',
       importance: Importance.max,
       playSound: true,
-      sound: const RawResourceAndroidNotificationSound('urgent'),
+      sound: const RawResourceAndroidNotificationSound('urgent_tts'),
       enableVibration: true,
       enableLights: true,
       ledColor: const Color(0xFF10B981),
@@ -177,7 +199,7 @@ class NotificationService {
     await androidPlugin.createNotificationChannel(urgentChannel);
     await androidPlugin.createNotificationChannel(callChannel);
 
-    AppLogger.i('✅ Notification channels created');
+    AppLogger.i('✅ Notification channels created (v2)');
   }
 
   // ── Show Notification from FCM Message ────────────────────────────────────
@@ -235,13 +257,13 @@ class NotificationService {
     AppLogger.w('🚨 Showing urgent notification');
 
     final androidDetails = AndroidNotificationDetails(
-      'urgent',
+      'mc_urgent_v2',
       'Urgent Notifications',
       channelDescription: 'High-priority urgent messages and alerts',
       importance: Importance.max,
       priority: Priority.max,
       playSound: true,
-      sound: const RawResourceAndroidNotificationSound('urgent'),
+      sound: const RawResourceAndroidNotificationSound('urgent_tts'),
       enableVibration: true,
       vibrationPattern: Int64List.fromList([0, 500, 250, 500]),
       enableLights: true,
@@ -254,7 +276,7 @@ class NotificationService {
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
-      sound: 'urgent.wav',
+      sound: 'urgent_tts.wav',
       interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
@@ -282,13 +304,13 @@ class NotificationService {
     AppLogger.i('📬 Showing default notification');
 
     final androidDetails = AndroidNotificationDetails(
-      'default',
+      'mc_default_v2',
       'Default Notifications',
       channelDescription: 'General notifications for messages and updates',
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
-      sound: const RawResourceAndroidNotificationSound('notification_sound'),
+      sound: const RawResourceAndroidNotificationSound('background_app'),
       enableVibration: true,
       icon: '@mipmap/ic_launcher',
       styleInformation: BigTextStyleInformation(body),

@@ -20,6 +20,9 @@ class _PilgrimProfileEditScreenState
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameCtrl;
   late final TextEditingController _phoneCtrl;
+  late final TextEditingController _ageCtrl;
+  late final TextEditingController _medicalCtrl;
+  String? _selectedGender;
 
   bool _saving = false;
 
@@ -29,12 +32,19 @@ class _PilgrimProfileEditScreenState
     final auth = ref.read(authProvider);
     _nameCtrl = TextEditingController(text: auth.fullName ?? '');
     _phoneCtrl = TextEditingController(text: auth.phoneNumber ?? '');
+    _ageCtrl = TextEditingController(
+      text: auth.age != null ? '${auth.age}' : '',
+    );
+    _medicalCtrl = TextEditingController(text: auth.medicalHistory ?? '');
+    _selectedGender = auth.gender;
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
+    _ageCtrl.dispose();
+    _medicalCtrl.dispose();
     super.dispose();
   }
 
@@ -42,11 +52,17 @@ class _PilgrimProfileEditScreenState
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _saving = true);
 
+    final ageText = _ageCtrl.text.trim();
+    final int? age = ageText.isNotEmpty ? int.tryParse(ageText) : null;
+
     final success = await ref
         .read(authProvider.notifier)
         .updateProfile(
           fullName: _nameCtrl.text.trim(),
           phoneNumber: _phoneCtrl.text.trim(),
+          age: age,
+          gender: _selectedGender,
+          medicalHistory: _medicalCtrl.text.trim(),
         );
 
     if (!mounted) return;
@@ -365,7 +381,221 @@ class _PilgrimProfileEditScreenState
 
                       SizedBox(height: 24.h),
 
-                      // ── EMAIL VERIFICATION section ────────────────────
+                      // ── HEALTH INFO section ───────────────────────────
+                      _SectionLabel(
+                        label: 'edit_profile_health_section'.tr(),
+                        textMuted: textMuted,
+                      ),
+                      SizedBox(height: 10.h),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(16.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(
+                                isDark ? 0.3 : 0.06,
+                              ),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Age field
+                            _EditField(
+                              controller: _ageCtrl,
+                              label: 'reg_age'.tr(),
+                              icon: Icons.cake_rounded,
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                              isFirst: true,
+                              hasDivider: true,
+                              keyboardType: TextInputType.number,
+                              validator: (v) {
+                                if (v != null && v.trim().isNotEmpty) {
+                                  final n = int.tryParse(v.trim());
+                                  if (n == null || n < 1 || n > 120) {
+                                    return 'Enter a valid age (1–120)';
+                                  }
+                                }
+                                return null;
+                              },
+                            ),
+                            // Gender selector
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                16.w,
+                                12.h,
+                                16.w,
+                                12.h,
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 38.w,
+                                    height: 38.w,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withOpacity(
+                                        0.12,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10.r),
+                                    ),
+                                    child: Icon(
+                                      Icons.wc_rounded,
+                                      color: AppColors.primary,
+                                      size: 18.sp,
+                                    ),
+                                  ),
+                                  SizedBox(width: 12.w),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'reg_gender'.tr(),
+                                          style: TextStyle(
+                                            fontFamily: 'Lexend',
+                                            fontSize: 12.sp,
+                                            color: textMuted,
+                                          ),
+                                        ),
+                                        SizedBox(height: 8.h),
+                                        Row(
+                                          children: [
+                                            _GenderChip(
+                                              label: 'reg_male'.tr(),
+                                              value: 'male',
+                                              selected:
+                                                  _selectedGender == 'male',
+                                              isDark: isDark,
+                                              onTap: () => setState(
+                                                () => _selectedGender =
+                                                    _selectedGender == 'male'
+                                                    ? null
+                                                    : 'male',
+                                              ),
+                                            ),
+                                            SizedBox(width: 8.w),
+                                            _GenderChip(
+                                              label: 'reg_female'.tr(),
+                                              value: 'female',
+                                              selected:
+                                                  _selectedGender == 'female',
+                                              isDark: isDark,
+                                              onTap: () => setState(
+                                                () => _selectedGender =
+                                                    _selectedGender == 'female'
+                                                    ? null
+                                                    : 'female',
+                                              ),
+                                            ),
+                                            SizedBox(width: 8.w),
+                                            _GenderChip(
+                                              label: 'profile_gender_other'
+                                                  .tr(),
+                                              value: 'other',
+                                              selected:
+                                                  _selectedGender == 'other',
+                                              isDark: isDark,
+                                              onTap: () => setState(
+                                                () => _selectedGender =
+                                                    _selectedGender == 'other'
+                                                    ? null
+                                                    : 'other',
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: isDark
+                                  ? const Color(0xFF2D4A3A)
+                                  : const Color(0xFFE2E8F0),
+                              indent: 16.w,
+                              endIndent: 16.w,
+                            ),
+                            // Medical history field (multiline)
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                16.w,
+                                8.h,
+                                16.w,
+                                8.h,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: EdgeInsets.only(top: 14.h),
+                                    child: Container(
+                                      width: 38.w,
+                                      height: 38.w,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withOpacity(
+                                          0.12,
+                                        ),
+                                        borderRadius: BorderRadius.circular(
+                                          10.r,
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        Icons.medical_information_rounded,
+                                        color: AppColors.primary,
+                                        size: 18.sp,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: 12.w),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _medicalCtrl,
+                                      maxLines: 3,
+                                      minLines: 2,
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontSize: 14.sp,
+                                        color: textPrimary,
+                                      ),
+                                      decoration: InputDecoration(
+                                        labelText: 'reg_medical'.tr(),
+                                        hintText: 'reg_medical_hint'.tr(),
+                                        labelStyle: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          fontSize: 12.sp,
+                                          color: textMuted,
+                                        ),
+                                        hintStyle: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          fontSize: 13.sp,
+                                          color: textMuted.withOpacity(0.6),
+                                        ),
+                                        border: InputBorder.none,
+                                        contentPadding: EdgeInsets.symmetric(
+                                          vertical: 14.h,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(height: 24.h),
                       if (authState.email == null ||
                           !authState.emailVerified) ...[
                         _SectionLabel(
@@ -958,6 +1188,55 @@ class _ReadOnlyField extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GenderChip extends StatelessWidget {
+  const _GenderChip({
+    required this.label,
+    required this.value,
+    required this.selected,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final bool selected;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primary
+              : (isDark ? AppColors.backgroundDark : const Color(0xFFF0F0F8)),
+          borderRadius: BorderRadius.circular(10.r),
+          border: Border.all(
+            color: selected
+                ? AppColors.primary
+                : (isDark ? const Color(0xFF2D4A3A) : const Color(0xFFE2E8F0)),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontSize: 13.sp,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            color: selected
+                ? Colors.white
+                : (isDark ? Colors.white70 : AppColors.textDark),
+          ),
+        ),
       ),
     );
   }

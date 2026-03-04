@@ -10,6 +10,9 @@ class PilgrimInGroup {
   final String fullName;
   final String? nationalId;
   final String? phoneNumber;
+  final int? age;
+  final String? gender;
+  final String? medicalHistory;
   final double? lat;
   final double? lng;
   final int? batteryPercent;
@@ -23,6 +26,9 @@ class PilgrimInGroup {
     required this.fullName,
     this.nationalId,
     this.phoneNumber,
+    this.age,
+    this.gender,
+    this.medicalHistory,
     this.lat,
     this.lng,
     this.batteryPercent,
@@ -38,6 +44,9 @@ class PilgrimInGroup {
       fullName: j['full_name']?.toString() ?? '',
       nationalId: j['national_id']?.toString(),
       phoneNumber: j['phone_number']?.toString(),
+      age: (j['age'] as num?)?.toInt(),
+      gender: j['gender']?.toString(),
+      medicalHistory: j['medical_history']?.toString(),
       lat: (loc?['lat'] as num?)?.toDouble(),
       lng: (loc?['lng'] as num?)?.toDouble(),
       batteryPercent: (j['battery_percent'] as num?)?.toInt(),
@@ -60,6 +69,9 @@ class PilgrimInGroup {
     fullName: fullName,
     nationalId: nationalId,
     phoneNumber: phoneNumber,
+    age: age,
+    gender: gender,
+    medicalHistory: medicalHistory,
     lat: lat ?? this.lat,
     lng: lng ?? this.lng,
     batteryPercent: batteryPercent ?? this.batteryPercent,

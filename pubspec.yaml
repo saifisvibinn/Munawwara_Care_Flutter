@@ -78,10 +78,12 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
 flutter_launcher_icons:
-  android: "launcher_icon"
+  android: "ic_launcher"
   ios: true
-  image_path: "assets/static/logo.jpeg"
+  image_path: "assets/static/app_icon.png"
   min_sdk_android: 21
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/static/app_icon.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -102,7 +104,6 @@ flutter:
     - assets/static/splash-screen.png
     - assets/static/empty_groups_light.png
     - assets/static/empty_groups_dark.png
-    - assets/static/urgent.wav
     - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see

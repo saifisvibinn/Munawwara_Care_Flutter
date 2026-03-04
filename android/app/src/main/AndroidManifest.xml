@@ -64,6 +64,17 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- FCM: use app icon + brand color for all system-delivered notifications -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color" />
+        <!-- FCM: route background notifications to our custom channel (with custom sound) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="mc_default_v2" />
         <!-- FCM services (plugin also adds these automatically, but we include them explicitly) -->
         <service
             android:name="com.google.firebase.messaging.FirebaseMessagingService"
@@ -103,6 +114,15 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Required for url_launcher to open tel: links on Android 11+ -->
+        <intent>
+            <action android:name="android.intent.action.DIAL"/>
+            <data android:scheme="tel"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.CALL"/>
+            <data android:scheme="tel"/>
         </intent>
     </queries>
 </manifest>

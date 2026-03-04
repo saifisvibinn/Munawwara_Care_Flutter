@@ -336,5 +336,16 @@
     "group_menu_enable_beacon": "Enable Beacon",
     "group_menu_disable_beacon": "Disable Beacon",
     "group_menu_manage": "Manage Group",
-    "group_menu_areas": "Suggested Areas"
+    "group_menu_areas": "Suggested Areas",
+    "profile_national_id": "National ID",
+    "profile_phone": "Phone",
+    "profile_battery": "Battery",
+    "profile_last_seen": "Last seen",
+    "profile_age": "Age",
+    "profile_gender": "Gender",
+    "profile_gender_male": "Male",
+    "profile_gender_female": "Female",
+    "profile_gender_other": "Other",
+    "profile_medical_history": "Medical History",
+    "edit_profile_health_section": "HEALTH INFO"
 }

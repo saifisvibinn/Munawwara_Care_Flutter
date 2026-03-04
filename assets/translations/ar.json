@@ -336,5 +336,16 @@
     "group_menu_enable_beacon": "تفعيل المنارة",
     "group_menu_disable_beacon": "إيقاف المنارة",
     "group_menu_manage": "إدارة المجموعة",
-    "group_menu_areas": "المناطق المقترحة"
+    "group_menu_areas": "المناطق المقترحة",
+    "profile_national_id": "الهوية الوطنية",
+    "profile_phone": "الهاتف",
+    "profile_battery": "البطارية",
+    "profile_last_seen": "آخر ظهور",
+    "profile_age": "العمر",
+    "profile_gender": "الجنس",
+    "profile_gender_male": "ذكر",
+    "profile_gender_female": "أنثى",
+    "profile_gender_other": "غير محدد",
+    "profile_medical_history": "التاريخ الطبي",
+    "edit_profile_health_section": "المعلومات الصحية"
 }

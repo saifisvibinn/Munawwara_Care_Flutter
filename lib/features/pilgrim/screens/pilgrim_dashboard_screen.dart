@@ -47,7 +47,8 @@ class PilgrimDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
   // Bottom nav
   int _currentTab = 0;
 
@@ -108,8 +109,14 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycleState = state;
+  }
+
+  @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     // SOS hold progress ring (fills in 3 s)
     _sosHoldController = AnimationController(
@@ -287,6 +294,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _sosTimer?.cancel();
     _sosCountdownTimer?.cancel();
     _roleSyncTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _locationSub?.cancel();
     _sfxPlayer.dispose();
     SocketService.off('mod_nav_beacon');
@@ -307,6 +315,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   void _showMessagePopup(Map<String, dynamic> map) {
     if (!mounted) return;
 
+    // Don't play SFX or show popup when app is not in foreground
+    if (_lifecycleState != AppLifecycleState.resumed) return;
+
     // Don't show popup if user is already on the chat tab
     if (_currentTab == 3) return;
 
@@ -318,7 +329,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       if (msg.sender?.id == myId) return;
 
       // ── Play SFX for every incoming message (regardless of urgency) ─────────
-      _sfxPlayer.play(AssetSource('static/chat_sfx.mp3'));
+      _sfxPlayer.play(AssetSource('static/in_app.mp3'));
 
       final senderName = msg.sender?.fullName ?? 'notification_title'.tr();
 
@@ -2145,27 +2156,7 @@ class _PilgrimNotificationsScreen extends StatelessWidget {
           ? AppColors.backgroundDark
           : const Color(0xfff1f5f3),
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(8.w, 12.h, 20.w, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: isDark ? Colors.white : AppColors.textDark,
-                      size: 20.sp,
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  const Spacer(),
-                ],
-              ),
-            ),
-            const Expanded(child: AlertsTab()),
-          ],
-        ),
+        child: AlertsTab(onBack: () => Navigator.of(context).pop()),
       ),
     );
   }
