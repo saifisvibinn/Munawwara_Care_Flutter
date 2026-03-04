@@ -146,6 +146,47 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
 
             const Spacer(flex: 3),
 
+            // ── Speaker toggle while ringing ──────────────────────────────
+            GestureDetector(
+              onTap: () => ref.read(callProvider.notifier).toggleSpeaker(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 60.w,
+                    height: 60.w,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: call.isSpeakerOn
+                          ? Colors.white.withOpacity(0.25)
+                          : Colors.white.withOpacity(0.1),
+                    ),
+                    child: Icon(
+                      call.isSpeakerOn
+                          ? Symbols.volume_up
+                          : Symbols.volume_down,
+                      fill: 1,
+                      color: Colors.white,
+                      size: 26.w,
+                    ),
+                  ),
+                  SizedBox(height: 6.h),
+                  Text(
+                    call.isSpeakerOn
+                        ? 'call_speaker'.tr()
+                        : 'call_earpiece'.tr(),
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11.sp,
+                      fontFamily: 'Lexend',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: 28.h),
+
             // ── Accept / Decline buttons ───────────────────────────────────
             Row(
               mainAxisAlignment: MainAxisAlignment.center,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:dio/dio.dart';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -16,7 +15,7 @@ import 'core/theme/app_theme.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/env/env_check.dart';
 import 'core/services/notification_service.dart';
-import 'core/services/api_service.dart';
+import 'core/services/callkit_service.dart';
 import 'core/router/app_router.dart' show AppRouter;
 import 'features/auth/providers/auth_provider.dart';
 import 'features/calling/providers/call_provider.dart';
@@ -29,6 +28,10 @@ String? _globalFcmToken;
 // Global Riverpod container (set in main, used by CallKit listeners)
 ProviderContainer? _globalContainer;
 
+// Pending decline caller id set when native decline happens before provider
+// is ready (cold-start race). Dashboard/provider consumes this later.
+String? _pendingDeclinedCallerId;
+
 // Guard: prevent pushing VoiceCallScreen more than once
 bool _navigatingToCall = false;
 
@@ -40,6 +43,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   AppLogger.d('main: after ensureInitialized');
 
+  // Attach CallKit listener as early as possible. On cold start from native
+  // accept action, event can fire very early and be missed if we subscribe
+  // after other async initialization tasks.
+  _setupCallKitListeners();
+
   await Firebase.initializeApp();
   AppLogger.i('Firebase initialized');
 
@@ -50,9 +58,6 @@ void main() async {
   // ── Set up Firebase Background Message Handler ────────────────────────────
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   AppLogger.i('Background message handler registered');
-
-  // ── Listen for CallKit events (accept/decline/timeout) ────────────────────
-  _setupCallKitListeners();
 
   // ── Request Notification Permissions ──────────────────────────────────────
   AppLogger.d('main: requesting fcm permission');
@@ -137,6 +142,10 @@ void main() async {
   final container = ProviderContainer();
   _globalContainer = container;
 
+  // Cold-start safeguard: if accept event fired before listener handling,
+  // restore pending call context from persisted CallKit payload.
+  await _recoverAcceptedCallOnStartup();
+
   runApp(
     EasyLocalization(
       supportedLocales: const [
@@ -161,116 +170,238 @@ void main() async {
 // CallKit Event Listeners — handles accept/decline from native call screen
 // ─────────────────────────────────────────────────────────────────────────────
 
+Future<void> _recoverAcceptedCallOnStartup() async {
+  try {
+    final activeCalls = await FlutterCallkitIncoming.activeCalls();
+    if (activeCalls is List && activeCalls.isNotEmpty) {
+      final pending = await CallKitService.readRecentPendingIncomingCall(
+        maxAgeSeconds: 90,
+      );
+      if (pending != null && (pending['channelName'] ?? '').isNotEmpty) {
+        _pendingAcceptedCall = {
+          'callerId': pending['callerId'] ?? '',
+          'callerName': (pending['callerName'] ?? '').isNotEmpty
+              ? (pending['callerName'] ?? 'Unknown')
+              : 'Unknown',
+          'channelName': pending['channelName'] ?? '',
+          'callerRole': pending['callerRole'] ?? '',
+        };
+        AppLogger.i(
+          '📞 Startup recovery: restored pending accepted call from persisted CallKit payload',
+        );
+      }
+    } else {
+      // No active native call UI; this clears stale payloads when expired.
+      await CallKitService.readRecentPendingIncomingCall(maxAgeSeconds: 90);
+    }
+  } catch (e) {
+    AppLogger.e('📞 Startup recovery failed: $e');
+  }
+}
+
 void _setupCallKitListeners() {
-  FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
+  FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
     if (event == null) return;
     AppLogger.i('📞 CallKit event: ${event.event}');
 
+    final eventName = event.event.toString().toLowerCase();
+    if (eventName.contains('start') && eventName.contains('call')) {
+      AppLogger.i('✅ Call START event treated as ACCEPT');
+      await _handleAcceptedCallEvent(event);
+      return;
+    }
+
     switch (event.event) {
       case Event.actionCallAccept:
-        AppLogger.i('✅ Call ACCEPTED from native call screen');
-        final extra = event.body?['extra'] as Map<dynamic, dynamic>? ?? {};
-        final channelName = extra['channelName']?.toString() ?? '';
-        final callerId = extra['callerId']?.toString() ?? '';
-        final callerName = extra['callerName']?.toString() ?? 'Unknown';
-
-        // Always store pending data first
-        _pendingAcceptedCall = {
-          'callerId': callerId,
-          'callerName': callerName,
-          'channelName': channelName,
-          'callerRole': extra['callerRole']?.toString() ?? '',
-        };
-
-        // If provider is ready, accept the call right away and navigate
-        // directly to VoiceCallScreen so the user never sees the dashboard.
-        if (_globalContainer != null && channelName.isNotEmpty) {
-          final notifier = _globalContainer!.read(callProvider.notifier);
-          final currentState = _globalContainer!.read(callProvider);
-
-          if (currentState.status == CallStatus.ringing) {
-            // Set navigation guard BEFORE acceptCall() so that the
-            // synchronous state change (ringing→connected) doesn't
-            // trigger the dashboard's ref.listen to push a second screen.
-            _navigatingToCall = true;
-            notifier.acceptCall();
-            _pendingAcceptedCall = null;
-            _navigateToVoiceCallScreen();
-          } else if (!currentState.isInCall) {
-            _navigatingToCall = true;
-            notifier.acceptCallFromFcm(
-              callerId: callerId,
-              callerName: callerName,
-              channelName: channelName,
-            );
-            _pendingAcceptedCall = null;
-            _navigateToVoiceCallScreen();
-          }
-          // Otherwise leave _pendingAcceptedCall for dashboard pickup
-        }
+        await _handleAcceptedCallEvent(event);
         break;
 
       case Event.actionCallDecline:
         AppLogger.w('❌ Call DECLINED from native call screen');
+        final declineCallerId = await _resolveCallerIdFromEvent(event);
         _pendingAcceptedCall = null;
+        await CallKitService.instance.clearLocalCallTracking();
         if (_globalContainer != null) {
           final currentState = _globalContainer!.read(callProvider);
           if (currentState.status == CallStatus.ringing) {
             _globalContainer!.read(callProvider.notifier).declineCall();
           } else {
             // Killed/background cold-start: provider state is idle (not ringing)
-            // because socket never delivered the call-offer. Use HTTP fallback
-            // to notify the caller directly.
-            final extra = event.body?['extra'] as Map<dynamic, dynamic>? ?? {};
-            final callerId = extra['callerId']?.toString() ?? '';
-            if (callerId.isNotEmpty) {
-              AppLogger.w('❌ Decline via HTTP fallback (cold-start, state=${currentState.status})');
-              Dio()
-                  .post(
-                    '${ApiService.baseUrl}/call-history/decline',
-                    data: {'callerId': callerId, 'declinerId': ''},
-                  )
-                  .then((_) => AppLogger.i('[Main] HTTP call-declined sent to $callerId'))
-                  .catchError((e) => AppLogger.e('[Main] HTTP call-declined failed: $e'));
+            // because socket never delivered the call-offer.
+            if (declineCallerId.isNotEmpty) {
+              AppLogger.w(
+                '❌ Decline via HTTP fallback (cold-start, state=${currentState.status})',
+              );
+              _globalContainer!
+                  .read(callProvider.notifier)
+                  .declineCallFromCallerId(declineCallerId);
             }
           }
+        } else if (declineCallerId.isNotEmpty) {
+          _pendingDeclinedCallerId = declineCallerId;
+          AppLogger.w(
+            '❌ Decline queued (container not ready) for callerId=$declineCallerId',
+          );
         }
         break;
 
       case Event.actionCallTimeout:
         AppLogger.w('⏰ Call TIMEOUT from native call screen');
+        final timeoutCallerId = await _resolveCallerIdFromEvent(event);
         _pendingAcceptedCall = null;
+        await CallKitService.instance.clearLocalCallTracking();
         if (_globalContainer != null) {
           final currentState = _globalContainer!.read(callProvider);
           if (currentState.status == CallStatus.ringing) {
             _globalContainer!.read(callProvider.notifier).declineCall();
           } else {
-            // Killed/background cold-start: same HTTP fallback as decline
-            final extra = event.body?['extra'] as Map<dynamic, dynamic>? ?? {};
-            final callerId = extra['callerId']?.toString() ?? '';
-            if (callerId.isNotEmpty) {
-              AppLogger.w('⏰ Timeout via HTTP fallback (cold-start, state=${currentState.status})');
-              Dio()
-                  .post(
-                    '${ApiService.baseUrl}/call-history/decline',
-                    data: {'callerId': callerId, 'declinerId': ''},
-                  )
-                  .then((_) => AppLogger.i('[Main] HTTP call-declined (timeout) sent to $callerId'))
-                  .catchError((e) => AppLogger.e('[Main] HTTP call-declined (timeout) failed: $e'));
+            // Killed/background cold-start: same fallback as decline
+            if (timeoutCallerId.isNotEmpty) {
+              AppLogger.w(
+                '⏰ Timeout via HTTP fallback (cold-start, state=${currentState.status})',
+              );
+              _globalContainer!
+                  .read(callProvider.notifier)
+                  .declineCallFromCallerId(timeoutCallerId);
             }
           }
+        } else if (timeoutCallerId.isNotEmpty) {
+          _pendingDeclinedCallerId = timeoutCallerId;
+          AppLogger.w(
+            '⏰ Timeout decline queued (container not ready) for callerId=$timeoutCallerId',
+          );
         }
         break;
 
       case Event.actionCallEnded:
         AppLogger.i('📵 Call ENDED from native call screen');
+        final endedCallerId = await _resolveCallerIdFromEvent(event);
+        if (endedCallerId.isNotEmpty && _globalContainer != null) {
+          final currentState = _globalContainer!.read(callProvider);
+          if (!currentState.isInCall) {
+            // Some Android CallKit flows emit ENDED instead of DECLINE.
+            _globalContainer!
+                .read(callProvider.notifier)
+                .declineCallFromCallerId(endedCallerId);
+          }
+        } else if (endedCallerId.isNotEmpty && _globalContainer == null) {
+          _pendingDeclinedCallerId = endedCallerId;
+          AppLogger.w(
+            '📵 Ended mapped to queued decline (container not ready) for callerId=$endedCallerId',
+          );
+        }
         _pendingAcceptedCall = null;
+        await CallKitService.instance.clearLocalCallTracking();
         break;
 
       default:
         break;
     }
   });
+}
+
+Future<String> _resolveCallerIdFromEvent(CallEvent event) async {
+  final fromEvent = _extractCallEventValue(event, 'callerId');
+  if (fromEvent.isNotEmpty) return fromEvent;
+
+  final pending = await CallKitService.readRecentPendingIncomingCall(
+    maxAgeSeconds: 120,
+  );
+  return pending?['callerId'] ?? '';
+}
+
+Future<void> _handleAcceptedCallEvent(CallEvent event) async {
+  AppLogger.i('✅ Call ACCEPTED from native call screen');
+
+  String channelName = _extractCallEventValue(event, 'channelName');
+  String callerId = _extractCallEventValue(event, 'callerId');
+  String callerName = _extractCallEventValue(event, 'callerName');
+  String callerRole = _extractCallEventValue(event, 'callerRole');
+
+  if (channelName.isEmpty || callerId.isEmpty) {
+    final pending = await CallKitService.readRecentPendingIncomingCall(
+      maxAgeSeconds: 90,
+    );
+    if (pending != null) {
+      channelName = channelName.isNotEmpty
+          ? channelName
+          : (pending['channelName'] ?? '');
+      callerId = callerId.isNotEmpty ? callerId : (pending['callerId'] ?? '');
+      callerName = callerName.isNotEmpty
+          ? callerName
+          : (pending['callerName'] ?? '');
+      callerRole = callerRole.isNotEmpty
+          ? callerRole
+          : (pending['callerRole'] ?? '');
+      AppLogger.i('📞 Accept payload recovered from persisted pending call');
+    }
+  }
+
+  _pendingAcceptedCall = {
+    'callerId': callerId,
+    'callerName': callerName.isNotEmpty ? callerName : 'Unknown',
+    'channelName': channelName,
+    'callerRole': callerRole,
+  };
+
+  AppLogger.i(
+    '📞 Accept payload parsed: callerId=$callerId, channelName=$channelName, callerName=${callerName.isNotEmpty ? callerName : 'Unknown'}',
+  );
+
+  if (_globalContainer != null && channelName.isNotEmpty) {
+    final notifier = _globalContainer!.read(callProvider.notifier);
+    final currentState = _globalContainer!.read(callProvider);
+
+    if (currentState.status == CallStatus.ringing) {
+      _navigatingToCall = true;
+      notifier.acceptCall();
+      _navigateToVoiceCallScreen();
+    } else if (!currentState.isInCall) {
+      _navigatingToCall = true;
+      notifier.acceptCallFromFcm(
+        callerId: callerId,
+        callerName: callerName.isNotEmpty ? callerName : 'Unknown',
+        channelName: channelName,
+      );
+      _navigateToVoiceCallScreen();
+    }
+  }
+}
+
+String _extractCallEventValue(CallEvent event, String key) {
+  final body = event.body;
+  if (body is! Map) return '';
+
+  dynamic value = body[key];
+
+  if (value == null) {
+    final extra = body['extra'];
+    if (extra is Map) value = extra[key];
+  }
+
+  if (value == null) {
+    final nestedBody = body['body'];
+    if (nestedBody is Map) {
+      value = nestedBody[key];
+      if (value == null) {
+        final nestedExtra = nestedBody['extra'];
+        if (nestedExtra is Map) value = nestedExtra[key];
+      }
+    }
+  }
+
+  if (value == null) {
+    final data = body['data'];
+    if (data is Map) {
+      value = data[key];
+      if (value == null) {
+        final dataExtra = data['extra'];
+        if (dataExtra is Map) value = dataExtra[key];
+      }
+    }
+  }
+
+  return value?.toString() ?? '';
 }
 
 /// Push VoiceCallScreen via the global navigator key.
@@ -319,6 +450,12 @@ Map<String, String>? consumePendingAcceptedCall() {
   final data = _pendingAcceptedCall;
   _pendingAcceptedCall = null;
   return data;
+}
+
+String? consumePendingDeclinedCallerId() {
+  final callerId = _pendingDeclinedCallerId;
+  _pendingDeclinedCallerId = null;
+  return callerId;
 }
 
 class MyApp extends ConsumerWidget {

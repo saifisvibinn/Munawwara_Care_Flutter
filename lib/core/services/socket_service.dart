@@ -74,8 +74,9 @@ class SocketService {
         '[SocketService] ✓ Connected (${_socket?.id}) – registering as $userId',
       );
       _socket!.emit('register-user', {'userId': userId, 'role': role});
-      // Fire external connect callbacks
-      for (final cb in _onConnectCallbacks) {
+      // Fire external connect callbacks (iterate over a snapshot so callbacks
+      // can safely register/unregister without concurrent-modification errors).
+      for (final cb in List<void Function()>.from(_onConnectCallbacks)) {
         try {
           cb();
         } catch (e) {
@@ -99,7 +100,7 @@ class SocketService {
     _socket!.on('reconnect', (_) {
       debugPrint('[SocketService] Reconnected – re-registering as $userId');
       _socket!.emit('register-user', {'userId': userId, 'role': role});
-      for (final cb in _onConnectCallbacks) {
+      for (final cb in List<void Function()>.from(_onConnectCallbacks)) {
         try {
           cb();
         } catch (e) {

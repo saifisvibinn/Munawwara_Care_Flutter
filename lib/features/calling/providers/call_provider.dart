@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +11,11 @@ import '../../../core/services/socket_service.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/router/app_router.dart';
-import '../../../main.dart' show consumePendingAcceptedCall, isNavigatingToCall;
+import '../../../main.dart'
+    show
+        consumePendingAcceptedCall,
+        consumePendingDeclinedCallerId,
+        isNavigatingToCall;
 import '../screens/voice_call_screen.dart';
 
 /// Read at first use (after dotenv.load has run in main).
@@ -165,7 +168,7 @@ class CallNotifier extends Notifier<CallState> {
       return;
     }
 
-    final fromId = _pendingFromId!;
+    final fromId = _pendingFromId;
     final channelName = _pendingChannelName!;
     state = state.copyWith(status: CallStatus.connected, durationSeconds: 0);
 
@@ -182,10 +185,16 @@ class CallNotifier extends Notifier<CallState> {
           clientRoleType: ClientRoleType.clientRoleBroadcaster,
         ),
       );
-      SocketService.emit('call-answer', {'to': fromId});
-      // HTTP fallback — critical for killed/background state where socket
-      // is not yet connected, so the socket emit above is a silent no-op.
-      _notifyCallAnswerViaHttp(fromId);
+      if (fromId != null && fromId.isNotEmpty) {
+        _emitWhenConnected('call-answer', {'to': fromId});
+        // HTTP fallback — critical for killed/background state where socket
+        // is not yet connected, so socket-only signaling can be delayed/lost.
+        _notifyCallAnswerViaHttp(fromId);
+      } else {
+        AppLogger.e(
+          '[CallProvider] Cannot signal call-answer: missing caller id (fromId=$fromId)',
+        );
+      }
       _pendingChannelName = null;
       _pendingFromId = null;
       _startTimer();
@@ -205,7 +214,7 @@ class CallNotifier extends Notifier<CallState> {
   void declineCall() {
     final remoteId = state.remoteUserId;
     if (remoteId != null) {
-      SocketService.emit('call-declined', {'to': remoteId});
+      _emitWhenConnected('call-declined', {'to': remoteId});
       // HTTP fallback — critical for killed/background state where socket
       // is not yet connected, so the socket emit above is a silent no-op.
       _notifyCallDeclineViaHttp(remoteId);
@@ -217,6 +226,23 @@ class CallNotifier extends Notifier<CallState> {
       status: CallStatus.ended,
       endReason: 'declined',
       remoteUserId: state.remoteUserId,
+      remoteUserName: state.remoteUserName,
+    );
+    _scheduleReset();
+  }
+
+  /// Decline a call when we only have the caller id (killed-state fallback).
+  void declineCallFromCallerId(String callerId) {
+    if (callerId.isNotEmpty) {
+      _emitWhenConnected('call-declined', {'to': callerId});
+      _notifyCallDeclineViaHttp(callerId);
+    }
+    CallKitService.instance.endCurrentCall();
+    _cleanup();
+    state = CallState(
+      status: CallStatus.ended,
+      endReason: 'declined',
+      remoteUserId: callerId,
       remoteUserName: state.remoteUserName,
     );
     _scheduleReset();
@@ -252,6 +278,38 @@ class CallNotifier extends Notifier<CallState> {
     AppLogger.i(
       '[CallProvider] Accepting FCM call from $callerName on $channelName',
     );
+
+    // ── Verify call is still active on server before joining ──────────
+    // If the caller cancelled while we were waking up from killed state,
+    // joining the Agora channel is pointless. This is the safety net that
+    // WhatsApp / Telegram use: always ask the server before connecting.
+    try {
+      final response = await ApiService.dio.get(
+        '/call-history/check-active',
+        queryParameters: {'callerId': callerId},
+      );
+      final isActive = response.data?['active'] == true;
+      if (!isActive) {
+        AppLogger.w(
+          '[CallProvider] Call from $callerName is no longer active '
+          '(server: ${response.data?['status']})',
+        );
+        await CallKitService.instance.endAllCalls();
+        state = CallState(
+          status: CallStatus.ended,
+          endReason: 'cancelled',
+          remoteUserId: callerId,
+          remoteUserName: callerName,
+        );
+        _scheduleReset();
+        return;
+      }
+    } catch (e) {
+      // Network error — proceed anyway (better to try than miss a real call)
+      AppLogger.w(
+        '[CallProvider] Could not verify call status, proceeding: $e',
+      );
+    }
 
     _pendingChannelName = channelName;
     _pendingFromId = callerId;
@@ -289,6 +347,16 @@ class CallNotifier extends Notifier<CallState> {
           }
         });
       }
+    }
+  }
+
+  Future<void> checkPendingDeclinedCall() async {
+    final callerId = consumePendingDeclinedCallerId();
+    if (callerId != null && callerId.isNotEmpty) {
+      AppLogger.i(
+        '[CallProvider] Found pending declined call for caller=$callerId',
+      );
+      declineCallFromCallerId(callerId);
     }
   }
 
@@ -439,31 +507,58 @@ class CallNotifier extends Notifier<CallState> {
   // PRIVATE HELPERS
   // ════════════════════════════════════════════════════════════════════════════
 
+  void _emitWhenConnected(String event, Map<String, dynamic> payload) {
+    if (SocketService.isConnected) {
+      SocketService.emit(event, payload);
+      return;
+    }
+
+    AppLogger.w('[CallProvider] Socket not connected, queueing "$event" emit');
+    void sendOnce() {
+      SocketService.emit(event, payload);
+      SocketService.offConnected(sendOnce);
+      AppLogger.i('[CallProvider] Queued "$event" emit sent after reconnect');
+    }
+
+    SocketService.onConnected(sendOnce);
+  }
+
   /// HTTP fallback: notify the moderator (caller) that the call was answered.
   /// Used when the app cold-starts from killed state and the socket is not
   /// connected yet.  Fire-and-forget — errors are logged but don't block the
   /// call flow.
   void _notifyCallAnswerViaHttp(String callerId) {
     final selfId = SocketService.connectedUserId;
-    Dio()
+    ApiService.dio
         .post(
-          '${ApiService.baseUrl}/call-history/answer',
+          '/call-history/answer',
           data: {'callerId': callerId, 'answererId': selfId ?? ''},
         )
-        .then((_) => AppLogger.i('[CallProvider] HTTP call-answer sent to $callerId'))
-        .catchError((e) => AppLogger.e('[CallProvider] HTTP call-answer failed: $e'));
+        .then(
+          (_) =>
+              AppLogger.i('[CallProvider] HTTP call-answer sent to $callerId'),
+        )
+        .catchError(
+          (e) => AppLogger.e('[CallProvider] HTTP call-answer failed: $e'),
+        );
   }
 
   /// HTTP fallback: notify the moderator (caller) that the call was declined.
   void _notifyCallDeclineViaHttp(String callerId) {
     final selfId = SocketService.connectedUserId;
-    Dio()
+    ApiService.dio
         .post(
-          '${ApiService.baseUrl}/call-history/decline',
+          '/call-history/decline',
           data: {'callerId': callerId, 'declinerId': selfId ?? ''},
         )
-        .then((_) => AppLogger.i('[CallProvider] HTTP call-declined sent to $callerId'))
-        .catchError((e) => AppLogger.e('[CallProvider] HTTP call-declined failed: $e'));
+        .then(
+          (_) => AppLogger.i(
+            '[CallProvider] HTTP call-declined sent to $callerId',
+          ),
+        )
+        .catchError(
+          (e) => AppLogger.e('[CallProvider] HTTP call-declined failed: $e'),
+        );
   }
 
   Future<void> _setupEngine() async {
