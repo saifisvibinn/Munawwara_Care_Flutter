@@ -31,15 +31,25 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
   String? _cachedName;
   Timer? _autoPopTimer;
 
+  /// Prevents cancelling an outgoing call within the first 3 seconds.
+  bool _canCancel = false;
+  Timer? _cancelLockTimer;
+
   @override
   void initState() {
     super.initState();
     VoiceCallScreen.isActive = true;
+    // Lock the cancel button for the first 3 s so the call-offer socket
+    // message has time to reach the server before a cancel is sent.
+    _cancelLockTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _canCancel = true);
+    });
   }
 
   @override
   void dispose() {
     _autoPopTimer?.cancel();
+    _cancelLockTimer?.cancel();
     VoiceCallScreen.isActive = false;
     super.dispose();
   }
@@ -194,32 +204,46 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
 
             // ── End call button ────────────────────────────────────────────
             if (call.status != CallStatus.ended) ...[
-              GestureDetector(
-                onTap: () {
-                  if (call.status == CallStatus.calling) {
-                    // Cancel outgoing call
-                    SocketService.emit('call-cancel', {
-                      'to': call.remoteUserId,
-                    });
-                    ref.read(callProvider.notifier).endCall();
-                  } else {
-                    ref.read(callProvider.notifier).endCall();
-                  }
+              // During the first 3 s of an outgoing call the button is locked
+              // (greyed-out) so the call-offer reaches the server before a
+              // cancel can race against it.
+              Builder(
+                builder: (context) {
+                  final isLocked =
+                      call.status == CallStatus.calling && !_canCancel;
+                  return GestureDetector(
+                    onTap: isLocked
+                        ? null
+                        : () {
+                            if (call.status == CallStatus.calling) {
+                              SocketService.emit('call-cancel', {
+                                'to': call.remoteUserId,
+                              });
+                              ref.read(callProvider.notifier).endCall();
+                            } else {
+                              ref.read(callProvider.notifier).endCall();
+                            }
+                          },
+                    child: AnimatedOpacity(
+                      opacity: isLocked ? 0.35 : 1.0,
+                      duration: const Duration(milliseconds: 300),
+                      child: Container(
+                        width: 70.w,
+                        height: 70.w,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFDC2626),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Symbols.call_end,
+                          color: Colors.white,
+                          size: 30.w,
+                          fill: 1,
+                        ),
+                      ),
+                    ),
+                  );
                 },
-                child: Container(
-                  width: 70.w,
-                  height: 70.w,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFDC2626),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Symbols.call_end,
-                    color: Colors.white,
-                    size: 30.w,
-                    fill: 1,
-                  ),
-                ),
               ),
             ],
 

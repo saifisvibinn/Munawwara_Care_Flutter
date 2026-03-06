@@ -104,7 +104,7 @@ class CallKitService {
       textAccept: 'Accept',
       textDecline: 'Decline',
       missedCallNotification: const NotificationParams(
-        showNotification: true,
+        showNotification: false, // backend sends the single missed-call FCM
         isShowCallback: false,
         subtitle: 'Missed Call',
         callbackText: 'Call Back',

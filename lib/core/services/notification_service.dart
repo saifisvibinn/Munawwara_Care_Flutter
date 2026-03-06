@@ -233,6 +233,23 @@ class NotificationService {
       return;
     }
 
+    // Missed-call notifications are sent as standard FCM (with a notification
+    // block). In background/killed state Android auto-displays them — the
+    // background handler already returned early above, so we never reach here.
+    // In foreground, onMessage delivers it here and we show it once via the
+    // default path below. No extra guard needed — fall through is correct.
+    // We only skip if the FCM already had a notification block AND we are
+    // NOT in foreground (which is guaranteed: onMessage only fires in foreground).
+    if (type == 'missed_call' && notification != null) {
+      // Android suppresses the system tray notification in foreground —
+      // show exactly one local notification via the default path.
+      AppLogger.i(
+        '📬 missed_call in foreground — showing single local notification',
+      );
+      await _showDefaultNotification(title: title, body: body, data: data);
+      return;
+    }
+
     // Handle urgent notifications
     if (type == 'urgent') {
       AppLogger.w('🚨 Urgent notification detected');
