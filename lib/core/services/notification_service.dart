@@ -46,7 +46,8 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   final dataType = message.data['type']?.toString() ?? '';
   final msgType = message.data['messageType']?.toString() ?? '';
   final isDataOnly =
-      dataType == 'incoming_call' || (dataType == 'urgent' && msgType == 'tts');
+      dataType == 'incoming_call' ||
+      (dataType == 'urgent' && (msgType == 'tts' || msgType == 'reminder_tts'));
   if (!isDataOnly) {
     AppLogger.i(
       '📩 Standard FCM (type=$dataType) — Android likely showed it, skipping local notif',

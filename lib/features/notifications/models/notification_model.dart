@@ -76,6 +76,8 @@ class AppNotification {
         return Symbols.crisis_alert;
       case 'missed_call':
         return Symbols.phone_missed;
+      case 'reminder':
+        return Symbols.add_alarm;
       default:
         return Symbols.notifications;
     }
@@ -102,6 +104,8 @@ class AppNotification {
         return const Color(0xFFEF4444);
       case 'missed_call':
         return const Color(0xFFEF4444);
+      case 'reminder':
+        return const Color(0xFFF97316); // AppColors.primary (orange)
       default:
         return const Color(0xFF64748B);
     }
@@ -131,6 +135,8 @@ class AppNotification {
         return 'Meetpoint';
       case 'missed_call':
         return 'Missed Call';
+      case 'reminder':
+        return 'Reminder';
       default:
         return 'Notification';
     }

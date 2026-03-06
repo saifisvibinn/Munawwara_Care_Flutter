@@ -31,6 +31,7 @@ import '../../shared/providers/suggested_area_provider.dart';
 import '../../shared/models/suggested_area_model.dart';
 import 'group_messages_screen.dart';
 import 'individual_messages_screen.dart';
+import 'reminders_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Beacon state: static map survives hot-reload (widget recreation).
@@ -1027,6 +1028,18 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     );
   }
 
+  // ── Group Reminders ────────────────────────────────────────────────────
+
+  void _openReminders(ModeratorGroup group) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            RemindersScreen(groupId: widget.groupId, pilgrims: group.pilgrims),
+      ),
+    );
+  }
+
   // ── Moderator management sheet ────────────────────────────────────────────
 
   void _showManageSheet(ModeratorGroup group) {
@@ -1793,6 +1806,8 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                         _showManageSheet(group);
                       case 'areas':
                         _showAreaActions(group, areaState);
+                      case 'reminder':
+                        _openReminders(group);
                     }
                   },
                   itemBuilder: (_) => [
@@ -1877,6 +1892,27 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                           SizedBox(width: 12.w),
                           Text(
                             'group_menu_areas'.tr(),
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 14.sp,
+                              color: isDark ? Colors.white : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'reminder',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Symbols.add_alarm,
+                            size: 18.w,
+                            color: AppColors.primary,
+                          ),
+                          SizedBox(width: 12.w),
+                          Text(
+                            'reminder_group_menu_item'.tr(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 14.sp,
