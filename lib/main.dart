@@ -94,6 +94,8 @@ void main() async {
       FirebaseMessaging.onMessage.listen((msg) async {
         AppLogger.i('FCM onMessage: ${msg.notification?.title} ${msg.data}');
         final notifType = msg.data['notification_type']?.toString() ?? '';
+        final dataType = msg.data['type']?.toString() ?? '';
+        final msgType = msg.data['messageType']?.toString() ?? '';
         // Skip system tray notification for message/meetpoint types when
         // the app is in foreground — the in-app popup overlay handles these.
         if (notifType == 'new_message' || notifType == 'meetpoint') {
@@ -101,6 +103,27 @@ void main() async {
           return;
         }
         await NotificationService.instance.showNotificationFromMessage(msg);
+        // ── Foreground TTS for urgent / reminder messages ─────────────────
+        // showNotificationFromMessage plays the alert sound; after it finishes
+        // we also speak the text so the pilgrim hears it even with screen on.
+        if (dataType == 'urgent' &&
+            (msgType == 'tts' || msgType == 'reminder_tts')) {
+          final text =
+              msg.data['body']?.toString() ??
+              msg.data['content']?.toString() ??
+              '';
+          if (text.isNotEmpty) {
+            final isReminder = msgType == 'reminder_tts';
+            final prefix = isReminder
+                ? 'Incoming reminder.'
+                : 'Urgent message.';
+            AppLogger.i(
+              '🔊 Foreground TTS (${isReminder ? "reminder" : "urgent"}): "$text"',
+            );
+            await Future.delayed(const Duration(milliseconds: 2200));
+            await NotificationService.speakTts('$prefix $text');
+          }
+        }
       });
 
       // ── Handle Message Opened App ───────────────────────────────────────────

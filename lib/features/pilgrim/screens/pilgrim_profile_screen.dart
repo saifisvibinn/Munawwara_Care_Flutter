@@ -21,7 +21,6 @@ class PilgrimProfileScreen extends ConsumerStatefulWidget {
 
 class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
   late String _selectedLocale;
-  Timer? _profileRefreshTimer;
 
   static const _languages = [
     {'code': 'en', 'name': 'English', 'native': 'English', 'flag': '🇬🇧'},
@@ -41,15 +40,10 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
   void initState() {
     super.initState();
     Future.microtask(() => ref.read(authProvider.notifier).fetchProfile());
-    _profileRefreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (!mounted) return;
-      ref.read(authProvider.notifier).fetchProfile();
-    });
   }
 
   @override
   void dispose() {
-    _profileRefreshTimer?.cancel();
     super.dispose();
   }
 

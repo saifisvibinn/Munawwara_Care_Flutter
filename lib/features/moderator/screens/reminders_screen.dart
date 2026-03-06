@@ -300,7 +300,6 @@ class _ReminderCard extends StatelessWidget {
             offset: const Offset(0, 2),
           ),
         ],
-        border: Border(left: BorderSide(color: statusColor, width: 4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

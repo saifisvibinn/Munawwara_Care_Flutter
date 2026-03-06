@@ -17,6 +17,67 @@ import '../../features/moderator/screens/group_messages_screen.dart';
 // MUST be a top-level function (not in a class)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── TTS Helper (top-level so it's available in background isolate) ────────────
+//
+// Logs engine + language availability so you can see in the console whether
+// the device actually supports TTS.  No extra Android permission is needed —
+// TTS uses the system engine (Google TTS / Samsung TTS etc.) which is
+// pre-installed on virtually every device.  If a device has no engine or
+// hasn't downloaded the English language pack, we log a clear warning.
+//
+@pragma('vm:entry-point')
+Future<void> _speakWithTts(String text) async {
+  final tts = FlutterTts();
+  try {
+    // ── 1. Check that at least one TTS engine is installed ───────────────────
+    final rawEngines = await tts.getEngines;
+    final engines = rawEngines is List
+        ? List<String>.from(rawEngines)
+        : <String>[];
+    if (engines.isEmpty) {
+      AppLogger.w(
+        '🔇 TTS: NO engines found on this device — speech impossible.\n'
+        '   Ask the user to install Google Text-to-Speech from the Play Store.',
+      );
+      return;
+    }
+    AppLogger.i('🔊 TTS engines installed: $engines');
+
+    // ── 2. Check language availability ────────────────────────────────────────
+    final langResult = await tts.isLanguageAvailable('en-US');
+    final langOk = langResult == 1 || langResult == true;
+    AppLogger.i('🔊 TTS en-US available: $langResult (ok=$langOk)');
+
+    if (langOk) {
+      await tts.setLanguage('en-US');
+    } else {
+      final enResult = await tts.isLanguageAvailable('en');
+      final enOk = enResult == 1 || enResult == true;
+      AppLogger.w('🔊 TTS en available: $enResult (ok=$enOk)');
+      if (!enOk) {
+        AppLogger.w(
+          '🔇 TTS: English language data NOT downloaded on this device.\n'
+          '   User should go to Settings → General → Text-to-Speech and download English.',
+        );
+        return;
+      }
+      await tts.setLanguage('en');
+    }
+
+    // ── 3. Configure and speak ─────────────────────────────────────────────────
+    await tts.awaitSpeakCompletion(true);
+    await tts.setVolume(1.0);
+    await tts.setSpeechRate(0.4);
+    await tts.setPitch(1.0);
+
+    AppLogger.i('🔊 TTS speaking: "$text"');
+    final result = await tts.speak(text);
+    AppLogger.i('🔊 TTS speak result: $result');
+  } catch (e, st) {
+    AppLogger.e('🔇 TTS error: $e\n$st');
+  }
+}
+
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   AppLogger.i('📩 Background message received: ${message.messageId}');
@@ -58,32 +119,26 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // ── Data-only messages → show local notification ────────────────────────
   await NotificationService.instance.initialize();
 
-  // ── Urgent TTS: urgent.wav → "Urgent message." → speak text ─────────────
-  if (dataType == 'urgent' && msgType == 'tts') {
+  // ── Urgent TTS / Reminder TTS → show notification then speak ──────────────
+  if (dataType == 'urgent' && (msgType == 'tts' || msgType == 'reminder_tts')) {
     final text =
         message.data['body']?.toString() ??
         message.data['content']?.toString() ??
         '';
-    AppLogger.i('🔊 Urgent TTS: background handler, text: "$text"');
+    final isReminder = msgType == 'reminder_tts';
+    final prefix = isReminder ? 'Incoming reminder.' : 'Urgent message.';
+    AppLogger.i(
+      '🔊 ${isReminder ? "Reminder" : "Urgent"} TTS [background]: "$text"',
+    );
 
-    // 1. Show notification first — the urgent channel plays urgent.wav as its sound
+    // 1. Show notification — the urgent channel plays urgent_tts.wav as sound
     await NotificationService.instance.showNotificationFromMessage(message);
 
     if (text.isNotEmpty) {
-      try {
-        // 2. Wait for urgent.wav to finish before TTS begins
-        await Future.delayed(const Duration(milliseconds: 2200));
-
-        // 3. Speak "Urgent message." prefix then the actual message text
-        final tts = FlutterTts();
-        await tts.awaitSpeakCompletion(true);
-        await tts.setVolume(1.0);
-        await tts.setSpeechRate(0.4);
-        await tts.setPitch(1.0);
-        await tts.speak('Urgent message. $text');
-      } catch (e) {
-        AppLogger.e('🔊 Background TTS error: $e');
-      }
+      // 2. Wait for the alert sound to finish before TTS begins
+      await Future.delayed(const Duration(milliseconds: 2200));
+      // 3. Speak with prefix (helper logs engine/language support)
+      await _speakWithTts('$prefix $text');
     }
     return; // notification already shown above, skip the call below
   }
@@ -365,6 +420,12 @@ class NotificationService {
   Future<void> cancelAllNotifications() async {
     await _notifications.cancelAll();
   }
+
+  // ── TTS (public, usable from foreground context) ───────────────────────────
+
+  /// Speak [text] aloud. Logs TTS engine/language availability so you can
+  /// see in the console whether the device supports TTS.
+  static Future<void> speakTts(String text) => _speakWithTts(text);
 
   // ── Notification Tap Handler ──────────────────────────────────────────────
 
