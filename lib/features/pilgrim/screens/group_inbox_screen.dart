@@ -10,6 +10,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/services/api_service.dart';
 import '../../shared/models/message_model.dart';
 import '../../shared/providers/message_provider.dart';
 import '../../shared/widgets/message_widgets.dart';
@@ -55,6 +56,10 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   Timer? _highlightClearTimer;
   int _preLoadUnread = 0; // unread count captured before _load() runs
   bool _initialLoadDone = false; // true once the first load has completed
+
+  // Translation — keyed by message id, value is translated text (null = not yet translated)
+  final Map<String, String?> _translations = {};
+  final Set<String> _translating = {}; // ids currently fetching
 
   final _filters = const [
     ('all', 'inbox_filter_all'),
@@ -554,14 +559,23 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   }
 
   Widget _buildTextBody(GroupMessage msg, bool isDark) {
-    return Text(
-      msg.content ?? '',
-      style: TextStyle(
-        fontFamily: 'Lexend',
-        fontSize: 14.sp,
-        height: 1.5,
-        color: isDark ? Colors.white70 : AppColors.textDark,
-      ),
+    final translated = _translations[msg.id];
+    final displayText = translated ?? msg.content ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          displayText,
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontSize: 14.sp,
+            height: 1.5,
+            color: isDark ? Colors.white70 : AppColors.textDark,
+          ),
+        ),
+        SizedBox(height: 6.h),
+        _buildTranslateButton(msg, msg.content ?? ''),
+      ],
     );
   }
 
@@ -584,7 +598,9 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
 
   Widget _buildTtsBody(GroupMessage msg, bool isDark) {
     final isSpeaking = _ttsPlayingId == msg.id && _ttsSpeaking;
-    final text = msg.originalText ?? msg.content ?? '';
+    final originalText = msg.originalText ?? msg.content ?? '';
+    final translated = _translations[msg.id];
+    final displayText = translated ?? originalText;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -619,7 +635,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         ),
         SizedBox(height: 8.h),
         Text(
-          text,
+          displayText,
           style: TextStyle(
             fontFamily: 'Lexend',
             fontSize: 14.sp,
@@ -627,7 +643,9 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
             color: isDark ? Colors.white70 : AppColors.textDark,
           ),
         ),
-        SizedBox(height: 10.h),
+        SizedBox(height: 6.h),
+        _buildTranslateButton(msg, originalText),
+        SizedBox(height: 6.h),
         GestureDetector(
           onTap: () => _toggleTts(msg),
           child: Container(
@@ -809,5 +827,70 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     if (diff == 0) return 'inbox_today'.tr();
     if (diff == 1) return 'inbox_yesterday'.tr();
     return '${dt.day}/${dt.month}/${dt.year}';
+  }
+
+  // ── On-demand translation ─────────────────────────────────────────────────
+
+  Widget _buildTranslateButton(GroupMessage msg, String originalText) {
+    final isTranslated = _translations.containsKey(msg.id);
+    final isLoading = _translating.contains(msg.id);
+
+    if (isLoading) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 12.w, height: 12.w, child: const CircularProgressIndicator(strokeWidth: 1.5)),
+          SizedBox(width: 6.w),
+          Text('Translating...', style: TextStyle(fontFamily: 'Lexend', fontSize: 11.sp, color: AppColors.textMutedLight)),
+        ],
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => _translateMessage(msg, originalText),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.translate, size: 13.w, color: AppColors.primary),
+          SizedBox(width: 4.w),
+          Text(
+            isTranslated ? 'Show original' : 'Translate',
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 11.sp,
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _translateMessage(GroupMessage msg, String originalText) async {
+    if (_translating.contains(msg.id)) return;
+
+    // Toggle off if already translated
+    if (_translations.containsKey(msg.id)) {
+      setState(() => _translations.remove(msg.id));
+      return;
+    }
+
+    setState(() => _translating.add(msg.id));
+    try {
+      final lang = context.locale.languageCode;
+      final response = await ApiService.dio.post(
+        '/auth/translate',
+        data: {'text': originalText, 'targetLang': lang},
+      );
+      final translated = response.data?['translatedText'] as String?;
+      if (mounted && translated != null) {
+        setState(() => _translations[msg.id] = translated);
+      }
+    } catch (_) {
+      // Silently ignore — user still sees original text
+    } finally {
+      if (mounted) setState(() => _translating.remove(msg.id));
+    }
   }
 }
