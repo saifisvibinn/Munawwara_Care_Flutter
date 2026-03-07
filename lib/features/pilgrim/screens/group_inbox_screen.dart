@@ -313,7 +313,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         color: isDark ? AppColors.surfaceDark : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -362,7 +362,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
               width: 36.w,
               height: 36.w,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10.r),
               ),
               child: Icon(
@@ -459,7 +459,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
       borderColor = const Color(0xFFFECACA);
     } else if (isNew) {
       cardBg = isDark ? const Color(0xFF1A2A1A) : const Color(0xFFECFDF5);
-      borderColor = AppColors.primary.withOpacity(0.5);
+      borderColor = AppColors.primary.withValues(alpha: 0.5);
     }
 
     return AnimatedContainer(
@@ -472,8 +472,8 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         boxShadow: [
           BoxShadow(
             color: isNew
-                ? AppColors.primary.withOpacity(0.15)
-                : Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                ? AppColors.primary.withValues(alpha: 0.15)
+                : Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
             blurRadius: isNew ? 14 : 8,
             offset: const Offset(0, 2),
           ),
@@ -504,7 +504,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         // Avatar
         CircleAvatar(
           radius: 18.r,
-          backgroundColor: AppColors.primary.withOpacity(0.15),
+          backgroundColor: AppColors.primary.withValues(alpha: 0.15),
           child: Text(
             msg.sender?.initial ?? 'M',
             style: TextStyle(

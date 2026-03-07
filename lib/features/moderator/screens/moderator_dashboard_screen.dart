@@ -359,7 +359,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.06),
+                                  color: Colors.black.withValues(alpha: 0.06),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -403,7 +403,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
+                                  color: Colors.black.withValues(alpha: 0.05),
                                   blurRadius: 6,
                                   offset: const Offset(0, 1),
                                 ),
@@ -454,7 +454,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
+                                color: Colors.black.withValues(alpha: 0.05),
                                 blurRadius: 6,
                                 offset: const Offset(0, 1),
                               ),
@@ -650,7 +650,7 @@ class _SosAlertBanner extends StatelessWidget {
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.red.withOpacity(0.06),
+            color: Colors.red.withValues(alpha: 0.06),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -788,7 +788,7 @@ class _GroupCard extends ConsumerWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
               blurRadius: 12,
               offset: const Offset(0, 3),
             ),
@@ -842,7 +842,7 @@ class _GroupCard extends ConsumerWidget {
                           width: 34.w,
                           height: 34.w,
                           decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
+                            color: Colors.red.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -994,7 +994,7 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(100.r),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFF97316).withOpacity(0.30),
+            color: const Color(0xFFF97316).withValues(alpha: 0.30),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -1245,7 +1245,7 @@ class _ModBottomNav extends ConsumerWidget {
       padding: EdgeInsets.zero,
       surfaceTintColor: Colors.transparent,
       elevation: 8,
-      shadowColor: Colors.black.withOpacity(isDark ? 0.4 : 0.12),
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [

@@ -211,7 +211,7 @@ class _PopupCardState extends State<_PopupCard>
             child: BackdropFilter(
               filter: ui.ImageFilter.blur(sigmaX: 7, sigmaY: 7),
               child: Container(
-                color: Colors.black.withOpacity(isDark ? 0.42 : 0.26),
+                color: Colors.black.withValues(alpha: isDark ? 0.42 : 0.26),
               ),
             ),
           ),
@@ -260,7 +260,7 @@ class _PopupCardState extends State<_PopupCard>
           border: Border.all(color: const Color(0xFFE5E7EB)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.38 : 0.14),
+              color: Colors.black.withValues(alpha: isDark ? 0.38 : 0.14),
               blurRadius: 24,
               offset: const Offset(0, 12),
             ),
@@ -276,7 +276,7 @@ class _PopupCardState extends State<_PopupCard>
                   width: 42.w,
                   height: 42.w,
                   decoration: BoxDecoration(
-                    color: accent.withOpacity(0.12),
+                    color: accent.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(icon, color: accent, size: 22.w),
@@ -455,7 +455,7 @@ class _PopupCardState extends State<_PopupCard>
           border: Border.all(color: const Color(0xFFFECACA), width: 1.2),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.4 : 0.15),
+              color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
               blurRadius: 24,
               offset: const Offset(0, 12),
             ),
@@ -471,7 +471,7 @@ class _PopupCardState extends State<_PopupCard>
                   width: 44.w,
                   height: 44.w,
                   decoration: BoxDecoration(
-                    color: red.withOpacity(0.12),
+                    color: red.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Symbols.campaign, color: red, size: 22.w),

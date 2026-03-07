@@ -291,7 +291,7 @@ class _EmailVerificationDialogState
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.r),
                         borderSide: BorderSide(
-                          color: textMuted.withOpacity(0.3),
+                          color: textMuted.withValues(alpha: 0.3),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
@@ -323,7 +323,7 @@ class _EmailVerificationDialogState
                     onPressed: _isLoading ? null : _addEmail,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      disabledBackgroundColor: AppColors.primary.withOpacity(
+                      disabledBackgroundColor: AppColors.primary.withValues(alpha: 
                         0.6,
                       ),
                       shape: RoundedRectangleBorder(
@@ -387,21 +387,21 @@ class _EmailVerificationDialogState
                               height: 52.h,
                               decoration: BoxDecoration(
                                 color: isDark
-                                    ? AppColors.surfaceDark.withOpacity(0.5)
+                                    ? AppColors.surfaceDark.withValues(alpha: 0.5)
                                     : Colors.grey.shade50,
                                 borderRadius: BorderRadius.circular(12.r),
                                 border: Border.all(
                                   color: isFocused
                                       ? AppColors.primary
                                       : hasValue
-                                      ? AppColors.primary.withOpacity(0.5)
-                                      : textMuted.withOpacity(0.3),
+                                      ? AppColors.primary.withValues(alpha: 0.5)
+                                      : textMuted.withValues(alpha: 0.3),
                                   width: isFocused ? 2 : 1.5,
                                 ),
                                 boxShadow: isFocused
                                     ? [
                                         BoxShadow(
-                                          color: AppColors.primary.withOpacity(
+                                          color: AppColors.primary.withValues(alpha: 
                                             0.2,
                                           ),
                                           blurRadius: 8,
@@ -432,7 +432,7 @@ class _EmailVerificationDialogState
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 11.sp,
-                            color: textMuted.withOpacity(0.6),
+                            color: textMuted.withValues(alpha: 0.6),
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -502,7 +502,7 @@ class _EmailVerificationDialogState
                     onPressed: _isLoading ? null : _verifyCode,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      disabledBackgroundColor: AppColors.primary.withOpacity(
+                      disabledBackgroundColor: AppColors.primary.withValues(alpha: 
                         0.6,
                       ),
                       shape: RoundedRectangleBorder(

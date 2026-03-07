@@ -144,7 +144,7 @@ class _ModeratorProfileScreenState
                         borderRadius: BorderRadius.circular(16.r),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(
+                            color: Colors.black.withValues(alpha: 
                               isDark ? 0.3 : 0.06,
                             ),
                             blurRadius: 12,
@@ -163,7 +163,7 @@ class _ModeratorProfileScreenState
                               width: 40.w,
                               height: 40.w,
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.15),
+                                color: AppColors.primary.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(12.r),
                               ),
                               child: Icon(
@@ -222,7 +222,7 @@ class _ModeratorProfileScreenState
                         borderRadius: BorderRadius.circular(16.r),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(
+                            color: Colors.black.withValues(alpha: 
                               isDark ? 0.3 : 0.06,
                             ),
                             blurRadius: 12,
@@ -399,7 +399,7 @@ class _ProfileCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -452,7 +452,7 @@ class _ProfileCard extends StatelessWidget {
                     vertical: 3.h,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.15),
+                    color: AppColors.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8.r),
                   ),
                   child: Text(
@@ -473,7 +473,7 @@ class _ProfileCard extends StatelessWidget {
             child: Container(
               padding: EdgeInsets.all(8.r),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.12),
+                color: AppColors.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10.r),
               ),
               child: Icon(

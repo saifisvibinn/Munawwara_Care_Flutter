@@ -274,7 +274,7 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen>
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withOpacity(0.6),
+                          Colors.black.withValues(alpha: 0.6),
                           Colors.transparent,
                         ],
                       ),
@@ -349,7 +349,7 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen>
                                   borderRadius: BorderRadius.circular(2),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.primary.withOpacity(0.6),
+                                      color: AppColors.primary.withValues(alpha: 0.6),
                                       blurRadius: 6,
                                     ),
                                   ],

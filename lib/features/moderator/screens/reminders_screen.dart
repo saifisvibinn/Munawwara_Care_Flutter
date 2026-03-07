@@ -295,7 +295,7 @@ class _ReminderCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -310,7 +310,7 @@ class _ReminderCard extends StatelessWidget {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.15),
+                  color: statusColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20.r),
                 ),
                 child: Text(
@@ -524,7 +524,6 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
   bool _isCustomInterval = false;
   bool _isSaving = false;
   String? _selectedPilgrimId;
-  String? _selectedPilgrimName;
 
   // If opened from a pilgrim card, target is always 'pilgrim'.
   // Otherwise moderator can choose.
@@ -731,9 +730,6 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
                       onChanged: (id) {
                         setState(() {
                           _selectedPilgrimId = id;
-                          _selectedPilgrimName = widget.pilgrims
-                              .firstWhere((p) => p.id == id)
-                              .fullName;
                         });
                       },
                       validator: (_) {
@@ -751,7 +747,7 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
                     Container(
                       padding: EdgeInsets.all(10.w),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.08),
+                        color: AppColors.primary.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(8.r),
                       ),
                       child: Text(
@@ -773,7 +769,7 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
                       vertical: 8.h,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10.r),
                     ),
                     child: Row(
@@ -1018,8 +1014,8 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
     ),
     filled: true,
     fillColor: isDark
-        ? Colors.white.withOpacity(0.05)
-        : Colors.grey.withOpacity(0.07),
+        ? Colors.white.withValues(alpha: 0.05)
+        : Colors.grey.withValues(alpha: 0.07),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10.r),
       borderSide: BorderSide.none,
@@ -1086,7 +1082,7 @@ class _TargetChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? AppColors.primary
-              : AppColors.primary.withOpacity(0.08),
+              : AppColors.primary.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(20.r),
         ),
         child: Row(
@@ -1135,7 +1131,7 @@ class _IntervalChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? AppColors.primary
-              : AppColors.primary.withOpacity(0.08),
+              : AppColors.primary.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(20.r),
         ),
         child: Text(

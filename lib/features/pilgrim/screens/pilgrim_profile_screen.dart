@@ -153,7 +153,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                         borderRadius: BorderRadius.circular(16.r),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(
+                            color: Colors.black.withValues(alpha: 
                               isDark ? 0.3 : 0.06,
                             ),
                             blurRadius: 12,
@@ -210,7 +210,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                                     vertical: 3.h,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.15),
+                                    color: AppColors.primary.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(8.r),
                                   ),
                                   child: Text(
@@ -236,7 +236,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             child: Container(
                               padding: EdgeInsets.all(8.r),
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.12),
+                                color: AppColors.primary.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(10.r),
                               ),
                               child: Icon(
@@ -264,7 +264,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           borderRadius: BorderRadius.circular(16.r),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(
+                              color: Colors.black.withValues(alpha: 
                                 isDark ? 0.3 : 0.06,
                               ),
                               blurRadius: 12,
@@ -285,7 +285,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                                     decoration: BoxDecoration(
                                       color: _getStatusColor(
                                         authState.moderatorRequestStatus!,
-                                      ).withOpacity(0.12),
+                                      ).withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(10.r),
                                     ),
                                     child: Icon(
@@ -396,7 +396,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                         borderRadius: BorderRadius.circular(16.r),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(
+                            color: Colors.black.withValues(alpha: 
                               isDark ? 0.3 : 0.06,
                             ),
                             blurRadius: 12,
@@ -415,7 +415,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                               width: 40.w,
                               height: 40.w,
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.15),
+                                color: AppColors.primary.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(12.r),
                               ),
                               child: Icon(
@@ -474,7 +474,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                         borderRadius: BorderRadius.circular(16.r),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(
+                            color: Colors.black.withValues(alpha: 
                               isDark ? 0.3 : 0.06,
                             ),
                             blurRadius: 12,

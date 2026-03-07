@@ -98,7 +98,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(0.45),
+                        color: AppColors.primary.withValues(alpha: 0.45),
                         blurRadius: glow,
                         spreadRadius: glow * 0.4,
                       ),
@@ -158,8 +158,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: call.isSpeakerOn
-                          ? Colors.white.withOpacity(0.25)
-                          : Colors.white.withOpacity(0.1),
+                          ? Colors.white.withValues(alpha: 0.25)
+                          : Colors.white.withValues(alpha: 0.1),
                     ),
                     child: Icon(
                       call.isSpeakerOn

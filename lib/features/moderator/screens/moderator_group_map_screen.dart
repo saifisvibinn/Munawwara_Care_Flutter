@@ -250,7 +250,7 @@ class _ModeratorGroupMapScreenState
                           border: Border.all(color: Colors.white, width: 2.5),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primary.withOpacity(0.5),
+                              color: AppColors.primary.withValues(alpha: 0.5),
                               blurRadius: 8,
                               spreadRadius: 2,
                             ),
@@ -296,7 +296,7 @@ class _ModeratorGroupMapScreenState
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withValues(alpha: 0.1),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -322,7 +322,7 @@ class _ModeratorGroupMapScreenState
                           borderRadius: BorderRadius.circular(14.r),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
+                              color: Colors.black.withValues(alpha: 0.08),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -335,7 +335,7 @@ class _ModeratorGroupMapScreenState
                               width: 30.w,
                               height: 30.w,
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.15),
+                                color: AppColors.primary.withValues(alpha: 0.15),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -390,7 +390,7 @@ class _ModeratorGroupMapScreenState
                           borderRadius: BorderRadius.circular(14.r),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.red.withOpacity(0.3),
+                              color: Colors.red.withValues(alpha: 0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -461,7 +461,7 @@ class _ModeratorGroupMapScreenState
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
+                    color: Colors.black.withValues(alpha: 0.08),
                     blurRadius: 16,
                     offset: const Offset(0, -4),
                   ),
@@ -613,7 +613,7 @@ class _PilgrimMapMarker extends StatelessWidget {
             border: Border.all(color: Colors.white, width: 2.5),
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.45),
+                color: color.withValues(alpha: 0.45),
                 blurRadius: 8,
                 spreadRadius: 2,
               ),
@@ -682,7 +682,7 @@ class _MapFab extends StatelessWidget {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withValues(alpha: 0.12),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -736,7 +736,7 @@ class _PilgrimListTile extends StatelessWidget {
               decoration: BoxDecoration(
                 color: pilgrim.hasSOS
                     ? const Color(0xFFDC2626)
-                    : AppColors.primary.withOpacity(0.15),
+                    : AppColors.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Center(
@@ -820,7 +820,7 @@ class _PilgrimListTile extends StatelessWidget {
                 child: Container(
                   padding: EdgeInsets.all(7.w),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.12),
+                    color: AppColors.primary.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
