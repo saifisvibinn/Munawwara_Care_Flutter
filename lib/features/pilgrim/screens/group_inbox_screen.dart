@@ -839,9 +839,20 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(width: 12.w, height: 12.w, child: const CircularProgressIndicator(strokeWidth: 1.5)),
+          SizedBox(
+            width: 12.w,
+            height: 12.w,
+            child: const CircularProgressIndicator(strokeWidth: 1.5),
+          ),
           SizedBox(width: 6.w),
-          Text('Translating...', style: TextStyle(fontFamily: 'Lexend', fontSize: 11.sp, color: AppColors.textMutedLight)),
+          Text(
+            'Translating...',
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 11.sp,
+              color: AppColors.textMutedLight,
+            ),
+          ),
         ],
       );
     }
