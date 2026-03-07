@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/services/api_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'pilgrim_profile_edit_screen.dart';
 
@@ -495,9 +496,18 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             dividerColor: dividerColor,
                             textPrimary: textPrimary,
                             textMuted: textMuted,
-                            onTap: () {
-                              setState(() => _selectedLocale = lang['code']!);
-                              context.setLocale(Locale(lang['code']!));
+                            onTap: () async {
+                              final code = lang['code']!;
+                              setState(() => _selectedLocale = code);
+                              context.setLocale(Locale(code));
+                              try {
+                                await ApiService.dio.put(
+                                  '/auth/update-language',
+                                  data: {'language': code},
+                                );
+                              } catch (_) {
+                                // Non-fatal — local language is already applied
+                              }
                             },
                           );
                         }),
