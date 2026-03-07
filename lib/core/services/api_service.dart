@@ -14,21 +14,14 @@ class ApiService {
   static Dio? _dioInstance;
 
   static Dio get dio {
-    if (_dioInstance == null) {
-      _dioInstance = Dio(
-        BaseOptions(
-          baseUrl: baseUrl,
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 15),
-          headers: {'Content-Type': 'application/json'},
-        ),
-      );
-      // Persist the active URL so background isolates (e.g. CallKit decline
-      // handlers) can read it without dotenv being available.
-      SharedPreferences.getInstance().then(
-        (prefs) => prefs.setString('api_base_url', baseUrl),
-      );
-    }
+    _dioInstance ??= Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
     return _dioInstance!;
   }
 
