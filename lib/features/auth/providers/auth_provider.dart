@@ -407,9 +407,9 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> updateFcmToken(String fcmToken) async {
     try {
       // Only hit the backend when the token has actually changed.
-      const _lastTokenKey = 'last_registered_fcm_token';
+      const lastTokenKey = 'last_registered_fcm_token';
       final prefs = await SharedPreferences.getInstance();
-      final lastToken = prefs.getString(_lastTokenKey);
+      final lastToken = prefs.getString(lastTokenKey);
       if (lastToken == fcmToken) {
         AppLogger.d('FCM token unchanged — skipping backend registration');
         return;
@@ -419,7 +419,7 @@ class AuthNotifier extends Notifier<AuthState> {
         '/auth/fcm-token',
         data: {'fcm_token': fcmToken},
       );
-      await prefs.setString(_lastTokenKey, fcmToken);
+      await prefs.setString(lastTokenKey, fcmToken);
       AppLogger.i('✅ FCM token registered with backend');
     } catch (e) {
       AppLogger.e('⚠️ Failed to register FCM token: $e');

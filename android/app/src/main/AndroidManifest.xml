@@ -104,6 +104,13 @@
         <receiver 
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
             android:exported="false" />
+
+        <!-- Core-Telecom IncomingCallService: stays alive as foreground service
+             to reliably send HTTP decline to backend when app is killed -->
+        <service
+            android:name=".IncomingCallService"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

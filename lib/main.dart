@@ -8,11 +8,13 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/providers/theme_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:dio/dio.dart';
 import 'core/env/env_check.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/callkit_service.dart';
@@ -96,6 +98,23 @@ void main() async {
         final notifType = msg.data['notification_type']?.toString() ?? '';
         final dataType = msg.data['type']?.toString() ?? '';
         final msgType = msg.data['messageType']?.toString() ?? '';
+        // ── call_declined / call_cancel arriving via FCM ────────────────────
+        // When the pilgrim's app is killed and declines, the backend's 30-second
+        // ring timeout fires and sends a silent FCM with type=call_declined
+        // directly to the moderator. Handle it here to immediately stop ringing.
+        if (dataType == 'call_declined' || dataType == 'call_cancel') {
+          AppLogger.w(
+            '📵 FCM call_declined/call_cancel received — stopping call',
+          );
+          if (_globalContainer != null) {
+            final cs = _globalContainer!.read(callProvider);
+            if (cs.status == CallStatus.calling ||
+                cs.status == CallStatus.ringing) {
+              _globalContainer!.read(callProvider.notifier).endCall();
+            }
+          }
+          return;
+        }
         // Skip system tray notification for message/meetpoint types when
         // the app is in foreground — the in-app popup overlay handles these.
         if (notifType == 'new_message' || notifType == 'meetpoint') {
@@ -265,6 +284,7 @@ void _setupCallKitListeners() {
           AppLogger.w(
             '❌ Decline queued (container not ready) for callerId=$declineCallerId',
           );
+          _sendBackgroundDecline(declineCallerId);
         }
         break;
 
@@ -293,6 +313,7 @@ void _setupCallKitListeners() {
           AppLogger.w(
             '⏰ Timeout decline queued (container not ready) for callerId=$timeoutCallerId',
           );
+          _sendBackgroundDecline(timeoutCallerId);
         }
         break;
 
@@ -312,6 +333,7 @@ void _setupCallKitListeners() {
           AppLogger.w(
             '📵 Ended mapped to queued decline (container not ready) for callerId=$endedCallerId',
           );
+          _sendBackgroundDecline(endedCallerId);
         }
         _pendingAcceptedCall = null;
         await CallKitService.instance.clearLocalCallTracking();
@@ -321,6 +343,38 @@ void _setupCallKitListeners() {
         break;
     }
   });
+}
+
+/// Helper: sends HTTP decline request directly from the background isolate.
+/// Avoids dotenv (unreliable outside the main isolate). Falls back to the
+/// production Cloud Run URL so this always works even when app is killed.
+Future<void> _sendBackgroundDecline(String callerId) async {
+  if (callerId.isEmpty) return;
+  const fallbackUrl =
+      'https://mcbackendapp-199324116788.europe-west8.run.app/api';
+  try {
+    // Try to read a cached URL from SharedPreferences (written by ApiService),
+    // otherwise use the hardcoded production URL.
+    String baseUrl = fallbackUrl;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString('api_base_url');
+      if (cached != null && cached.isNotEmpty) baseUrl = cached;
+    } catch (_) {}
+
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
+    await dio.post('/call-history/decline', data: {'callerId': callerId});
+    AppLogger.i('❌ Background HTTP decline sent to $callerId (url=$baseUrl)');
+  } catch (e) {
+    AppLogger.e('Failed to send background decline: $e');
+  }
 }
 
 Future<String> _resolveCallerIdFromEvent(CallEvent event) async {

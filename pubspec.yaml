@@ -64,6 +64,13 @@ dependencies:
   flutter_callkit_incoming: ^3.0.0
   uuid: ^4.5.1
 
+dependency_overrides:
+  # Local copy of flutter_callkit_incoming with native Android HTTP decline fix.
+  # The BroadcastReceiver now posts to /call-history/decline when the pilgrim
+  # taps Decline on the system notification while the app is killed.
+  flutter_callkit_incoming:
+    path: ./plugins/flutter_callkit_incoming
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

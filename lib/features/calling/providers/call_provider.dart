@@ -11,6 +11,7 @@ import '../../../core/services/socket_service.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/router/app_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../main.dart'
     show
         consumePendingAcceptedCall,
@@ -88,6 +89,7 @@ class CallNotifier extends Notifier<CallState> {
   String? _pendingChannelName;
   String? _pendingFromId;
   Timer? _callTimer;
+  Timer? _ringPollTimer; // polls backend while outgoing call is ringing
 
   /// Timestamp of the last processed call-offer — reject rapid duplicates.
   DateTime? _lastOfferTime;
@@ -150,7 +152,11 @@ class CallNotifier extends Notifier<CallState> {
         'to': remoteUserId,
         'channelName': channelName,
       });
+      // Start polling so we detect decline even when the pilgrim's app is killed
+      // and the HTTP decline from the background isolate fails for any reason.
+      _startRingPoll(remoteUserId);
     } catch (e) {
+      _stopRingPoll();
       _cleanup();
       state = CallState(
         status: CallStatus.ended,
@@ -159,6 +165,63 @@ class CallNotifier extends Notifier<CallState> {
         remoteUserName: state.remoteUserName,
       );
       _scheduleReset();
+    }
+  }
+
+  // ── Ring poll: moderator polls backend every 3 s while outgoing call rings ──
+  void _startRingPoll(String remoteUserId) {
+    _stopRingPoll();
+    // Capture the caller's own user ID from SharedPreferences for the query.
+    // The endpoint expects callerId = the person WHO INITIATED the call.
+    _ringPollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      // Stop polling if call is no longer in the "calling" state.
+      if (state.status != CallStatus.calling) {
+        _stopRingPoll();
+        return;
+      }
+      try {
+        final myId = await _getMyUserId();
+        if (myId == null) return;
+        final resp = await ApiService.dio.get(
+          '/call-history/check-active',
+          queryParameters: {'callerId': myId},
+        );
+        final active = resp.data['active'] as bool? ?? false;
+        final status = resp.data['status']?.toString() ?? 'none';
+        AppLogger.d('[RingPoll] active=$active status=$status myId=$myId');
+        // If the call is no longer ringing/in-progress on the backend, treat it
+        // as declined (covers killed-app decline + timeout).
+        if (!active && state.status == CallStatus.calling) {
+          AppLogger.w(
+            '[RingPoll] Call no longer active ($status) — stopping ring',
+          );
+          _stopRingPoll();
+          _cleanup();
+          state = CallState(
+            status: CallStatus.ended,
+            endReason: status == 'none' ? 'declined' : status,
+            remoteUserId: state.remoteUserId,
+            remoteUserName: state.remoteUserName,
+          );
+          _scheduleReset();
+        }
+      } catch (e) {
+        AppLogger.e('[RingPoll] Error: $e');
+      }
+    });
+  }
+
+  void _stopRingPoll() {
+    _ringPollTimer?.cancel();
+    _ringPollTimer = null;
+  }
+
+  Future<String?> _getMyUserId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('user_id');
+    } catch (_) {
+      return null;
     }
   }
 
@@ -250,6 +313,7 @@ class CallNotifier extends Notifier<CallState> {
 
   /// End an in-progress call.
   void endCall() {
+    _stopRingPoll();
     if (state.remoteUserId != null) {
       SocketService.emit('call-end', {'to': state.remoteUserId});
     }
@@ -443,11 +507,13 @@ class CallNotifier extends Notifier<CallState> {
   }
 
   void _onAnswer(dynamic data) {
+    _stopRingPoll(); // call was answered — stop polling
     _startTimer();
     state = state.copyWith(status: CallStatus.connected, durationSeconds: 0);
   }
 
   void _onRemoteDecline(dynamic _) {
+    _stopRingPoll();
     CallKitService.instance.endCurrentCall();
     final prevName = state.remoteUserName;
     final prevId = state.remoteUserId;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -9,6 +10,8 @@ import 'callkit_service.dart';
 import '../../core/utils/app_logger.dart';
 import '../../core/router/app_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:flutter_callkit_incoming/entities/entities.dart';
 import '../../features/pilgrim/screens/group_inbox_screen.dart';
 import '../../features/moderator/screens/group_messages_screen.dart';
 
@@ -78,6 +81,36 @@ Future<void> _speakWithTts(String text) async {
   }
 }
 
+/// Sends a decline HTTP request directly from the background isolate.
+/// No Riverpod, no dotenv — uses SharedPreferences for URL, falls back
+/// to the hardcoded production URL.
+@pragma('vm:entry-point')
+Future<void> _sendDeclineHttp(String callerId) async {
+  if (callerId.isEmpty) return;
+  const fallbackUrl =
+      'https://mcbackendapp-199324116788.europe-west8.run.app/api';
+  try {
+    String baseUrl = fallbackUrl;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString('api_base_url');
+      if (cached != null && cached.isNotEmpty) baseUrl = cached;
+    } catch (_) {}
+    // Use dart:io HttpClient — avoids importing Dio in the bg isolate
+    final uri = Uri.parse('$baseUrl/call-history/decline');
+    final client = HttpClient();
+    final req = await client.postUrl(uri)
+      ..headers.set('Content-Type', 'application/json')
+      ..write('{"callerId":"$callerId"}');
+    final resp = await req.close();
+    await resp.drain<void>();
+    AppLogger.i('❌ [BG] HTTP decline sent for $callerId → ${resp.statusCode}');
+    client.close();
+  } catch (e) {
+    AppLogger.e('❌ [BG] Failed to send HTTP decline: $e');
+  }
+}
+
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   AppLogger.i('📩 Background message received: ${message.messageId}');
@@ -87,7 +120,60 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
   // ── Incoming call → show native call screen (like WhatsApp) ─────────────
   final handled = await CallKitService.handleFcmMessage(message);
-  if (handled) return; // CallKit took over, don't show regular notification
+  if (handled) {
+    // ── CRITICAL: Keep this isolate alive while the call is ringing ─────────
+    // The background isolate lives only as long as this function is awaited.
+    // If we return immediately, the isolate is killed and no CallKit event
+    // can ever be received. We use a Completer to block until the user acts
+    // or 32 s elapse (matching the 30 s CallKit ring + a small buffer).
+    final completer = Completer<void>();
+    late StreamSubscription<CallEvent?> sub;
+    sub = FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
+      if (event == null) return;
+      AppLogger.i('📞 [BG isolate] CallKit event: ${event.event}');
+      final eventName = event.event.toString().toLowerCase();
+      final isDecline =
+          eventName.contains('decline') ||
+          eventName.contains('timeout') ||
+          (eventName.contains('end') && !eventName.contains('ended_call'));
+      final isAccept =
+          eventName.contains('accept') ||
+          (eventName.contains('start') && eventName.contains('call'));
+      if (isDecline) {
+        String callerId = '';
+        try {
+          final body = event.body;
+          if (body is Map) {
+            callerId = (body['extra']?['callerId'] ?? body['callerId'] ?? '')
+                .toString();
+          }
+        } catch (_) {}
+        if (callerId.isEmpty) {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            callerId = prefs.getString('pending_call_caller_id') ?? '';
+          } catch (_) {}
+        }
+        AppLogger.w('❌ [BG isolate] Decline — callerId=$callerId');
+        await _sendDeclineHttp(callerId);
+        await CallKitService.clearPendingIncomingCall();
+        await sub.cancel();
+        if (!completer.isCompleted) completer.complete();
+      } else if (isAccept) {
+        // Accept handled by main isolate on cold-start; just unblock.
+        AppLogger.i('✅ [BG isolate] Accept — releasing isolate');
+        await sub.cancel();
+        if (!completer.isCompleted) completer.complete();
+      }
+    });
+    // Safety: unblock after 32 s regardless, let server ring-timeout handle it.
+    Future.delayed(const Duration(seconds: 32), () {
+      sub.cancel();
+      if (!completer.isCompleted) completer.complete();
+    });
+    await completer.future; // keeps background isolate alive
+    return;
+  }
 
   // ── If the FCM payload contains a 'notification' block, Android already
   //    showed a system notification automatically — skip showing another one

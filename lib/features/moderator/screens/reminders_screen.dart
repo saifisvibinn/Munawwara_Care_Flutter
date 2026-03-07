@@ -708,7 +708,7 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
                       widget.pilgrims.isNotEmpty) ...[
                     SizedBox(height: 8.h),
                     DropdownButtonFormField<String>(
-                      value: _selectedPilgrimId,
+                      initialValue: _selectedPilgrimId,
                       decoration: _inputDecoration(
                         'reminder_select_pilgrim'.tr(),
                       ),
@@ -958,8 +958,9 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
                       validator: (v) {
                         if (!_isCustomInterval) return null;
                         final n = int.tryParse(v?.trim() ?? '');
-                        if (n == null || n < 1)
+                        if (n == null || n < 1) {
                           return 'reminder_interval_error'.tr();
+                        }
                         return null;
                       },
                     ),
