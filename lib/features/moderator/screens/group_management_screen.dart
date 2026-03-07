@@ -1537,12 +1537,13 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                         if (!shouldDelete) return;
                                       }
 
-                                      final sm = ScaffoldMessenger.of(context);
                                       final ok = await ref
                                           .read(suggestedAreaProvider.notifier)
                                           .deleteArea(group.id, area.id);
                                       if (ok && mounted) {
-                                        sm.showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           SnackBar(
                                             content: Text('area_deleted'.tr()),
                                             behavior: SnackBarBehavior.floating,

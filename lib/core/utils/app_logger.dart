@@ -8,13 +8,11 @@ class AppLogger {
       lineLength: 80,
       colors: true,
       printEmojis: true,
-      dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
+      printTime: true,
     ),
   );
 
-  static void t(dynamic message) => _logger.t(message); // Trace/Verbose
-  // Keep v() as alias for backward compatibility with existing call sites
-  static void v(dynamic message) => _logger.t(message); // Trace/Verbose
+  static void v(dynamic message) => _logger.v(message); // Trace/Verbose
   static void d(dynamic message) => _logger.d(message); // Debug
   static void i(dynamic message) => _logger.i(message); // Info
   static void w(dynamic message) => _logger.w(message); // Warning

@@ -524,6 +524,7 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
   bool _isCustomInterval = false;
   bool _isSaving = false;
   String? _selectedPilgrimId;
+  String? _selectedPilgrimName;
 
   // If opened from a pilgrim card, target is always 'pilgrim'.
   // Otherwise moderator can choose.
@@ -730,6 +731,9 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
                       onChanged: (id) {
                         setState(() {
                           _selectedPilgrimId = id;
+                          _selectedPilgrimName = widget.pilgrims
+                              .firstWhere((p) => p.id == id)
+                              .fullName;
                         });
                       },
                       validator: (_) {
