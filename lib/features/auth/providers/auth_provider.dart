@@ -99,6 +99,8 @@ class AuthState {
 // Uses Riverpod 3.x Notifier API (StateNotifier was removed in v3)
 
 class AuthNotifier extends Notifier<AuthState> {
+  bool _profileLoaded = false;
+
   @override
   AuthState build() {
     _restoreSession();
@@ -109,14 +111,14 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> _restoreSession() async {
     try {
       AppLogger.d('AuthNotifier: restoring session');
+      // Token is read from secure storage (with SharedPreferences migration).
+      final token = await ApiService.restoreSession();
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
       final role = prefs.getString('user_role');
       final userId = prefs.getString('user_id');
       final fullName = prefs.getString('user_full_name');
 
       if (token != null) {
-        ApiService.dio.options.headers['Authorization'] = 'Bearer $token';
         state = AuthState(
           isRestoringSession: false,
           token: token,
@@ -153,7 +155,18 @@ class AuthNotifier extends Notifier<AuthState> {
       final data = response.data as Map<String, dynamic>;
       final serverRole = data['user_type'] as String?;
 
-      AppLogger.d('Role sync check: local=$localRole, server=$serverRole');
+      // Cache all profile fields so the dashboard fetchProfile() call is skipped.
+      state = state.copyWith(
+        fullName: data['full_name'] as String?,
+        email: data['email'] as String?,
+        emailVerified: data['email_verified'] as bool? ?? false,
+        phoneNumber: data['phone_number'] as String?,
+        age: (data['age'] as num?)?.toInt(),
+        gender: data['gender'] as String?,
+        medicalHistory: data['medical_history'] as String?,
+        moderatorRequestStatus: data['moderator_request_status'] as String?,
+      );
+      _profileLoaded = true;
 
       // If roles don't match, user has been promoted/changed
       if (serverRole != null && serverRole != localRole) {
@@ -328,6 +341,9 @@ class AuthNotifier extends Notifier<AuthState> {
 
   // ── Fetch profile ───────────────────────────────────────────────────────────
   Future<void> fetchProfile() async {
+    // Skip if _checkRoleSync already fetched all profile fields during
+    // session restore — avoids a redundant second GET /auth/me on startup.
+    if (_profileLoaded) return;
     try {
       final response = await ApiService.dio.get('/auth/me');
       final data = response.data as Map<String, dynamic>;
@@ -341,6 +357,7 @@ class AuthNotifier extends Notifier<AuthState> {
         medicalHistory: data['medical_history'] as String?,
         moderatorRequestStatus: data['moderator_request_status'] as String?,
       );
+      _profileLoaded = true;
       // Persist updated full_name to prefs
       if (data['full_name'] != null) {
         final prefs = await SharedPreferences.getInstance();

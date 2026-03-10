@@ -126,7 +126,7 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.4),
+                    color: AppColors.primary.withValues(alpha: 0.4),
                     blurRadius: 30,
                     spreadRadius: 8,
                   ),
@@ -327,8 +327,8 @@ class _ControlButton extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: active
-                  ? Colors.white.withOpacity(0.25)
-                  : Colors.white.withOpacity(0.1),
+                  ? Colors.white.withValues(alpha: 0.25)
+                  : Colors.white.withValues(alpha: 0.1),
             ),
             child: Icon(icon, fill: 1, color: Colors.white, size: 26.w),
           ),

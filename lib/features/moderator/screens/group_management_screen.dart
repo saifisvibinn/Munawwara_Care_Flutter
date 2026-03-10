@@ -640,7 +640,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                               : const Color(0xFFF0F0F8),
                           borderRadius: BorderRadius.circular(16.r),
                           border: Border.all(
-                            color: AppColors.primary.withOpacity(0.2),
+                            color: AppColors.primary.withValues(alpha: 0.2),
                           ),
                         ),
                         child: Column(
@@ -711,10 +711,10 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                         horizontal: 12.w,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE8C97A).withOpacity(0.12),
+                        color: const Color(0xFFE8C97A).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(16.r),
                         border: Border.all(
-                          color: const Color(0xFFE8C97A).withOpacity(0.4),
+                          color: const Color(0xFFE8C97A).withValues(alpha: 0.4),
                         ),
                       ),
                       child: Column(
@@ -807,7 +807,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                     width: 72.w,
                     height: 72.w,
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.15),
+                      color: AppColors.primary.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: Center(
@@ -933,11 +933,11 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                       padding: EdgeInsets.all(14.w),
                       decoration: BoxDecoration(
                         color: isDark
-                            ? AppColors.primary.withOpacity(0.08)
+                            ? AppColors.primary.withValues(alpha: 0.08)
                             : const Color(0xFFF0F7F4),
                         borderRadius: BorderRadius.circular(12.r),
                         border: Border.all(
-                          color: AppColors.primary.withOpacity(0.2),
+                          color: AppColors.primary.withValues(alpha: 0.2),
                         ),
                       ),
                       child: Column(
@@ -1121,12 +1121,12 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                       decoration: BoxDecoration(
                         color: isDark
                             ? AppColors.surfaceDark
-                            : AppColors.primary.withOpacity(0.08),
+                            : AppColors.primary.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(16.r),
                         border: Border.all(
                           color: isDark
-                              ? AppColors.primary.withOpacity(0.25)
-                              : AppColors.primary.withOpacity(0.3),
+                              ? AppColors.primary.withValues(alpha: 0.25)
+                              : AppColors.primary.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Column(
@@ -1276,7 +1276,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                           vertical: 2.h,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.15),
+                          color: AppColors.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10.r),
                         ),
                         child: Text(
@@ -1427,9 +1427,11 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                                 color: area.isMeetpoint
                                                     ? const Color(
                                                         0xFFDC2626,
-                                                      ).withOpacity(0.15)
+                                                      ).withValues(alpha: 0.15)
                                                     : AppColors.primary
-                                                          .withOpacity(0.15),
+                                                          .withValues(
+                                                            alpha: 0.15,
+                                                          ),
                                                 borderRadius:
                                                     BorderRadius.circular(6.r),
                                               ),
@@ -1477,8 +1479,8 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                       width: 32.w,
                                       height: 32.w,
                                       decoration: BoxDecoration(
-                                        color: AppColors.primary.withOpacity(
-                                          0.1,
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.1,
                                         ),
                                         shape: BoxShape.circle,
                                       ),
@@ -1560,7 +1562,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                       final ok = await ref
                                           .read(suggestedAreaProvider.notifier)
                                           .deleteArea(group.id, area.id);
-                                      if (ok && mounted) {
+                                      if (ok && context.mounted) {
                                         ScaffoldMessenger.of(
                                           context,
                                         ).showSnackBar(
@@ -1579,7 +1581,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                       width: 32.w,
                                       height: 32.w,
                                       decoration: BoxDecoration(
-                                        color: Colors.red.withOpacity(0.1),
+                                        color: Colors.red.withValues(
+                                          alpha: 0.1,
+                                        ),
                                         shape: BoxShape.circle,
                                       ),
                                       child: Icon(
@@ -1668,7 +1672,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                           border: Border.all(color: Colors.white, width: 2.5),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primary.withOpacity(0.5),
+                              color: AppColors.primary.withValues(alpha: 0.5),
                               blurRadius: 8,
                               spreadRadius: 2,
                             ),
@@ -1738,8 +1742,8 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                         borderRadius: BorderRadius.circular(14.r),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(
-                              isDark ? 0.3 : 0.08,
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.3 : 0.08,
                             ),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
@@ -1753,7 +1757,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                             width: 30.w,
                             height: 30.w,
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.15),
+                              color: AppColors.primary.withValues(alpha: 0.15),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -1951,7 +1955,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(isDark ? 0.3 : 0.10),
+                          color: Colors.black.withValues(
+                            alpha: isDark ? 0.3 : 0.10,
+                          ),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -1986,7 +1992,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+                      color: Colors.black.withValues(
+                        alpha: isDark ? 0.3 : 0.08,
+                      ),
                       blurRadius: 16,
                       offset: const Offset(0, -4),
                     ),
@@ -2314,10 +2322,10 @@ class _AddPilgrimChoiceSheet extends StatelessWidget {
                       horizontal: 12.w,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.08),
+                      color: AppColors.primary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(16.r),
                       border: Border.all(
-                        color: AppColors.primary.withOpacity(0.3),
+                        color: AppColors.primary.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Column(
@@ -2370,10 +2378,10 @@ class _AddPilgrimChoiceSheet extends StatelessWidget {
                       horizontal: 12.w,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE8C97A).withOpacity(0.15),
+                      color: const Color(0xFFE8C97A).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(16.r),
                       border: Border.all(
-                        color: const Color(0xFFE8C97A).withOpacity(0.4),
+                        color: const Color(0xFFE8C97A).withValues(alpha: 0.4),
                       ),
                     ),
                     child: Column(
@@ -2616,7 +2624,7 @@ class _QrShareSheetState extends State<_QrShareSheet> {
                       : const Color(0xFFF0F0F8),
                   borderRadius: BorderRadius.circular(12.r),
                   border: Border.all(
-                    color: const Color(0xFFE8C97A).withOpacity(0.5),
+                    color: const Color(0xFFE8C97A).withValues(alpha: 0.5),
                   ),
                 ),
                 padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
@@ -2662,7 +2670,7 @@ class _QrShareSheetState extends State<_QrShareSheet> {
                         width: 36.w,
                         height: 36.w,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE8C97A).withOpacity(0.2),
+                          color: const Color(0xFFE8C97A).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8.r),
                         ),
                         child: Icon(
@@ -2811,7 +2819,7 @@ class _InvitePosterWidget extends StatelessWidget {
                 color: const Color(0xFFF0F0F8),
                 borderRadius: BorderRadius.circular(12.r),
                 border: Border.all(
-                  color: const Color(0xFFE8C97A).withOpacity(0.5),
+                  color: const Color(0xFFE8C97A).withValues(alpha: 0.5),
                 ),
               ),
               child: Text(
@@ -2915,7 +2923,9 @@ class _ModeratorManageSheet extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               leading: CircleAvatar(
                 radius: 20.r,
-                backgroundColor: const Color(0xFF6C63FF).withOpacity(0.15),
+                backgroundColor: const Color(
+                  0xFF6C63FF,
+                ).withValues(alpha: 0.15),
                 child: Text(
                   mod.initials,
                   style: TextStyle(
@@ -2946,7 +2956,7 @@ class _ModeratorManageSheet extends ConsumerWidget {
                         vertical: 2.h,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE8C97A).withOpacity(0.2),
+                        color: const Color(0xFFE8C97A).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20.r),
                       ),
                       child: Text(
@@ -2994,7 +3004,7 @@ class _ModeratorManageSheet extends ConsumerWidget {
                         width: 34.w,
                         height: 34.w,
                         decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
+                          color: Colors.red.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -3261,14 +3271,14 @@ class _PilgrimManageTile extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary.withOpacity(0.08)
+              ? AppColors.primary.withValues(alpha: 0.08)
               : pilgrim.hasSOS
               ? (isDark ? const Color(0xFF2D1515) : const Color(0xFFFFF1F2))
               : (isDark ? AppColors.backgroundDark : const Color(0xFFF0F0F8)),
           borderRadius: BorderRadius.circular(14.r),
           border: Border.all(
             color: isSelected
-                ? AppColors.primary.withOpacity(0.4)
+                ? AppColors.primary.withValues(alpha: 0.4)
                 : pilgrim.hasSOS
                 ? (isDark ? const Color(0xFF5C2020) : const Color(0xFFFFE4E6))
                 : Colors.transparent,
@@ -3288,7 +3298,7 @@ class _PilgrimManageTile extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: pilgrim.hasSOS
                           ? const Color(0xFFDC2626)
-                          : AppColors.primary.withOpacity(0.15),
+                          : AppColors.primary.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: Center(
@@ -3536,7 +3546,7 @@ class _PilgrimMapMarker extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(isSelected ? 0.7 : 0.45),
+                color: color.withValues(alpha: isSelected ? 0.7 : 0.45),
                 blurRadius: isSelected ? 12 : 8,
                 spreadRadius: isSelected ? 4 : 2,
               ),
@@ -3611,8 +3621,8 @@ class _CircleButton extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: bg == Colors.white
-                  ? Colors.black.withOpacity(0.1)
-                  : bg.withOpacity(0.45),
+                  ? Colors.black.withValues(alpha: 0.1)
+                  : bg.withValues(alpha: 0.45),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -3652,7 +3662,7 @@ class _ProfileRow extends StatelessWidget {
             width: 36.w,
             height: 36.w,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.08),
+              color: AppColors.primary.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10.r),
             ),
             child: Icon(icon, size: 16.w, color: AppColors.primary),
@@ -3716,7 +3726,7 @@ class _AreaMapMarker extends StatelessWidget {
             borderRadius: BorderRadius.circular(10.r),
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.35),
+                color: color.withValues(alpha: 0.35),
                 blurRadius: 8,
                 spreadRadius: 1,
               ),
@@ -3757,7 +3767,7 @@ class _AreaMapMarker extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.5),
+                color: color.withValues(alpha: 0.5),
                 blurRadius: 6,
                 spreadRadius: 2,
               ),
@@ -4005,7 +4015,7 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                 borderRadius: BorderRadius.circular(12.r),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
+                    color: Colors.black.withValues(alpha: 0.08),
                     blurRadius: 12,
                   ),
                 ],
@@ -4084,7 +4094,9 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: accentColor.withOpacity(0.45),
+                                        color: accentColor.withValues(
+                                          alpha: 0.45,
+                                        ),
                                         blurRadius: 10,
                                         spreadRadius: 2,
                                       ),
@@ -4196,7 +4208,7 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                     : _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: accentColor,
-                  disabledBackgroundColor: accentColor.withOpacity(0.35),
+                  disabledBackgroundColor: accentColor.withValues(alpha: 0.35),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16.r),
                   ),

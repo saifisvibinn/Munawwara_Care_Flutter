@@ -54,7 +54,7 @@ void showPilgrimProfileSheet(
                 width: 72.w,
                 height: 72.w,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.15),
+                  color: AppColors.primary.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -341,12 +341,12 @@ class _MedicalHistoryCard extends StatelessWidget {
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.red.shade900.withOpacity(0.18)
+            ? Colors.red.shade900.withValues(alpha: 0.18)
             : const Color(0xFFFFF1F2),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
           color: isDark
-              ? Colors.red.shade800.withOpacity(0.4)
+              ? Colors.red.shade800.withValues(alpha: 0.4)
               : const Color(0xFFFFE4E6),
         ),
       ),

@@ -190,7 +190,7 @@ class _NotificationTile extends ConsumerWidget {
               : Border(left: BorderSide(color: n.iconColor, width: 3)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),

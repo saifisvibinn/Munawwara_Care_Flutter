@@ -1,19 +1,20 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:record/record.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/audio_playback_mixin.dart';
 import '../../shared/models/message_model.dart';
 import '../../shared/providers/message_provider.dart';
 import '../../shared/widgets/message_widgets.dart';
@@ -27,19 +28,28 @@ class GroupMessagesScreen extends ConsumerStatefulWidget {
   final String groupName;
   final String currentUserId;
 
+  /// When set, the screen acts as an individual DM thread to this pilgrim.
+  final String? recipientId;
+  final String? recipientName;
+
   const GroupMessagesScreen({
     super.key,
     required this.groupId,
     required this.groupName,
     required this.currentUserId,
+    this.recipientId,
+    this.recipientName,
   });
+
+  bool get _isIndividual => recipientId != null;
 
   @override
   ConsumerState<GroupMessagesScreen> createState() =>
       _GroupMessagesScreenState();
 }
 
-class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
+class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
+    with AudioPlaybackMixin<GroupMessagesScreen> {
   // Scroll
   final _scrollController = ScrollController();
 
@@ -55,68 +65,44 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   int _recordSeconds = 0;
   Timer? _recordTimer;
 
-  // Audio Playback (for voice messages + preview)
-  final _player = AudioPlayer();
-  String? _playingId; // message id, or '_preview' for recorded preview
-  Duration _position = Duration.zero;
-  Duration _duration = Duration.zero;
-
-  // TTS Playback (for viewing TTS messages)
-  final _tts = FlutterTts();
-  String? _ttsPlayingId;
-  bool _ttsSpeaking = false;
+  // playingId, audioPlayer, tts, audioPosition, audioDuration, etc.
+  // are all provided by AudioPlaybackMixin.
 
   @override
   void initState() {
     super.initState();
 
     // Audio listeners
-    _player.onPositionChanged.listen((p) {
-      if (mounted) setState(() => _position = p);
-    });
-    _player.onDurationChanged.listen((d) {
-      if (mounted) setState(() => _duration = d);
-    });
-    _player.onPlayerComplete.listen((_) {
-      if (mounted) {
-        setState(() {
-          _playingId = null;
-          _position = Duration.zero;
-        });
-      }
-    });
-
-    // TTS listeners
-    _tts.setCompletionHandler(() {
-      if (mounted) {
-        setState(() {
-          _ttsSpeaking = false;
-          _ttsPlayingId = null;
-        });
-      }
-    });
-    _tts.setErrorHandler((_) {
-      if (mounted) {
-        setState(() {
-          _ttsSpeaking = false;
-          _ttsPlayingId = null;
-        });
-      }
-    });
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _load().then((_) => _scrollToBottom(jump: true));
+    });
+
+    // Subscribe to real-time incoming messages so moderator sees new
+    // messages without manual refresh (Issue 17).
+    SocketService.on('new_message', (data) {
+      if (!mounted) return;
+      ref
+          .read(messageProvider.notifier)
+          .appendMessage(
+            data is Map ? Map<String, dynamic>.from(data) : {},
+          );
+    });
+    SocketService.on('message_deleted', (data) {
+      if (!mounted) return;
+      final id = (data is Map ? data['messageId'] : null)?.toString();
+      if (id != null) ref.read(messageProvider.notifier).removeMessage(id);
     });
   }
 
   @override
   void dispose() {
+    SocketService.off('new_message');
+    SocketService.off('message_deleted');
     _scrollController.dispose();
     _textController.dispose();
     _recordTimer?.cancel();
     _recorder.dispose();
-    _player.dispose();
-    _tts.stop();
+    disposeAudio(); // from AudioPlaybackMixin
     super.dispose();
   }
 
@@ -145,69 +131,21 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
 
   // ── Playback ───────────────────────────────────────────────────────────────
 
-  Future<void> _toggleVoice(GroupMessage msg) async {
-    if (_playingId == msg.id) {
-      await _player.pause();
-      setState(() => _playingId = null);
-      return;
-    }
-    if (_ttsPlayingId != null) {
-      await _tts.stop();
-      setState(() {
-        _ttsSpeaking = false;
-        _ttsPlayingId = null;
-      });
-    }
-    setState(() {
-      _playingId = msg.id;
-      _position = Duration.zero;
-    });
-    final url = ref
-        .read(messageProvider.notifier)
-        .buildUploadUrl(msg.mediaUrl!);
-    await _player.play(UrlSource(url));
-  }
-
-  Future<void> _toggleTts(GroupMessage msg) async {
-    final text = msg.originalText ?? msg.content ?? '';
-    if (_ttsPlayingId == msg.id && _ttsSpeaking) {
-      await _tts.stop();
-      setState(() {
-        _ttsSpeaking = false;
-        _ttsPlayingId = null;
-      });
-      return;
-    }
-    if (_playingId != null) {
-      await _player.stop();
-      setState(() {
-        _playingId = null;
-        _position = Duration.zero;
-      });
-    }
-    await _tts.stop();
-    setState(() {
-      _ttsPlayingId = msg.id;
-      _ttsSpeaking = true;
-    });
-    await _tts.speak(text);
-  }
-
   Future<void> _togglePreview() async {
     if (_recordedPath == null) return;
-    if (_playingId == '_preview') {
-      await _player.stop();
+    if (playingId == '_preview') {
+      await audioPlayer.stop();
       setState(() {
-        _playingId = null;
-        _position = Duration.zero;
+        playingId = null;
+        audioPosition = Duration.zero;
       });
       return;
     }
     setState(() {
-      _playingId = '_preview';
-      _position = Duration.zero;
+      playingId = '_preview';
+      audioPosition = Duration.zero;
     });
-    await _player.play(DeviceFileSource(_recordedPath!));
+    await audioPlayer.play(DeviceFileSource(_recordedPath!));
   }
 
   // ── Recording ─────────────────────────────────────────────────────────────
@@ -260,11 +198,11 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
       _isRecording = false;
       _recordSeconds = 0;
     });
-    if (_playingId == '_preview') {
-      _player.stop();
+    if (playingId == '_preview') {
+      audioPlayer.stop();
       setState(() {
-        _playingId = null;
-        _position = Duration.zero;
+        playingId = null;
+        audioPosition = Duration.zero;
       });
     }
   }
@@ -277,14 +215,14 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
     _textController.clear();
     FocusScope.of(context).unfocus();
 
-    final ok = await ref
-        .read(messageProvider.notifier)
-        .sendTextMessage(
-          groupId: widget.groupId,
-          content: text,
-          isUrgent: _isUrgent,
-          isTts: _composeType == 'tts',
-        );
+    final notifier = ref.read(messageProvider.notifier);
+    final ok = await notifier.sendTextMessage(
+      groupId: widget.groupId,
+      recipientId: widget._isIndividual ? widget.recipientId : null,
+      content: text,
+      isUrgent: _isUrgent,
+      isTts: _composeType == 'tts',
+    );
 
     if (ok) {
       setState(() => _isUrgent = false);
@@ -296,22 +234,22 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
 
   Future<void> _sendVoice() async {
     if (_recordedPath == null) return;
-    if (_playingId == '_preview') {
-      await _player.stop();
+    if (playingId == '_preview') {
+      await audioPlayer.stop();
       setState(() {
-        _playingId = null;
-        _position = Duration.zero;
+        playingId = null;
+        audioPosition = Duration.zero;
       });
     }
 
-    final ok = await ref
-        .read(messageProvider.notifier)
-        .sendVoiceMessage(
-          groupId: widget.groupId,
-          filePath: _recordedPath!,
-          isUrgent: _isUrgent,
-          durationSeconds: _recordSeconds,
-        );
+    final notifier = ref.read(messageProvider.notifier);
+    final ok = await notifier.sendVoiceMessage(
+      groupId: widget.groupId,
+      recipientId: widget._isIndividual ? widget.recipientId : null,
+      filePath: _recordedPath!,
+      isUrgent: _isUrgent,
+      durationSeconds: _recordSeconds,
+    );
 
     if (ok) {
       setState(() {
@@ -394,6 +332,15 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
     final msgState = ref.watch(messageProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // In individual mode, show only the thread for this pilgrim.
+    final displayMsgs = widget._isIndividual
+        ? msgState.messages.where((m) {
+            return m.recipientId == widget.recipientId ||
+                (m.sender?.id == widget.recipientId &&
+                    m.recipientId == widget.currentUserId);
+          }).toList()
+        : msgState.messages;
+
     // Scroll to bottom when new socket messages arrive
     ref.listen(messageProvider, (prev, next) {
       if (!next.isLoading &&
@@ -417,7 +364,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
                         color: AppColors.primary,
                       ),
                     )
-                  : _buildMessageList(msgState.messages, isDark),
+                  : _buildMessageList(displayMsgs, isDark),
             ),
             _buildComposer(isDark, msgState.isSending),
           ],
@@ -429,13 +376,22 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   // ── Header ─────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(bool isDark) {
+    // Individual mode: pilgrim name on top, group name as subtitle.
+    // Group mode: group name on top, 'msg_broadcasts' as subtitle.
+    final title = widget._isIndividual
+        ? widget.recipientName ?? ''
+        : widget.groupName;
+    final subtitle = widget._isIndividual
+        ? widget.groupName
+        : 'msg_broadcasts'.tr();
+
     return Container(
       padding: EdgeInsets.fromLTRB(8.w, 8.h, 16.w, 8.h),
       decoration: BoxDecoration(
         color: isDark ? AppColors.surfaceDark : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -456,7 +412,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.groupName,
+                  title,
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
@@ -467,7 +423,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  'msg_broadcasts'.tr(),
+                  subtitle,
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 12.sp,
@@ -484,7 +440,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
               width: 36.w,
               height: 36.w,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10.r),
               ),
               child: Icon(
@@ -560,7 +516,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
           border: Border.all(color: borderColor, width: 1.2),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -636,9 +592,9 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   );
 
   Widget _buildVoiceBody(GroupMessage msg, bool isDark) {
-    final isPlaying = _playingId == msg.id;
-    final progress = (isPlaying && _duration.inMilliseconds > 0)
-        ? _position.inMilliseconds / _duration.inMilliseconds
+    final isPlaying = playingId == msg.id;
+    final progress = (isPlaying && audioDuration.inMilliseconds > 0)
+        ? audioPosition.inMilliseconds / audioDuration.inMilliseconds
         : 0.0;
 
     return WaveformPlayer(
@@ -646,14 +602,14 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
       isPlaying: isPlaying,
       progress: progress.clamp(0.0, 1.0),
       durationSeconds: msg.duration,
-      positionSeconds: isPlaying ? _position.inSeconds : null,
-      onToggle: () => _toggleVoice(msg),
+      positionSeconds: isPlaying ? audioPosition.inSeconds : null,
+      onToggle: () => toggleVoice(msg),
       isDark: isDark,
     );
   }
 
   Widget _buildTtsBody(GroupMessage msg, bool isDark) {
-    final isSpeaking = _ttsPlayingId == msg.id && _ttsSpeaking;
+    final isSpeaking = ttsPlayingId == msg.id && ttsSpeaking;
     final text = msg.originalText ?? msg.content ?? '';
 
     return Column(
@@ -698,7 +654,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
         ),
         SizedBox(height: 10.h),
         GestureDetector(
-          onTap: () => _toggleTts(msg),
+          onTap: () => toggleTts(msg),
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
             decoration: BoxDecoration(
@@ -853,7 +809,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
         color: isDark ? AppColors.surfaceDark : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 12,
             offset: const Offset(0, -3),
           ),
@@ -907,7 +863,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
                         ? Colors.red.shade600
                         : (isDark
                               ? Colors.white10
-                              : Colors.black.withOpacity(0.05)),
+                              : Colors.black.withValues(alpha: 0.05)),
                     borderRadius: BorderRadius.circular(20.r),
                   ),
                   child: Row(
@@ -1129,9 +1085,9 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   }
 
   Widget _buildPreviewState(bool isDark, bool isSending) {
-    final isPlaying = _playingId == '_preview';
-    final progress = (isPlaying && _duration.inMilliseconds > 0)
-        ? _position.inMilliseconds / _duration.inMilliseconds
+    final isPlaying = playingId == '_preview';
+    final progress = (isPlaying && audioDuration.inMilliseconds > 0)
+        ? audioPosition.inMilliseconds / audioDuration.inMilliseconds
         : 0.0;
 
     return Row(
@@ -1143,7 +1099,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
             isPlaying: isPlaying,
             progress: progress.clamp(0.0, 1.0),
             durationSeconds: _recordSeconds,
-            positionSeconds: isPlaying ? _position.inSeconds : null,
+            positionSeconds: isPlaying ? audioPosition.inSeconds : null,
             onToggle: _togglePreview,
             isDark: isDark,
           ),

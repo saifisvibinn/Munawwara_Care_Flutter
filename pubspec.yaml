@@ -63,6 +63,8 @@ dependencies:
   mobile_scanner: ^6.0.4
   flutter_callkit_incoming: ^3.0.0
   uuid: ^4.5.1
+  flutter_secure_storage: ^9.2.2
+  logger: ^2.5.0
 
 dev_dependencies:
   flutter_test:

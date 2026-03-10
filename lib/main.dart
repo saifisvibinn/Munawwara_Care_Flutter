@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -10,13 +11,13 @@ import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 
 import 'core/providers/theme_provider.dart';
-import 'core/router/app_router.dart';
+import 'core/router/app_router.dart' show AppRouter;
+import 'core/services/api_service.dart';
 import 'core/theme/app_theme.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/env/env_check.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/callkit_service.dart';
-import 'core/router/app_router.dart' show AppRouter;
 import 'features/auth/providers/auth_provider.dart';
 import 'features/calling/providers/call_provider.dart';
 import 'features/calling/screens/voice_call_screen.dart';
@@ -157,6 +158,9 @@ void main() async {
   await EasyLocalization.ensureInitialized();
   AppLogger.d('main: loading dotenv');
   await dotenv.load(fileName: '.env');
+  // Register 401 interceptor: on session expiry, wipe credentials and send
+  // the user back to login without needing to import AppRouter in ApiService.
+  ApiService.setSessionExpiredCallback(() => AppRouter.router.go('/login'));
   AppLogger.d('main: verifying env');
   await verifyEnv();
   AppLogger.d('main: screenutil ensureScreenSize');
@@ -430,21 +434,26 @@ String _extractCallEventValue(CallEvent event, String key) {
 /// Push VoiceCallScreen via the global navigator key.
 /// Retries until navigator is ready (handles cold-start + background resume).
 /// Caller must set _navigatingToCall = true before calling this.
-void _navigateToVoiceCallScreen() {
-  // _navigatingToCall is already true (set by caller before acceptCall)
-  _tryPushVoiceCall(attemptsLeft: 15);
-}
+Timer? _navRetryTimer;
 
-void _tryPushVoiceCall({required int attemptsLeft}) {
-  if (attemptsLeft <= 0) {
-    _navigatingToCall = false;
-    AppLogger.w(
-      '📞 All navigation retries exhausted — relying on dashboard fallback',
-    );
-    return;
-  }
-  final nav = AppRouter.navigatorKey.currentState;
-  if (nav != null) {
+void _navigateToVoiceCallScreen() {
+  // _navigatingToCall is already true (set by caller before acceptCall).
+  // Poll every 200ms for up to 6s until the Navigator is ready.
+  int attempts = 0;
+  _navRetryTimer?.cancel();
+  _navRetryTimer = Timer.periodic(const Duration(milliseconds: 200), (t) {
+    attempts++;
+    if (attempts > 30) {
+      t.cancel();
+      _navigatingToCall = false;
+      AppLogger.w(
+        '📞 Navigator never became ready — relying on dashboard fallback',
+      );
+      return;
+    }
+    final nav = AppRouter.navigatorKey.currentState;
+    if (nav == null) return; // not ready yet — keep waiting
+    t.cancel();
     if (VoiceCallScreen.isActive) {
       _navigatingToCall = false;
       AppLogger.d('📞 VoiceCallScreen already active — skipping push');
@@ -453,15 +462,8 @@ void _tryPushVoiceCall({required int attemptsLeft}) {
     nav
         .push(MaterialPageRoute(builder: (_) => const VoiceCallScreen()))
         .then((_) => _navigatingToCall = false);
-    AppLogger.i(
-      '📞 Navigated to VoiceCallScreen (attempt ${16 - attemptsLeft})',
-    );
-  } else {
-    // Navigator not ready yet — retry after 400ms
-    Future.delayed(const Duration(milliseconds: 400), () {
-      _tryPushVoiceCall(attemptsLeft: attemptsLeft - 1);
-    });
-  }
+    AppLogger.i('📞 Navigated to VoiceCallScreen (attempt $attempts)');
+  });
 }
 
 /// Pending call data set when user accepts from native call screen.

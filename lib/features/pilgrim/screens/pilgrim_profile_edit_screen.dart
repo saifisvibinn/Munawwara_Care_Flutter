@@ -99,6 +99,7 @@ class _PilgrimProfileEditScreenState
   Future<void> _handleEmailAction() async {
     // Refresh first so reopened app uses latest server state.
     await ref.read(authProvider.notifier).fetchProfile();
+    if (!mounted) return;
     final authState = ref.read(authProvider);
     final hasEmail = authState.email != null && authState.email!.isNotEmpty;
 
@@ -227,7 +228,7 @@ class _PilgrimProfileEditScreenState
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.06),
+                            color: Colors.black.withValues(alpha: 0.06),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -323,7 +324,7 @@ class _PilgrimProfileEditScreenState
                           decoration: BoxDecoration(
                             color: isDark
                                 ? AppColors.backgroundDark
-                                : AppColors.primary.withOpacity(0.15),
+                                : AppColors.primary.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8.r),
                           ),
                           child: Text(
@@ -353,8 +354,8 @@ class _PilgrimProfileEditScreenState
                           borderRadius: BorderRadius.circular(16.r),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(
-                                isDark ? 0.3 : 0.06,
+                              color: Colors.black.withValues(
+                                alpha: isDark ? 0.3 : 0.06,
                               ),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
@@ -417,8 +418,8 @@ class _PilgrimProfileEditScreenState
                           borderRadius: BorderRadius.circular(16.r),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(
-                                isDark ? 0.3 : 0.06,
+                              color: Colors.black.withValues(
+                                alpha: isDark ? 0.3 : 0.06,
                               ),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
@@ -603,7 +604,9 @@ class _PilgrimProfileEditScreenState
                                         hintStyle: TextStyle(
                                           fontFamily: 'Lexend',
                                           fontSize: 13.sp,
-                                          color: textMuted.withOpacity(0.6),
+                                          color: textMuted.withValues(
+                                            alpha: 0.6,
+                                          ),
                                         ),
                                         border: InputBorder.none,
                                         contentPadding: EdgeInsets.symmetric(
@@ -633,8 +636,8 @@ class _PilgrimProfileEditScreenState
                             borderRadius: BorderRadius.circular(16.r),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(
-                                  isDark ? 0.3 : 0.06,
+                                color: Colors.black.withValues(
+                                  alpha: isDark ? 0.3 : 0.06,
                                 ),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
@@ -740,8 +743,8 @@ class _PilgrimProfileEditScreenState
                             borderRadius: BorderRadius.circular(16.r),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(
-                                  isDark ? 0.3 : 0.06,
+                                color: Colors.black.withValues(
+                                  alpha: isDark ? 0.3 : 0.06,
                                 ),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
@@ -801,7 +804,7 @@ class _PilgrimProfileEditScreenState
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.primary,
                                     disabledBackgroundColor: AppColors.primary
-                                        .withOpacity(0.6),
+                                        .withValues(alpha: 0.6),
                                     foregroundColor: Colors.white,
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(
@@ -839,8 +842,8 @@ class _PilgrimProfileEditScreenState
                             borderRadius: BorderRadius.circular(16.r),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(
-                                  isDark ? 0.3 : 0.06,
+                                color: Colors.black.withValues(
+                                  alpha: isDark ? 0.3 : 0.06,
                                 ),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
@@ -857,7 +860,7 @@ class _PilgrimProfileEditScreenState
                                   decoration: BoxDecoration(
                                     color: _getStatusColor(
                                       authState.moderatorRequestStatus!,
-                                    ).withOpacity(0.12),
+                                    ).withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(10.r),
                                   ),
                                   child: Icon(
@@ -930,7 +933,7 @@ class _PilgrimProfileEditScreenState
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             disabledBackgroundColor: AppColors.primary
-                                .withOpacity(0.6),
+                                .withValues(alpha: 0.6),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -1146,7 +1149,7 @@ class _ReadOnlyField extends StatelessWidget {
             width: 38.w,
             height: 38.w,
             decoration: BoxDecoration(
-              color: textMuted.withOpacity(0.12),
+              color: textMuted.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10.r),
             ),
             child: Icon(icon, color: textMuted, size: 18.sp),

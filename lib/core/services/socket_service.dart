@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
+import 'api_service.dart';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SocketService – static singleton wrapping the Socket.io connection.
 // Call SocketService.connect(...) once after login; all other classes can
@@ -20,7 +22,9 @@ class SocketService {
   static String? _connectedUserId;
 
   /// Custom-event listeners (NOT for reserved socket.io events).
-  static final Map<String, void Function(dynamic)> _pendingListeners = {};
+  /// Keyed by event name; each event holds a list so multiple callers can
+  /// register independent handlers without silently overwriting each other.
+  static final Map<String, List<void Function(dynamic)>> _pendingListeners = {};
 
   /// Callbacks that fire every time the socket connects / reconnects.
   /// Use [onConnected] / [offConnected] to manage these.
@@ -56,6 +60,13 @@ class SocketService {
 
     debugPrint('[SocketService] Connecting to $serverUrl as $userId ($role)');
 
+    // Extract the raw JWT (without the 'Bearer ' prefix) for the handshake.
+    final authHeader =
+        ApiService.dio.options.headers['Authorization']?.toString() ?? '';
+    final token = authHeader.startsWith('Bearer ')
+        ? authHeader.substring(7)
+        : authHeader;
+
     _socket = io.io(
       serverUrl,
       io.OptionBuilder()
@@ -63,6 +74,7 @@ class SocketService {
           .setReconnectionDelay(2000)
           .setReconnectionAttempts(20)
           .enableReconnection()
+          .setAuth({'token': token})
           .build(),
     );
 
@@ -97,17 +109,9 @@ class SocketService {
       debugPrint('[SocketService] Socket error: $err');
     });
 
-    _socket!.on('reconnect', (_) {
-      debugPrint('[SocketService] Reconnected – re-registering as $userId');
-      _socket!.emit('register-user', {'userId': userId, 'role': role});
-      for (final cb in List.of(_onConnectCallbacks)) {
-        try {
-          cb();
-        } catch (e) {
-          debugPrint('[SocketService] onConnected callback error: $e');
-        }
-      }
-    });
+    // Note: onConnect fires on both first connect AND every reconnect in
+    // Socket.io v3+. A separate 'reconnect' handler is not needed and would
+    // cause double registration of the 'register-user' event.
 
     // Apply custom-event listeners that were registered before connect().
     _applyPendingListeners();
@@ -120,6 +124,7 @@ class SocketService {
 
   // ── Custom-event listen / unlisten ────────────────────────────────────────
   /// Register a handler for a **custom** event (not connect/disconnect/etc.).
+  /// Multiple handlers for the same event are all retained and all fire.
   static void on(String event, void Function(dynamic) handler) {
     if (_reserved.contains(event)) {
       debugPrint(
@@ -127,18 +132,29 @@ class SocketService {
       );
       return; // silently ignore to avoid breaking the internal handshake
     }
-    _pendingListeners[event] = handler;
+    _pendingListeners.putIfAbsent(event, () => []).add(handler);
     if (_socket != null) {
-      _socket!.off(event);
       _socket!.on(event, handler);
-      debugPrint('[SocketService] Listener registered: $event');
+      debugPrint('[SocketService] Listener added: $event');
     }
   }
 
-  static void off(String event) {
+  /// Remove a handler (or all handlers if [handler] is omitted) for [event].
+  static void off(String event, [void Function(dynamic)? handler]) {
     if (_reserved.contains(event)) return;
-    _pendingListeners.remove(event);
-    _socket?.off(event);
+    if (handler == null) {
+      // Remove every handler for this event (original behaviour).
+      _pendingListeners.remove(event);
+      _socket?.off(event);
+    } else {
+      // Remove only the specific handler, leaving others intact.
+      final list = _pendingListeners[event];
+      if (list != null) {
+        list.remove(handler);
+        if (list.isEmpty) _pendingListeners.remove(event);
+      }
+      _socket?.off(event, handler);
+    }
   }
 
   // ── Connect / reconnect callbacks ─────────────────────────────────────────
@@ -170,9 +186,13 @@ class SocketService {
   static void _applyPendingListeners() {
     if (_socket == null) return;
     for (final entry in _pendingListeners.entries) {
-      _socket!.off(entry.key);
-      _socket!.on(entry.key, entry.value);
-      debugPrint('[SocketService] Applied pending listener: ${entry.key}');
+      _socket!.off(entry.key); // clear all existing socket.io handlers for this event
+      for (final handler in entry.value) {
+        _socket!.on(entry.key, handler);
+      }
+      debugPrint(
+        '[SocketService] Applied ${entry.value.length} listener(s): ${entry.key}',
+      );
     }
   }
 }

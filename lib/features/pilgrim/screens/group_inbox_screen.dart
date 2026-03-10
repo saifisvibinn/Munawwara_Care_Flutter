@@ -1,16 +1,15 @@
 import 'dart:async';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/utils/audio_playback_mixin.dart';
 import '../../shared/models/message_model.dart';
 import '../../shared/providers/message_provider.dart';
 import '../../shared/widgets/message_widgets.dart';
@@ -37,18 +36,8 @@ class GroupInboxScreen extends ConsumerStatefulWidget {
   ConsumerState<GroupInboxScreen> createState() => _GroupInboxScreenState();
 }
 
-class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
-  // Audio
-  final _player = AudioPlayer();
-  String? _playingId;
-  Duration _position = Duration.zero;
-  Duration _duration = Duration.zero;
-
-  // TTS
-  final _tts = FlutterTts();
-  String? _ttsPlayingId;
-  bool _ttsSpeaking = false;
-
+class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen>
+    with AudioPlaybackMixin<GroupInboxScreen> {
   // UI
   String _filter = 'all'; // all | urgent | voice | tts
   final _scrollController = ScrollController();
@@ -73,38 +62,8 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     super.initState();
 
     // Audio listeners
-    _player.onPositionChanged.listen((pos) {
-      if (mounted) setState(() => _position = pos);
-    });
-    _player.onDurationChanged.listen((dur) {
-      if (mounted) setState(() => _duration = dur);
-    });
-    _player.onPlayerComplete.listen((_) {
-      if (mounted) {
-        setState(() {
-          _playingId = null;
-          _position = Duration.zero;
-        });
-      }
-    });
-
-    // TTS
-    _tts.setCompletionHandler(() {
-      if (mounted) {
-        setState(() {
-          _ttsSpeaking = false;
-          _ttsPlayingId = null;
-        });
-      }
-    });
-    _tts.setErrorHandler((_) {
-      if (mounted) {
-        setState(() {
-          _ttsSpeaking = false;
-          _ttsPlayingId = null;
-        });
-      }
-    });
+    // Audio + TTS listeners (from AudioPlaybackMixin)
+    initAudioListeners();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _load();
@@ -115,15 +74,17 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   }
 
   void _onExternalScroll() {
-    // Reload messages + mark read + scroll to bottom
-    _load();
+    // Socket events already keep the message list current.
+    // On tab switch, just scroll to the newest message and mark as read —
+    // no need to re-fetch the whole list from the server.
+    _scrollToBottom();
+    ref.read(messageProvider.notifier).markAllRead(widget.groupId);
   }
 
   @override
   void dispose() {
     widget.scrollNotifier?.removeListener(_onExternalScroll);
-    _player.dispose();
-    _tts.stop();
+    disposeAudio(); // from AudioPlaybackMixin
     _scrollController.dispose();
     _highlightClearTimer?.cancel();
     super.dispose();
@@ -167,54 +128,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   }
 
   // ── Audio ─────────────────────────────────────────────────────────────────
-
-  Future<void> _toggleVoice(GroupMessage msg) async {
-    if (_playingId == msg.id) {
-      await _player.pause();
-      setState(() => _playingId = null);
-      return;
-    }
-    if (_ttsPlayingId != null) {
-      await _tts.stop();
-      setState(() {
-        _ttsSpeaking = false;
-        _ttsPlayingId = null;
-      });
-    }
-    setState(() {
-      _playingId = msg.id;
-      _position = Duration.zero;
-    });
-    final url = ref
-        .read(messageProvider.notifier)
-        .buildUploadUrl(msg.mediaUrl!);
-    await _player.play(UrlSource(url));
-  }
-
-  Future<void> _toggleTts(GroupMessage msg) async {
-    final text = msg.originalText ?? msg.content ?? '';
-    if (_ttsPlayingId == msg.id && _ttsSpeaking) {
-      await _tts.stop();
-      setState(() {
-        _ttsSpeaking = false;
-        _ttsPlayingId = null;
-      });
-      return;
-    }
-    if (_playingId != null) {
-      await _player.stop();
-      setState(() {
-        _playingId = null;
-        _position = Duration.zero;
-      });
-    }
-    await _tts.stop();
-    setState(() {
-      _ttsPlayingId = msg.id;
-      _ttsSpeaking = true;
-    });
-    await _tts.speak(text);
-  }
+  // toggleVoice / toggleTts are provided by AudioPlaybackMixin.
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
@@ -293,10 +207,15 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
                         controller: _scrollController,
                         reverse: true,
                         padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
-                        itemCount: filtered.length,
+                        // Add one extra slot at the top for the "Load earlier" button.
+                        itemCount: filtered.length + (msgState.hasMore ? 1 : 0),
                         itemBuilder: (_, i) {
-                          // reverse:true renders index 0 at the bottom;
-                          // map to the newest-first order so newest = bottom.
+                          // reverse:true: index 0 = visual bottom (newest).
+                          // The last index appears at the visual top (oldest).
+                          if (i == filtered.length) {
+                            // "Load earlier" button appears at the visual top.
+                            return _buildLoadEarlierButton(msgState.isLoading);
+                          }
                           final msg = filtered[filtered.length - 1 - i];
                           return _buildCard(msg);
                         },
@@ -304,6 +223,41 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
                     ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // ── Load earlier button ───────────────────────────────────────────────────
+
+  Widget _buildLoadEarlierButton(bool isLoading) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 12.h),
+      child: Center(
+        child: TextButton.icon(
+          onPressed: isLoading
+              ? null
+              : () => ref
+                    .read(messageProvider.notifier)
+                    .loadOlderMessages(widget.groupId),
+          icon: isLoading
+              ? SizedBox(
+                  width: 14.w,
+                  height: 14.w,
+                  child: const CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primary,
+                  ),
+                )
+              : Icon(Symbols.expand_less, size: 18.w, color: AppColors.primary),
+          label: Text(
+            'Load earlier messages',
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 13.sp,
+              color: AppColors.primary,
+            ),
+          ),
         ),
       ),
     );
@@ -318,7 +272,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         color: isDark ? AppColors.surfaceDark : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -367,7 +321,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
               width: 36.w,
               height: 36.w,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10.r),
               ),
               child: Icon(
@@ -464,7 +418,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
       borderColor = const Color(0xFFFECACA);
     } else if (isNew) {
       cardBg = isDark ? const Color(0xFF1A2A1A) : const Color(0xFFECFDF5);
-      borderColor = AppColors.primary.withOpacity(0.5);
+      borderColor = AppColors.primary.withValues(alpha: 0.5);
     }
 
     return AnimatedContainer(
@@ -477,8 +431,8 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         boxShadow: [
           BoxShadow(
             color: isNew
-                ? AppColors.primary.withOpacity(0.15)
-                : Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                ? AppColors.primary.withValues(alpha: 0.15)
+                : Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
             blurRadius: isNew ? 14 : 8,
             offset: const Offset(0, 2),
           ),
@@ -509,7 +463,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         // Avatar
         CircleAvatar(
           radius: 18.r,
-          backgroundColor: AppColors.primary.withOpacity(0.15),
+          backgroundColor: AppColors.primary.withValues(alpha: 0.15),
           child: Text(
             msg.sender?.initial ?? 'M',
             style: TextStyle(
@@ -580,9 +534,9 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   }
 
   Widget _buildVoiceBody(GroupMessage msg, bool isDark) {
-    final isPlaying = _playingId == msg.id;
-    final progress = (isPlaying && _duration.inMilliseconds > 0)
-        ? _position.inMilliseconds / _duration.inMilliseconds
+    final isPlaying = playingId == msg.id;
+    final progress = (isPlaying && audioDuration.inMilliseconds > 0)
+        ? audioPosition.inMilliseconds / audioDuration.inMilliseconds
         : 0.0;
 
     return WaveformPlayer(
@@ -590,14 +544,14 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
       isPlaying: isPlaying,
       progress: progress.clamp(0.0, 1.0),
       durationSeconds: msg.duration,
-      positionSeconds: isPlaying ? _position.inSeconds : null,
-      onToggle: () => _toggleVoice(msg),
+      positionSeconds: isPlaying ? audioPosition.inSeconds : null,
+      onToggle: () => toggleVoice(msg),
       isDark: isDark,
     );
   }
 
   Widget _buildTtsBody(GroupMessage msg, bool isDark) {
-    final isSpeaking = _ttsPlayingId == msg.id && _ttsSpeaking;
+    final isSpeaking = ttsPlayingId == msg.id && ttsSpeaking;
     final originalText = msg.originalText ?? msg.content ?? '';
     final translated = _translations[msg.id];
     final displayText = translated ?? originalText;
@@ -647,7 +601,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         _buildTranslateButton(msg, originalText),
         SizedBox(height: 6.h),
         GestureDetector(
-          onTap: () => _toggleTts(msg),
+          onTap: () => toggleTts(msg),
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 9.h),
             decoration: BoxDecoration(

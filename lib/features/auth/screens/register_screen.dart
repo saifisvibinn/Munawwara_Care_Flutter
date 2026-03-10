@@ -251,7 +251,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         margin: EdgeInsets.only(bottom: 12.h),
                         decoration: BoxDecoration(
                           color: isDark
-                              ? Colors.black.withOpacity(0.2)
+                              ? Colors.black.withValues(alpha: 0.2)
                               : const Color(0xfff8fafc),
                           borderRadius: BorderRadius.circular(12.r),
                           border: Border.all(
@@ -383,7 +383,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(isDark ? 0.06 : 0.12),
+                    color: AppColors.primary.withValues(alpha: isDark ? 0.06 : 0.12),
                     blurRadius: 100,
                     spreadRadius: 20,
                   ),
@@ -402,7 +402,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.accentGold.withOpacity(
+                    color: AppColors.accentGold.withValues(alpha: 
                       isDark ? 0.04 : 0.08,
                     ),
                     blurRadius: 80,
@@ -655,7 +655,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     (isDark
                             ? AppColors.backgroundDark
                             : AppColors.backgroundLight)
-                        .withOpacity(0),
+                        .withValues(alpha: 0),
                     isDark
                         ? AppColors.backgroundDark
                         : AppColors.backgroundLight,
@@ -673,11 +673,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
-                        disabledBackgroundColor: AppColors.primary.withOpacity(
+                        disabledBackgroundColor: AppColors.primary.withValues(alpha: 
                           0.6,
                         ),
                         elevation: 0,
-                        shadowColor: AppColors.primary.withOpacity(0.4),
+                        shadowColor: AppColors.primary.withValues(alpha: 0.4),
                         padding: EdgeInsets.symmetric(vertical: 16.h),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14.r),
@@ -768,7 +768,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         Container(
           decoration: BoxDecoration(
             color: isDark
-                ? Colors.black.withOpacity(0.2)
+                ? Colors.black.withValues(alpha: 0.2)
                 : const Color(0xfff8fafc),
             borderRadius: BorderRadius.circular(12.r),
             border: Border.all(
@@ -846,7 +846,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 padding: EdgeInsets.symmetric(horizontal: 10.w),
                 decoration: BoxDecoration(
                   color: isDark
-                      ? Colors.black.withOpacity(0.2)
+                      ? Colors.black.withValues(alpha: 0.2)
                       : const Color(0xfff8fafc),
                   borderRadius: BorderRadius.circular(12.r),
                   border: Border.all(
@@ -887,7 +887,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 height: 51.h,
                 decoration: BoxDecoration(
                   color: isDark
-                      ? Colors.black.withOpacity(0.2)
+                      ? Colors.black.withValues(alpha: 0.2)
                       : const Color(0xfff8fafc),
                   borderRadius: BorderRadius.circular(12.r),
                   border: Border.all(
@@ -938,7 +938,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         Container(
           decoration: BoxDecoration(
             color: isDark
-                ? Colors.black.withOpacity(0.2)
+                ? Colors.black.withValues(alpha: 0.2)
                 : const Color(0xfff8fafc),
             borderRadius: BorderRadius.circular(12.r),
             border: Border.all(
@@ -1013,7 +1013,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           padding: EdgeInsets.all(3.w),
           decoration: BoxDecoration(
             color: isDark
-                ? Colors.black.withOpacity(0.2)
+                ? Colors.black.withValues(alpha: 0.2)
                 : const Color(0xfff8fafc),
             borderRadius: BorderRadius.circular(12.r),
             border: Border.all(
@@ -1058,7 +1058,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         Container(
           decoration: BoxDecoration(
             color: isDark
-                ? Colors.black.withOpacity(0.2)
+                ? Colors.black.withValues(alpha: 0.2)
                 : const Color(0xfff8fafc),
             borderRadius: BorderRadius.circular(12.r),
             border: Border.all(
@@ -1109,8 +1109,8 @@ class _SectionCard extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: isDark
-                ? Colors.black.withOpacity(0.2)
-                : const Color(0xffe2e8f0).withOpacity(0.6),
+                ? Colors.black.withValues(alpha: 0.2)
+                : const Color(0xffe2e8f0).withValues(alpha: 0.6),
             blurRadius: 20,
             offset: const Offset(0, 6),
           ),
@@ -1235,7 +1235,7 @@ class _GenderOption extends StatelessWidget {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
+                      color: Colors.black.withValues(alpha: 0.06),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),

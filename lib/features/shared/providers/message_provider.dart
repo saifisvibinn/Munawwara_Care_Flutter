@@ -15,12 +15,20 @@ class MessageState {
   final String? error;
   final int unreadCount;
 
+  /// ISO timestamp of the oldest loaded message; used as the cursor for loading older pages.
+  final String? oldestCursor;
+
+  /// True when more messages exist on the server beyond the current page.
+  final bool hasMore;
+
   const MessageState({
     this.messages = const [],
     this.isLoading = false,
     this.isSending = false,
     this.error,
     this.unreadCount = 0,
+    this.oldestCursor,
+    this.hasMore = false,
   });
 
   MessageState copyWith({
@@ -29,12 +37,16 @@ class MessageState {
     bool? isSending,
     String? error,
     int? unreadCount,
+    String? oldestCursor,
+    bool? hasMore,
   }) => MessageState(
     messages: messages ?? this.messages,
     isLoading: isLoading ?? this.isLoading,
     isSending: isSending ?? this.isSending,
     error: error,
     unreadCount: unreadCount ?? this.unreadCount,
+    oldestCursor: oldestCursor ?? this.oldestCursor,
+    hasMore: hasMore ?? this.hasMore,
   );
 }
 
@@ -50,21 +62,74 @@ class MessageNotifier extends Notifier<MessageState> {
   String get _uploadBase =>
       ApiService.baseUrl.replaceFirst(RegExp(r'/api$'), '');
 
-  /// Full URL to stream a voice/image upload from the server
-  String buildUploadUrl(String filename) => '$_uploadBase/uploads/$filename';
+  /// Full URL to stream a voice/image upload from the server.
+  /// Appends the JWT as ?token= so audio players (which cannot set
+  /// Authorization headers) can still fetch protected files.
+  String buildUploadUrl(String filename) {
+    final rawToken =
+        ApiService.dio.options.headers['Authorization']
+            ?.toString()
+            .replaceFirst('Bearer ', '') ??
+        '';
+    final encoded = Uri.encodeComponent(rawToken);
+    return '$_uploadBase/uploads/$filename?token=$encoded';
+  }
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
   Future<void> loadMessages(String groupId) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final res = await ApiService.dio.get('/messages/group/$groupId');
+      final res = await ApiService.dio.get(
+        '/messages/group/$groupId',
+        queryParameters: {'limit': 50},
+      );
       final raw = (res.data['data'] as List<dynamic>)
           .map((j) => GroupMessage.fromJson(j as Map<String, dynamic>))
           .toList();
       // oldest first (chronological / chat order)
       raw.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      state = state.copyWith(messages: raw, isLoading: false);
+      // Backend returns up to `limit` newest messages; if exactly 50 came back
+      // there may be more older ones available.
+      final hasMore = raw.length >= 50;
+      final oldest = raw.isNotEmpty
+          ? raw.first.createdAt.toIso8601String()
+          : null;
+      state = state.copyWith(
+        messages: raw,
+        isLoading: false,
+        hasMore: hasMore,
+        oldestCursor: oldest,
+      );
+    } on DioException catch (e) {
+      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
+    }
+  }
+
+  /// Load messages older than the current oldest, prepending them to the list.
+  Future<void> loadOlderMessages(String groupId) async {
+    if (!state.hasMore || state.isLoading || state.oldestCursor == null) return;
+    state = state.copyWith(isLoading: true);
+    try {
+      final res = await ApiService.dio.get(
+        '/messages/group/$groupId',
+        queryParameters: {'limit': 50, 'before': state.oldestCursor},
+      );
+      final older = (res.data['data'] as List<dynamic>)
+          .map((j) => GroupMessage.fromJson(j as Map<String, dynamic>))
+          .toList();
+      older.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      final combined = [...older, ...state.messages];
+      final hasMore = older.length >= 50;
+      final oldest = older.isNotEmpty
+          ? older.first.createdAt.toIso8601String()
+          : state.oldestCursor;
+      state = state.copyWith(
+        messages: combined,
+        isLoading: false,
+        hasMore: hasMore,
+        oldestCursor: oldest,
+      );
     } on DioException catch (e) {
       state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
     }
@@ -110,10 +175,13 @@ class MessageNotifier extends Notifier<MessageState> {
     );
   }
 
-  // ── Send Text / TTS ────────────────────────────────────────────────────────
+  // ── Send Text / TTS ────────────────────────────────────────────
 
+  /// Sends a text (or TTS) message. Pass [recipientId] for an individual
+  /// thread; omit for a group broadcast. Routes to the correct endpoint.
   Future<bool> sendTextMessage({
     required String groupId,
+    String? recipientId,
     required String content,
     required bool isUrgent,
     bool isTts = false,
@@ -121,9 +189,10 @@ class MessageNotifier extends Notifier<MessageState> {
     state = state.copyWith(isSending: true);
     try {
       final response = await ApiService.dio.post(
-        '/messages',
+        recipientId != null ? '/messages/individual' : '/messages',
         data: {
           'group_id': groupId,
+          'recipient_id': ?recipientId,
           'type': isTts ? 'tts' : 'text',
           'content': content,
           if (isTts) 'original_text': content,
@@ -144,44 +213,13 @@ class MessageNotifier extends Notifier<MessageState> {
     }
   }
 
-  Future<bool> sendIndividualTextMessage({
-    required String groupId,
-    required String recipientId,
-    required String content,
-    required bool isUrgent,
-    bool isTts = false,
-  }) async {
-    state = state.copyWith(isSending: true);
-    try {
-      final response = await ApiService.dio.post(
-        '/messages/individual',
-        data: {
-          'group_id': groupId,
-          'recipient_id': recipientId,
-          'type': isTts ? 'tts' : 'text',
-          'content': content,
-          if (isTts) 'original_text': content,
-          'is_urgent': isUrgent,
-        },
-      );
-      final msg = GroupMessage.fromJson(
-        response.data['data'] as Map<String, dynamic>,
-      );
-      state = state.copyWith(
-        messages: [...state.messages, msg],
-        isSending: false,
-      );
-      return true;
-    } catch (_) {
-      state = state.copyWith(isSending: false);
-      return false;
-    }
-  }
+  // ── Send Voice ───────────────────────────────────────────────────────────────
 
-  // ── Send Voice ─────────────────────────────────────────────────────────────
-
+  /// Sends a voice message. Pass [recipientId] for an individual thread;
+  /// omit for a group broadcast. Routes to the correct endpoint.
   Future<bool> sendVoiceMessage({
     required String groupId,
+    String? recipientId,
     required String filePath,
     required bool isUrgent,
     int durationSeconds = 0,
@@ -190,41 +228,7 @@ class MessageNotifier extends Notifier<MessageState> {
     try {
       final formData = FormData.fromMap({
         'group_id': groupId,
-        'type': 'voice',
-        'is_urgent': isUrgent.toString(),
-        'duration': durationSeconds.toString(),
-        'file': await MultipartFile.fromFile(
-          filePath,
-          filename: 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
-        ),
-      });
-      final response = await ApiService.dio.post('/messages', data: formData);
-      final msg = GroupMessage.fromJson(
-        response.data['data'] as Map<String, dynamic>,
-      );
-      state = state.copyWith(
-        messages: [...state.messages, msg],
-        isSending: false,
-      );
-      return true;
-    } catch (_) {
-      state = state.copyWith(isSending: false);
-      return false;
-    }
-  }
-
-  Future<bool> sendIndividualVoiceMessage({
-    required String groupId,
-    required String recipientId,
-    required String filePath,
-    required bool isUrgent,
-    int durationSeconds = 0,
-  }) async {
-    state = state.copyWith(isSending: true);
-    try {
-      final formData = FormData.fromMap({
-        'group_id': groupId,
-        'recipient_id': recipientId,
+        'recipient_id': ?recipientId,
         'type': 'voice',
         'is_urgent': isUrgent.toString(),
         'duration': durationSeconds.toString(),
@@ -234,7 +238,7 @@ class MessageNotifier extends Notifier<MessageState> {
         ),
       });
       final response = await ApiService.dio.post(
-        '/messages/individual',
+        recipientId != null ? '/messages/individual' : '/messages',
         data: formData,
       );
       final msg = GroupMessage.fromJson(

@@ -88,6 +88,7 @@ class CallNotifier extends Notifier<CallState> {
   String? _pendingChannelName;
   String? _pendingFromId;
   Timer? _callTimer;
+  Timer? _resetTimer;
 
   /// Timestamp of the last processed call-offer — reject rapid duplicates.
   DateTime? _lastOfferTime;
@@ -111,6 +112,25 @@ class CallNotifier extends Notifier<CallState> {
 
   /// Re-register after the socket reconnects (called from SocketService.connect).
   void reRegisterListeners() => _registerSocketListeners();
+
+  /// Checks for platform-native pending accepted/declined calls.
+  /// Runs immediately when the socket is already connected; otherwise defers
+  /// to the first connection event. Both dashboards call this once, eliminating
+  /// the duplicated checkOnce pattern.
+  void checkPendingCallsAfterConnect() {
+    if (SocketService.isConnected) {
+      checkPendingAcceptedCall();
+      checkPendingDeclinedCall();
+    } else {
+      void checkOnce() {
+        checkPendingAcceptedCall();
+        checkPendingDeclinedCall();
+        SocketService.offConnected(checkOnce);
+      }
+
+      SocketService.onConnected(checkOnce);
+    }
+  }
 
   // ════════════════════════════════════════════════════════════════════════════
   // PUBLIC API
@@ -187,9 +207,10 @@ class CallNotifier extends Notifier<CallState> {
       );
       if (fromId != null && fromId.isNotEmpty) {
         _emitWhenConnected('call-answer', {'to': fromId});
-        // HTTP fallback — critical for killed/background state where socket
-        // is not yet connected, so socket-only signaling can be delayed/lost.
-        _notifyCallAnswerViaHttp(fromId);
+        // HTTP fallback — only when socket is known to be disconnected.
+        if (!SocketService.isConnected) {
+          _notifyCallAnswerViaHttp(fromId);
+        }
       } else {
         AppLogger.e(
           '[CallProvider] Cannot signal call-answer: missing caller id (fromId=$fromId)',
@@ -215,9 +236,10 @@ class CallNotifier extends Notifier<CallState> {
     final remoteId = state.remoteUserId;
     if (remoteId != null) {
       _emitWhenConnected('call-declined', {'to': remoteId});
-      // HTTP fallback — critical for killed/background state where socket
-      // is not yet connected, so the socket emit above is a silent no-op.
-      _notifyCallDeclineViaHttp(remoteId);
+      // HTTP fallback — only when socket is known to be disconnected.
+      if (!SocketService.isConnected) {
+        _notifyCallDeclineViaHttp(remoteId);
+      }
     }
     // Dismiss native call screen
     CallKitService.instance.endCurrentCall();
@@ -235,7 +257,9 @@ class CallNotifier extends Notifier<CallState> {
   void declineCallFromCallerId(String callerId) {
     if (callerId.isNotEmpty) {
       _emitWhenConnected('call-declined', {'to': callerId});
-      _notifyCallDeclineViaHttp(callerId);
+      if (!SocketService.isConnected) {
+        _notifyCallDeclineViaHttp(callerId);
+      }
     }
     CallKitService.instance.endCurrentCall();
     _cleanup();
@@ -616,16 +640,22 @@ class CallNotifier extends Notifier<CallState> {
   }
 
   void _scheduleReset({int delaySeconds = 3}) {
-    Future.delayed(Duration(seconds: delaySeconds), () {
+    // Cancel any in-flight reset from a previous call before starting a new one
+    // so a rapid hang-up → new call sequence cannot reset the new call's state.
+    _resetTimer?.cancel();
+    _resetTimer = Timer(Duration(seconds: delaySeconds), () {
       if (state.status == CallStatus.ended) {
         state = const CallState();
       }
+      _resetTimer = null;
     });
   }
 
   void _cleanup() {
     _callTimer?.cancel();
     _callTimer = null;
+    _resetTimer?.cancel();
+    _resetTimer = null;
     _engine?.leaveChannel();
     _engine?.release();
     _engine = null;

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -39,7 +37,6 @@ class RemindersScreen extends ConsumerStatefulWidget {
 
 class _RemindersScreenState extends ConsumerState<RemindersScreen> {
   bool get isDark => Theme.of(context).brightness == Brightness.dark;
-  Timer? _refreshTimer;
 
   @override
   void initState() {
@@ -47,15 +44,13 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(reminderProvider.notifier).load(widget.groupId);
     });
-    // Refresh every 30 s so status/fires_sent stay up-to-date
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) ref.read(reminderProvider.notifier).load(widget.groupId);
-    });
+    // Polling removed — reminders are now loaded once on open and refreshed
+    // by the pull-to-refresh gesture. Real-time status changes arrive via
+    // the 'reminder_status_update' socket event emitted by the scheduler.
   }
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
     super.dispose();
   }
 
@@ -295,7 +290,7 @@ class _ReminderCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -310,7 +305,7 @@ class _ReminderCard extends StatelessWidget {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.15),
+                  color: statusColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20.r),
                 ),
                 child: Text(
@@ -747,7 +742,7 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
                     Container(
                       padding: EdgeInsets.all(10.w),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.08),
+                        color: AppColors.primary.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(8.r),
                       ),
                       child: Text(
@@ -769,7 +764,7 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
                       vertical: 8.h,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10.r),
                     ),
                     child: Row(
@@ -1014,8 +1009,8 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
     ),
     filled: true,
     fillColor: isDark
-        ? Colors.white.withOpacity(0.05)
-        : Colors.grey.withOpacity(0.07),
+        ? Colors.white.withValues(alpha: 0.05)
+        : Colors.grey.withValues(alpha: 0.07),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10.r),
       borderSide: BorderSide.none,
@@ -1082,7 +1077,7 @@ class _TargetChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? AppColors.primary
-              : AppColors.primary.withOpacity(0.08),
+              : AppColors.primary.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(20.r),
         ),
         child: Row(
@@ -1131,7 +1126,7 @@ class _IntervalChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? AppColors.primary
-              : AppColors.primary.withOpacity(0.08),
+              : AppColors.primary.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(20.r),
         ),
         child: Text(

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/api_service.dart';
+import '../../../core/services/socket_service.dart';
 
 // ── Pilgrim Profile Model ─────────────────────────────────────────────────────
 
@@ -216,20 +217,17 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
     int? batteryPercent,
   }) async {
     if (!state.isSharingLocation) return;
-    try {
-      await ApiService.dio.put(
-        '/pilgrim/location',
-        data: {
-          'latitude': latitude,
-          'longitude': longitude,
-          'battery_percent': ?batteryPercent,
-        },
-      );
-      if (batteryPercent != null) {
-        state = state.copyWith(batteryLevel: batteryPercent);
-      }
-    } catch (_) {
-      // Silent — location updates should not disrupt UX
+    // Emit via socket for real-time broadcast to moderator map.
+    // The socket_manager.js handler persists to DB and forwards to the group.
+    SocketService.emit('update_location', {
+      'groupId': state.groupInfo?.groupId,
+      'pilgrimId': state.profile?.id,
+      'latitude': latitude,
+      'longitude': longitude,
+      'battery_percent': ?batteryPercent,
+    });
+    if (batteryPercent != null) {
+      state = state.copyWith(batteryLevel: batteryPercent);
     }
   }
 
