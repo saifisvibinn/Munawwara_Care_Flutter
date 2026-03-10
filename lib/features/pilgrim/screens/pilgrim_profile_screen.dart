@@ -84,7 +84,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
           content: Text(
             'settings_sign_out_confirm_body'.tr(),
             style: TextStyle(
-              color: isDarkDialog ? AppColors.textMutedLight : AppColors.textMutedDark,
+              color: isDarkDialog
+                  ? AppColors.textMutedLight
+                  : AppColors.textMutedDark,
               fontFamily: 'Lexend',
             ),
           ),
@@ -94,7 +96,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
               child: Text(
                 'settings_cancel'.tr(),
                 style: TextStyle(
-                  color: isDarkDialog ? AppColors.textLight : AppColors.textDark,
+                  color: isDarkDialog
+                      ? AppColors.textLight
+                      : AppColors.textDark,
                 ),
               ),
             ),
@@ -104,7 +108,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
               ),
               child: Text('settings_sign_out'.tr()),
             ),

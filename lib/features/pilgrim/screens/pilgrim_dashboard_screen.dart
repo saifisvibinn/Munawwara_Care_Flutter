@@ -1634,7 +1634,9 @@ class _InfoCard extends StatelessWidget {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.backgroundDark : AppColors.primary.withOpacity(0.12),
+                    color: isDark
+                        ? AppColors.backgroundDark
+                        : AppColors.primary.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(20.r),
                   ),
                   child: Text(
