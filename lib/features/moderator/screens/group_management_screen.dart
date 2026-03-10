@@ -1117,10 +1117,14 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                         horizontal: 12.w,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.08),
+                        color: isDark
+                            ? AppColors.surfaceDark
+                            : AppColors.primary.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(16.r),
                         border: Border.all(
-                          color: AppColors.primary.withOpacity(0.3),
+                          color: isDark
+                              ? AppColors.primary.withOpacity(0.25)
+                              : AppColors.primary.withOpacity(0.3),
                         ),
                       ),
                       child: Column(
@@ -1180,9 +1184,15 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                         horizontal: 12.w,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFEF2F2),
+                        color: isDark
+                            ? const Color(0x22DC2626)
+                            : const Color(0xFFFEF2F2),
                         borderRadius: BorderRadius.circular(16.r),
-                        border: Border.all(color: const Color(0xFFFECACA)),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0x33DC2626)
+                              : const Color(0xFFFECACA),
+                        ),
                       ),
                       child: Column(
                         children: [
@@ -1238,7 +1248,13 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Symbols.list, size: 18.w, color: AppColors.textDark),
+                      Icon(
+                        Symbols.list,
+                        size: 18.w,
+                        color: isDark
+                            ? AppColors.textLight
+                            : AppColors.textDark,
+                      ),
                       SizedBox(width: 8.w),
                       Text(
                         'area_view_all'.tr(),
@@ -1246,7 +1262,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                           fontFamily: 'Lexend',
                           fontWeight: FontWeight.w600,
                           fontSize: 14.sp,
-                          color: isDark ? Colors.white : AppColors.textDark,
+                          color: isDark
+                              ? AppColors.textLight
+                              : AppColors.textDark,
                         ),
                       ),
                       SizedBox(width: 6.w),
@@ -3368,10 +3386,11 @@ class _PilgrimManageTile extends StatelessWidget {
               icon: Icon(
                 Symbols.more_vert,
                 size: 18.w,
-                color: AppColors.textMutedLight,
+                color: isDark ? AppColors.primary : AppColors.textMutedLight,
               ),
               iconSize: 18.w,
               offset: const Offset(-20, 36),
+              color: isDark ? AppColors.surfaceDark : null,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14.r),
               ),
@@ -3405,6 +3424,7 @@ class _PilgrimManageTile extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 13.sp,
+                            color: isDark ? AppColors.textLight : null,
                           ),
                         ),
                       ],
@@ -3422,7 +3442,11 @@ class _PilgrimManageTile extends StatelessWidget {
                       SizedBox(width: 10.w),
                       Text(
                         'Navigate',
-                        style: TextStyle(fontFamily: 'Lexend', fontSize: 13.sp),
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 13.sp,
+                          color: isDark ? AppColors.textLight : null,
+                        ),
                       ),
                     ],
                   ),
@@ -3443,6 +3467,7 @@ class _PilgrimManageTile extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 13.sp,
+                            color: isDark ? AppColors.textLight : null,
                           ),
                         ),
                       ],
@@ -4042,13 +4067,34 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                           markers: [
                             Marker(
                               point: _pickedPoint!,
-                              width: 48.w,
-                              height: 48.w,
-                              child: Icon(
-                                Symbols.location_on,
-                                size: 42.w,
-                                color: accentColor,
-                                fill: 1,
+                              width: 56.w,
+                              height: 56.w,
+                              child: Center(
+                                child: Container(
+                                  width: 48.w,
+                                  height: 48.w,
+                                  decoration: BoxDecoration(
+                                    color: accentColor,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 3,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: accentColor.withOpacity(0.45),
+                                        blurRadius: 10,
+                                        spreadRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Symbols.location_on,
+                                    size: 24.w,
+                                    color: Colors.white,
+                                    fill: 1,
+                                  ),
+                                ),
                               ),
                             ),
                           ],

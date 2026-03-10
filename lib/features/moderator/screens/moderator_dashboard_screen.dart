@@ -349,12 +349,12 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                             height: 44.w,
                             decoration: BoxDecoration(
                               color: isDark
-                                  ? const Color(0xFF383018)
+                                  ? AppColors.surfaceDark
                                   : const Color(0xFFEEEEFB),
                               shape: BoxShape.circle,
                               border: Border.all(
                                 color: isDark
-                                    ? const Color(0xFF5A4A28)
+                                    ? AppColors.backgroundDark
                                     : const Color(0xFFD0D0F0),
                               ),
                               boxShadow: [
@@ -369,7 +369,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                               Symbols.person,
                               size: 22.w,
                               color: isDark
-                                  ? const Color(0xFFD4B896)
+                                  ? AppColors.primary
                                   : const Color(0xFF8A6A30),
                             ),
                           ),
@@ -393,12 +393,12 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                             height: 48.h,
                             decoration: BoxDecoration(
                               color: isDark
-                                  ? const Color(0xFF272210)
+                                  ? AppColors.surfaceDark
                                   : Colors.white,
                               borderRadius: BorderRadius.circular(14.r),
                               border: Border.all(
                                 color: isDark
-                                    ? const Color(0xFF383018)
+                                    ? AppColors.backgroundDark
                                     : const Color(0xFFE2E2F0),
                               ),
                               boxShadow: [
@@ -444,12 +444,12 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                           height: 48.h,
                           decoration: BoxDecoration(
                             color: isDark
-                                ? const Color(0xFF272210)
+                                ? AppColors.surfaceDark
                                 : Colors.white,
                             borderRadius: BorderRadius.circular(14.r),
                             border: Border.all(
                               color: isDark
-                                  ? const Color(0xFF383018)
+                                  ? AppColors.backgroundDark
                                   : const Color(0xFFE2E2F0),
                             ),
                             boxShadow: [
@@ -464,7 +464,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                             Symbols.tune,
                             size: 20.w,
                             color: isDark
-                                ? const Color(0xFFD4B896)
+                                ? AppColors.primary
                                 : const Color(0xFF8A6A30),
                           ),
                         ),
@@ -781,10 +781,10 @@ class _GroupCard extends ConsumerWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF272210) : Colors.white,
+          color: isDark ? AppColors.surfaceDark : Colors.white,
           borderRadius: BorderRadius.circular(24.r),
           border: Border.all(
-            color: isDark ? const Color(0xFF383018) : const Color(0xFFEEEEF8),
+            color: isDark ? AppColors.backgroundDark : const Color(0xFFEEEEF8),
           ),
           boxShadow: [
             BoxShadow(

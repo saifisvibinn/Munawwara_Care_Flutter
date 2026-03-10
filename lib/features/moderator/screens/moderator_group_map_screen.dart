@@ -148,7 +148,11 @@ class _ModeratorGroupMapScreenState
         ),
         content: Text(
           'This will send an urgent SOS message to all pilgrims in ${widget.group.groupName}.',
-          style: TextStyle(fontFamily: 'Lexend', fontSize: 14.sp, color: isDark ? Colors.white70 : null),
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontSize: 14.sp,
+            color: isDark ? Colors.white70 : null,
+          ),
         ),
         actions: [
           TextButton(
@@ -356,7 +360,9 @@ class _ModeratorGroupMapScreenState
                                       fontFamily: 'Lexend',
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13.sp,
-                                      color: isDark ? Colors.white : AppColors.textDark,
+                                      color: isDark
+                                          ? Colors.white
+                                          : AppColors.textDark,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -476,7 +482,9 @@ class _ModeratorGroupMapScreenState
                       width: 36.w,
                       height: 4.h,
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.white24 : const Color(0xFFE2E8F0),
+                        color: isDark
+                            ? Colors.white24
+                            : const Color(0xFFE2E8F0),
                         borderRadius: BorderRadius.circular(2.r),
                       ),
                     ),
@@ -503,10 +511,14 @@ class _ModeratorGroupMapScreenState
                               vertical: 4.h,
                             ),
                             decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF3A1010) : const Color(0xFFFFF1F2),
+                              color: isDark
+                                  ? const Color(0xFF3A1010)
+                                  : const Color(0xFFFFF1F2),
                               borderRadius: BorderRadius.circular(100.r),
                               border: Border.all(
-                                color: isDark ? const Color(0xFF5C1515) : const Color(0xFFFFE4E6),
+                                color: isDark
+                                    ? const Color(0xFF5C1515)
+                                    : const Color(0xFFFFE4E6),
                               ),
                             ),
                             child: Row(
@@ -540,7 +552,9 @@ class _ModeratorGroupMapScreenState
                     child: Container(
                       height: 40.h,
                       decoration: BoxDecoration(
-                        color: isDark ? AppColors.backgroundDark : const Color(0xFFF0F0F8),
+                        color: isDark
+                            ? AppColors.backgroundDark
+                            : const Color(0xFFF0F0F8),
                         borderRadius: BorderRadius.circular(12.r),
                       ),
                       child: TextField(
@@ -688,7 +702,11 @@ class _MapFab extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(icon, size: 20.w, color: isDark ? Colors.white : AppColors.textDark),
+        child: Icon(
+          icon,
+          size: 20.w,
+          color: isDark ? Colors.white : AppColors.textDark,
+        ),
       ),
     );
   }
@@ -719,7 +737,9 @@ class _PilgrimListTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: pilgrim.hasSOS
               ? (isDark ? const Color(0xFF3A1010) : const Color(0xFFFFF1F2))
-              : isDark ? AppColors.backgroundDark : const Color(0xFFF0F0F8),
+              : isDark
+              ? AppColors.backgroundDark
+              : const Color(0xFFF0F0F8),
           borderRadius: BorderRadius.circular(14.r),
           border: Border.all(
             color: pilgrim.hasSOS
@@ -837,4 +857,3 @@ class _PilgrimListTile extends StatelessWidget {
     );
   }
 }
-

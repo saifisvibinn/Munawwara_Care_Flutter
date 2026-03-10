@@ -107,11 +107,11 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                       width: 42.w,
                       height: 42.w,
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF272210) : Colors.white,
+                        color: isDark ? AppColors.surfaceDark : Colors.white,
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: isDark
-                              ? const Color(0xFF383018)
+                              ? AppColors.backgroundDark
                               : const Color(0xFFE2E2F0),
                         ),
                         boxShadow: [
@@ -125,7 +125,9 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                       child: Icon(
                         Symbols.arrow_back,
                         size: 20.w,
-                        color: isDark ? Colors.white : AppColors.textDark,
+                        color: isDark
+                            ? AppColors.textLight
+                            : AppColors.textDark,
                       ),
                     ),
                   ),
@@ -160,8 +162,13 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
           width: 64.w,
           height: 64.w,
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.12),
+            color: isDark
+                ? AppColors.surfaceDark
+                : AppColors.primary.withOpacity(0.12),
             borderRadius: BorderRadius.circular(18.r),
+            border: Border.all(
+              color: isDark ? AppColors.backgroundDark : Colors.transparent,
+            ),
           ),
           child: Icon(Symbols.group_add, size: 32.w, color: AppColors.primary),
         ),
@@ -207,7 +214,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
 
         Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF272210) : Colors.white,
+            color: isDark ? AppColors.surfaceDark : Colors.white,
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: _fieldError != null
@@ -215,7 +222,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                   : (_focusNode.hasFocus
                         ? AppColors.primary
                         : (isDark
-                              ? const Color(0xFF383018)
+                              ? AppColors.backgroundDark
                               : const Color(0xFFE2E2F0))),
               width: _focusNode.hasFocus ? 1.5 : 1,
             ),
@@ -293,9 +300,15 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
         Container(
           padding: EdgeInsets.all(14.w),
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.06),
+            color: isDark
+                ? AppColors.surfaceDark
+                : AppColors.primary.withOpacity(0.06),
             borderRadius: BorderRadius.circular(14.r),
-            border: Border.all(color: AppColors.primary.withOpacity(0.18)),
+            border: Border.all(
+              color: isDark
+                  ? AppColors.primary.withOpacity(0.16)
+                  : AppColors.primary.withOpacity(0.18),
+            ),
           ),
           child: Row(
             children: [
@@ -307,9 +320,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 12.sp,
-                    color: isDark
-                        ? const Color(0xFF86EFAC)
-                        : AppColors.primaryDark,
+                    color: isDark ? AppColors.textLight : AppColors.primaryDark,
                     height: 1.5,
                   ),
                 ),
@@ -573,4 +584,3 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
     );
   }
 }
-

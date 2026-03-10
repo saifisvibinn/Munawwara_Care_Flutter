@@ -352,13 +352,33 @@ class _Header extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(8.w, 12.h, 20.w, 0),
       child: Row(
         children: [
-          IconButton(
-            icon: Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: textPrimary,
-              size: 20.sp,
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Container(
+              width: 42.w,
+              height: 42.w,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.surfaceDark : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isDark
+                      ? AppColors.backgroundDark
+                      : const Color(0xFFE2E2F0),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: textPrimary,
+                size: 20.sp,
+              ),
             ),
-            onPressed: () => Navigator.of(context).pop(),
           ),
           Expanded(
             child: Center(
