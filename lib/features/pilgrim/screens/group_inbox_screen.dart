@@ -829,6 +829,26 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     return '${dt.day}/${dt.month}/${dt.year}';
   }
 
+  // Try a lightweight, heuristic language detection for common scripts.
+  // Returns a language code like 'ar' or 'en', or 'unknown' if undetermined.
+  String _detectLikelyLanguage(String text) {
+    if (text.trim().isEmpty) return 'unknown';
+    final hasArabic = RegExp(r'[\u0600-\u06FF]').hasMatch(text);
+    if (hasArabic) return 'ar';
+    final hasLatin = RegExp(r'[A-Za-z]').hasMatch(text);
+    if (hasLatin) return 'en';
+    return 'unknown';
+  }
+
+  static const Map<String, String> _langNames = {
+    'en': 'English',
+    'ar': 'Arabic',
+    'ur': 'Urdu',
+    'fr': 'French',
+    'id': 'Indonesian',
+    'tr': 'Turkish',
+  };
+
   // ── On-demand translation ─────────────────────────────────────────────────
 
   Widget _buildTranslateButton(GroupMessage msg, String originalText) {
@@ -887,9 +907,25 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
       return;
     }
 
+    // Lightweight pre-check: if the message appears to already be in the
+    // app's target language, warn and skip the translate call.
+    final targetLang = context.locale.languageCode;
+    final detected = _detectLikelyLanguage(originalText);
+    if (detected != 'unknown' && detected == targetLang) {
+      final name = _langNames[targetLang] ?? targetLang;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('This message already appears to be in $name.'),
+          backgroundColor: Colors.orange.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() => _translating.add(msg.id));
     try {
-      final lang = context.locale.languageCode;
+      final lang = targetLang;
       final response = await ApiService.dio.post(
         '/auth/translate',
         data: {'text': originalText, 'targetLang': lang},
