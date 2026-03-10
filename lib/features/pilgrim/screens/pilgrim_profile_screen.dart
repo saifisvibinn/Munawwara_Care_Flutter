@@ -271,9 +271,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                               padding: EdgeInsets.all(8.r),
                               decoration: BoxDecoration(
                                 color: isDark
-                                    ? AppColors.surfaceDark
-                                    : AppColors.primary.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(10.r),
+                                    ? AppColors.iconBgDark
+                                    : AppColors.iconBgLight,
+                                borderRadius: BorderRadius.circular(8.r),
                               ),
                               child: Icon(
                                 Icons.edit_rounded,
@@ -731,8 +731,8 @@ class _LanguageRow extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isDark
-                        ? const Color(0xFF1A2C24)
-                        : const Color(0xFFF0FDF8),
+                        ? AppColors.surfaceDark
+                        : AppColors.backgroundLight,
                   ),
                   child: Center(
                     child: Text(

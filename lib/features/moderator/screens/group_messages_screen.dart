@@ -1238,7 +1238,9 @@ class _TypeButton extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primary.withOpacity(0.12)
+              ? (Theme.of(context).brightness == Brightness.dark
+                    ? AppColors.iconBgDark
+                    : AppColors.iconBgLight)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(10.r),
           border: Border.all(

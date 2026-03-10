@@ -349,8 +349,8 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                             height: 44.w,
                             decoration: BoxDecoration(
                               color: isDark
-                                  ? AppColors.surfaceDark
-                                  : const Color(0xFFEEEEFB),
+                                  ? AppColors.iconBgDark
+                                  : AppColors.iconBgLight,
                               shape: BoxShape.circle,
                               border: Border.all(
                                 color: isDark

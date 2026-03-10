@@ -57,21 +57,54 @@ class _ModeratorProfileScreenState
   Future<void> _signOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('settings_sign_out_confirm_title'.tr()),
-        content: Text('settings_sign_out_confirm_body'.tr()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('settings_cancel'.tr()),
+      builder: (ctx) {
+        final isDarkDialog = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDarkDialog ? AppColors.surfaceDark : Colors.white,
+          title: Text(
+            'settings_sign_out_confirm_title'.tr(),
+            style: TextStyle(
+              color: isDarkDialog ? AppColors.textLight : AppColors.textDark,
+              fontFamily: 'Lexend',
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text('settings_sign_out'.tr()),
+          content: Text(
+            'settings_sign_out_confirm_body'.tr(),
+            style: TextStyle(
+              color: isDarkDialog
+                  ? AppColors.textMutedLight
+                  : AppColors.textMutedDark,
+              fontFamily: 'Lexend',
+            ),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(
+                'settings_cancel'.tr(),
+                style: TextStyle(
+                  color: isDarkDialog
+                      ? AppColors.textLight
+                      : AppColors.textDark,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+              ),
+              child: Text('settings_sign_out'.tr()),
+            ),
+          ],
+        );
+      },
     );
     if (confirmed == true && mounted) {
       await ref.read(authProvider.notifier).logout();
@@ -164,7 +197,9 @@ class _ModeratorProfileScreenState
                               width: 40.w,
                               height: 40.w,
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.15),
+                                color: isDark
+                                    ? AppColors.surfaceDark
+                                    : AppColors.primary.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(12.r),
                               ),
                               child: Icon(
@@ -201,7 +236,16 @@ class _ModeratorProfileScreenState
                             ),
                             Switch(
                               value: isDark,
-                              activeThumbColor: AppColors.primary,
+                              activeColor: AppColors.primary,
+                              activeTrackColor: AppColors.primary.withOpacity(
+                                0.3,
+                              ),
+                              inactiveThumbColor: isDark
+                                  ? AppColors.textLight
+                                  : Colors.grey,
+                              inactiveTrackColor: isDark
+                                  ? AppColors.surfaceDark
+                                  : Colors.grey.shade300,
                               onChanged: (_) => themeNotifier.toggle(),
                             ),
                           ],
@@ -503,7 +547,7 @@ class _ProfileCard extends StatelessWidget {
             child: Container(
               padding: EdgeInsets.all(8.r),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.12),
+                color: isDark ? AppColors.surfaceDark : const Color(0xFFEEEEFB),
                 borderRadius: BorderRadius.circular(10.r),
               ),
               child: Icon(
@@ -586,8 +630,8 @@ class _LanguageRow extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isDark
-                        ? const Color(0xFF272210)
-                        : const Color(0xFFEEEEFB),
+                        ? AppColors.surfaceDark
+                        : AppColors.backgroundLight,
                   ),
                   child: Center(
                     child: Text(

@@ -840,7 +840,9 @@ class _PilgrimListTile extends StatelessWidget {
                 child: Container(
                   padding: EdgeInsets.all(7.w),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.12),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppColors.surfaceDark
+                        : const Color(0xFFEEEEFB),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(

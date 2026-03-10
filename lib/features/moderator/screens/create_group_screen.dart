@@ -91,7 +91,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
 
     return Scaffold(
       backgroundColor: isDark
-          ? AppColors.backgroundDark
+          ? AppColors.surfaceDark
           : AppColors.backgroundLight,
       body: SafeArea(
         child: Column(
@@ -162,9 +162,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
           width: 64.w,
           height: 64.w,
           decoration: BoxDecoration(
-            color: isDark
-                ? AppColors.surfaceDark
-                : AppColors.primary.withOpacity(0.12),
+            color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
             borderRadius: BorderRadius.circular(18.r),
             border: Border.all(
               color: isDark ? AppColors.backgroundDark : Colors.transparent,
@@ -392,7 +390,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
             width: 80.w,
             height: 80.w,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.12),
+              color: isDark ? AppColors.surfaceDark : const Color(0xFFEEEEFB),
               shape: BoxShape.circle,
             ),
             child: Icon(

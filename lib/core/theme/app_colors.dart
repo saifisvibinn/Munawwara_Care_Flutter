@@ -28,4 +28,7 @@ class AppColors {
   // Dividers
   static const Color dividerLight = Color(0xFFE2E8F0);
   static const Color dividerDark = Color(0xFF25303A);
+  // Icon backgrounds (centralized for easy palette changes)
+  static const Color iconBgLight = Color(0xFFEEEEFB);
+  static const Color iconBgDark = Color(0xFF121826);
 }

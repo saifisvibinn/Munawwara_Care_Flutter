@@ -1269,7 +1269,9 @@ class _HomeTab extends StatelessWidget {
                                   width: 40.w,
                                   height: 40.w,
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.12),
+                                    color: isDark
+                                        ? AppColors.iconBgDark
+                                        : AppColors.iconBgLight,
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
@@ -1623,9 +1625,7 @@ class _InfoCard extends StatelessWidget {
                 width: 42.w,
                 height: 42.w,
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.backgroundDark
-                      : iconColor.withOpacity(0.12),
+                  color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, size: 22.w, color: iconColor),
@@ -1635,8 +1635,8 @@ class _InfoCard extends StatelessWidget {
                   padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
                     color: isDark
-                        ? AppColors.backgroundDark
-                        : AppColors.primary.withOpacity(0.12),
+                        ? AppColors.iconBgDark
+                        : AppColors.iconBgLight,
                     borderRadius: BorderRadius.circular(20.r),
                   ),
                   child: Text(
@@ -1745,7 +1745,9 @@ class _BottomNav extends StatelessWidget {
                       height: 32.h,
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppColors.primary.withOpacity(0.12)
+                            ? (isDark
+                                  ? AppColors.iconBgDark
+                                  : AppColors.iconBgLight)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(12.r),
                       ),
@@ -1804,7 +1806,9 @@ class _BottomNav extends StatelessWidget {
                           height: 32.h,
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppColors.primary.withOpacity(0.12)
+                                ? (isDark
+                                      ? AppColors.iconBgDark
+                                      : AppColors.iconBgLight)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(12.r),
                           ),
@@ -2009,7 +2013,9 @@ class _PilgrimMapTab extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 16.r,
-                      backgroundColor: AppColors.primary.withOpacity(0.15),
+                      backgroundColor: isDark
+                          ? AppColors.iconBgDark
+                          : AppColors.iconBgLight,
                       child: Icon(
                         Symbols.group,
                         color: AppColors.primary,
@@ -2046,7 +2052,7 @@ class _PilgrimMapTab extends StatelessWidget {
               width: 48.w,
               height: 48.w,
               decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceDark : Colors.white,
+                color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(

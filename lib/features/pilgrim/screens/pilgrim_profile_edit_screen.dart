@@ -464,8 +464,8 @@ class _PilgrimProfileEditScreenState
                                     height: 38.w,
                                     decoration: BoxDecoration(
                                       color: isDark
-                                          ? AppColors.backgroundDark
-                                          : AppColors.primary.withOpacity(0.12),
+                                          ? AppColors.iconBgDark
+                                          : AppColors.iconBgLight,
                                       borderRadius: BorderRadius.circular(10.r),
                                     ),
                                     child: Icon(
@@ -568,10 +568,8 @@ class _PilgrimProfileEditScreenState
                                       height: 38.w,
                                       decoration: BoxDecoration(
                                         color: isDark
-                                            ? AppColors.backgroundDark
-                                            : AppColors.primary.withOpacity(
-                                                0.12,
-                                              ),
+                                            ? AppColors.iconBgDark
+                                            : AppColors.iconBgLight,
                                         borderRadius: BorderRadius.circular(
                                           10.r,
                                         ),
@@ -652,8 +650,8 @@ class _PilgrimProfileEditScreenState
                                   height: 38.w,
                                   decoration: BoxDecoration(
                                     color: isDark
-                                        ? AppColors.backgroundDark
-                                        : AppColors.primary.withOpacity(0.12),
+                                        ? AppColors.iconBgDark
+                                        : AppColors.iconBgLight,
                                     borderRadius: BorderRadius.circular(10.r),
                                   ),
                                   child: Icon(
@@ -759,8 +757,8 @@ class _PilgrimProfileEditScreenState
                                   height: 38.w,
                                   decoration: BoxDecoration(
                                     color: isDark
-                                        ? AppColors.backgroundDark
-                                        : AppColors.primary.withOpacity(0.12),
+                                        ? AppColors.iconBgDark
+                                        : AppColors.iconBgLight,
                                     borderRadius: BorderRadius.circular(10.r),
                                   ),
                                   child: Icon(
@@ -1071,9 +1069,7 @@ class _EditField extends StatelessWidget {
                 width: 38.w,
                 height: 38.w,
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.backgroundDark
-                      : AppColors.primary.withOpacity(0.12),
+                  color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
                   borderRadius: BorderRadius.circular(10.r),
                 ),
                 child: Icon(icon, color: AppColors.primary, size: 18.sp),
@@ -1190,8 +1186,8 @@ class _ReadOnlyField extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: isDark
-                              ? AppColors.backgroundDark
-                              : AppColors.primary.withOpacity(0.12),
+                              ? AppColors.iconBgDark
+                              : AppColors.iconBgLight,
                           borderRadius: BorderRadius.circular(6.r),
                         ),
                         child: Row(

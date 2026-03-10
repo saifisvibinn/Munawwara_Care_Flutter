@@ -376,7 +376,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                         width: 40.w,
                         height: 40.w,
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.12),
+                          color: isDark
+                              ? AppColors.surfaceDark
+                              : const Color(0xFFEEEEFB),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
