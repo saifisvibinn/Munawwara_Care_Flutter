@@ -186,7 +186,9 @@ class SocketService {
   static void _applyPendingListeners() {
     if (_socket == null) return;
     for (final entry in _pendingListeners.entries) {
-      _socket!.off(entry.key); // clear all existing socket.io handlers for this event
+      _socket!.off(
+        entry.key,
+      ); // clear all existing socket.io handlers for this event
       for (final handler in entry.value) {
         _socket!.on(entry.key, handler);
       }
