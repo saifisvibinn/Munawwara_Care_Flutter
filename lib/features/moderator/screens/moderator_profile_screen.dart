@@ -236,7 +236,7 @@ class _ModeratorProfileScreenState
                             ),
                             Switch(
                               value: isDark,
-                              activeColor: AppColors.primary,
+                              activeThumbColor: AppColors.primary,
                               activeTrackColor: AppColors.primary.withOpacity(
                                 0.3,
                               ),
