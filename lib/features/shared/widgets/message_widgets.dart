@@ -56,7 +56,7 @@ class WaveformPlayer extends StatelessWidget {
             width: 40.w,
             height: 40.w,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.12),
+              color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -125,7 +125,7 @@ class MessageTypeBadge extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 2.h),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(6.r),
       ),
       child: Text(

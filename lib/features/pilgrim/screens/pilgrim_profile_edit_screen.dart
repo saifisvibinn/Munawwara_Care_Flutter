@@ -212,13 +212,35 @@ class _PilgrimProfileEditScreenState
               padding: EdgeInsets.fromLTRB(8.w, 12.h, 20.w, 0),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: textPrimary,
-                      size: 20.sp,
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      width: 42.w,
+                      height: 42.w,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.surfaceDark : Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.backgroundDark
+                              : const Color(0xFFE2E2F0),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: isDark
+                            ? AppColors.textLight
+                            : AppColors.textDark,
+                        size: 20.sp,
+                      ),
                     ),
-                    onPressed: () => Navigator.of(context).pop(),
                   ),
                   Expanded(
                     child: Center(
@@ -299,7 +321,9 @@ class _PilgrimProfileEditScreenState
                             vertical: 4.h,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.15),
+                            color: isDark
+                                ? AppColors.backgroundDark
+                                : AppColors.primary.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(8.r),
                           ),
                           child: Text(
@@ -329,7 +353,7 @@ class _PilgrimProfileEditScreenState
                           borderRadius: BorderRadius.circular(16.r),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 
+                              color: Colors.black.withOpacity(
                                 isDark ? 0.3 : 0.06,
                               ),
                               blurRadius: 12,
@@ -393,7 +417,7 @@ class _PilgrimProfileEditScreenState
                           borderRadius: BorderRadius.circular(16.r),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 
+                              color: Colors.black.withOpacity(
                                 isDark ? 0.3 : 0.06,
                               ),
                               blurRadius: 12,
@@ -439,9 +463,9 @@ class _PilgrimProfileEditScreenState
                                     width: 38.w,
                                     height: 38.w,
                                     decoration: BoxDecoration(
-                                      color: AppColors.primary.withValues(alpha: 
-                                        0.12,
-                                      ),
+                                      color: isDark
+                                          ? AppColors.iconBgDark
+                                          : AppColors.iconBgLight,
                                       borderRadius: BorderRadius.circular(10.r),
                                     ),
                                     child: Icon(
@@ -521,8 +545,8 @@ class _PilgrimProfileEditScreenState
                               height: 1,
                               thickness: 1,
                               color: isDark
-                                  ? const Color(0xFF2D4A3A)
-                                  : const Color(0xFFE2E8F0),
+                                  ? AppColors.dividerDark
+                                  : AppColors.dividerLight,
                               indent: 16.w,
                               endIndent: 16.w,
                             ),
@@ -543,9 +567,9 @@ class _PilgrimProfileEditScreenState
                                       width: 38.w,
                                       height: 38.w,
                                       decoration: BoxDecoration(
-                                        color: AppColors.primary.withValues(alpha: 
-                                          0.12,
-                                        ),
+                                        color: isDark
+                                            ? AppColors.iconBgDark
+                                            : AppColors.iconBgLight,
                                         borderRadius: BorderRadius.circular(
                                           10.r,
                                         ),
@@ -579,7 +603,7 @@ class _PilgrimProfileEditScreenState
                                         hintStyle: TextStyle(
                                           fontFamily: 'Lexend',
                                           fontSize: 13.sp,
-                                          color: textMuted.withValues(alpha: 0.6),
+                                          color: textMuted.withOpacity(0.6),
                                         ),
                                         border: InputBorder.none,
                                         contentPadding: EdgeInsets.symmetric(
@@ -609,7 +633,7 @@ class _PilgrimProfileEditScreenState
                             borderRadius: BorderRadius.circular(16.r),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 
+                                color: Colors.black.withOpacity(
                                   isDark ? 0.3 : 0.06,
                                 ),
                                 blurRadius: 12,
@@ -625,7 +649,9 @@ class _PilgrimProfileEditScreenState
                                   width: 38.w,
                                   height: 38.w,
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.12),
+                                    color: isDark
+                                        ? AppColors.iconBgDark
+                                        : AppColors.iconBgLight,
                                     borderRadius: BorderRadius.circular(10.r),
                                   ),
                                   child: Icon(
@@ -714,7 +740,7 @@ class _PilgrimProfileEditScreenState
                             borderRadius: BorderRadius.circular(16.r),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 
+                                color: Colors.black.withOpacity(
                                   isDark ? 0.3 : 0.06,
                                 ),
                                 blurRadius: 12,
@@ -730,7 +756,9 @@ class _PilgrimProfileEditScreenState
                                   width: 38.w,
                                   height: 38.w,
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.12),
+                                    color: isDark
+                                        ? AppColors.iconBgDark
+                                        : AppColors.iconBgLight,
                                     borderRadius: BorderRadius.circular(10.r),
                                   ),
                                   child: Icon(
@@ -773,7 +801,7 @@ class _PilgrimProfileEditScreenState
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.primary,
                                     disabledBackgroundColor: AppColors.primary
-                                        .withValues(alpha: 0.6),
+                                        .withOpacity(0.6),
                                     foregroundColor: Colors.white,
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(
@@ -811,7 +839,7 @@ class _PilgrimProfileEditScreenState
                             borderRadius: BorderRadius.circular(16.r),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 
+                                color: Colors.black.withOpacity(
                                   isDark ? 0.3 : 0.06,
                                 ),
                                 blurRadius: 12,
@@ -829,7 +857,7 @@ class _PilgrimProfileEditScreenState
                                   decoration: BoxDecoration(
                                     color: _getStatusColor(
                                       authState.moderatorRequestStatus!,
-                                    ).withValues(alpha: 0.12),
+                                    ).withOpacity(0.12),
                                     borderRadius: BorderRadius.circular(10.r),
                                   ),
                                   child: Icon(
@@ -902,7 +930,7 @@ class _PilgrimProfileEditScreenState
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             disabledBackgroundColor: AppColors.primary
-                                .withValues(alpha: 0.6),
+                                .withOpacity(0.6),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -1028,8 +1056,8 @@ class _EditField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dividerColor = isDark
-        ? const Color(0xFF2D4A3A)
-        : const Color(0xFFE2E8F0);
+        ? AppColors.dividerDark
+        : AppColors.dividerLight;
     return Column(
       children: [
         Padding(
@@ -1041,7 +1069,7 @@ class _EditField extends StatelessWidget {
                 width: 38.w,
                 height: 38.w,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
+                  color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
                   borderRadius: BorderRadius.circular(10.r),
                 ),
                 child: Icon(icon, color: AppColors.primary, size: 18.sp),
@@ -1118,7 +1146,7 @@ class _ReadOnlyField extends StatelessWidget {
             width: 38.w,
             height: 38.w,
             decoration: BoxDecoration(
-              color: textMuted.withValues(alpha: 0.12),
+              color: textMuted.withOpacity(0.12),
               borderRadius: BorderRadius.circular(10.r),
             ),
             child: Icon(icon, color: textMuted, size: 18.sp),
@@ -1157,7 +1185,9 @@ class _ReadOnlyField extends StatelessWidget {
                           vertical: 3.h,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.12),
+                          color: isDark
+                              ? AppColors.iconBgDark
+                              : AppColors.iconBgLight,
                           borderRadius: BorderRadius.circular(6.r),
                         ),
                         child: Row(
@@ -1223,7 +1253,7 @@ class _GenderChip extends StatelessWidget {
           border: Border.all(
             color: selected
                 ? AppColors.primary
-                : (isDark ? const Color(0xFF2D4A3A) : const Color(0xFFE2E8F0)),
+                : (isDark ? AppColors.dividerDark : AppColors.dividerLight),
           ),
         ),
         child: Text(

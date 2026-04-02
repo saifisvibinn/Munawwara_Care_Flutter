@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/services/api_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'pilgrim_profile_edit_screen.dart';
 
@@ -68,21 +69,54 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
   Future<void> _signOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('settings_sign_out_confirm_title'.tr()),
-        content: Text('settings_sign_out_confirm_body'.tr()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('settings_cancel'.tr()),
+      builder: (ctx) {
+        final isDarkDialog = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDarkDialog ? AppColors.surfaceDark : Colors.white,
+          title: Text(
+            'settings_sign_out_confirm_title'.tr(),
+            style: TextStyle(
+              color: isDarkDialog ? AppColors.textLight : AppColors.textDark,
+              fontFamily: 'Lexend',
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text('settings_sign_out'.tr()),
+          content: Text(
+            'settings_sign_out_confirm_body'.tr(),
+            style: TextStyle(
+              color: isDarkDialog
+                  ? AppColors.textMutedLight
+                  : AppColors.textMutedDark,
+              fontFamily: 'Lexend',
+            ),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(
+                'settings_cancel'.tr(),
+                style: TextStyle(
+                  color: isDarkDialog
+                      ? AppColors.textLight
+                      : AppColors.textDark,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+              ),
+              child: Text('settings_sign_out'.tr()),
+            ),
+          ],
+        );
+      },
     );
     if (confirmed == true && mounted) {
       await ref.read(authProvider.notifier).logout();
@@ -107,8 +141,8 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
         ? AppColors.textMutedLight
         : AppColors.textMutedDark;
     final dividerColor = isDark
-        ? const Color(0xFF2D4A3A)
-        : const Color(0xFFE2E8F0);
+        ? AppColors.dividerDark
+        : AppColors.dividerLight;
 
     return Scaffold(
       backgroundColor: bg,
@@ -153,7 +187,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                         borderRadius: BorderRadius.circular(16.r),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 
+                            color: Colors.black.withOpacity(
                               isDark ? 0.3 : 0.06,
                             ),
                             blurRadius: 12,
@@ -210,7 +244,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                                     vertical: 3.h,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.15),
+                                    color: AppColors.primary.withOpacity(0.15),
                                     borderRadius: BorderRadius.circular(8.r),
                                   ),
                                   child: Text(
@@ -236,8 +270,10 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             child: Container(
                               padding: EdgeInsets.all(8.r),
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(10.r),
+                                color: isDark
+                                    ? AppColors.iconBgDark
+                                    : AppColors.iconBgLight,
+                                borderRadius: BorderRadius.circular(8.r),
                               ),
                               child: Icon(
                                 Icons.edit_rounded,
@@ -264,7 +300,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           borderRadius: BorderRadius.circular(16.r),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 
+                              color: Colors.black.withOpacity(
                                 isDark ? 0.3 : 0.06,
                               ),
                               blurRadius: 12,
@@ -285,7 +321,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                                     decoration: BoxDecoration(
                                       color: _getStatusColor(
                                         authState.moderatorRequestStatus!,
-                                      ).withValues(alpha: 0.12),
+                                      ).withOpacity(0.12),
                                       borderRadius: BorderRadius.circular(10.r),
                                     ),
                                     child: Icon(
@@ -396,7 +432,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                         borderRadius: BorderRadius.circular(16.r),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 
+                            color: Colors.black.withOpacity(
                               isDark ? 0.3 : 0.06,
                             ),
                             blurRadius: 12,
@@ -415,7 +451,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                               width: 40.w,
                               height: 40.w,
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.15),
+                                color: isDark
+                                    ? AppColors.surfaceDark
+                                    : AppColors.primary.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(12.r),
                               ),
                               child: Icon(
@@ -453,6 +491,15 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             Switch(
                               value: isDark,
                               activeThumbColor: AppColors.primary,
+                              activeTrackColor: AppColors.primary.withOpacity(
+                                0.3,
+                              ),
+                              inactiveThumbColor: isDark
+                                  ? AppColors.textLight
+                                  : Colors.grey,
+                              inactiveTrackColor: isDark
+                                  ? AppColors.surfaceDark
+                                  : Colors.grey.shade300,
                               onChanged: (_) => themeNotifier.toggle(),
                             ),
                           ],
@@ -474,7 +521,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                         borderRadius: BorderRadius.circular(16.r),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 
+                            color: Colors.black.withOpacity(
                               isDark ? 0.3 : 0.06,
                             ),
                             blurRadius: 12,
@@ -495,9 +542,18 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             dividerColor: dividerColor,
                             textPrimary: textPrimary,
                             textMuted: textMuted,
-                            onTap: () {
-                              setState(() => _selectedLocale = lang['code']!);
-                              context.setLocale(Locale(lang['code']!));
+                            onTap: () async {
+                              final code = lang['code']!;
+                              setState(() => _selectedLocale = code);
+                              context.setLocale(Locale(code));
+                              try {
+                                await ApiService.dio.put(
+                                  '/auth/update-language',
+                                  data: {'language': code},
+                                );
+                              } catch (_) {
+                                // Non-fatal — local language is already applied
+                              }
                             },
                           );
                         }),
@@ -675,8 +731,8 @@ class _LanguageRow extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isDark
-                        ? const Color(0xFF1A2C24)
-                        : const Color(0xFFF0FDF8),
+                        ? AppColors.surfaceDark
+                        : AppColors.backgroundLight,
                   ),
                   child: Center(
                     child: Text(

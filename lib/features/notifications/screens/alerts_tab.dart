@@ -190,7 +190,7 @@ class _NotificationTile extends ConsumerWidget {
               : Border(left: BorderSide(color: n.iconColor, width: 3)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -206,7 +206,7 @@ class _NotificationTile extends ConsumerWidget {
                 width: 38.w,
                 height: 38.w,
                 decoration: BoxDecoration(
-                  color: n.iconColor.withValues(alpha: 0.12),
+                  color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(n.icon, size: 18.w, color: n.iconColor),
@@ -265,7 +265,9 @@ class _NotificationTile extends ConsumerWidget {
                             vertical: 2.h,
                           ),
                           decoration: BoxDecoration(
-                            color: n.iconColor.withValues(alpha: 0.1),
+                            color: isDark
+                                ? AppColors.iconBgDark
+                                : AppColors.iconBgLight,
                             borderRadius: BorderRadius.circular(4.r),
                           ),
                           child: Text(

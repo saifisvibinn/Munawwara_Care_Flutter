@@ -171,25 +171,7 @@ class _ModeratorProfileEditScreenState
                                 ),
                               ),
                             ),
-                            // Camera badge (cosmetic)
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: Container(
-                                width: 28.w,
-                                height: 28.w,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: bg, width: 2.5),
-                                ),
-                                child: Icon(
-                                  Icons.camera_alt_rounded,
-                                  color: Colors.white,
-                                  size: 14.sp,
-                                ),
-                              ),
-                            ),
+                            // Camera badge removed per UI request
                           ],
                         ),
                       ),
@@ -214,7 +196,7 @@ class _ModeratorProfileEditScreenState
                             vertical: 4.h,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.15),
+                            color: AppColors.primary.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(8.r),
                           ),
                           child: Text(
@@ -244,7 +226,7 @@ class _ModeratorProfileEditScreenState
                           borderRadius: BorderRadius.circular(16.r),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 
+                              color: Colors.black.withOpacity(
                                 isDark ? 0.3 : 0.06,
                               ),
                               blurRadius: 12,
@@ -309,7 +291,7 @@ class _ModeratorProfileEditScreenState
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             disabledBackgroundColor: AppColors.primary
-                                .withValues(alpha: 0.6),
+                                .withOpacity(0.6),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -409,8 +391,8 @@ class _EditField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dividerColor = isDark
-        ? const Color(0xFF383018)
-        : const Color(0xFFE2E2F0);
+        ? AppColors.dividerDark
+        : AppColors.dividerLight;
     return Column(
       children: [
         Padding(
@@ -422,7 +404,7 @@ class _EditField extends StatelessWidget {
                 width: 38.w,
                 height: 38.w,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
+                  color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
                   borderRadius: BorderRadius.circular(10.r),
                 ),
                 child: Icon(icon, color: AppColors.primary, size: 18.sp),
@@ -497,7 +479,7 @@ class _ReadOnlyField extends StatelessWidget {
             width: 38.w,
             height: 38.w,
             decoration: BoxDecoration(
-              color: textMuted.withValues(alpha: 0.12),
+              color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
               borderRadius: BorderRadius.circular(10.r),
             ),
             child: Icon(icon, color: textMuted, size: 18.sp),
@@ -535,7 +517,9 @@ class _ReadOnlyField extends StatelessWidget {
                         vertical: 3.h,
                       ),
                       decoration: BoxDecoration(
-                        color: textMuted.withValues(alpha: 0.12),
+                        color: isDark
+                            ? AppColors.iconBgDark
+                            : AppColors.iconBgLight,
                         borderRadius: BorderRadius.circular(6.r),
                       ),
                       child: Text(
@@ -558,4 +542,3 @@ class _ReadOnlyField extends StatelessWidget {
     );
   }
 }
-

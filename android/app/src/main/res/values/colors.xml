@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand color used for FCM notification accent -->
+    <color name="notification_color">#F97316</color>
+	<color name="ic_launcher_background">#FFFFFF</color>
+</resources>

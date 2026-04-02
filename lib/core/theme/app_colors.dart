@@ -10,15 +10,25 @@ class AppColors {
 
   // Backgrounds
   static const Color backgroundLight = Color(0xFFF0F0F8); // lavender-white
-  static const Color backgroundDark = Color(0xFF1C1800); // warm near-black
+  // Replaced warm near-black (orangey) with a neutral deep blue-black
+  static const Color backgroundDark = Color(
+    0xFF0B1220,
+  ); // neutral deep blue-black
 
   // Card / surface
   static const Color surfaceLight = Color(0xFFFFFFFF);
-  static const Color surfaceDark = Color(0xFF272210); // warm dark card
+  // Slightly lighter slate surface for dark mode cards
+  static const Color surfaceDark = Color(0xFF121826); // deep slate surface
 
   // Text
   static const Color textDark = Color(0xFF1A1A4E); // navy title (light mode)
   static const Color textLight = Color(0xFFF1F5F9);
   static const Color textMutedDark = Color(0xFF64748B);
   static const Color textMutedLight = Color(0xFF94A3B8);
+  // Dividers
+  static const Color dividerLight = Color(0xFFE2E8F0);
+  static const Color dividerDark = Color(0xFF25303A);
+  // Icon backgrounds (centralized for easy palette changes)
+  static const Color iconBgLight = Color(0xFFEEEEFB);
+  static const Color iconBgDark = Color(0xFF121826);
 }

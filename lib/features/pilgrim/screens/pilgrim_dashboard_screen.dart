@@ -911,14 +911,14 @@ class _HomeTab extends StatelessWidget {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            AppColors.primary.withValues(alpha: 0.2),
-                            AppColors.primary.withValues(alpha: 0.1),
+                            AppColors.primary.withOpacity(0.2),
+                            AppColors.primary.withOpacity(0.1),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(14.r),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.1),
+                            color: AppColors.primary.withOpacity(0.1),
                             blurRadius: 16,
                             offset: const Offset(0, 3),
                           ),
@@ -977,7 +977,7 @@ class _HomeTab extends StatelessWidget {
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
+                                  color: Colors.black.withOpacity(0.06),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -1222,7 +1222,7 @@ class _HomeTab extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20.r),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
+                          color: Colors.black.withOpacity(0.06),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -1269,7 +1269,9 @@ class _HomeTab extends StatelessWidget {
                                   width: 40.w,
                                   height: 40.w,
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.12),
+                                    color: isDark
+                                        ? AppColors.iconBgDark
+                                        : AppColors.iconBgLight,
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
@@ -1309,7 +1311,7 @@ class _HomeTab extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(14.r),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: AppColors.primary.withValues(alpha: 
+                                          color: AppColors.primary.withOpacity(
                                             0.35,
                                           ),
                                           blurRadius: 8,
@@ -1457,7 +1459,7 @@ class _SosButtonState extends State<_SosButton>
                       height: size.w,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.red.withValues(alpha: 
+                        color: Colors.red.withOpacity(
                           0.15 * widget.pulseController.value,
                         ),
                       ),
@@ -1487,7 +1489,7 @@ class _SosButtonState extends State<_SosButton>
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.red.withValues(alpha: 
+                      color: Colors.red.withOpacity(
                         _isPressed || widget.isHolding ? 0.25 : 0.45,
                       ),
                       blurRadius: _isPressed || widget.isHolding ? 14 : 30,
@@ -1535,7 +1537,7 @@ class _SosButtonState extends State<_SosButton>
                               fontFamily: 'Lexend',
                               fontSize: 20.sp,
                               fontWeight: FontWeight.w900,
-                              color: Colors.white.withValues(alpha: 0.6),
+                              color: Colors.white.withOpacity(0.6),
                               letterSpacing: 2,
                             ),
                           ),
@@ -1564,7 +1566,7 @@ class _SosButtonState extends State<_SosButton>
                       value: widget.holdController.value,
                       strokeWidth: ringStroke,
                       color: Colors.white,
-                      backgroundColor: Colors.white.withValues(alpha: 0.2),
+                      backgroundColor: Colors.white.withOpacity(0.2),
                     ),
                   ),
                 ),
@@ -1606,7 +1608,7 @@ class _InfoCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -1623,7 +1625,7 @@ class _InfoCard extends StatelessWidget {
                 width: 42.w,
                 height: 42.w,
                 decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.12),
+                  color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, size: 22.w, color: iconColor),
@@ -1632,7 +1634,9 @@ class _InfoCard extends StatelessWidget {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
+                    color: isDark
+                        ? AppColors.iconBgDark
+                        : AppColors.iconBgLight,
                     borderRadius: BorderRadius.circular(20.r),
                   ),
                   child: Text(
@@ -1741,7 +1745,9 @@ class _BottomNav extends StatelessWidget {
                       height: 32.h,
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppColors.primary.withValues(alpha: 0.12)
+                            ? (isDark
+                                  ? AppColors.iconBgDark
+                                  : AppColors.iconBgLight)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(12.r),
                       ),
@@ -1800,7 +1806,9 @@ class _BottomNav extends StatelessWidget {
                           height: 32.h,
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppColors.primary.withValues(alpha: 0.12)
+                                ? (isDark
+                                      ? AppColors.iconBgDark
+                                      : AppColors.iconBgLight)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(12.r),
                           ),
@@ -1942,7 +1950,7 @@ class _PilgrimMapTab extends StatelessWidget {
                             border: Border.all(color: Colors.white, width: 2.5),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.5),
+                                color: AppColors.primary.withOpacity(0.5),
                                 blurRadius: 10,
                                 spreadRadius: 3,
                               ),
@@ -1994,7 +2002,7 @@ class _PilgrimMapTab extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16.r),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
+                      color: Colors.black.withOpacity(0.08),
                       blurRadius: 12,
                       offset: const Offset(0, 3),
                     ),
@@ -2005,7 +2013,9 @@ class _PilgrimMapTab extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 16.r,
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                      backgroundColor: isDark
+                          ? AppColors.iconBgDark
+                          : AppColors.iconBgLight,
                       child: Icon(
                         Symbols.group,
                         color: AppColors.primary,
@@ -2042,11 +2052,11 @@ class _PilgrimMapTab extends StatelessWidget {
               width: 48.w,
               height: 48.w,
               decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceDark : Colors.white,
+                color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
+                    color: Colors.black.withOpacity(0.12),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -2080,7 +2090,7 @@ class _PilgrimMapTab extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFDC2626).withValues(alpha: 0.45),
+                      color: const Color(0xFFDC2626).withOpacity(0.45),
                       blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
@@ -2196,7 +2206,7 @@ class _PlaceholderTab extends StatelessWidget {
             style: TextStyle(
               fontFamily: 'Lexend',
               fontSize: 13,
-              color: AppColors.textMutedLight.withValues(alpha: 0.6),
+              color: AppColors.textMutedLight.withOpacity(0.6),
             ),
           ),
         ],
@@ -2481,7 +2491,7 @@ class _SuggestionsCycleButtonState extends State<_SuggestionsCycleButton> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.45),
+                  color: AppColors.primary.withOpacity(0.45),
                   blurRadius: 10,
                   offset: const Offset(0, 3),
                 ),
@@ -2558,7 +2568,7 @@ void _showAreaInfo(BuildContext context, SuggestedArea area) {
             width: 56.w,
             height: 56.w,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
+              color: color.withOpacity(0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -2572,7 +2582,7 @@ void _showAreaInfo(BuildContext context, SuggestedArea area) {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
+              color: color.withOpacity(0.12),
               borderRadius: BorderRadius.circular(8.r),
             ),
             child: Text(
@@ -2735,7 +2745,7 @@ class _PilgrimAreaMarker extends StatelessWidget {
             borderRadius: BorderRadius.circular(10.r),
             boxShadow: [
               BoxShadow(
-                color: color.withValues(alpha: 0.35),
+                color: color.withOpacity(0.35),
                 blurRadius: 8,
                 spreadRadius: 1,
               ),
@@ -2778,7 +2788,7 @@ class _PilgrimAreaMarker extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: color.withValues(alpha: 0.5),
+                color: color.withOpacity(0.5),
                 blurRadius: 6,
                 spreadRadius: 2,
               ),
@@ -2835,7 +2845,7 @@ class _SosCallOptionsSheet extends StatelessWidget {
         borderRadius: BorderRadius.circular(28.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
+            color: Colors.black.withOpacity(0.15),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -2862,7 +2872,7 @@ class _SosCallOptionsSheet extends StatelessWidget {
               width: 60.w,
               height: 60.w,
               decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.12),
+                color: Colors.red.withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(
