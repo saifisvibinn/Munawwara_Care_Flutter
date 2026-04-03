@@ -63,6 +63,104 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  void _showQrCodeLoginSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 20.h),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Login with QR / Code',
+                  style: GoogleFonts.lexend(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : AppColors.textDark,
+                  ),
+                ),
+                SizedBox(height: 6.h),
+                Text(
+                  'Choose how you want to complete one-time pilgrim login.',
+                  style: GoogleFonts.lexend(
+                    fontSize: 13.sp,
+                    color: isDark
+                        ? AppColors.textMutedLight
+                        : AppColors.textMutedDark,
+                  ),
+                ),
+                SizedBox(height: 14.h),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  tileColor: isDark
+                      ? Colors.black.withValues(alpha: 0.18)
+                      : const Color(0xfff8fafc),
+                  leading: Icon(
+                    Symbols.qr_code_scanner,
+                    color: AppColors.primary,
+                  ),
+                  title: Text(
+                    'Scan QR code',
+                    style: GoogleFonts.lexend(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Use your camera to scan the one-time login QR.',
+                    style: GoogleFonts.lexend(fontSize: 12.sp),
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('QR login screen will be wired next.'),
+                      ),
+                    );
+                  },
+                ),
+                SizedBox(height: 10.h),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  tileColor: isDark
+                      ? Colors.black.withValues(alpha: 0.18)
+                      : const Color(0xfff8fafc),
+                  leading: Icon(Symbols.password, color: AppColors.primary),
+                  title: Text(
+                    'Enter one-time code',
+                    style: GoogleFonts.lexend(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Type the temporary code provided by your moderator.',
+                    style: GoogleFonts.lexend(fontSize: 12.sp),
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Code login form will be wired next.'),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -85,7 +183,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 color: AppColors.primary.withValues(alpha: isDark ? 0.05 : 0.1),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: isDark ? 0.05 : 0.1),
+                    color: AppColors.primary.withValues(
+                      alpha: isDark ? 0.05 : 0.1,
+                    ),
                     blurRadius: 100,
                     spreadRadius: 20,
                   ),
@@ -101,11 +201,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.accentGold.withValues(alpha: isDark ? 0.05 : 0.1),
+                color: AppColors.accentGold.withValues(
+                  alpha: isDark ? 0.05 : 0.1,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.accentGold.withValues(alpha: 
-                      isDark ? 0.05 : 0.1,
+                    color: AppColors.accentGold.withValues(
+                      alpha: isDark ? 0.05 : 0.1,
                     ),
                     blurRadius: 100,
                     spreadRadius: 20,
@@ -161,7 +263,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 borderRadius: BorderRadius.circular(16.r),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.1,
+                                    ),
                                     blurRadius: 20,
                                     offset: const Offset(0, 4),
                                   ),
@@ -217,7 +321,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               BoxShadow(
                                 color: isDark
                                     ? Colors.black.withValues(alpha: 0.2)
-                                    : const Color(0xffe2e8f0).withValues(alpha: 0.5),
+                                    : const Color(
+                                        0xffe2e8f0,
+                                      ).withValues(alpha: 0.5),
                                 blurRadius: 24,
                                 offset: const Offset(0, 8),
                               ),
@@ -354,6 +460,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                                 Icon(Symbols.login, size: 20.w),
                                               ],
                                             ),
+                                    ),
+
+                                    SizedBox(height: 12.h),
+
+                                    OutlinedButton.icon(
+                                      onPressed: _showQrCodeLoginSheet,
+                                      icon: Icon(
+                                        Symbols.qr_code_2,
+                                        size: 18.w,
+                                        color: AppColors.primary,
+                                      ),
+                                      label: Text(
+                                        'Login with QR / Code',
+                                        style: GoogleFonts.lexend(
+                                          fontSize: 14.sp,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        side: BorderSide(
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.35,
+                                          ),
+                                        ),
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 14.h,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12.r,
+                                          ),
+                                        ),
+                                      ),
                                     ),
 
                                     SizedBox(height: 24.h),

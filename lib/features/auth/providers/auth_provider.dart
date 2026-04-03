@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/services/socket_service.dart';
@@ -99,6 +100,8 @@ class AuthState {
 // Uses Riverpod 3.x Notifier API (StateNotifier was removed in v3)
 
 class AuthNotifier extends Notifier<AuthState> {
+  static const _deviceBindingIdKey = 'device_binding_id';
+
   @override
   AuthState build() {
     _restoreSession();
@@ -241,6 +244,18 @@ class AuthNotifier extends Notifier<AuthState> {
     await prefs.setString('user_full_name', fullName);
   }
 
+  Future<String> _getOrCreateDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final existing = prefs.getString(_deviceBindingIdKey);
+    if (existing != null && existing.isNotEmpty) {
+      return existing;
+    }
+
+    final generated = const Uuid().v4();
+    await prefs.setString(_deviceBindingIdKey, generated);
+    return generated;
+  }
+
   // ── Register Pilgrim ────────────────────────────────────────────────────────
   Future<bool> registerPilgrim({
     required String fullName,
@@ -322,6 +337,52 @@ class AuthNotifier extends Notifier<AuthState> {
       return true;
     } on DioException catch (e) {
       state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
+      return false;
+    }
+  }
+
+  Future<bool> loginWithOneTimeToken({required String token}) async {
+    final normalizedToken = token.trim();
+    if (normalizedToken.isEmpty) {
+      state = state.copyWith(error: 'Login code is required');
+      return false;
+    }
+
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      final deviceId = await _getOrCreateDeviceId();
+      final response = await ApiService.dio.post(
+        '/auth/pilgrim/one-time-login',
+        data: {'token': normalizedToken, 'device_id': deviceId},
+      );
+      final data = response.data as Map<String, dynamic>;
+
+      await _persistSession(
+        data['token'] as String,
+        data['role'] as String,
+        data['user_id'] as String,
+        data['full_name'] as String,
+      );
+
+      state = state.copyWith(
+        isLoading: false,
+        token: data['token'] as String,
+        role: data['role'] as String,
+        userId: data['user_id'] as String,
+        fullName: data['full_name'] as String,
+      );
+
+      return true;
+    } on DioException catch (e) {
+      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'One-time login failed. Please try again.',
+      );
+      AppLogger.e('One-time login error: $e');
       return false;
     }
   }

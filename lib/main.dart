@@ -98,6 +98,9 @@ void main() async {
         final notifType = msg.data['notification_type']?.toString() ?? '';
         final dataType = msg.data['type']?.toString() ?? '';
         final msgType = msg.data['messageType']?.toString() ?? '';
+        final isUrgentTts =
+            dataType == 'urgent' &&
+            (msgType == 'tts' || msgType == 'reminder_tts');
         // ── call_declined / call_cancel arriving via FCM ────────────────────
         // When the pilgrim's app is killed and declines, the backend's 30-second
         // ring timeout fires and sends a silent FCM with type=call_declined
@@ -117,7 +120,8 @@ void main() async {
         }
         // Skip system tray notification for message/meetpoint types when
         // the app is in foreground — the in-app popup overlay handles these.
-        if (notifType == 'new_message' || notifType == 'meetpoint') {
+        if ((notifType == 'new_message' || notifType == 'meetpoint') &&
+            !isUrgentTts) {
           AppLogger.i('FCM onMessage: suppressed system notif (in-app popup)');
           return;
         }
@@ -125,8 +129,7 @@ void main() async {
         // ── Foreground TTS for urgent / reminder messages ─────────────────
         // showNotificationFromMessage plays the alert sound; after it finishes
         // we also speak the text so the pilgrim hears it even with screen on.
-        if (dataType == 'urgent' &&
-            (msgType == 'tts' || msgType == 'reminder_tts')) {
+        if (isUrgentTts) {
           final text =
               msg.data['body']?.toString() ??
               msg.data['content']?.toString() ??
