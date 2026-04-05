@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:battery_plus/battery_plus.dart';
+import 'package:dio/dio.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -30,9 +31,12 @@ import '../../shared/providers/suggested_area_provider.dart';
 import '../../shared/models/suggested_area_model.dart';
 import '../../shared/models/message_model.dart';
 import '../providers/pilgrim_provider.dart';
+import 'group_details_screen.dart';
 import 'group_inbox_screen.dart';
 import 'join_group_screen.dart';
+import 'mecca_hotspots_screen.dart';
 import 'pilgrim_profile_screen.dart';
+import 'qibla_compass_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pilgrim Dashboard Screen
@@ -63,6 +67,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   bool _isSosHolding = false;
   int _sosCountdown = 3;
   Timer? _roleSyncTimer;
+  Timer? _weatherRefreshTimer;
   bool _promotionDialogOpen = false;
 
   // Location
@@ -70,6 +75,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   final Battery _battery = Battery();
   final MapController _mapController = MapController();
   LatLng? _myLatLng;
+  _WeatherAlert _weatherAlert = const _WeatherAlert.loading();
+  DateTime? _lastWeatherFetchAt;
 
   // SFX player for incoming chat messages
   final AudioPlayer _sfxPlayer = AudioPlayer();
@@ -111,6 +118,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _lifecycleState = state;
+    if (state == AppLifecycleState.resumed) {
+      _loadWeatherAlert(force: true);
+    }
   }
 
   @override
@@ -284,6 +294,11 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         ref.read(suggestedAreaProvider.notifier).load(gIdForAreas);
       }
       _initLocation();
+      _loadWeatherAlert(force: true);
+      _weatherRefreshTimer ??= Timer.periodic(const Duration(hours: 3), (_) {
+        if (!mounted) return;
+        _loadWeatherAlert(force: true);
+      });
     });
   }
 
@@ -296,6 +311,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _sosTimer?.cancel();
     _sosCountdownTimer?.cancel();
     _roleSyncTimer?.cancel();
+    _weatherRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _locationSub?.cancel();
     _sfxPlayer.dispose();
@@ -502,6 +518,11 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         ).listen((pos) async {
           final ll = LatLng(pos.latitude, pos.longitude);
           setState(() => _myLatLng = ll);
+          _loadWeatherAlert(
+            latitude: pos.latitude,
+            longitude: pos.longitude,
+            force: false,
+          );
           int? battery;
           try {
             final lvl = await _battery.batteryLevel;
@@ -516,6 +537,142 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                 batteryPercent: battery,
               );
         });
+  }
+
+  Future<void> _loadWeatherAlert({
+    double? latitude,
+    double? longitude,
+    bool force = false,
+  }) async {
+    if (!force &&
+        _lastWeatherFetchAt != null &&
+        DateTime.now().difference(_lastWeatherFetchAt!) <
+            const Duration(hours: 3)) {
+      return;
+    }
+
+    final lat = latitude ?? _myLatLng?.latitude ?? 21.3891;
+    final lng = longitude ?? _myLatLng?.longitude ?? 39.8579;
+
+    try {
+      final response = await Dio().get(
+        'https://api.open-meteo.com/v1/forecast',
+        queryParameters: {
+          'latitude': lat,
+          'longitude': lng,
+          'current': 'temperature_2m,weather_code,is_day',
+          'forecast_days': 1,
+        },
+      );
+
+      final payload = response.data as Map<String, dynamic>;
+      final current = payload['current'] as Map<String, dynamic>?;
+      final temp = (current?['temperature_2m'] as num?)?.toDouble();
+      final weatherCode = (current?['weather_code'] as num?)?.toInt() ?? 0;
+
+      if (temp == null) throw Exception('Missing temperature payload');
+
+      if (!mounted) return;
+      setState(() {
+        _weatherAlert = _buildWeatherAlert(temp, weatherCode);
+        _lastWeatherFetchAt = DateTime.now();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _weatherAlert = const _WeatherAlert.error(
+          'Unable to fetch weather now. It will retry automatically.',
+        );
+        _lastWeatherFetchAt = DateTime.now();
+      });
+    }
+  }
+
+  _WeatherAlert _buildWeatherAlert(double temperatureC, int weatherCode) {
+    final temp = temperatureC.round();
+    final condition = _weatherCondition(weatherCode, temp);
+    final reminder = _weatherReminder(weatherCode, temp);
+    final icon = _weatherIcon(weatherCode, temp);
+    final iconColor = _weatherIconColor(weatherCode, temp);
+
+    return _WeatherAlert(
+      temperatureC: temp,
+      condition: condition,
+      reminder: reminder,
+      icon: icon,
+      iconColor: iconColor,
+    );
+  }
+
+  IconData _weatherIcon(int weatherCode, int temperatureC) {
+    if (_isRainCode(weatherCode)) return Icons.umbrella;
+    if (weatherCode == 45 || weatherCode == 48) return Icons.masks;
+    if (temperatureC <= 14 || (weatherCode >= 71 && weatherCode <= 77)) {
+      return Icons.ac_unit;
+    }
+    if (temperatureC >= 36) return Icons.local_fire_department;
+    if (weatherCode <= 1) return Icons.wb_sunny;
+    if (weatherCode == 2 || weatherCode == 3) return Icons.cloud;
+    if (weatherCode >= 95) return Icons.thunderstorm;
+    return Icons.wb_sunny;
+  }
+
+  Color _weatherIconColor(int weatherCode, int temperatureC) {
+    if (_isRainCode(weatherCode)) return const Color(0xFF2F80ED);
+    if (weatherCode == 45 || weatherCode == 48) return const Color(0xFF8B6D4E);
+    if (temperatureC <= 14 || (weatherCode >= 71 && weatherCode <= 77)) {
+      return const Color(0xFF56CCF2);
+    }
+    if (temperatureC >= 36) return const Color(0xFFE67E22);
+    if (weatherCode <= 1) return const Color(0xFFFFA726);
+    if (weatherCode == 2 || weatherCode == 3) return const Color(0xFF90A4AE);
+    if (weatherCode >= 95) return const Color(0xFF6C5CE7);
+    return AppColors.primary;
+  }
+
+  String _weatherCondition(int weatherCode, int temperatureC) {
+    if (_isRainCode(weatherCode)) return 'Rainy';
+    if (weatherCode == 45 || weatherCode == 48) return 'Sandy';
+    if (temperatureC <= 14 || (weatherCode >= 71 && weatherCode <= 77)) {
+      return 'Cold';
+    }
+    if (temperatureC >= 36) return 'Extreme Heat';
+    if (weatherCode <= 1) return 'Sunny';
+    if (weatherCode == 2 || weatherCode == 3) return 'Cloudy';
+    if (weatherCode >= 95) return 'Storm Warning';
+    return 'Clear';
+  }
+
+  String _weatherReminder(int weatherCode, int temperatureC) {
+    if (temperatureC <= 14 || (weatherCode >= 71 && weatherCode <= 77)) {
+      return "Don't forget your jacket!";
+    }
+    if (temperatureC >= 36) {
+      return 'Drink water regularly and avoid direct sun.';
+    }
+    if (weatherCode == 45 || weatherCode == 48) {
+      return 'Wear a face mask to protect from sand and dust.';
+    }
+    if (_isRainCode(weatherCode) || weatherCode <= 1) {
+      return "Don't forget your umbrella!";
+    }
+    return 'Stay hydrated and keep your emergency contacts ready.';
+  }
+
+  bool _isRainCode(int code) {
+    return code == 51 ||
+        code == 53 ||
+        code == 55 ||
+        code == 56 ||
+        code == 57 ||
+        code == 61 ||
+        code == 63 ||
+        code == 65 ||
+        code == 66 ||
+        code == 67 ||
+        code == 80 ||
+        code == 81 ||
+        code == 82;
   }
 
   // ── SOS Logic ───────────────────────────────────────────────────────────────
@@ -740,12 +897,16 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       _HomeTab(
         pilgrimState: pilgrimState,
         isDark: isDark,
+        weatherAlert: _weatherAlert,
         sosPulseController: _sosPulseController,
         sosHoldController: _sosHoldController,
         isSosHolding: _isSosHolding,
         onSosHoldStart: _onSosHoldStart,
         onSosHoldEnd: _onSosHoldEnd,
-        onRefresh: () => ref.read(pilgrimProvider.notifier).loadDashboard(),
+        onRefresh: () async {
+          await ref.read(pilgrimProvider.notifier).loadDashboard();
+          await _loadWeatherAlert(force: true);
+        },
         sosCountdown: _sosCountdown,
         onCancelSos: _cancelSOS,
         navBeacons: pilgrimState.navBeacons,
@@ -763,7 +924,32 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                 ref.read(notificationProvider.notifier).fetchUnreadCount();
               });
         },
+        onSettingsTap: () => setState(() => _currentTab = 4),
         onJoinGroup: _openJoinGroup,
+        onGroupCardTap: () {
+          if (pilgrimState.groupInfo != null) {
+            final hasModerator = pilgrimState.groupInfo!.moderators.isNotEmpty;
+            final firstModerator = hasModerator
+                ? pilgrimState.groupInfo!.moderators.first
+                : null;
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => GroupDetailsScreen(
+                  moderatorName: firstModerator?.fullName,
+                  moderatorLat: firstModerator?.lat,
+                  moderatorLng: firstModerator?.lng,
+                ),
+              ),
+            );
+          } else {
+            _openJoinGroup();
+          }
+        },
+        onHotspotsTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const MeccaHotspotsScreen()),
+          );
+        },
       ),
       _PilgrimMapTab(
         myLocation: _myLatLng,
@@ -771,7 +957,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         pilgrimState: pilgrimState,
         areas: ref.watch(suggestedAreaProvider).areas,
       ),
-      const _PlaceholderTab(icon: Symbols.calendar_month, label: 'tab_plan'),
+      const QiblaCompassScreen(),
       pilgrimState.groupInfo != null
           ? GroupInboxScreen(
               groupId: pilgrimState.groupInfo!.groupId,
@@ -852,6 +1038,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
 class _HomeTab extends StatelessWidget {
   final PilgrimState pilgrimState;
   final bool isDark;
+  final _WeatherAlert weatherAlert;
   final AnimationController sosPulseController;
   final AnimationController sosHoldController;
   final bool isSosHolding;
@@ -864,11 +1051,15 @@ class _HomeTab extends StatelessWidget {
   final void Function(ModeratorBeacon) onNavigateToModerator;
   final int notificationCount;
   final VoidCallback onNotificationTap;
+  final VoidCallback onSettingsTap;
   final VoidCallback onJoinGroup;
+  final VoidCallback onGroupCardTap;
+  final VoidCallback onHotspotsTap;
 
   const _HomeTab({
     required this.pilgrimState,
     required this.isDark,
+    required this.weatherAlert,
     required this.sosPulseController,
     required this.sosHoldController,
     required this.isSosHolding,
@@ -881,7 +1072,10 @@ class _HomeTab extends StatelessWidget {
     required this.onNavigateToModerator,
     required this.notificationCount,
     required this.onNotificationTap,
+    required this.onSettingsTap,
     required this.onJoinGroup,
+    required this.onGroupCardTap,
+    required this.onHotspotsTap,
   });
 
   @override
@@ -899,7 +1093,7 @@ class _HomeTab extends StatelessWidget {
             // ── Header ──────────────────────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 0),
+                padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
                 child: Row(
                   children: [
                     // Logo
@@ -962,12 +1156,73 @@ class _HomeTab extends StatelessWidget {
                         ],
                       ),
                     ),
-                    // Notification bell
-                    GestureDetector(
-                      onTap: onNotificationTap,
-                      child: Stack(
-                        children: [
-                          Container(
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Notification bell
+                        GestureDetector(
+                          onTap: onNotificationTap,
+                          child: Stack(
+                            children: [
+                              Container(
+                                width: 42.w,
+                                height: 42.w,
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? AppColors.surfaceDark
+                                      : Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.06),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Symbols.notifications,
+                                  size: 22.w,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : AppColors.textDark,
+                                ),
+                              ),
+                              if (notificationCount > 0)
+                                Positioned(
+                                  top: 2.w,
+                                  right: 0,
+                                  child: Container(
+                                    padding: EdgeInsets.all(3.w),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    constraints: BoxConstraints(
+                                      minWidth: 16.w,
+                                      minHeight: 16.w,
+                                    ),
+                                    child: Text(
+                                      notificationCount > 9
+                                          ? '9+'
+                                          : '$notificationCount',
+                                      style: TextStyle(
+                                        fontSize: 9.sp,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(width: 10.w),
+                        // Settings icon
+                        GestureDetector(
+                          onTap: onSettingsTap,
+                          child: Container(
                             width: 42.w,
                             height: 42.w,
                             decoration: BoxDecoration(
@@ -984,49 +1239,22 @@ class _HomeTab extends StatelessWidget {
                               ],
                             ),
                             child: Icon(
-                              Symbols.notifications,
+                              Symbols.settings,
                               size: 22.w,
                               color: isDark
                                   ? Colors.white70
                                   : AppColors.textDark,
                             ),
                           ),
-                          if (notificationCount > 0)
-                            Positioned(
-                              top: 2.w,
-                              right: 0,
-                              child: Container(
-                                padding: EdgeInsets.all(3.w),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                constraints: BoxConstraints(
-                                  minWidth: 16.w,
-                                  minHeight: 16.w,
-                                ),
-                                child: Text(
-                                  notificationCount > 9
-                                      ? '9+'
-                                      : '$notificationCount',
-                                  style: TextStyle(
-                                    fontSize: 9.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
 
-            SliverToBoxAdapter(child: SizedBox(height: 28.h)),
+            SliverToBoxAdapter(child: SizedBox(height: 16.h)),
 
             // ── Greeting ────────────────────────────────────────────────────
             SliverToBoxAdapter(
@@ -1039,7 +1267,7 @@ class _HomeTab extends StatelessWidget {
                       'greeting_prefix'.tr(),
                       style: TextStyle(
                         fontFamily: 'Lexend',
-                        fontSize: 28.sp,
+                        fontSize: 24.sp,
                         fontWeight: FontWeight.w700,
                         color: isDark ? Colors.white : AppColors.textDark,
                       ),
@@ -1050,13 +1278,13 @@ class _HomeTab extends StatelessWidget {
                           : (profile?.firstName ?? ''),
                       style: TextStyle(
                         fontFamily: 'Lexend',
-                        fontSize: 32.sp,
+                        fontSize: 28.sp,
                         fontWeight: FontWeight.w700,
                         color: AppColors.primary,
                         height: 1.1,
                       ),
                     ),
-                    SizedBox(height: 12.h),
+                    SizedBox(height: 8.h),
                     Row(
                       children: [
                         Container(
@@ -1087,44 +1315,67 @@ class _HomeTab extends StatelessWidget {
                         ),
                       ],
                     ),
+                    SizedBox(height: 6.h),
+                    Row(
+                      children: [
+                        Container(
+                          width: 10.w,
+                          height: 10.w,
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        SizedBox(width: 8.w),
+                        Text(
+                          '${'card_sharing'.tr()}:',
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 14.sp,
+                            color: isDark ? Colors.white70 : AppColors.textDark,
+                          ),
+                        ),
+                        Text(
+                          ' ${pilgrimState.isSharingLocation ? 'card_active'.tr() : 'card_paused'.tr()}',
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
             ),
 
-            SliverToBoxAdapter(child: SizedBox(height: 24.h)),
+            SliverToBoxAdapter(child: SizedBox(height: 12.h)),
 
-            // ── Info Cards ──────────────────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20.w),
                 child: Row(
                   children: [
-                    // Group card
                     Expanded(
-                      child: _InfoCard(
-                        isDark: isDark,
-                        icon: Symbols.groups,
-                        iconColor: AppColors.primary,
-                        label: 'card_my_group'.tr(),
-                        value: group?.groupName ?? 'card_no_group'.tr(),
-                        badge: null,
+                      child: AspectRatio(
+                        aspectRatio: 1,
+                        child: _SquareWeatherCard(
+                          isDark: isDark,
+                          alert: weatherAlert,
+                        ),
                       ),
                     ),
                     SizedBox(width: 12.w),
-                    // Location sharing card
                     Expanded(
-                      child: _InfoCard(
-                        isDark: isDark,
-                        icon: Symbols.location_on,
-                        iconColor: AppColors.primary,
-                        label: 'card_sharing'.tr(),
-                        value: pilgrimState.isSharingLocation
-                            ? 'card_active'.tr()
-                            : 'card_paused'.tr(),
-                        badge: pilgrimState.batteryLevel != null
-                            ? '🔋 ${pilgrimState.batteryLevel}%'
-                            : null,
+                      child: AspectRatio(
+                        aspectRatio: 1,
+                        child: _SquareGroupCard(
+                          isDark: isDark,
+                          groupName: group?.groupName ?? 'card_no_group'.tr(),
+                          onTap: onGroupCardTap,
+                        ),
                       ),
                     ),
                   ],
@@ -1132,7 +1383,31 @@ class _HomeTab extends StatelessWidget {
               ),
             ),
 
-            SliverToBoxAdapter(child: SizedBox(height: 40.h)),
+            SliverToBoxAdapter(child: SizedBox(height: 12.h)),
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                child: GestureDetector(
+                  onTap: onHotspotsTap,
+                  child: _InfoCard(
+                    isDark: isDark,
+                    icon: Symbols.travel_explore,
+                    iconColor: const Color(0xFF2A5CAA),
+                    label: 'Mecca Hotspots',
+                    value:
+                        'Explore nearby food, pharmacy, landmarks, and shopping.',
+                    compact: true,
+                    minHeight: 114.h,
+                    isClickable: true,
+                    clickableHint: 'Tap to open hotspots',
+                    labelInlineWithIcon: true,
+                  ),
+                ),
+              ),
+            ),
+
+            SliverToBoxAdapter(child: SizedBox(height: 16.h)),
 
             // ── SOS Button ──────────────────────────────────────────────────
             SliverToBoxAdapter(
@@ -1589,6 +1864,11 @@ class _InfoCard extends StatelessWidget {
   final String label;
   final String value;
   final String? badge;
+  final bool compact;
+  final double? minHeight;
+  final bool isClickable;
+  final String? clickableHint;
+  final bool labelInlineWithIcon;
 
   const _InfoCard({
     required this.isDark,
@@ -1597,12 +1877,20 @@ class _InfoCard extends StatelessWidget {
     required this.label,
     required this.value,
     this.badge,
+    this.compact = false,
+    this.minHeight,
+    this.isClickable = false,
+    this.clickableHint,
+    this.labelInlineWithIcon = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(16.w),
+      constraints: minHeight != null
+          ? BoxConstraints(minHeight: minHeight!)
+          : null,
+      padding: EdgeInsets.all(compact ? 12.w : 16.w),
       decoration: BoxDecoration(
         color: isDark ? AppColors.surfaceDark : Colors.white,
         borderRadius: BorderRadius.circular(20.r),
@@ -1621,16 +1909,48 @@ class _InfoCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 42.w,
-                height: 42.w,
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
-                  shape: BoxShape.circle,
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: compact ? 36.w : 42.w,
+                      height: compact ? 36.w : 42.w,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.iconBgDark
+                            : AppColors.iconBgLight,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        icon,
+                        size: compact ? 19.w : 22.w,
+                        color: iconColor,
+                      ),
+                    ),
+                    if (labelInlineWithIcon) ...[
+                      SizedBox(width: 10.w),
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: compact ? 12.sp : 13.sp,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textMutedLight,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                child: Icon(icon, size: 22.w, color: iconColor),
               ),
-              if (badge != null)
+              if (isClickable)
+                Icon(
+                  Symbols.chevron_right,
+                  size: 20.w,
+                  color: AppColors.textMutedLight,
+                )
+              else if (badge != null)
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
@@ -1651,28 +1971,369 @@ class _InfoCard extends StatelessWidget {
                 ),
             ],
           ),
-          SizedBox(height: 12.h),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 12.sp,
-              color: AppColors.textMutedLight,
+          SizedBox(height: compact ? 10.h : 12.h),
+          if (!labelInlineWithIcon) ...[
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: compact ? 11.sp : 12.sp,
+                color: AppColors.textMutedLight,
+              ),
             ),
-          ),
-          SizedBox(height: 2.h),
+            SizedBox(height: 2.h),
+          ],
           Text(
             value,
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: (isClickable && compact)
+                  ? 16.sp
+                  : (compact ? 14.sp : 15.sp),
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : AppColors.textDark,
+            ),
+            maxLines: isClickable ? 2 : 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (isClickable && (clickableHint?.isNotEmpty ?? false)) ...[
+            SizedBox(height: 6.h),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  clickableHint!,
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WeatherAlert {
+  final int temperatureC;
+  final String condition;
+  final String reminder;
+  final IconData icon;
+  final Color iconColor;
+  final bool isLoading;
+  final bool isError;
+
+  const _WeatherAlert({
+    required this.temperatureC,
+    required this.condition,
+    required this.reminder,
+    required this.icon,
+    required this.iconColor,
+    this.isLoading = false,
+    this.isError = false,
+  });
+
+  const _WeatherAlert.loading()
+    : temperatureC = 0,
+      condition = 'Loading weather',
+      reminder = 'Checking local weather conditions...',
+      icon = Icons.wb_sunny,
+      iconColor = AppColors.primary,
+      isLoading = true,
+      isError = false;
+
+  const _WeatherAlert.error(String message)
+    : temperatureC = 0,
+      condition = 'Weather unavailable',
+      reminder = message,
+      icon = Icons.cloud_off,
+      iconColor = AppColors.textMutedLight,
+      isLoading = false,
+      isError = true;
+}
+
+class _WeatherWarningCard extends StatelessWidget {
+  final bool isDark;
+  final _WeatherAlert alert;
+
+  const _WeatherWarningCard({required this.isDark, required this.alert});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(14.w, 14.h, 14.w, 16.h),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : Colors.white,
+        borderRadius: BorderRadius.circular(20.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44.w,
+                height: 44.w,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: Icon(alert.icon, color: alert.iconColor, size: 24.w),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Text(
+                  alert.isLoading
+                      ? 'Weather Update'
+                      : alert.isError
+                      ? 'Weather Unavailable'
+                      : '${alert.condition} Weather',
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : AppColors.textDark,
+                  ),
+                ),
+              ),
+              if (!alert.isLoading && !alert.isError)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${alert.temperatureC}°C',
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 20.sp,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : AppColors.textDark,
+                      ),
+                    ),
+                    Text(
+                      alert.condition,
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textMutedLight,
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          SizedBox(height: 12.h),
+          Text(
+            alert.reminder,
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 14.sp,
+              height: 1.35,
+              color: isDark ? Colors.white70 : AppColors.textDark,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SquareWeatherCard extends StatelessWidget {
+  final bool isDark;
+  final _WeatherAlert alert;
+
+  const _SquareWeatherCard({required this.isDark, required this.alert});
+
+  @override
+  Widget build(BuildContext context) {
+    final title = alert.isLoading
+        ? 'Weather Update'
+        : alert.isError
+        ? 'Weather Unavailable'
+        : '${alert.condition} Weather';
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : Colors.white,
+        borderRadius: BorderRadius.circular(20.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36.w,
+                height: 36.w,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Icon(alert.icon, color: alert.iconColor, size: 20.w),
+              ),
+              const Spacer(),
+              if (!alert.isLoading && !alert.isError)
+                Text(
+                  '${alert.temperatureC}°C',
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppColors.textDark,
+                  ),
+                ),
+            ],
+          ),
+          SizedBox(height: 10.h),
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontFamily: 'Lexend',
               fontSize: 15.sp,
               fontWeight: FontWeight.w700,
               color: isDark ? Colors.white : AppColors.textDark,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          ),
+          SizedBox(height: 6.h),
+          Expanded(
+            child: Text(
+              alert.reminder,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 12.sp,
+                height: 1.25,
+                color: isDark ? Colors.white70 : AppColors.textMutedDark,
+              ),
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SquareGroupCard extends StatelessWidget {
+  final bool isDark;
+  final String groupName;
+  final VoidCallback onTap;
+
+  const _SquareGroupCard({
+    required this.isDark,
+    required this.groupName,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(12.w),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surfaceDark : Colors.white,
+          borderRadius: BorderRadius.circular(20.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36.w,
+                  height: 36.w,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.iconBgDark
+                        : AppColors.iconBgLight,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Symbols.groups,
+                    size: 20.w,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const Spacer(),
+                Icon(
+                  Icons.chevron_right,
+                  color: AppColors.textMutedLight,
+                  size: 20.w,
+                ),
+              ],
+            ),
+            SizedBox(height: 10.h),
+            Text(
+              'card_my_group'.tr(),
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textMutedLight,
+              ),
+            ),
+            SizedBox(height: 6.h),
+            Expanded(
+              child: Text(
+                groupName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : AppColors.textDark,
+                ),
+              ),
+            ),
+            SizedBox(height: 6.h),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'Tap to view details',
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 10.5.sp,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1696,21 +2357,16 @@ class _BottomNav extends StatelessWidget {
   });
 
   // Tabs that appear in the nav bar (skip index 2 which is the FAB slot)
-  static const _navMap = [0, 1, 3, 4];
+  static const _navMap = [0, 1, 3, 2];
 
   @override
   Widget build(BuildContext context) {
-    final labels = [
-      'tab_home'.tr(),
-      'tab_map'.tr(),
-      'tab_chat'.tr(),
-      'settings_title'.tr(),
-    ];
+    final labels = ['tab_home'.tr(), 'tab_map'.tr(), 'tab_chat'.tr(), 'Qibla'];
     final icons = [
       Symbols.home,
       Symbols.map,
       Symbols.chat_bubble,
-      Symbols.settings,
+      Symbols.explore,
     ];
     final tabIndices = _navMap;
     final badges = [0, 0, unreadMessages, 0];
