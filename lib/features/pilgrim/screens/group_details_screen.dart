@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -42,7 +43,7 @@ class GroupDetailsScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         foregroundColor: isDark ? Colors.white : AppColors.textDark,
         title: Text(
-          'Group Details',
+          'group_details_title'.tr(),
           style: TextStyle(
             fontFamily: GoogleFonts.poppins().fontFamily,
             fontWeight: FontWeight.w700,
@@ -56,38 +57,38 @@ class GroupDetailsScreen extends StatelessWidget {
           SizedBox(height: 6.h),
           _SectionCard(
             isDark: isDark,
-            title: 'Hotel Information',
+            title: 'group_hotel_info'.tr(),
             icon: Symbols.hotel,
             tint: const Color(0xFFF3ECE0),
             iconTint: const Color(0xFFDCECF9),
-            children: const [
+            children: [
               _SectionLine(
-                label: 'Hotel Name',
-                value: 'To be added by moderator',
+                label: 'group_hotel_name'.tr(),
+                value: 'group_tba'.tr(),
               ),
               _SectionLine(
-                label: 'Room Number',
-                value: 'To be added by moderator',
+                label: 'group_room_number'.tr(),
+                value: 'group_tba'.tr(),
               ),
             ],
           ),
           SizedBox(height: 12.h),
           _SectionCard(
             isDark: isDark,
-            title: 'Moderator Section',
+            title: 'group_moderator_section'.tr(),
             icon: Symbols.location_on,
             tint: const Color(0xFFEAF6ED),
             iconTint: const Color(0xFFCFEBD7),
             children: [
               _SectionLine(
-                label: 'Moderator Name',
+                label: 'group_moderator_name'.tr(),
                 value: moderatorName?.isNotEmpty == true
                     ? moderatorName!
-                    : 'To be added by moderator',
+                    : 'group_tba'.tr(),
               ),
               if (_hasModeratorLocation) ...[
                 _SectionLine(
-                  label: 'Current Location',
+                  label: 'group_current_location'.tr(),
                   value:
                       '${moderatorLat!.toStringAsFixed(5)}, ${moderatorLng!.toStringAsFixed(5)}',
                 ),
@@ -104,7 +105,7 @@ class GroupDetailsScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14.r),
                     ),
                     child: Text(
-                      'View on Map',
+                      'group_view_on_map'.tr(),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontFamily: GoogleFonts.poppins().fontFamily,
@@ -121,25 +122,25 @@ class GroupDetailsScreen extends StatelessWidget {
           SizedBox(height: 12.h),
           _SectionCard(
             isDark: isDark,
-            title: 'Transportation Details',
+            title: 'group_transport_details'.tr(),
             icon: Symbols.directions_bus,
             tint: const Color(0xFFF8F1D9),
             iconTint: const Color(0xFFF2E4AE),
-            children: const [
+            children: [
               _SectionLine(
-                label: 'Bus Number',
-                value: 'To be added by moderator',
+                label: 'group_bus_number'.tr(),
+                value: 'group_tba'.tr(),
               ),
               _SectionLine(
-                label: 'Driver\'s Name',
-                value: 'To be added by moderator',
+                label: 'group_driver_name'.tr(),
+                value: 'group_tba'.tr(),
               ),
             ],
           ),
           SizedBox(height: 12.h),
           _SectionCard(
             isDark: isDark,
-            title: 'Stay Duration',
+            title: 'group_stay_duration'.tr(),
             icon: Symbols.calendar_month,
             tint: const Color(0xFFE3F0FB),
             iconTint: const Color(0xFFC5E1F8),
@@ -148,21 +149,21 @@ class GroupDetailsScreen extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _StayColumn(
-                      title: 'Check-in',
-                      value: 'To be added',
+                      title: 'group_checkin'.tr(),
+                      value: 'group_tba_short'.tr(),
                       alignStart: true,
                     ),
                   ),
                   Expanded(
                     child: _StayColumn(
-                      title: 'Total Days Remaining',
+                      title: 'group_days_remaining'.tr(),
                       value: '--',
                     ),
                   ),
                   Expanded(
                     child: _StayColumn(
-                      title: 'Check-out',
-                      value: 'To be added',
+                      title: 'group_checkout'.tr(),
+                      value: 'group_tba_short'.tr(),
                       alignStart: false,
                     ),
                   ),
@@ -245,12 +246,10 @@ class _SectionCard extends StatelessWidget {
 }
 
 class _SectionLine extends StatelessWidget {
-  final IconData icon;
   final String label;
   final String value;
 
   const _SectionLine({
-    this.icon = Symbols.circle,
     required this.label,
     required this.value,
   });

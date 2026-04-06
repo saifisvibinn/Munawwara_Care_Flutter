@@ -285,6 +285,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       }
       // Fetch notification badge count
       ref.read(notificationProvider.notifier).fetchUnreadCount();
+      // Fire weather load immediately (don't await — let it run in parallel)
+      _loadWeatherAlert(force: true);
+      _initLocation();
       await ref.read(authProvider.notifier).fetchProfile();
       if (!mounted) return;
       _configureRoleSyncPolling(ref.read(authProvider), runImmediate: true);
@@ -293,8 +296,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       if (gIdForAreas != null) {
         ref.read(suggestedAreaProvider.notifier).load(gIdForAreas);
       }
-      _initLocation();
-      _loadWeatherAlert(force: true);
       _weatherRefreshTimer ??= Timer.periodic(const Duration(hours: 3), (_) {
         if (!mounted) return;
         _loadWeatherAlert(force: true);
@@ -547,12 +548,36 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     if (!force &&
         _lastWeatherFetchAt != null &&
         DateTime.now().difference(_lastWeatherFetchAt!) <
-            const Duration(hours: 3)) {
+            const Duration(minutes: 5)) {
       return;
     }
+    double lat;
+    double lng;
 
-    final lat = latitude ?? _myLatLng?.latitude ?? 21.3891;
-    final lng = longitude ?? _myLatLng?.longitude ?? 39.8579;
+    if (latitude != null && longitude != null) {
+      lat = latitude;
+      lng = longitude;
+    } else if (_myLatLng != null) {
+      lat = _myLatLng!.latitude;
+      lng = _myLatLng!.longitude;
+    } else {
+      // No location yet — grab current position from GPS
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.low,
+            timeLimit: Duration(seconds: 5),
+          ),
+        );
+        lat = pos.latitude;
+        lng = pos.longitude;
+        _myLatLng = LatLng(lat, lng);
+      } catch (_) {
+        // GPS unavailable — fall back to Mecca
+        lat = 21.3891;
+        lng = 39.8579;
+      }
+    }
 
     try {
       final response = await Dio().get(
@@ -583,7 +608,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         _weatherAlert = const _WeatherAlert.error(
           'Unable to fetch weather now. It will retry automatically.',
         );
-        _lastWeatherFetchAt = DateTime.now();
+        // Don't set _lastWeatherFetchAt on error so it retries immediately
       });
     }
   }
@@ -631,32 +656,32 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   }
 
   String _weatherCondition(int weatherCode, int temperatureC) {
-    if (_isRainCode(weatherCode)) return 'Rainy';
-    if (weatherCode == 45 || weatherCode == 48) return 'Sandy';
+    if (_isRainCode(weatherCode)) return 'weather_rainy'.tr();
+    if (weatherCode == 45 || weatherCode == 48) return 'weather_sandy'.tr();
     if (temperatureC <= 14 || (weatherCode >= 71 && weatherCode <= 77)) {
-      return 'Cold';
+      return 'weather_cold'.tr();
     }
-    if (temperatureC >= 36) return 'Extreme Heat';
-    if (weatherCode <= 1) return 'Sunny';
-    if (weatherCode == 2 || weatherCode == 3) return 'Cloudy';
-    if (weatherCode >= 95) return 'Storm Warning';
-    return 'Clear';
+    if (temperatureC >= 36) return 'weather_extreme_heat'.tr();
+    if (weatherCode <= 1) return 'weather_sunny'.tr();
+    if (weatherCode == 2 || weatherCode == 3) return 'weather_cloudy'.tr();
+    if (weatherCode >= 95) return 'weather_storm'.tr();
+    return 'weather_clear'.tr();
   }
 
   String _weatherReminder(int weatherCode, int temperatureC) {
     if (temperatureC <= 14 || (weatherCode >= 71 && weatherCode <= 77)) {
-      return "Don't forget your jacket!";
+      return 'weather_reminder_jacket'.tr();
     }
     if (temperatureC >= 36) {
-      return 'Drink water regularly and avoid direct sun.';
+      return 'weather_reminder_hydrate'.tr();
     }
     if (weatherCode == 45 || weatherCode == 48) {
-      return 'Wear a face mask to protect from sand and dust.';
+      return 'weather_reminder_mask'.tr();
     }
     if (_isRainCode(weatherCode) || weatherCode <= 1) {
-      return "Don't forget your umbrella!";
+      return 'weather_reminder_umbrella'.tr();
     }
-    return 'Stay hydrated and keep your emergency contacts ready.';
+    return 'weather_reminder_default'.tr();
   }
 
   bool _isRainCode(int code) {
@@ -1018,6 +1043,10 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           currentIndex: _currentTab,
           onTap: (i) {
             setState(() => _currentTab = i);
+            // Refresh weather when switching to Home tab
+            if (i == 0) {
+              _loadWeatherAlert(force: true);
+            }
             // Reload + mark read + scroll when opening Chat tab
             if (i == 3) {
               _chatScrollNotifier.value++;
@@ -1032,7 +1061,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Home Tab
+// Home Tab (Redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _HomeTab extends StatelessWidget {
@@ -1083,555 +1112,628 @@ class _HomeTab extends StatelessWidget {
     final profile = pilgrimState.profile;
     final group = pilgrimState.groupInfo;
 
-    return SafeArea(
-      child: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: onRefresh,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            // ── Header ──────────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
-                child: Row(
-                  children: [
-                    // Logo
-                    Container(
-                      width: 52.w,
-                      height: 52.w,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppColors.primary.withOpacity(0.2),
-                            AppColors.primary.withOpacity(0.1),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(14.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withOpacity(0.1),
-                            blurRadius: 16,
-                            offset: const Offset(0, 3),
+    return Container(
+      color: const Color(0xFF09162D),
+      child: SafeArea(
+        bottom: false,
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: onRefresh,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              // ── Dark Header ────────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 20.h),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Top row: Avatar + Name/ID + Settings
+                      Row(
+                        children: [
+                          Container(
+                            width: 52.w,
+                            height: 52.w,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE4E9F2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.person,
+                              size: 32.w,
+                              color: const Color(0xFF09162D),
+                            ),
+                          ),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'app_title'.tr(),
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 14.sp,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.5,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Text(
+                                  pilgrimState.isLoading
+                                      ? '${'pilgrim_id_prefix'.tr()} ...'
+                                      : '${'pilgrim_id_prefix'.tr()} ${profile?.displayId ?? '------'}',
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 12.sp,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: onSettingsTap,
+                            child: Icon(
+                              Symbols.settings,
+                              size: 26.w,
+                              color: Colors.white,
+                            ),
                           ),
                         ],
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(14.r),
-                        child: Image.asset(
-                          'assets/static/logo.jpeg',
-                          width: 52.w,
-                          height: 52.w,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      SizedBox(height: 24.h),
+                      // Greeting row: orange + white
+                      Row(
                         children: [
                           Text(
-                            'MUNAWWARA CARE',
+                            'home_greeting'.tr(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
-                              fontSize: 13.sp,
+                              fontSize: 22.sp,
                               fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                              color: isDark ? Colors.white : AppColors.textDark,
+                              color: const Color(0xFFE67E22),
                             ),
                           ),
-                          Text(
-                            pilgrimState.isLoading
-                                ? '${'pilgrim_id_prefix'.tr()} ...'
-                                : '${'pilgrim_id_prefix'.tr()} ${profile?.displayId ?? '------'}',
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 12.sp,
-                              color: AppColors.textMutedLight,
+                          Expanded(
+                            child: Text(
+                              pilgrimState.isLoading
+                                  ? '...'
+                                  : (profile?.firstName ?? ''),
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontSize: 22.sp,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Notification bell
-                        GestureDetector(
-                          onTap: onNotificationTap,
-                          child: Stack(
-                            children: [
-                              Container(
-                                width: 42.w,
-                                height: 42.w,
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? AppColors.surfaceDark
-                                      : Colors.white,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.06),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
+                      SizedBox(height: 16.h),
+                      // Status indicators side-by-side
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 32.w,
+                                  height: 32.w,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFE67E22),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.health_and_safety_rounded,
+                                    color: Colors.white,
+                                    size: 18.w,
+                                  ),
                                 ),
-                                child: Icon(
-                                  Symbols.notifications,
-                                  size: 22.w,
-                                  color: isDark
-                                      ? Colors.white70
-                                      : AppColors.textDark,
-                                ),
-                              ),
-                              if (notificationCount > 0)
-                                Positioned(
-                                  top: 2.w,
-                                  right: 0,
-                                  child: Container(
-                                    padding: EdgeInsets.all(3.w),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    constraints: BoxConstraints(
-                                      minWidth: 16.w,
-                                      minHeight: 16.w,
-                                    ),
-                                    child: Text(
-                                      notificationCount > 9
-                                          ? '9+'
-                                          : '$notificationCount',
+                                SizedBox(width: 8.w),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'home_current_status'.tr(),
                                       style: TextStyle(
-                                        fontSize: 9.sp,
+                                        fontFamily: 'Lexend',
+                                        fontSize: 11.sp,
+                                        color: Colors.white70,
+                                      ),
+                                    ),
+                                    Text(
+                                      'status_safe'.tr(),
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontSize: 14.sp,
                                         fontWeight: FontWeight.w700,
                                         color: Colors.white,
                                       ),
-                                      textAlign: TextAlign.center,
                                     ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 32.w,
+                                  height: 32.w,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFE67E22),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.navigation_rounded,
+                                    color: Colors.white,
+                                    size: 18.w,
                                   ),
                                 ),
+                                SizedBox(width: 8.w),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'home_location_sharing'.tr(),
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontSize: 11.sp,
+                                        color: Colors.white70,
+                                      ),
+                                    ),
+                                    Text(
+                                      pilgrimState.isSharingLocation
+                                          ? 'card_active'.tr()
+                                          : 'card_paused'.tr(),
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontSize: 14.sp,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // ── White Body Container ───────────────────────────────────────
+              SliverToBoxAdapter(
+                child: Container(
+                  width: double.infinity,
+                  constraints: BoxConstraints(
+                    minHeight: MediaQuery.of(context).size.height,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.backgroundDark : Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(36.r),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(20.w, 24.h, 20.w, 20.h),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── Card Grid ────────────────────────────────────────
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Left: Weather Card
+                              Expanded(
+                                flex: 5,
+                                child: _WeatherCardNew(alert: weatherAlert),
+                              ),
+                              SizedBox(width: 12.w),
+                              // Right: Group + Explore stacked
+                              Expanded(
+                                flex: 5,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    Expanded(
+                                      child: _GroupCardNew(
+                                        groupName: group?.groupName ??
+                                            'card_no_group'.tr(),
+                                        onTap: onGroupCardTap,
+                                      ),
+                                    ),
+                                    SizedBox(height: 12.h),
+                                    _ExploreCardNew(onTap: onHotspotsTap),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                        SizedBox(width: 10.w),
-                        // Settings icon
-                        GestureDetector(
-                          onTap: onSettingsTap,
-                          child: Container(
-                            width: 42.w,
-                            height: 42.w,
+                        SizedBox(height: 32.h),
+
+                        // ── SOS ──────────────────────────────────────────────
+                        Center(
+                          child: Column(
+                            children: [
+                              _SosButton(
+                                pulseController: sosPulseController,
+                                holdController: sosHoldController,
+                                isHolding: isSosHolding,
+                                isLoading: pilgrimState.isSosLoading,
+                                sosActive: pilgrimState.sosActive,
+                                countdown: sosCountdown,
+                                onHoldStart: onSosHoldStart,
+                                onHoldEnd: onSosHoldEnd,
+                              ),
+                              if (pilgrimState.sosActive) ...[
+                                SizedBox(height: 16.h),
+                                GestureDetector(
+                                  onTap: onCancelSos,
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 28.w,
+                                      vertical: 10.h,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.red.shade400,
+                                        width: 1.5,
+                                      ),
+                                      borderRadius:
+                                          BorderRadius.circular(20.r),
+                                    ),
+                                    child: Text(
+                                      'sos_cancel'.tr(),
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14.sp,
+                                        color: Colors.red.shade500,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 32.h),
+
+                        // ── Navigate to Moderator ────────────────────────────
+                        if (navBeacons.isNotEmpty)
+                          Container(
+                            margin: EdgeInsets.only(bottom: 24.h),
                             decoration: BoxDecoration(
                               color: isDark
                                   ? AppColors.surfaceDark
                                   : Colors.white,
-                              shape: BoxShape.circle,
+                              borderRadius: BorderRadius.circular(20.r),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withOpacity(0.06),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
-                            child: Icon(
-                              Symbols.settings,
-                              size: 22.w,
-                              color: isDark
-                                  ? Colors.white70
-                                  : AppColors.textDark,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SliverToBoxAdapter(child: SizedBox(height: 16.h)),
-
-            // ── Greeting ────────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'greeting_prefix'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : AppColors.textDark,
-                      ),
-                    ),
-                    Text(
-                      pilgrimState.isLoading
-                          ? '...'
-                          : (profile?.firstName ?? ''),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 28.sp,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                        height: 1.1,
-                      ),
-                    ),
-                    SizedBox(height: 8.h),
-                    Row(
-                      children: [
-                        Container(
-                          width: 10.w,
-                          height: 10.w,
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        SizedBox(width: 8.w),
-                        Text(
-                          'status_safe_label'.tr(),
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontSize: 14.sp,
-                            color: isDark ? Colors.white70 : AppColors.textDark,
-                          ),
-                        ),
-                        Text(
-                          ' ${'status_safe'.tr()}',
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 6.h),
-                    Row(
-                      children: [
-                        Container(
-                          width: 10.w,
-                          height: 10.w,
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        SizedBox(width: 8.w),
-                        Text(
-                          '${'card_sharing'.tr()}:',
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontSize: 14.sp,
-                            color: isDark ? Colors.white70 : AppColors.textDark,
-                          ),
-                        ),
-                        Text(
-                          ' ${pilgrimState.isSharingLocation ? 'card_active'.tr() : 'card_paused'.tr()}',
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SliverToBoxAdapter(child: SizedBox(height: 12.h)),
-
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: AspectRatio(
-                        aspectRatio: 1,
-                        child: _SquareWeatherCard(
-                          isDark: isDark,
-                          alert: weatherAlert,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      child: AspectRatio(
-                        aspectRatio: 1,
-                        child: _SquareGroupCard(
-                          isDark: isDark,
-                          groupName: group?.groupName ?? 'card_no_group'.tr(),
-                          onTap: onGroupCardTap,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SliverToBoxAdapter(child: SizedBox(height: 12.h)),
-
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: GestureDetector(
-                  onTap: onHotspotsTap,
-                  child: _InfoCard(
-                    isDark: isDark,
-                    icon: Symbols.travel_explore,
-                    iconColor: const Color(0xFF2A5CAA),
-                    label: 'Mecca Hotspots',
-                    value:
-                        'Explore nearby food, pharmacy, landmarks, and shopping.',
-                    compact: true,
-                    minHeight: 114.h,
-                    isClickable: true,
-                    clickableHint: 'Tap to open hotspots',
-                    labelInlineWithIcon: true,
-                  ),
-                ),
-              ),
-            ),
-
-            SliverToBoxAdapter(child: SizedBox(height: 16.h)),
-
-            // ── SOS Button ──────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Center(
-                child: Column(
-                  children: [
-                    _SosButton(
-                      pulseController: sosPulseController,
-                      holdController: sosHoldController,
-                      isHolding: isSosHolding,
-                      isLoading: pilgrimState.isSosLoading,
-                      sosActive: pilgrimState.sosActive,
-                      countdown: sosCountdown,
-                      onHoldStart: onSosHoldStart,
-                      onHoldEnd: onSosHoldEnd,
-                    ),
-                    SizedBox(height: 20.h),
-                    Text(
-                      'sos_title'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : AppColors.textDark,
-                      ),
-                    ),
-                    SizedBox(height: 4.h),
-                    Text(
-                      pilgrimState.sosActive
-                          ? 'sos_active_label'.tr()
-                          : isSosHolding
-                          ? ''
-                          : 'sos_hold_hint'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 13.sp,
-                        color: pilgrimState.sosActive
-                            ? Colors.red.shade600
-                            : AppColors.textMutedLight,
-                        fontWeight: pilgrimState.sosActive
-                            ? FontWeight.w700
-                            : FontWeight.normal,
-                      ),
-                    ),
-                    if (pilgrimState.sosActive) ...[
-                      SizedBox(height: 12.h),
-                      GestureDetector(
-                        onTap: onCancelSos,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 28.w,
-                            vertical: 10.h,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: Colors.red.shade400,
-                              width: 1.5,
-                            ),
-                            borderRadius: BorderRadius.circular(20.r),
-                          ),
-                          child: Text(
-                            'sos_cancel'.tr(),
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14.sp,
-                              color: Colors.red.shade500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                    SizedBox(height: 24.h),
-                  ],
-                ),
-              ),
-            ),
-
-            // ── Navigate to Moderator ────────────────────────────────────
-            if (navBeacons.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? AppColors.surfaceDark : Colors.white,
-                      borderRadius: BorderRadius.circular(20.r),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 8.h),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Symbols.my_location,
-                                size: 18.w,
-                                color: AppColors.primary,
-                              ),
-                              SizedBox(width: 8.w),
-                              Text(
-                                'nav_to_moderator'.tr(),
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14.sp,
-                                  color: isDark
-                                      ? Colors.white
-                                      : AppColors.textDark,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Divider(height: 1),
-                        ...navBeacons.values.map(
-                          (beacon) => Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 16.w,
-                              vertical: 10.h,
-                            ),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Avatar
-                                Container(
-                                  width: 40.w,
-                                  height: 40.w,
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? AppColors.iconBgDark
-                                        : AppColors.iconBgLight,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Symbols.person_pin_circle,
-                                    size: 22.w,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                                SizedBox(width: 12.w),
-                                // Name
-                                Expanded(
-                                  child: Text(
-                                    beacon.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14.sp,
-                                      color: isDark
-                                          ? Colors.white
-                                          : AppColors.textDark,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: 10.w),
-                                // Navigate button
-                                GestureDetector(
-                                  onTap: () => onNavigateToModerator(beacon),
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 14.w,
-                                      vertical: 9.h,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary,
-                                      borderRadius: BorderRadius.circular(14.r),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppColors.primary.withOpacity(
-                                            0.35,
-                                          ),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 3),
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                      16.w, 14.h, 16.w, 8.h),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Symbols.my_location,
+                                        size: 18.w,
+                                        color: AppColors.primary,
+                                      ),
+                                      SizedBox(width: 8.w),
+                                      Text(
+                                        'nav_to_moderator'.tr(),
+                                        style: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14.sp,
+                                          color: isDark
+                                              ? Colors.white
+                                              : AppColors.textDark,
                                         ),
-                                      ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                ...navBeacons.values.map(
+                                  (beacon) => Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 16.w,
+                                      vertical: 10.h,
                                     ),
                                     child: Row(
-                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(
-                                          Symbols.navigation,
-                                          color: Colors.white,
-                                          size: 16.w,
+                                        Container(
+                                          width: 40.w,
+                                          height: 40.w,
+                                          decoration: BoxDecoration(
+                                            color: isDark
+                                                ? AppColors.iconBgDark
+                                                : AppColors.iconBgLight,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Symbols.person_pin_circle,
+                                            size: 22.w,
+                                            color: AppColors.primary,
+                                          ),
                                         ),
-                                        SizedBox(width: 6.w),
-                                        Text(
-                                          'nav_go'.tr(),
-                                          style: TextStyle(
-                                            fontFamily: 'Lexend',
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13.sp,
-                                            color: Colors.white,
+                                        SizedBox(width: 12.w),
+                                        Expanded(
+                                          child: Text(
+                                            beacon.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontFamily: 'Lexend',
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14.sp,
+                                              color: isDark
+                                                  ? Colors.white
+                                                  : AppColors.textDark,
+                                            ),
+                                          ),
+                                        ),
+                                        SizedBox(width: 10.w),
+                                        GestureDetector(
+                                          onTap: () =>
+                                              onNavigateToModerator(beacon),
+                                          child: Container(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 14.w,
+                                              vertical: 9.h,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primary,
+                                              borderRadius:
+                                                  BorderRadius.circular(14.r),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: AppColors.primary
+                                                      .withOpacity(0.35),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 3),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Symbols.navigation,
+                                                  color: Colors.white,
+                                                  size: 16.w,
+                                                ),
+                                                SizedBox(width: 6.w),
+                                                Text(
+                                                  'nav_go'.tr(),
+                                                  style: TextStyle(
+                                                    fontFamily: 'Lexend',
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 13.sp,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
                                 ),
+                                SizedBox(height: 8.h),
                               ],
                             ),
                           ),
-                        ),
-                        SizedBox(height: 8.h),
                       ],
                     ),
                   ),
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// New Card Widgets
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _WeatherCardNew extends StatelessWidget {
+  final _WeatherAlert alert;
+  const _WeatherCardNew({required this.alert});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD6EAF8),
+        borderRadius: BorderRadius.circular(20.r),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(alert.icon, color: const Color(0xFFF1C40F), size: 36.w),
+          SizedBox(height: 16.h),
+          Text(
+            alert.isLoading
+                ? '...'
+                : alert.isError
+                    ? '--'
+                    : '${alert.temperatureC}\u00b0C',
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 36.sp,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF1B4F72),
+            ),
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            alert.isLoading
+                ? 'weather_loading'.tr()
+                : alert.isError
+                    ? 'weather_unavailable'.tr()
+                    : alert.condition,
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF154360),
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            alert.isLoading
+                ? 'weather_loading_hint'.tr()
+                : alert.reminder,
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 12.sp,
+              color: const Color(0xFF34495E),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupCardNew extends StatelessWidget {
+  final String groupName;
+  final VoidCallback onTap;
+
+  const _GroupCardNew({required this.groupName, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(14.w),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAE5D3),
+          borderRadius: BorderRadius.circular(20.r),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Icon(Symbols.groups, color: const Color(0xFFD35400), size: 22.w),
+                SizedBox(width: 8.w),
+                Text(
+                  'home_my_group'.tr(),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF000000),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 10.h),
+            Text(
+              groupName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF000000),
+              ),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              'home_tap_details'.tr(),
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 11.sp,
+                color: const Color(0xFF7B7D7D),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
+
+class _ExploreCardNew extends StatelessWidget {
+  final VoidCallback onTap;
+  const _ExploreCardNew({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 16.h),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFADBD8),
+          borderRadius: BorderRadius.circular(20.r),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36.w,
+              height: 36.w,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF5B7B1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.navigation_rounded,
+                  color: const Color(0xFFC0392B), size: 20.w),
+            ),
+            SizedBox(width: 10.w),
+            Text(
+              'home_explore'.tr(),
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF000000),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SOS Button Widget
@@ -1726,7 +1828,8 @@ class _SosButtonState extends State<_SosButton>
               AnimatedBuilder(
                 animation: widget.pulseController,
                 builder: (_, _) {
-                  final scale = 1.0 + 0.15 * widget.pulseController.value;
+                  final scale =
+                      1.0 + 0.15 * widget.pulseController.value;
                   return Transform.scale(
                     scale: scale,
                     child: Container(
@@ -1767,8 +1870,10 @@ class _SosButtonState extends State<_SosButton>
                       color: Colors.red.withOpacity(
                         _isPressed || widget.isHolding ? 0.25 : 0.45,
                       ),
-                      blurRadius: _isPressed || widget.isHolding ? 14 : 30,
-                      spreadRadius: _isPressed || widget.isHolding ? 1 : 4,
+                      blurRadius:
+                          _isPressed || widget.isHolding ? 14 : 30,
+                      spreadRadius:
+                          _isPressed || widget.isHolding ? 1 : 4,
                     ),
                   ],
                 ),
@@ -1780,54 +1885,54 @@ class _SosButtonState extends State<_SosButton>
                         ),
                       )
                     : widget.isHolding
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '${widget.countdown}',
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 56.sp,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                            ),
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '${widget.countdown}',
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 56.sp,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                'sec',
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 14.sp,
+                                  color: Colors.white70,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                widget.sosActive ? 'sos_active_text'.tr() : 'sos_hold_label'.tr(),
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 20.sp,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white.withOpacity(0.6),
+                                  letterSpacing: 2,
+                                ),
+                              ),
+                              Text(
+                                'SOS',
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 28.sp,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  letterSpacing: 4,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            'sec',
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 14.sp,
-                              color: Colors.white70,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            widget.sosActive ? 'ACTIVE' : '505',
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 20.sp,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white.withOpacity(0.6),
-                              letterSpacing: 2,
-                            ),
-                          ),
-                          Text(
-                            'SOS',
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 28.sp,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: 4,
-                            ),
-                          ),
-                        ],
-                      ),
               ),
 
               // Hold progress ring
@@ -1854,170 +1959,8 @@ class _SosButtonState extends State<_SosButton>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Info Card Widget
+// Weather Alert Model
 // ─────────────────────────────────────────────────────────────────────────────
-
-class _InfoCard extends StatelessWidget {
-  final bool isDark;
-  final IconData icon;
-  final Color iconColor;
-  final String label;
-  final String value;
-  final String? badge;
-  final bool compact;
-  final double? minHeight;
-  final bool isClickable;
-  final String? clickableHint;
-  final bool labelInlineWithIcon;
-
-  const _InfoCard({
-    required this.isDark,
-    required this.icon,
-    required this.iconColor,
-    required this.label,
-    required this.value,
-    this.badge,
-    this.compact = false,
-    this.minHeight,
-    this.isClickable = false,
-    this.clickableHint,
-    this.labelInlineWithIcon = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: minHeight != null
-          ? BoxConstraints(minHeight: minHeight!)
-          : null,
-      padding: EdgeInsets.all(compact ? 12.w : 16.w),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(20.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      width: compact ? 36.w : 42.w,
-                      height: compact ? 36.w : 42.w,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.iconBgDark
-                            : AppColors.iconBgLight,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        icon,
-                        size: compact ? 19.w : 22.w,
-                        color: iconColor,
-                      ),
-                    ),
-                    if (labelInlineWithIcon) ...[
-                      SizedBox(width: 10.w),
-                      Expanded(
-                        child: Text(
-                          label,
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontSize: compact ? 12.sp : 13.sp,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textMutedLight,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (isClickable)
-                Icon(
-                  Symbols.chevron_right,
-                  size: 20.w,
-                  color: AppColors.textMutedLight,
-                )
-              else if (badge != null)
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.iconBgDark
-                        : AppColors.iconBgLight,
-                    borderRadius: BorderRadius.circular(20.r),
-                  ),
-                  child: Text(
-                    badge!,
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          SizedBox(height: compact ? 10.h : 12.h),
-          if (!labelInlineWithIcon) ...[
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: compact ? 11.sp : 12.sp,
-                color: AppColors.textMutedLight,
-              ),
-            ),
-            SizedBox(height: 2.h),
-          ],
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: (isClickable && compact)
-                  ? 16.sp
-                  : (compact ? 14.sp : 15.sp),
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : AppColors.textDark,
-            ),
-            maxLines: isClickable ? 2 : 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (isClickable && (clickableHint?.isNotEmpty ?? false)) ...[
-            SizedBox(height: 6.h),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(
-                  clickableHint!,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
 
 class _WeatherAlert {
   final int temperatureC;
@@ -2034,309 +1977,26 @@ class _WeatherAlert {
     required this.reminder,
     required this.icon,
     required this.iconColor,
-    this.isLoading = false,
-    this.isError = false,
   });
+
 
   const _WeatherAlert.loading()
-    : temperatureC = 0,
-      condition = 'Loading weather',
-      reminder = 'Checking local weather conditions...',
-      icon = Icons.wb_sunny,
-      iconColor = AppColors.primary,
-      isLoading = true,
-      isError = false;
+      : temperatureC = 0,
+        condition = 'Loading weather',
+        reminder = 'Checking local weather conditions...',
+        icon = Icons.wb_sunny,
+        iconColor = AppColors.primary,
+        isLoading = true,
+        isError = false;
 
   const _WeatherAlert.error(String message)
-    : temperatureC = 0,
-      condition = 'Weather unavailable',
-      reminder = message,
-      icon = Icons.cloud_off,
-      iconColor = AppColors.textMutedLight,
-      isLoading = false,
-      isError = true;
-}
-
-class _WeatherWarningCard extends StatelessWidget {
-  final bool isDark;
-  final _WeatherAlert alert;
-
-  const _WeatherWarningCard({required this.isDark, required this.alert});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(14.w, 14.h, 14.w, 16.h),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(20.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44.w,
-                height: 44.w,
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-                child: Icon(alert.icon, color: alert.iconColor, size: 24.w),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: Text(
-                  alert.isLoading
-                      ? 'Weather Update'
-                      : alert.isError
-                      ? 'Weather Unavailable'
-                      : '${alert.condition} Weather',
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : AppColors.textDark,
-                  ),
-                ),
-              ),
-              if (!alert.isLoading && !alert.isError)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${alert.temperatureC}°C',
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 20.sp,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : AppColors.textDark,
-                      ),
-                    ),
-                    Text(
-                      alert.condition,
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textMutedLight,
-                      ),
-                    ),
-                  ],
-                ),
-            ],
-          ),
-          SizedBox(height: 12.h),
-          Text(
-            alert.reminder,
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 14.sp,
-              height: 1.35,
-              color: isDark ? Colors.white70 : AppColors.textDark,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SquareWeatherCard extends StatelessWidget {
-  final bool isDark;
-  final _WeatherAlert alert;
-
-  const _SquareWeatherCard({required this.isDark, required this.alert});
-
-  @override
-  Widget build(BuildContext context) {
-    final title = alert.isLoading
-        ? 'Weather Update'
-        : alert.isError
-        ? 'Weather Unavailable'
-        : '${alert.condition} Weather';
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(12.w),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(20.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36.w,
-                height: 36.w,
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
-                  borderRadius: BorderRadius.circular(10.r),
-                ),
-                child: Icon(alert.icon, color: alert.iconColor, size: 20.w),
-              ),
-              const Spacer(),
-              if (!alert.isLoading && !alert.isError)
-                Text(
-                  '${alert.temperatureC}°C',
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : AppColors.textDark,
-                  ),
-                ),
-            ],
-          ),
-          SizedBox(height: 10.h),
-          Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 15.sp,
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : AppColors.textDark,
-            ),
-          ),
-          SizedBox(height: 6.h),
-          Expanded(
-            child: Text(
-              alert.reminder,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 12.sp,
-                height: 1.25,
-                color: isDark ? Colors.white70 : AppColors.textMutedDark,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SquareGroupCard extends StatelessWidget {
-  final bool isDark;
-  final String groupName;
-  final VoidCallback onTap;
-
-  const _SquareGroupCard({
-    required this.isDark,
-    required this.groupName,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(12.w),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : Colors.white,
-          borderRadius: BorderRadius.circular(20.r),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 36.w,
-                  height: 36.w,
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.iconBgDark
-                        : AppColors.iconBgLight,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Symbols.groups,
-                    size: 20.w,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const Spacer(),
-                Icon(
-                  Icons.chevron_right,
-                  color: AppColors.textMutedLight,
-                  size: 20.w,
-                ),
-              ],
-            ),
-            SizedBox(height: 10.h),
-            Text(
-              'card_my_group'.tr(),
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textMutedLight,
-              ),
-            ),
-            SizedBox(height: 6.h),
-            Expanded(
-              child: Text(
-                groupName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : AppColors.textDark,
-                ),
-              ),
-            ),
-            SizedBox(height: 6.h),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                'Tap to view details',
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontSize: 10.5.sp,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+      : temperatureC = 0,
+        condition = 'Weather unavailable',
+        reminder = message,
+        icon = Icons.cloud_off,
+        iconColor = AppColors.textMutedLight,
+        isLoading = false,
+        isError = true;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2361,7 +2021,7 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = ['tab_home'.tr(), 'tab_map'.tr(), 'tab_chat'.tr(), 'Qibla'];
+    final labels = ['tab_home'.tr(), 'tab_map'.tr(), 'tab_chat'.tr(), 'tab_qibla'.tr()];
     final icons = [
       Symbols.home,
       Symbols.map,
@@ -3540,7 +3200,7 @@ class _SosCallOptionsSheet extends StatelessWidget {
             SizedBox(height: 12.h),
 
             Text(
-              'SOS Sent!',
+              'sos_sent_title'.tr(),
               style: TextStyle(
                 fontFamily: 'Lexend',
                 fontSize: 20.sp,
@@ -3550,7 +3210,7 @@ class _SosCallOptionsSheet extends StatelessWidget {
             ),
             SizedBox(height: 6.h),
             Text(
-              'Your moderator has been notified.\nWould you like to call them now?',
+              'sos_sent_body'.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: 'Lexend',
@@ -3568,7 +3228,7 @@ class _SosCallOptionsSheet extends StatelessWidget {
                 onPressed: onInternetCall,
                 icon: Icon(Icons.wifi_calling_3_rounded, size: 20.w),
                 label: Text(
-                  'Call via Internet',
+                  'sos_call_internet'.tr(),
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 15.sp,
@@ -3595,7 +3255,7 @@ class _SosCallOptionsSheet extends StatelessWidget {
                 onPressed: onNormalCall,
                 icon: Icon(Icons.phone_rounded, size: 20.w),
                 label: Text(
-                  'Call Normally',
+                  'sos_call_normal'.tr(),
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 15.sp,
@@ -3624,7 +3284,7 @@ class _SosCallOptionsSheet extends StatelessWidget {
                   padding: EdgeInsets.symmetric(vertical: 12.h),
                 ),
                 child: Text(
-                  'Cancel SOS',
+                  'sos_cancel_btn'.tr(),
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 14.sp,
