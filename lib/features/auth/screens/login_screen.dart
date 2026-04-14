@@ -506,35 +506,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                         SizedBox(height: 32.h),
 
-                        // Register Link
-                        Center(
-                          child: RichText(
-                            text: TextSpan(
-                              style: GoogleFonts.lexend(
-                                fontSize: 14.sp,
-                                color: isDark
-                                    ? AppColors.textMutedLight
-                                    : const Color(0xff475569),
-                              ),
-                              children: [
-                                TextSpan(text: '${'no_account'.tr()} '),
-                                TextSpan(
-                                  text: 'register_now'.tr(),
-                                  recognizer: TapGestureRecognizer()
-                                    ..onTap = () => context.push('/register'),
-                                  style: GoogleFonts.lexend(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w700,
-                                    decoration: TextDecoration.underline,
-                                    decorationColor: AppColors.accentGold,
-                                    decorationThickness: 2,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 32.h),
+                        // SizedBox(height: 32.h),
                       ],
                     ),
                   ),

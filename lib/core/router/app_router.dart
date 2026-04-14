@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/splash/screens/splash_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/one_time_login_screen.dart';
-import '../../features/auth/screens/register_screen.dart';
+
 import '../../features/pilgrim/screens/pilgrim_dashboard_screen.dart';
 import '../../features/moderator/screens/moderator_dashboard_screen.dart';
 
@@ -34,11 +34,6 @@ class AppRouter {
           final mode = state.uri.queryParameters['mode'];
           return OneTimeLoginScreen(startWithQr: mode == 'qr');
         },
-      ),
-      GoRoute(
-        path: '/register',
-        name: 'register',
-        builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(
         path: '/pilgrim-dashboard',
