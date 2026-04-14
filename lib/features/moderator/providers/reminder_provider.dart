@@ -78,7 +78,7 @@ class ReminderNotifier extends Notifier<ReminderState> {
         data: {
           'group_id': groupId,
           'target_type': targetType,
-          'pilgrim_id': ?pilgrimId,
+          'pilgrim_id': pilgrimId,
           'text': text,
           'scheduled_at': scheduledAt.toUtc().toIso8601String(),
           'repeat_count': repeatCount,

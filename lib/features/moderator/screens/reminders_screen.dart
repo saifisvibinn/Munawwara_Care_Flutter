@@ -371,25 +371,27 @@ class _ReminderCard extends StatelessWidget {
                   color: AppColors.primary,
                 ),
               ),
-              SizedBox(width: 16.w),
-              Icon(Symbols.repeat, size: 14.sp, color: Colors.grey),
-              SizedBox(width: 4.w),
-              Text(
-                'reminder_fires_sent'.tr(
-                      namedArgs: {
-                        'sent': '${reminder.firesSent}',
-                        'total': '${reminder.repeatCount}',
-                      },
-                    ) +
-                    (reminder.repeatCount > 1
-                        ? '  ·  ${'reminder_interval_every'.tr(namedArgs: {'interval': _formatInterval(reminder.repeatIntervalMin)})}'
-                        : ''),
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontSize: 12.sp,
-                  color: Colors.grey,
+              if (reminder.repeatCount > 1) ...[
+                SizedBox(width: 16.w),
+                Icon(Symbols.repeat, size: 14.sp, color: Colors.grey),
+                SizedBox(width: 4.w),
+                Text(
+                  'reminder_fires_sent'.tr(
+                        namedArgs: {
+                          'sent': '${reminder.firesSent}',
+                          'total': '${reminder.repeatCount}',
+                        },
+                      ) +
+                      (reminder.repeatCount > 1
+                          ? '  ·  ${'reminder_interval_every'.tr(namedArgs: {'interval': _formatInterval(reminder.repeatIntervalMin)})}'
+                          : ''),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 12.sp,
+                    color: Colors.grey,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
 

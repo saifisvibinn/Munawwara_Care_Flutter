@@ -58,22 +58,68 @@ class GroupInfo {
   final String groupName;
   final int pilgrimCount;
   final List<ModeratorInfo> moderators;
+  final String? hotelName;
+  final String? roomNumber;
+  final String? busNumber;
+  final String? driverName;
+  final String? checkIn;
+  final String? checkOut;
+  final int? daysRemaining;
 
   const GroupInfo({
     required this.groupId,
     required this.groupName,
     required this.pilgrimCount,
     required this.moderators,
+    this.hotelName,
+    this.roomNumber,
+    this.busNumber,
+    this.driverName,
+    this.checkIn,
+    this.checkOut,
+    this.daysRemaining,
   });
 
-  factory GroupInfo.fromJson(Map<String, dynamic> j) => GroupInfo(
-    groupId: j['group_id']?.toString() ?? '',
-    groupName: j['group_name']?.toString() ?? '',
-    pilgrimCount: j['pilgrim_count'] as int? ?? 0,
-    moderators: (j['moderators'] as List<dynamic>? ?? [])
-        .map((m) => ModeratorInfo.fromJson(m as Map<String, dynamic>))
-        .toList(),
-  );
+  factory GroupInfo.fromJson(Map<String, dynamic> j) {
+    String? firstString(List<String> keys) {
+      for (final key in keys) {
+        final value = j[key];
+        if (value == null) continue;
+        final text = value.toString().trim();
+        if (text.isNotEmpty) return text;
+      }
+      return null;
+    }
+
+    int? firstInt(List<String> keys) {
+      for (final key in keys) {
+        final value = j[key];
+        if (value is int) return value;
+        if (value is num) return value.toInt();
+        if (value is String) {
+          final parsed = int.tryParse(value);
+          if (parsed != null) return parsed;
+        }
+      }
+      return null;
+    }
+
+    return GroupInfo(
+      groupId: j['group_id']?.toString() ?? '',
+      groupName: j['group_name']?.toString() ?? '',
+      pilgrimCount: j['pilgrim_count'] as int? ?? 0,
+      moderators: (j['moderators'] as List<dynamic>? ?? [])
+          .map((m) => ModeratorInfo.fromJson(m as Map<String, dynamic>))
+          .toList(),
+      hotelName: firstString(['hotel_name', 'hotelName']),
+      roomNumber: firstString(['room_number', 'room_no', 'roomNumber']),
+      busNumber: firstString(['bus_number', 'bus_no', 'busNumber']),
+      driverName: firstString(['driver_name', 'driverName']),
+      checkIn: firstString(['checkin_date', 'check_in', 'checkIn']),
+      checkOut: firstString(['checkout_date', 'check_out', 'checkOut']),
+      daysRemaining: firstInt(['days_remaining', 'stay_days', 'daysRemaining']),
+    );
+  }
 }
 
 class ModeratorInfo {

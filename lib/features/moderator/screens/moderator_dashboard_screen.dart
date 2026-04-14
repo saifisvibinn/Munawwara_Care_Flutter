@@ -15,10 +15,12 @@ import '../../../main.dart' show isNavigatingToCall;
 import '../../notifications/providers/notification_provider.dart';
 import '../../notifications/screens/alerts_tab.dart';
 import '../providers/moderator_provider.dart';
+import 'pilgrim_provisioning_screen.dart';
 import 'create_group_screen.dart';
 import 'moderator_profile_screen.dart';
 import 'group_management_screen.dart';
 import 'moderator_group_map_screen.dart';
+import 'system_reminders_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Moderator Dashboard Screen
@@ -34,7 +36,8 @@ class ModeratorDashboardScreen extends ConsumerStatefulWidget {
 
 class _ModeratorDashboardScreenState
     extends ConsumerState<ModeratorDashboardScreen> {
-  int _currentTab = 0; // 0=Home, 1=Alerts
+  int _currentTab =
+      0; // 0=Groups, 1=Provisioning, 2=Reminders, 3=Profile, 4=Alerts
   final _searchController = TextEditingController();
   final _alertTts = FlutterTts();
 
@@ -57,7 +60,7 @@ class _ModeratorDashboardScreenState
     // Refresh the alerts list immediately
     ref.read(notificationProvider.notifier).fetch();
     // Auto-navigate to Alerts tab so the moderator sees it
-    setState(() => _currentTab = 1);
+    setState(() => _currentTab = 4);
     // Speak the alert aloud
     final map = data is Map ? data : <String, dynamic>{};
     final name = map['pilgrim_name'] as String? ?? 'A pilgrim';
@@ -94,7 +97,7 @@ class _ModeratorDashboardScreenState
         action: SnackBarAction(
           label: 'View',
           textColor: Colors.white,
-          onPressed: () => setState(() => _currentTab = 1),
+          onPressed: () => setState(() => _currentTab = 4),
         ),
       ),
     );
@@ -199,8 +202,11 @@ class _ModeratorDashboardScreenState
           IndexedStack(
             index: _currentTab,
             children: [
-              _GroupsHomeTab(searchController: _searchController),
-              const AlertsTab(),
+              _GroupsHomeTab(searchController: _searchController), // 0: Groups
+              const PilgrimProvisioningScreen(), // 1: Provisioning
+              const SystemRemindersScreen(), // 2: Reminders
+              const ModeratorProfileScreen(), // 3: Profile
+              const AlertsTab(), // 4: Alerts
             ],
           ),
           if (showEmptyGroupsArrow)
@@ -227,21 +233,22 @@ class _ModeratorDashboardScreenState
             ),
         ],
       ),
-      floatingActionButton: SizedBox(
-        width: 56.w,
-        height: 56.w,
-        child: FloatingActionButton(
-          onPressed: () => Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (_) => const CreateGroupScreen())),
-          backgroundColor: const Color(0xFFF97316),
-          foregroundColor: Colors.white,
-          shape: const CircleBorder(),
-          elevation: 6,
-          child: Icon(Symbols.add, size: 28.w),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: _currentTab == 0
+          ? SizedBox(
+              width: 56.w,
+              height: 56.w,
+              child: FloatingActionButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CreateGroupScreen()),
+                ),
+                backgroundColor: const Color(0xFFF97316),
+                foregroundColor: Colors.white,
+                shape: const CircleBorder(),
+                elevation: 6,
+                child: Icon(Symbols.add, size: 28.w),
+              ),
+            )
+          : null,
       bottomNavigationBar: _ModBottomNav(
         currentIndex: _currentTab,
         onTap: (i) => setState(() => _currentTab = i),
@@ -1240,8 +1247,6 @@ class _ModBottomNav extends ConsumerWidget {
     return BottomAppBar(
       height: 70.h,
       color: isDark ? AppColors.surfaceDark : Colors.white,
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 8,
       padding: EdgeInsets.zero,
       surfaceTintColor: Colors.transparent,
       elevation: 8,
@@ -1251,23 +1256,41 @@ class _ModBottomNav extends ConsumerWidget {
         children: [
           Expanded(
             child: _NavItem(
-              icon: Symbols.home,
-              label: 'dashboard_nav_home'.tr(),
+              icon: Symbols.groups,
+              label: 'GROUPS',
               index: 0,
               current: currentIndex,
               onTap: onTap,
               activeColor: AppColors.primary,
             ),
           ),
-          SizedBox(width: 64.w),
           Expanded(
             child: _NavItem(
-              icon: Symbols.notifications,
-              label: 'dashboard_nav_alerts'.tr(),
+              icon: Symbols.inbox,
+              label: 'PROVISIONING',
               index: 1,
               current: currentIndex,
               onTap: onTap,
-              badge: ref.watch(notificationProvider).unreadCount > 0,
+              activeColor: AppColors.primary,
+            ),
+          ),
+          Expanded(
+            child: _NavItem(
+              icon: Symbols.notifications_active,
+              label: 'REMINDERS',
+              index: 2,
+              current: currentIndex,
+              onTap: onTap,
+              activeColor: AppColors.primary,
+            ),
+          ),
+          Expanded(
+            child: _NavItem(
+              icon: Symbols.person,
+              label: 'PROFILE',
+              index: 3,
+              current: currentIndex,
+              onTap: onTap,
               activeColor: AppColors.primary,
             ),
           ),
@@ -1287,13 +1310,13 @@ class _NavItem extends StatelessWidget {
   final Color activeColor;
 
   const _NavItem({
+    this.badge = false,
     required this.icon,
     required this.label,
     required this.index,
     required this.current,
     required this.onTap,
     required this.activeColor,
-    this.badge = false,
   });
 
   @override
@@ -1332,13 +1355,17 @@ class _NavItem extends StatelessWidget {
               ],
             ),
             SizedBox(height: 3.h),
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 10.sp,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-                color: color,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 9.sp,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                  color: color,
+                ),
               ),
             ),
           ],

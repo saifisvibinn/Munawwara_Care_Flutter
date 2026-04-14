@@ -963,6 +963,13 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                   moderatorName: firstModerator?.fullName,
                   moderatorLat: firstModerator?.lat,
                   moderatorLng: firstModerator?.lng,
+                  hotelName: pilgrimState.groupInfo!.hotelName,
+                  roomNumber: pilgrimState.groupInfo!.roomNumber,
+                  busNumber: pilgrimState.groupInfo!.busNumber,
+                  driverName: pilgrimState.groupInfo!.driverName,
+                  checkIn: pilgrimState.groupInfo!.checkIn,
+                  checkOut: pilgrimState.groupInfo!.checkOut,
+                  daysRemaining: pilgrimState.groupInfo!.daysRemaining,
                 ),
               ),
             );
@@ -1333,23 +1340,26 @@ class _HomeTab extends StatelessWidget {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // Left: Weather Card
+                              // Left: Group Card
                               Expanded(
                                 flex: 5,
-                                child: _WeatherCardNew(alert: weatherAlert),
+                                child: _GroupCardNew(
+                                  groupName:
+                                      group?.groupName ?? 'card_no_group'.tr(),
+                                  onTap: onGroupCardTap,
+                                ),
                               ),
                               SizedBox(width: 12.w),
-                              // Right: Group + Explore stacked
+                              // Right: Weather + Explore stacked
                               Expanded(
                                 flex: 5,
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     Expanded(
-                                      child: _GroupCardNew(
-                                        groupName: group?.groupName ??
-                                            'card_no_group'.tr(),
-                                        onTap: onGroupCardTap,
+                                      child: _WeatherCardNew(
+                                        alert: weatherAlert,
                                       ),
                                     ),
                                     SizedBox(height: 12.h),
@@ -1390,8 +1400,7 @@ class _HomeTab extends StatelessWidget {
                                         color: Colors.red.shade400,
                                         width: 1.5,
                                       ),
-                                      borderRadius:
-                                          BorderRadius.circular(20.r),
+                                      borderRadius: BorderRadius.circular(20.r),
                                     ),
                                     child: Text(
                                       'sos_cancel'.tr(),
@@ -1432,7 +1441,11 @@ class _HomeTab extends StatelessWidget {
                               children: [
                                 Padding(
                                   padding: EdgeInsets.fromLTRB(
-                                      16.w, 14.h, 16.w, 8.h),
+                                    16.w,
+                                    14.h,
+                                    16.w,
+                                    8.h,
+                                  ),
                                   child: Row(
                                     children: [
                                       Icon(
@@ -1571,7 +1584,7 @@ class _WeatherCardNew extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
         color: const Color(0xFFD6EAF8),
         borderRadius: BorderRadius.circular(20.r),
@@ -1580,44 +1593,46 @@ class _WeatherCardNew extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(alert.icon, color: const Color(0xFFF1C40F), size: 36.w),
-          SizedBox(height: 16.h),
+          Icon(alert.icon, color: const Color(0xFFF1C40F), size: 28.w),
+          SizedBox(height: 8.h),
           Text(
             alert.isLoading
                 ? '...'
                 : alert.isError
-                    ? '--'
-                    : '${alert.temperatureC}\u00b0C',
+                ? '--'
+                : '${alert.temperatureC}\u00b0C',
             style: TextStyle(
               fontFamily: 'Lexend',
-              fontSize: 36.sp,
+              fontSize: 26.sp,
               fontWeight: FontWeight.w800,
               color: const Color(0xFF1B4F72),
             ),
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: 2.h),
           Text(
             alert.isLoading
                 ? 'weather_loading'.tr()
                 : alert.isError
-                    ? 'weather_unavailable'.tr()
-                    : alert.condition,
+                ? 'weather_unavailable'.tr()
+                : alert.condition,
             style: TextStyle(
               fontFamily: 'Lexend',
-              fontSize: 14.sp,
+              fontSize: 13.sp,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF154360),
             ),
           ),
-          SizedBox(height: 8.h),
-          Text(
-            alert.isLoading
-                ? 'weather_loading_hint'.tr()
-                : alert.reminder,
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 12.sp,
-              color: const Color(0xFF34495E),
+          SizedBox(height: 4.h),
+          Expanded(
+            child: Text(
+              alert.isLoading ? 'weather_loading_hint'.tr() : alert.reminder,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 11.sp,
+                color: const Color(0xFF34495E),
+              ),
             ),
           ),
         ],
@@ -1638,7 +1653,7 @@ class _GroupCardNew extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.all(14.w),
+        padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
           color: const Color(0xFFFAE5D3),
           borderRadius: BorderRadius.circular(20.r),
@@ -1647,31 +1662,30 @@ class _GroupCardNew extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                Icon(Symbols.groups, color: const Color(0xFFD35400), size: 22.w),
-                SizedBox(width: 8.w),
-                Text(
-                  'home_my_group'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF000000),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 10.h),
+            Icon(Symbols.groups, color: const Color(0xFFD35400), size: 36.w),
+            SizedBox(height: 16.h),
             Text(
-              groupName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              'home_my_group'.tr(),
               style: TextStyle(
                 fontFamily: 'Lexend',
-                fontSize: 15.sp,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF000000),
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFFD35400),
+              ),
+            ),
+            SizedBox(height: 4.h),
+            Expanded(
+              child: Text(
+                groupName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 28.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF000000),
+                  height: 1.1,
+                ),
               ),
             ),
             SizedBox(height: 4.h),
@@ -1679,7 +1693,7 @@ class _GroupCardNew extends StatelessWidget {
               'home_tap_details'.tr(),
               style: TextStyle(
                 fontFamily: 'Lexend',
-                fontSize: 11.sp,
+                fontSize: 12.sp,
                 color: const Color(0xFF7B7D7D),
               ),
             ),
@@ -1714,8 +1728,11 @@ class _ExploreCardNew extends StatelessWidget {
                 color: Color(0xFFF5B7B1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.navigation_rounded,
-                  color: const Color(0xFFC0392B), size: 20.w),
+              child: Icon(
+                Icons.navigation_rounded,
+                color: const Color(0xFFC0392B),
+                size: 20.w,
+              ),
             ),
             SizedBox(width: 10.w),
             Text(
@@ -1733,7 +1750,6 @@ class _ExploreCardNew extends StatelessWidget {
     );
   }
 }
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SOS Button Widget
@@ -1828,8 +1844,7 @@ class _SosButtonState extends State<_SosButton>
               AnimatedBuilder(
                 animation: widget.pulseController,
                 builder: (_, _) {
-                  final scale =
-                      1.0 + 0.15 * widget.pulseController.value;
+                  final scale = 1.0 + 0.15 * widget.pulseController.value;
                   return Transform.scale(
                     scale: scale,
                     child: Container(
@@ -1870,10 +1885,8 @@ class _SosButtonState extends State<_SosButton>
                       color: Colors.red.withOpacity(
                         _isPressed || widget.isHolding ? 0.25 : 0.45,
                       ),
-                      blurRadius:
-                          _isPressed || widget.isHolding ? 14 : 30,
-                      spreadRadius:
-                          _isPressed || widget.isHolding ? 1 : 4,
+                      blurRadius: _isPressed || widget.isHolding ? 14 : 30,
+                      spreadRadius: _isPressed || widget.isHolding ? 1 : 4,
                     ),
                   ],
                 ),
@@ -1885,54 +1898,56 @@ class _SosButtonState extends State<_SosButton>
                         ),
                       )
                     : widget.isHolding
-                        ? Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                '${widget.countdown}',
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontSize: 56.sp,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              Text(
-                                'sec',
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontSize: 14.sp,
-                                  color: Colors.white70,
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                            ],
-                          )
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                widget.sosActive ? 'sos_active_text'.tr() : 'sos_hold_label'.tr(),
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontSize: 20.sp,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white.withOpacity(0.6),
-                                  letterSpacing: 2,
-                                ),
-                              ),
-                              Text(
-                                'SOS',
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontSize: 28.sp,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                  letterSpacing: 4,
-                                ),
-                              ),
-                            ],
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${widget.countdown}',
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 56.sp,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
                           ),
+                          Text(
+                            'sec',
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 14.sp,
+                              color: Colors.white70,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            widget.sosActive
+                                ? 'sos_active_text'.tr()
+                                : 'sos_hold_label'.tr(),
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 20.sp,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white.withOpacity(0.6),
+                              letterSpacing: 2,
+                            ),
+                          ),
+                          Text(
+                            'SOS',
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 28.sp,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 4,
+                            ),
+                          ),
+                        ],
+                      ),
               ),
 
               // Hold progress ring
@@ -1972,6 +1987,8 @@ class _WeatherAlert {
   final bool isError;
 
   const _WeatherAlert({
+    this.isLoading = false,
+    this.isError = false,
     required this.temperatureC,
     required this.condition,
     required this.reminder,
@@ -1979,24 +1996,23 @@ class _WeatherAlert {
     required this.iconColor,
   });
 
-
   const _WeatherAlert.loading()
-      : temperatureC = 0,
-        condition = 'Loading weather',
-        reminder = 'Checking local weather conditions...',
-        icon = Icons.wb_sunny,
-        iconColor = AppColors.primary,
-        isLoading = true,
-        isError = false;
+    : temperatureC = 0,
+      condition = 'Loading weather',
+      reminder = 'Checking local weather conditions...',
+      icon = Icons.wb_sunny,
+      iconColor = AppColors.primary,
+      isLoading = true,
+      isError = false;
 
   const _WeatherAlert.error(String message)
-      : temperatureC = 0,
-        condition = 'Weather unavailable',
-        reminder = message,
-        icon = Icons.cloud_off,
-        iconColor = AppColors.textMutedLight,
-        isLoading = false,
-        isError = true;
+    : temperatureC = 0,
+      condition = 'Weather unavailable',
+      reminder = message,
+      icon = Icons.cloud_off,
+      iconColor = AppColors.textMutedLight,
+      isLoading = false,
+      isError = true;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2021,7 +2037,12 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = ['tab_home'.tr(), 'tab_map'.tr(), 'tab_chat'.tr(), 'tab_qibla'.tr()];
+    final labels = [
+      'tab_home'.tr(),
+      'tab_map'.tr(),
+      'tab_chat'.tr(),
+      'tab_qibla'.tr(),
+    ];
     final icons = [
       Symbols.home,
       Symbols.map,

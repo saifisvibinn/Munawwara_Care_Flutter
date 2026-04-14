@@ -23,6 +23,7 @@ import 'features/auth/providers/auth_provider.dart';
 import 'features/calling/providers/call_provider.dart';
 import 'features/calling/screens/voice_call_screen.dart';
 import 'core/utils/app_logger.dart';
+import 'core/widgets/reminder_popup.dart';
 
 // Global FCM token
 String? _globalFcmToken;
@@ -142,6 +143,30 @@ void main() async {
             AppLogger.i(
               '🔊 Foreground TTS (${isReminder ? "reminder" : "urgent"}): "$text"',
             );
+            if (isReminder) {
+              final ctx = AppRouter.navigatorKey.currentContext;
+              if (ctx != null) {
+                String schedTime = '';
+                final rawTime =
+                    msg.data['scheduledAt']?.toString() ??
+                    msg.data['scheduled_time']?.toString() ??
+                    '';
+                if (rawTime.isNotEmpty) {
+                  try {
+                    final parsed = DateTime.parse(rawTime).toLocal();
+                    schedTime =
+                        'SCHEDULED FOR TODAY  ${DateFormat('HH:mm').format(parsed)}';
+                  } catch (_) {}
+                }
+                if (schedTime.isEmpty) {
+                  schedTime =
+                      'SCHEDULED FOR TODAY  ${DateFormat('HH:mm').format(DateTime.now())}';
+                }
+
+                ReminderPopup.show(ctx, body: text, scheduledTime: schedTime);
+              }
+            }
+
             await Future.delayed(const Duration(milliseconds: 2200));
             await NotificationService.speakTts('$prefix $text');
           }

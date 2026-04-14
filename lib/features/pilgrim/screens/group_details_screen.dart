@@ -11,12 +11,26 @@ class GroupDetailsScreen extends StatelessWidget {
   final String? moderatorName;
   final double? moderatorLat;
   final double? moderatorLng;
+  final String? hotelName;
+  final String? roomNumber;
+  final String? busNumber;
+  final String? driverName;
+  final String? checkIn;
+  final String? checkOut;
+  final int? daysRemaining;
 
   const GroupDetailsScreen({
     super.key,
     this.moderatorName,
     this.moderatorLat,
     this.moderatorLng,
+    this.hotelName,
+    this.roomNumber,
+    this.busNumber,
+    this.driverName,
+    this.checkIn,
+    this.checkOut,
+    this.daysRemaining,
   });
 
   bool get _hasModeratorLocation =>
@@ -33,6 +47,28 @@ class GroupDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    const noRecordsText = 'No records available';
+    final hotelText = hotelName?.trim().isNotEmpty == true
+        ? hotelName!
+        : noRecordsText;
+    final roomText = roomNumber?.trim().isNotEmpty == true
+        ? roomNumber!
+        : noRecordsText;
+    final busText = busNumber?.trim().isNotEmpty == true
+        ? busNumber!
+        : noRecordsText;
+    final driverText = driverName?.trim().isNotEmpty == true
+        ? driverName!
+        : noRecordsText;
+    final checkInText = checkIn?.trim().isNotEmpty == true
+        ? checkIn!
+        : noRecordsText;
+    final checkOutText = checkOut?.trim().isNotEmpty == true
+        ? checkOut!
+        : noRecordsText;
+    final daysRemainingText = daysRemaining != null
+        ? daysRemaining.toString()
+        : noRecordsText;
 
     return Scaffold(
       backgroundColor: isDark
@@ -62,14 +98,8 @@ class GroupDetailsScreen extends StatelessWidget {
             tint: const Color(0xFFF3ECE0),
             iconTint: const Color(0xFFDCECF9),
             children: [
-              _SectionLine(
-                label: 'group_hotel_name'.tr(),
-                value: 'group_tba'.tr(),
-              ),
-              _SectionLine(
-                label: 'group_room_number'.tr(),
-                value: 'group_tba'.tr(),
-              ),
+              _SectionLine(label: 'group_hotel_name'.tr(), value: hotelText),
+              _SectionLine(label: 'group_room_number'.tr(), value: roomText),
             ],
           ),
           SizedBox(height: 12.h),
@@ -84,7 +114,7 @@ class GroupDetailsScreen extends StatelessWidget {
                 label: 'group_moderator_name'.tr(),
                 value: moderatorName?.isNotEmpty == true
                     ? moderatorName!
-                    : 'group_tba'.tr(),
+                    : noRecordsText,
               ),
               if (_hasModeratorLocation) ...[
                 _SectionLine(
@@ -127,14 +157,8 @@ class GroupDetailsScreen extends StatelessWidget {
             tint: const Color(0xFFF8F1D9),
             iconTint: const Color(0xFFF2E4AE),
             children: [
-              _SectionLine(
-                label: 'group_bus_number'.tr(),
-                value: 'group_tba'.tr(),
-              ),
-              _SectionLine(
-                label: 'group_driver_name'.tr(),
-                value: 'group_tba'.tr(),
-              ),
+              _SectionLine(label: 'group_bus_number'.tr(), value: busText),
+              _SectionLine(label: 'group_driver_name'.tr(), value: driverText),
             ],
           ),
           SizedBox(height: 12.h),
@@ -150,20 +174,20 @@ class GroupDetailsScreen extends StatelessWidget {
                   Expanded(
                     child: _StayColumn(
                       title: 'group_checkin'.tr(),
-                      value: 'group_tba_short'.tr(),
+                      value: checkInText,
                       alignStart: true,
                     ),
                   ),
                   Expanded(
                     child: _StayColumn(
                       title: 'group_days_remaining'.tr(),
-                      value: '--',
+                      value: daysRemainingText,
                     ),
                   ),
                   Expanded(
                     child: _StayColumn(
                       title: 'group_checkout'.tr(),
-                      value: 'group_tba_short'.tr(),
+                      value: checkOutText,
                       alignStart: false,
                     ),
                   ),
@@ -249,10 +273,7 @@ class _SectionLine extends StatelessWidget {
   final String label;
   final String value;
 
-  const _SectionLine({
-    required this.label,
-    required this.value,
-  });
+  const _SectionLine({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
