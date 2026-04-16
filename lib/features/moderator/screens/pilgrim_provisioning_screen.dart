@@ -3,26 +3,31 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../providers/moderator_provider.dart';
 
-class PilgrimProvisioningScreen extends StatefulWidget {
+class PilgrimProvisioningScreen extends ConsumerStatefulWidget {
   const PilgrimProvisioningScreen({super.key});
 
   @override
-  State<PilgrimProvisioningScreen> createState() =>
+  ConsumerState<PilgrimProvisioningScreen> createState() =>
       _PilgrimProvisioningScreenState();
 }
 
-class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
+class _PilgrimProvisioningScreenState
+    extends ConsumerState<PilgrimProvisioningScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _ageCtrl = TextEditingController();
+  final _nationalIdCtrl = TextEditingController();
+  final _medicalHistoryCtrl = TextEditingController();
 
   bool _isLoadingGroups = false;
   bool _isLoadingStatus = false;
@@ -45,6 +50,7 @@ class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
   _ProvisioningSummary _summary = const _ProvisioningSummary();
 
   bool _provisioningStatusSupported = true;
+  String _filterStatus = 'pending';
 
   @override
   void initState() {
@@ -57,6 +63,8 @@ class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
     _fullNameCtrl.dispose();
     _phoneCtrl.dispose();
     _ageCtrl.dispose();
+    _nationalIdCtrl.dispose();
+    _medicalHistoryCtrl.dispose();
     super.dispose();
   }
 
@@ -275,15 +283,29 @@ class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
           (payload['summary'] as Map<String, dynamic>? ?? <String, dynamic>{});
       final itemsRaw = (payload['items'] as List<dynamic>? ?? const []);
 
+      final newTokenMap = <String, Map<String, String?>>{};
+      for (final p in _items) {
+        if (p.token != null) {
+          newTokenMap[p.pilgrimId] = {'token': p.token, 'qr': p.qrDataUrl};
+        }
+      }
+
       setState(() {
         _provisioningStatusSupported = true;
         _summary = _ProvisioningSummary.fromJson(summaryMap);
-        _items = itemsRaw
-            .whereType<Map>()
-            .map(
-              (i) => _ProvisioningItem.fromJson(Map<String, dynamic>.from(i)),
-            )
-            .toList();
+        _items = itemsRaw.whereType<Map>().map((i) {
+          final parsed = _ProvisioningItem.fromJson(
+            Map<String, dynamic>.from(i),
+          );
+          final existing = newTokenMap[parsed.pilgrimId];
+          if (existing != null) {
+            return parsed.copyWith(
+              token: existing['token'],
+              qrDataUrl: existing['qr'],
+            );
+          }
+          return parsed;
+        }).toList();
       });
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
@@ -331,6 +353,8 @@ class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
         data: {
           'full_name': _fullNameCtrl.text.trim(),
           'phone_number': _phoneCtrl.text.trim(),
+          'national_id': _nationalIdCtrl.text.trim(),
+          'medical_history': _medicalHistoryCtrl.text.trim(),
           'age': int.tryParse(_ageCtrl.text.trim()),
           'language': _selectedLanguage,
           'ethnicity': _selectedEthnicity,
@@ -349,6 +373,8 @@ class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
       _fullNameCtrl.clear();
       _phoneCtrl.clear();
       _ageCtrl.clear();
+      _nationalIdCtrl.clear();
+      _medicalHistoryCtrl.clear();
       setState(() {
         _selectedLanguage = 'en';
         _selectedEthnicity = 'Other';
@@ -534,7 +560,19 @@ class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(moderatorProvider.select((m) => m.groups.length), (prev, next) {
+      if (prev != null && prev != next) {
+        _loadGroups();
+      }
+    });
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final filteredItems = _items.where((i) {
+      if (_filterStatus == 'pending') return i.status != 'activated';
+      if (_filterStatus == 'activated') return i.status == 'activated';
+      return true;
+    }).toList();
 
     final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
     final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
@@ -675,9 +713,19 @@ class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
                       ],
                     ),
                     SizedBox(height: 14.h),
+                    Text(
+                      'Basic Information',
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15.sp,
+                        color: textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
                     TextFormField(
                       controller: _fullNameCtrl,
-                      decoration: _inputDecoration(isDark, label: 'Full Name'),
+                      decoration: _inputDecoration(isDark, label: 'Full name (3-100 chars)'),
                       validator: (v) => (v == null || v.trim().isEmpty)
                           ? 'Full name is required'
                           : null,
@@ -688,7 +736,7 @@ class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
                       keyboardType: TextInputType.phone,
                       decoration: _inputDecoration(
                         isDark,
-                        label: 'Phone Number',
+                        label: 'Phone number (without country code)',
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty)
                           ? 'Phone number is required'
@@ -702,43 +750,25 @@ class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
                           child: TextFormField(
                             controller: _ageCtrl,
                             keyboardType: TextInputType.number,
-                            decoration: _inputDecoration(isDark, label: 'Age'),
+                            decoration: _inputDecoration(isDark, label: 'Age (0-120)'),
                           ),
                         ),
                         SizedBox(width: 10.w),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            initialValue: _selectedLanguage,
+                            value: _selectedLanguage,
                             isExpanded: true,
                             decoration: _inputDecoration(
                               isDark,
-                              label: 'Language',
+                              label: 'Language (required)',
                             ),
                             items: const [
-                              DropdownMenuItem(
-                                value: 'en',
-                                child: Text('English'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'ar',
-                                child: Text('Arabic'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'ur',
-                                child: Text('Urdu'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'fr',
-                                child: Text('French'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'id',
-                                child: Text('Indonesian'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'tr',
-                                child: Text('Turkish'),
-                              ),
+                              DropdownMenuItem(value: 'en', child: Text('English')),
+                              DropdownMenuItem(value: 'ar', child: Text('Arabic')),
+                              DropdownMenuItem(value: 'ur', child: Text('Urdu')),
+                              DropdownMenuItem(value: 'fr', child: Text('French')),
+                              DropdownMenuItem(value: 'id', child: Text('Indonesian')),
+                              DropdownMenuItem(value: 'tr', child: Text('Turkish')),
                             ],
                             onChanged: (v) {
                               if (v == null) return;
@@ -749,12 +779,76 @@ class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
                       ],
                     ),
                     SizedBox(height: 10.h),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _selectedEthnicity,
+                            isExpanded: true,
+                            decoration: _inputDecoration(
+                              isDark,
+                              label: 'Ethnicity (required)',
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'Arab', child: Text('Arab')),
+                              DropdownMenuItem(value: 'South Asian', child: Text('South Asian')),
+                              DropdownMenuItem(value: 'Turkic', child: Text('Turkic')),
+                              DropdownMenuItem(value: 'Persian', child: Text('Persian')),
+                              DropdownMenuItem(value: 'Malay/Indonesian', child: Text('Malay/Indonesian')),
+                              DropdownMenuItem(value: 'African', child: Text('African')),
+                              DropdownMenuItem(value: 'Kurdish', child: Text('Kurdish')),
+                              DropdownMenuItem(value: 'Berber', child: Text('Berber')),
+                              DropdownMenuItem(value: 'European Muslim', child: Text('European Muslim')),
+                              DropdownMenuItem(value: 'Other', child: Text('Other')),
+                            ],
+                            onChanged: (v) {
+                              if (v == null) return;
+                              setState(() => _selectedEthnicity = v);
+                            },
+                          ),
+                        ),
+                        SizedBox(width: 10.w),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _selectedVisaStatus,
+                            isExpanded: true,
+                            decoration: _inputDecoration(
+                              isDark,
+                              label: 'Visa status (required)',
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'unknown', child: Text('Unknown')),
+                              DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                              DropdownMenuItem(value: 'issued', child: Text('Issued')),
+                              DropdownMenuItem(value: 'rejected', child: Text('Rejected')),
+                              DropdownMenuItem(value: 'expired', child: Text('Expired')),
+                            ],
+                            onChanged: (v) {
+                              if (v == null) return;
+                              setState(() => _selectedVisaStatus = v);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 20.h),
+                    Text(
+                      'Extra Details (Optional)',
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15.sp,
+                        color: textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
                     DropdownButtonFormField<String>(
-                      initialValue: _selectedHotelId,
+                      value: _selectedHotelId,
                       isExpanded: true,
                       decoration: _inputDecoration(
                         isDark,
-                        label: 'Hotel Selection',
+                        label: 'Hotel',
                       ),
                       items: [
                         const DropdownMenuItem<String>(
@@ -786,11 +880,11 @@ class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            initialValue: _selectedRoomId,
+                            value: _selectedRoomId,
                             isExpanded: true,
                             decoration: _inputDecoration(
                               isDark,
-                              label: 'Room No.',
+                              label: 'Room',
                             ),
                             items: [
                               const DropdownMenuItem<String>(
@@ -817,11 +911,11 @@ class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
                         SizedBox(width: 10.w),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            initialValue: _selectedBusId,
+                            value: _selectedBusId,
                             isExpanded: true,
                             decoration: _inputDecoration(
                               isDark,
-                              label: 'Bus Assigned',
+                              label: 'Bus',
                             ),
                             items: [
                               const DropdownMenuItem<String>(
@@ -847,105 +941,17 @@ class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
                       ],
                     ),
                     SizedBox(height: 10.h),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _selectedEthnicity,
-                            isExpanded: true,
-                            decoration: _inputDecoration(
-                              isDark,
-                              label: 'Ethnicity',
-                            ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'Arab',
-                                child: Text('Arab'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'South Asian',
-                                child: Text('South Asian'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'Turkic',
-                                child: Text('Turkic'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'Persian',
-                                child: Text('Persian'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'Malay/Indonesian',
-                                child: Text('Malay/Indonesian'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'African',
-                                child: Text('African'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'Kurdish',
-                                child: Text('Kurdish'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'Berber',
-                                child: Text('Berber'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'European Muslim',
-                                child: Text('European Muslim'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'Other',
-                                child: Text('Other'),
-                              ),
-                            ],
-                            onChanged: (v) {
-                              if (v == null) return;
-                              setState(() => _selectedEthnicity = v);
-                            },
-                          ),
-                        ),
-                        SizedBox(width: 10.w),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _selectedVisaStatus,
-                            isExpanded: true,
-                            decoration: _inputDecoration(
-                              isDark,
-                              label: 'Visa Status',
-                            ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'unknown',
-                                child: Text('Unknown'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'pending',
-                                child: Text('Pending'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'issued',
-                                child: Text('Issued'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'rejected',
-                                child: Text('Rejected'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'expired',
-                                child: Text('Expired'),
-                              ),
-                            ],
-                            onChanged: (v) {
-                              if (v == null) return;
-                              setState(() => _selectedVisaStatus = v);
-                            },
-                          ),
-                        ),
-                      ],
+                    TextFormField(
+                      controller: _nationalIdCtrl,
+                      decoration: _inputDecoration(isDark, label: 'National ID (optional)'),
                     ),
-
+                    SizedBox(height: 10.h),
+                    TextFormField(
+                      controller: _medicalHistoryCtrl,
+                      maxLines: 3,
+                      maxLength: 500,
+                      decoration: _inputDecoration(isDark, label: 'Medical history (max 500 chars)'),
+                    ),
                     SizedBox(height: 14.h),
                     SizedBox(
                       width: double.infinity,
@@ -1012,6 +1018,208 @@ class _PilgrimProvisioningScreenState extends State<PilgrimProvisioningScreen> {
             ),
 
             SizedBox(height: 12.h),
+
+            if (_selectedGroupId != null) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Track Provisioning',
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16.sp,
+                      color: textPrimary,
+                    ),
+                  ),
+                  DropdownButton<String>(
+                    value: _filterStatus,
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('All Status')),
+                      DropdownMenuItem(
+                        value: 'pending',
+                        child: Text('Pending Only'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'activated',
+                        child: Text('Activated'),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setState(() => _filterStatus = val);
+                    },
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 13.sp,
+                      color: textPrimary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    dropdownColor: isDark
+                        ? const Color(0xFF2A2A3C)
+                        : Colors.white,
+                    underline: const SizedBox(),
+                  ),
+                ],
+              ),
+              SizedBox(height: 10.h),
+              if (filteredItems.isEmpty)
+                _EmptyCard(text: 'No matching pilgrims.', isDark: isDark)
+              else
+                ...filteredItems.map((item) {
+                  return Container(
+                    margin: EdgeInsets.only(bottom: 8.h),
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(12.r),
+                      border: Border.all(
+                        color: isDark
+                            ? AppColors.dividerDark
+                            : AppColors.dividerLight,
+                      ),
+                    ),
+                    padding: EdgeInsets.all(12.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item.fullName,
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: textPrimary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            _StatusBadge(status: item.status),
+                          ],
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          item.phoneNumber,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 12.sp,
+                            color: textMuted,
+                          ),
+                        ),
+                        if (item.token != null &&
+                            item.token!.isNotEmpty &&
+                            item.status != 'activated') ...[
+                          SizedBox(height: 12.h),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Token: ${item.token}',
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 13.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: EdgeInsets.zero,
+                                onPressed: () {
+                                  _showQrDialog(
+                                    name: item.fullName,
+                                    token: item.token,
+                                    qrDataUrl: item.qrDataUrl ?? '',
+                                  );
+                                },
+                                icon: Icon(
+                                  Symbols.qr_code_2,
+                                  size: 20.w,
+                                  color: textPrimary,
+                                ),
+                              ),
+                              SizedBox(width: 14.w),
+                              IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: EdgeInsets.zero,
+                                onPressed: () => _reissueLogin(item),
+                                icon: Icon(
+                                  Symbols.refresh,
+                                  size: 20.w,
+                                  color: textPrimary,
+                                ),
+                              ),
+                              SizedBox(width: 14.w),
+                              IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: EdgeInsets.zero,
+                                onPressed: () => _deleteProvisioned(item),
+                                icon: Icon(
+                                  Symbols.delete,
+                                  size: 20.w,
+                                  color: Colors.red.shade400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ] else if (item.status == 'activated' ||
+                            item.status == 'expired') ...[
+                          SizedBox(height: 12.h),
+                          Row(
+                            children: [
+                              if (item.qrDataUrl != null)
+                                TextButton.icon(
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  onPressed: () {
+                                    _showQrDialog(
+                                      name: item.fullName,
+                                      token: item.token,
+                                      qrDataUrl: item.qrDataUrl!,
+                                    );
+                                  },
+                                  icon: Icon(
+                                    Symbols.qr_code_2,
+                                    size: 16.w,
+                                    color: AppColors.primary,
+                                  ),
+                                  label: Text(
+                                    'View ID Card',
+                                    style: TextStyle(
+                                      fontFamily: 'Lexend',
+                                      color: AppColors.primary,
+                                      fontSize: 12.sp,
+                                    ),
+                                  ),
+                                ),
+                              const Spacer(),
+                              IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: EdgeInsets.zero,
+                                onPressed: () => _reissueLogin(item),
+                                icon: Icon(
+                                  Symbols.refresh,
+                                  size: 20.w,
+                                  color: textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }),
+              SizedBox(height: 20.h),
+            ],
           ],
         ),
       ),
@@ -1094,6 +1302,26 @@ class _ProvisioningItem {
     this.expiresAt,
     this.qrDataUrl,
   });
+
+  _ProvisioningItem copyWith({
+    String? pilgrimId,
+    String? fullName,
+    String? phoneNumber,
+    String? status,
+    String? token,
+    String? expiresAt,
+    String? qrDataUrl,
+  }) {
+    return _ProvisioningItem(
+      pilgrimId: pilgrimId ?? this.pilgrimId,
+      fullName: fullName ?? this.fullName,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      status: status ?? this.status,
+      token: token ?? this.token,
+      expiresAt: expiresAt ?? this.expiresAt,
+      qrDataUrl: qrDataUrl ?? this.qrDataUrl,
+    );
+  }
 
   factory _ProvisioningItem.fromJson(Map<String, dynamic> map) {
     final pilgrim =
