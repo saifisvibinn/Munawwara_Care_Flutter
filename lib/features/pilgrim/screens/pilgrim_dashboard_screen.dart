@@ -777,7 +777,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('No moderator available to call.'),
+                  content: Text('dash_no_moderator_call'.tr()),
                 ),
               );
             }
@@ -793,14 +793,14 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               } else if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Could not launch phone dialer.'),
+                    content: Text('dash_error_dialer'.tr()),
                   ),
                 );
               }
             } else if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Moderator phone number not available.'),
+                  content: Text('dash_no_mod_phone'.tr()),
                 ),
               );
             }

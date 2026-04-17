@@ -392,7 +392,7 @@ class _PilgrimProvisioningScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Pilgrim account created successfully.'),
+            content: Text('group_pilgrim_created_success'.tr()),
             backgroundColor: AppColors.primary,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -459,19 +459,19 @@ class _PilgrimProvisioningScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete pilgrim account?'),
-        content: Text('This will remove ${item.fullName} from the system.'),
+        title: Text('group_delete_pilgrim_title'.tr()),
+        content: Text('group_delete_pilgrim_body'.tr(args: [item.fullName])),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text('group_cancel'.tr()),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red.shade700,
             ),
-            child: const Text('Delete'),
+            child: Text('group_delete'.tr()),
           ),
         ],
       ),
@@ -533,7 +533,7 @@ class _PilgrimProvisioningScreenState
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
+            child: Text('group_close'.tr()),
           ),
         ],
       ),
@@ -648,7 +648,7 @@ class _PilgrimProvisioningScreenState
                     initialValue: _selectedGroupId,
                     isExpanded: true,
                     decoration: _inputDecoration(isDark),
-                    hint: const Text('Select group'),
+                    hint: Text('group_select'.tr()),
                     items: _groups
                         .map(
                           (g) => DropdownMenuItem<String>(
@@ -775,27 +775,27 @@ class _PilgrimProvisioningScreenState
                             items: const [
                               DropdownMenuItem(
                                 value: 'en',
-                                child: Text('English'),
+                                child: Text('lang_english'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'ar',
-                                child: Text('Arabic'),
+                                child: Text('lang_arabic'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'ur',
-                                child: Text('Urdu'),
+                                child: Text('lang_urdu'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'fr',
-                                child: Text('French'),
+                                child: Text('lang_french'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'id',
-                                child: Text('Indonesian'),
+                                child: Text('lang_indonesian'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'tr',
-                                child: Text('Turkish'),
+                                child: Text('lang_turkish'.tr()),
                               ),
                             ],
                             onChanged: (v) {
@@ -821,43 +821,43 @@ class _PilgrimProvisioningScreenState
                             items: const [
                               DropdownMenuItem(
                                 value: 'Arab',
-                                child: Text('Arab'),
+                                child: Text('ethnic_arab'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'South Asian',
-                                child: Text('South Asian'),
+                                child: Text('ethnic_south_asian'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'Turkic',
-                                child: Text('Turkic'),
+                                child: Text('ethnic_turkic'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'Persian',
-                                child: Text('Persian'),
+                                child: Text('ethnic_persian'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'Malay/Indonesian',
-                                child: Text('Malay/Indonesian'),
+                                child: Text('ethnic_malay_indo'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'African',
-                                child: Text('African'),
+                                child: Text('ethnic_african'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'Kurdish',
-                                child: Text('Kurdish'),
+                                child: Text('ethnic_kurdish'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'Berber',
-                                child: Text('Berber'),
+                                child: Text('ethnic_berber'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'European Muslim',
-                                child: Text('European Muslim'),
+                                child: Text('ethnic_european_muslim'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'Other',
-                                child: Text('Other'),
+                                child: Text('ethnic_other'.tr()),
                               ),
                             ],
                             onChanged: (v) {
@@ -878,23 +878,23 @@ class _PilgrimProvisioningScreenState
                             items: const [
                               DropdownMenuItem(
                                 value: 'unknown',
-                                child: Text('Unknown'),
+                                child: Text('status_unknown'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'pending',
-                                child: Text('Pending'),
+                                child: Text('status_pending'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'issued',
-                                child: Text('Issued'),
+                                child: Text('status_issued'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'rejected',
-                                child: Text('Rejected'),
+                                child: Text('status_rejected'.tr()),
                               ),
                               DropdownMenuItem(
                                 value: 'expired',
-                                child: Text('Expired'),
+                                child: Text('status_expired'.tr()),
                               ),
                             ],
                             onChanged: (v) {
@@ -923,7 +923,7 @@ class _PilgrimProvisioningScreenState
                       items: [
                         const DropdownMenuItem<String>(
                           value: null,
-                          child: Text('No hotel'),
+                          child: Text('group_no_hotel'.tr()),
                         ),
                         ..._hotels.map(
                           (h) => DropdownMenuItem<String>(
@@ -956,7 +956,7 @@ class _PilgrimProvisioningScreenState
                             items: [
                               const DropdownMenuItem<String>(
                                 value: null,
-                                child: Text('No room'),
+                                child: Text('group_no_room'.tr()),
                               ),
                               ...rooms.map(
                                 (r) => DropdownMenuItem<String>(
@@ -984,7 +984,7 @@ class _PilgrimProvisioningScreenState
                             items: [
                               const DropdownMenuItem<String>(
                                 value: null,
-                                child: Text('No bus'),
+                                child: Text('group_no_bus'.tr()),
                               ),
                               ..._buses.map(
                                 (b) => DropdownMenuItem<String>(
@@ -1066,7 +1066,7 @@ class _PilgrimProvisioningScreenState
                                 ? null
                                 : () => _loadProvisioningStatus(),
                             icon: Icon(Symbols.sync, size: 16.w),
-                            label: const Text('Refresh Status'),
+                            label: Text('group_refresh_status'.tr()),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: textPrimary,
                               side: BorderSide(
@@ -1105,14 +1105,14 @@ class _PilgrimProvisioningScreenState
                   DropdownButton<String>(
                     value: _filterStatus,
                     items: const [
-                      DropdownMenuItem(value: 'all', child: Text('All Status')),
+                      DropdownMenuItem(value: 'all', child: Text('group_status_all'.tr())),
                       DropdownMenuItem(
                         value: 'pending',
-                        child: Text('Pending Only'),
+                        child: Text('group_status_pending_only'.tr()),
                       ),
                       DropdownMenuItem(
                         value: 'activated',
-                        child: Text('Activated'),
+                        child: Text('group_status_activated'.tr()),
                       ),
                     ],
                     onChanged: (val) {

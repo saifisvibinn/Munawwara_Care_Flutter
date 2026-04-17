@@ -47,7 +47,7 @@ class GroupDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    const noRecordsText = 'No records available';
+    final noRecordsText = 'no_records_available'.tr();
     final hotelText = hotelName?.trim().isNotEmpty == true
         ? hotelName!
         : noRecordsText;
