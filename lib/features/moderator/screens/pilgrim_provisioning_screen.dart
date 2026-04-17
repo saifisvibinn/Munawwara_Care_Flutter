@@ -94,9 +94,13 @@ class _PilgrimProvisioningScreenState
           .toList();
 
       setState(() {
-        _groups = groups;
-        if (_selectedGroupId == null && groups.isNotEmpty) {
-          _selectedGroupId = groups.first.id;
+        final seen = <String>{};
+        _groups = groups.where((g) => seen.add(g.id)).toList();
+        if (_selectedGroupId == null && _groups.isNotEmpty) {
+          _selectedGroupId = _groups.first.id;
+        } else if (_selectedGroupId != null &&
+            !_groups.any((g) => g.id == _selectedGroupId)) {
+          _selectedGroupId = _groups.isNotEmpty ? _groups.first.id : null;
         }
       });
 

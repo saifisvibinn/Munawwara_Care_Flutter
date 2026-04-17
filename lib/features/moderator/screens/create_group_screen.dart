@@ -25,6 +25,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
   final _focusNode = FocusNode();
   bool _isLoading = false;
   String? _fieldError;
+  DateTime? _checkInDate;
+  DateTime? _checkOutDate;
 
   // Shown after success
   bool _created = false;
@@ -65,9 +67,24 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
       return;
     }
     setState(() => _isLoading = true);
+
+    if (_checkInDate != null &&
+        _checkOutDate != null &&
+        _checkOutDate!.isBefore(_checkInDate!)) {
+      setState(() {
+        _fieldError = 'Check-out date cannot be before check-in date';
+        _isLoading = false;
+      });
+      return;
+    }
+
     final (ok, err) = await ref
         .read(moderatorProvider.notifier)
-        .createGroup(name);
+        .createGroup(
+          name,
+          checkInDate: _checkInDate,
+          checkOutDate: _checkOutDate,
+        );
     if (!mounted) return;
     setState(() => _isLoading = false);
     if (ok) {
@@ -291,6 +308,134 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
             ],
           ),
         ],
+
+        SizedBox(height: 24.h),
+
+        // ── Duration Dates ──
+        Text(
+          'Stay Duration (Optional)',
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontWeight: FontWeight.w600,
+            fontSize: 13.sp,
+            color: isDark ? const Color(0xFFCBD5E1) : AppColors.textDark,
+          ),
+        ),
+        SizedBox(height: 8.h),
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: _checkInDate ?? DateTime.now(),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                  );
+                  if (date != null) {
+                    setState(() => _checkInDate = date);
+                  }
+                },
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14.w,
+                    vertical: 16.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.surfaceDark : Colors.white,
+                    borderRadius: BorderRadius.circular(16.r),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.backgroundDark
+                          : const Color(0xFFE2E2F0),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Symbols.event,
+                        size: 20.w,
+                        color: AppColors.textMutedLight,
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        _checkInDate != null
+                            ? DateFormat('yyyy-MM-dd').format(_checkInDate!)
+                            : 'Check-in',
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 14.sp,
+                          color: _checkInDate != null
+                              ? (isDark
+                                    ? const Color(0xFFE2E8F0)
+                                    : AppColors.textDark)
+                              : AppColors.textMutedLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: GestureDetector(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate:
+                        _checkOutDate ?? _checkInDate ?? DateTime.now(),
+                    firstDate: _checkInDate ?? DateTime(2020),
+                    lastDate: DateTime(2100),
+                  );
+                  if (date != null) {
+                    setState(() => _checkOutDate = date);
+                  }
+                },
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14.w,
+                    vertical: 16.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.surfaceDark : Colors.white,
+                    borderRadius: BorderRadius.circular(16.r),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.backgroundDark
+                          : const Color(0xFFE2E2F0),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Symbols.event_upcoming,
+                        size: 20.w,
+                        color: AppColors.textMutedLight,
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        _checkOutDate != null
+                            ? DateFormat('yyyy-MM-dd').format(_checkOutDate!)
+                            : 'Check-out',
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 14.sp,
+                          color: _checkOutDate != null
+                              ? (isDark
+                                    ? const Color(0xFFE2E8F0)
+                                    : AppColors.textDark)
+                              : AppColors.textMutedLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
 
         SizedBox(height: 24.h),
 
@@ -582,4 +727,3 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
     );
   }
 }
-

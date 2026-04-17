@@ -1818,8 +1818,6 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                   color: isDark ? AppColors.surfaceDark : null,
                   onSelected: (value) {
                     switch (value) {
-                      case 'add':
-                        _showAddPilgrimOptions(group);
                       case 'nav':
                         _toggleNavBeacon(group);
                       case 'manage':
@@ -1831,27 +1829,6 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                     }
                   },
                   itemBuilder: (_) => [
-                    PopupMenuItem(
-                      value: 'add',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Symbols.person_add,
-                            size: 18.w,
-                            color: AppColors.primary,
-                          ),
-                          SizedBox(width: 12.w),
-                          Text(
-                            'group_add_pilgrim'.tr(),
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 14.sp,
-                              color: isDark ? Colors.white : null,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                     PopupMenuItem(
                       value: 'nav',
                       child: Row(
