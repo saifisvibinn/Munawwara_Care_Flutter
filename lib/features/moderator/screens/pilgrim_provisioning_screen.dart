@@ -725,7 +725,10 @@ class _PilgrimProvisioningScreenState
                     SizedBox(height: 8.h),
                     TextFormField(
                       controller: _fullNameCtrl,
-                      decoration: _inputDecoration(isDark, label: 'Full name (3-100 chars)'),
+                      decoration: _inputDecoration(
+                        isDark,
+                        label: 'Full name (3-100 chars)',
+                      ),
                       validator: (v) => (v == null || v.trim().isEmpty)
                           ? 'Full name is required'
                           : null,
@@ -750,25 +753,46 @@ class _PilgrimProvisioningScreenState
                           child: TextFormField(
                             controller: _ageCtrl,
                             keyboardType: TextInputType.number,
-                            decoration: _inputDecoration(isDark, label: 'Age (0-120)'),
+                            decoration: _inputDecoration(
+                              isDark,
+                              label: 'Age (0-120)',
+                            ),
                           ),
                         ),
                         SizedBox(width: 10.w),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _selectedLanguage,
+                            initialValue: _selectedLanguage,
                             isExpanded: true,
                             decoration: _inputDecoration(
                               isDark,
                               label: 'Language (required)',
                             ),
                             items: const [
-                              DropdownMenuItem(value: 'en', child: Text('English')),
-                              DropdownMenuItem(value: 'ar', child: Text('Arabic')),
-                              DropdownMenuItem(value: 'ur', child: Text('Urdu')),
-                              DropdownMenuItem(value: 'fr', child: Text('French')),
-                              DropdownMenuItem(value: 'id', child: Text('Indonesian')),
-                              DropdownMenuItem(value: 'tr', child: Text('Turkish')),
+                              DropdownMenuItem(
+                                value: 'en',
+                                child: Text('English'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'ar',
+                                child: Text('Arabic'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'ur',
+                                child: Text('Urdu'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'fr',
+                                child: Text('French'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'id',
+                                child: Text('Indonesian'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'tr',
+                                child: Text('Turkish'),
+                              ),
                             ],
                             onChanged: (v) {
                               if (v == null) return;
@@ -784,23 +808,53 @@ class _PilgrimProvisioningScreenState
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _selectedEthnicity,
+                            initialValue: _selectedEthnicity,
                             isExpanded: true,
                             decoration: _inputDecoration(
                               isDark,
                               label: 'Ethnicity (required)',
                             ),
                             items: const [
-                              DropdownMenuItem(value: 'Arab', child: Text('Arab')),
-                              DropdownMenuItem(value: 'South Asian', child: Text('South Asian')),
-                              DropdownMenuItem(value: 'Turkic', child: Text('Turkic')),
-                              DropdownMenuItem(value: 'Persian', child: Text('Persian')),
-                              DropdownMenuItem(value: 'Malay/Indonesian', child: Text('Malay/Indonesian')),
-                              DropdownMenuItem(value: 'African', child: Text('African')),
-                              DropdownMenuItem(value: 'Kurdish', child: Text('Kurdish')),
-                              DropdownMenuItem(value: 'Berber', child: Text('Berber')),
-                              DropdownMenuItem(value: 'European Muslim', child: Text('European Muslim')),
-                              DropdownMenuItem(value: 'Other', child: Text('Other')),
+                              DropdownMenuItem(
+                                value: 'Arab',
+                                child: Text('Arab'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'South Asian',
+                                child: Text('South Asian'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Turkic',
+                                child: Text('Turkic'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Persian',
+                                child: Text('Persian'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Malay/Indonesian',
+                                child: Text('Malay/Indonesian'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'African',
+                                child: Text('African'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Kurdish',
+                                child: Text('Kurdish'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Berber',
+                                child: Text('Berber'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'European Muslim',
+                                child: Text('European Muslim'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Other',
+                                child: Text('Other'),
+                              ),
                             ],
                             onChanged: (v) {
                               if (v == null) return;
@@ -811,18 +865,33 @@ class _PilgrimProvisioningScreenState
                         SizedBox(width: 10.w),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _selectedVisaStatus,
+                            initialValue: _selectedVisaStatus,
                             isExpanded: true,
                             decoration: _inputDecoration(
                               isDark,
                               label: 'Visa status (required)',
                             ),
                             items: const [
-                              DropdownMenuItem(value: 'unknown', child: Text('Unknown')),
-                              DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                              DropdownMenuItem(value: 'issued', child: Text('Issued')),
-                              DropdownMenuItem(value: 'rejected', child: Text('Rejected')),
-                              DropdownMenuItem(value: 'expired', child: Text('Expired')),
+                              DropdownMenuItem(
+                                value: 'unknown',
+                                child: Text('Unknown'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'pending',
+                                child: Text('Pending'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'issued',
+                                child: Text('Issued'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'rejected',
+                                child: Text('Rejected'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'expired',
+                                child: Text('Expired'),
+                              ),
                             ],
                             onChanged: (v) {
                               if (v == null) return;
@@ -844,12 +913,9 @@ class _PilgrimProvisioningScreenState
                     ),
                     SizedBox(height: 8.h),
                     DropdownButtonFormField<String>(
-                      value: _selectedHotelId,
+                      initialValue: _selectedHotelId,
                       isExpanded: true,
-                      decoration: _inputDecoration(
-                        isDark,
-                        label: 'Hotel',
-                      ),
+                      decoration: _inputDecoration(isDark, label: 'Hotel'),
                       items: [
                         const DropdownMenuItem<String>(
                           value: null,
@@ -880,12 +946,9 @@ class _PilgrimProvisioningScreenState
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _selectedRoomId,
+                            initialValue: _selectedRoomId,
                             isExpanded: true,
-                            decoration: _inputDecoration(
-                              isDark,
-                              label: 'Room',
-                            ),
+                            decoration: _inputDecoration(isDark, label: 'Room'),
                             items: [
                               const DropdownMenuItem<String>(
                                 value: null,
@@ -911,12 +974,9 @@ class _PilgrimProvisioningScreenState
                         SizedBox(width: 10.w),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _selectedBusId,
+                            initialValue: _selectedBusId,
                             isExpanded: true,
-                            decoration: _inputDecoration(
-                              isDark,
-                              label: 'Bus',
-                            ),
+                            decoration: _inputDecoration(isDark, label: 'Bus'),
                             items: [
                               const DropdownMenuItem<String>(
                                 value: null,
@@ -943,14 +1003,20 @@ class _PilgrimProvisioningScreenState
                     SizedBox(height: 10.h),
                     TextFormField(
                       controller: _nationalIdCtrl,
-                      decoration: _inputDecoration(isDark, label: 'National ID (optional)'),
+                      decoration: _inputDecoration(
+                        isDark,
+                        label: 'National ID (optional)',
+                      ),
                     ),
                     SizedBox(height: 10.h),
                     TextFormField(
                       controller: _medicalHistoryCtrl,
                       maxLines: 3,
                       maxLength: 500,
-                      decoration: _inputDecoration(isDark, label: 'Medical history (max 500 chars)'),
+                      decoration: _inputDecoration(
+                        isDark,
+                        label: 'Medical history (max 500 chars)',
+                      ),
                     ),
                     SizedBox(height: 14.h),
                     SizedBox(

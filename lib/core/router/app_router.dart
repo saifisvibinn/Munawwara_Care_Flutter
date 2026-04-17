@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/splash/screens/splash_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
-import '../../features/auth/screens/one_time_login_screen.dart';
 
 import '../../features/pilgrim/screens/pilgrim_dashboard_screen.dart';
 import '../../features/moderator/screens/moderator_dashboard_screen.dart';
@@ -26,14 +25,6 @@ class AppRouter {
         path: '/login',
         name: 'login',
         builder: (context, state) => const LoginScreen(),
-      ),
-      GoRoute(
-        path: '/login/one-time',
-        name: 'one-time-login',
-        builder: (context, state) {
-          final mode = state.uri.queryParameters['mode'];
-          return OneTimeLoginScreen(startWithQr: mode == 'qr');
-        },
       ),
       GoRoute(
         path: '/pilgrim-dashboard',

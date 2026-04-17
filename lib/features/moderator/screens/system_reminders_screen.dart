@@ -1,5 +1,4 @@
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -8,6 +7,8 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/theme/app_colors.dart';
 import '../providers/moderator_provider.dart';
 import '../providers/reminder_provider.dart';
+import '../widgets/reminder_card.dart';
+import 'dart:async';
 
 class SystemRemindersScreen extends ConsumerStatefulWidget {
   const SystemRemindersScreen({super.key});
@@ -18,6 +19,19 @@ class SystemRemindersScreen extends ConsumerStatefulWidget {
 }
 
 class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(reminderProvider.notifier).load();
+    });
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) ref.read(reminderProvider.notifier).load();
+    });
+  }
+
   int _targetAudienceIndex = 0; // 0 = System Wide, 1 = Specific Groups
   final Set<String> _selectedGroupIds = {};
 
@@ -42,6 +56,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _messageController.dispose();
 
     super.dispose();
@@ -76,6 +91,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
 
     final state = ref.read(moderatorProvider);
     final allGroups = state.groups;
+    final remState = ref.watch(reminderProvider);
 
     // Determine target groups
     List<String> targetGroups = [];
@@ -173,6 +189,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final state = ref.watch(moderatorProvider);
     final allGroups = state.groups;
+    final remState = ref.watch(reminderProvider);
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -797,9 +814,162 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
                 ),
               ),
             ),
+            
+            SizedBox(height: 48.h),
+            
+            Text(
+              'History',
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontWeight: FontWeight.w700,
+                fontSize: 20.sp,
+                color: isDark ? Colors.white : const Color(0xFF1A1A4E),
+              ),
+            ),
+            SizedBox(height: 16.h),
+            
+            remState.isLoading && remState.reminders.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : remState.reminders.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 32.h),
+                          child: Text(
+                            'No reminders created yet.',
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              color: AppColors.textMutedLight,
+                              fontSize: 14.sp,
+                            ),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: remState.reminders.length,
+                        itemBuilder: (_, i) {
+                          final reminder = remState.reminders[i];
+                          return Dismissible(
+                            key: ValueKey(reminder.id),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: EdgeInsets.only(right: 20.w),
+                              margin: EdgeInsets.only(bottom: 12.h),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                borderRadius: BorderRadius.circular(14.r),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Symbols.delete,
+                                    color: Colors.white,
+                                    size: 24.sp,
+                                  ),
+                                  SizedBox(height: 4.h),
+                                  Text(
+                                    'reminder_delete_confirm'.tr(),
+                                    style: TextStyle(
+                                      fontFamily: 'Lexend',
+                                      color: Colors.white,
+                                      fontSize: 11.sp,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            confirmDismiss: (_) async {
+                              return showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: Text(
+                                    'reminder_delete_title'.tr(),
+                                    style: TextStyle(
+                                      fontFamily: 'Lexend',
+                                      fontSize: 16.sp,
+                                    ),
+                                  ),
+                                  content: Text(
+                                    'reminder_delete_body'.tr(),
+                                    style: TextStyle(
+                                      fontFamily: 'Lexend',
+                                      fontSize: 14.sp,
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, false),
+                                      child: Text(
+                                        'reminder_no'.tr(),
+                                        style: const TextStyle(fontFamily: 'Lexend'),
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: Text(
+                                        'reminder_delete_confirm'.tr(),
+                                        style: const TextStyle(
+                                          fontFamily: 'Lexend',
+                                          color: Colors.redAccent,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            onDismissed: (_) =>
+                                ref.read(reminderProvider.notifier).delete(reminder.id),
+                            child: ReminderCard(
+                              reminder: reminder,
+                              onCancel: () async {
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: Text(
+                                      'reminder_cancel_title'.tr(),
+                                      style: TextStyle(fontFamily: 'Lexend', fontSize: 16.sp),
+                                    ),
+                                    content: Text(
+                                      'reminder_cancel_body'.tr(),
+                                      style: TextStyle(fontFamily: 'Lexend', fontSize: 14.sp),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx, false),
+                                        child: Text(
+                                          'reminder_no'.tr(),
+                                          style: const TextStyle(fontFamily: 'Lexend'),
+                                        ),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        child: Text(
+                                          'reminder_cancel_confirm'.tr(),
+                                          style: const TextStyle(
+                                            fontFamily: 'Lexend',
+                                            color: Colors.redAccent,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirmed == true && mounted) {
+                                  await ref.read(reminderProvider.notifier).cancel(reminder.id);
+                                }
+                              },
+                            ),
+                          );
+                        },
+                      ),
           ],
         ),
       ),
     );
   }
 }
+

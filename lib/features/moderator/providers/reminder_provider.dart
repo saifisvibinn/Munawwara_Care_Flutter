@@ -41,13 +41,14 @@ class ReminderNotifier extends Notifier<ReminderState> {
   @override
   ReminderState build() => const ReminderState();
 
-  // ── Load reminders for a group ───────────────────────────────────────────
-  Future<void> load(String groupId) async {
+  // ── Load reminders ──────────────────────────────────────
+  Future<void> load({String? groupId}) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
+      final queryParams = groupId != null ? {'group_id': groupId} : null;
       final response = await ApiService.dio.get(
         '/reminders',
-        queryParameters: {'group_id': groupId},
+        queryParameters: queryParams,
       );
       final list = (response.data['reminders'] as List? ?? [])
           .map((j) => ReminderModel.fromJson(j as Map<String, dynamic>))
@@ -142,7 +143,7 @@ class ReminderNotifier extends Notifier<ReminderState> {
       AppLogger.e('[ReminderProvider] delete error: $e');
       // Reload to restore accurate state on failure
       if (state.reminders.isNotEmpty) {
-        await load(state.reminders.first.groupId);
+        await load(groupId: state.reminders.first.groupId);
       }
     }
   }

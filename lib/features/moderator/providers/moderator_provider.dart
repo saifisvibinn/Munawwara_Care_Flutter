@@ -143,6 +143,8 @@ class ModeratorGroup {
   final String groupName;
   final String groupCode;
   final String createdBy;
+  final DateTime? checkInDate;
+  final DateTime? checkOutDate;
   final List<GroupModerator> moderators;
   final List<PilgrimInGroup> pilgrims;
 
@@ -151,36 +153,70 @@ class ModeratorGroup {
     required this.groupName,
     required this.groupCode,
     required this.createdBy,
+    this.checkInDate,
+    this.checkOutDate,
     required this.moderators,
     required this.pilgrims,
   });
 
-  factory ModeratorGroup.fromJson(Map<String, dynamic> j) => ModeratorGroup(
-    id: j['_id']?.toString() ?? '',
-    groupName: j['group_name']?.toString() ?? '',
-    groupCode: j['group_code']?.toString() ?? '',
-    createdBy: j['created_by']?.toString() ?? '',
-    moderators: (j['moderator_ids'] as List<dynamic>? ?? [])
-        .whereType<Map<String, dynamic>>()
-        .map(GroupModerator.fromJson)
-        .toList(),
-    pilgrims: (j['pilgrims'] as List<dynamic>? ?? [])
-        .map((p) => PilgrimInGroup.fromJson(p as Map<String, dynamic>))
-        .toList(),
-  );
+  factory ModeratorGroup.fromJson(Map<String, dynamic> j) {
+    DateTime? parseDate(dynamic val) {
+      if (val == null || val.toString().isEmpty) return null;
+      return DateTime.tryParse(val.toString());
+    }
+    return ModeratorGroup(
+      id: j['_id']?.toString() ?? '',
+      groupName: j['group_name']?.toString() ?? '',
+      groupCode: j['group_code']?.toString() ?? '',
+      createdBy: j['created_by']?.toString() ?? '',
+      checkInDate: parseDate(j['check_in_date']),
+      checkOutDate: parseDate(j['check_out_date']),
+      moderators: (j['moderator_ids'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(GroupModerator.fromJson)
+          .toList(),
+      pilgrims: (j['pilgrims'] as List<dynamic>? ?? [])
+          .map((p) => PilgrimInGroup.fromJson(p as Map<String, dynamic>))
+          .toList(),
+    );
+  }
 
   ModeratorGroup copyWith({
     List<PilgrimInGroup>? pilgrims,
     List<GroupModerator>? moderators,
     String? groupName,
-  }) => ModeratorGroup(
-    id: id,
-    groupName: groupName ?? this.groupName,
-    groupCode: groupCode,
-    createdBy: createdBy,
-    moderators: moderators ?? this.moderators,
-    pilgrims: pilgrims ?? this.pilgrims,
-  );
+    DateTime? checkInDate,
+    DateTime? checkOutDate,
+  }) {
+    return ModeratorGroup(
+      id: id,
+      groupName: groupName ?? this.groupName,
+      groupCode: groupCode,
+      createdBy: createdBy,
+      checkInDate: checkInDate ?? this.checkInDate,
+      checkOutDate: checkOutDate ?? this.checkOutDate,
+      moderators: moderators ?? this.moderators,
+      pilgrims: pilgrims ?? this.pilgrims,
+    );
+  }
+  ModeratorGroup copyWith({
+    List<PilgrimInGroup>? pilgrims,
+    List<GroupModerator>? moderators,
+    String? groupName,
+    DateTime? checkInDate,
+    DateTime? checkOutDate,
+  }) {
+    return ModeratorGroup(
+      id: id,
+      groupName: groupName ?? this.groupName,
+      groupCode: groupCode,
+      createdBy: createdBy,
+      checkInDate: checkInDate ?? this.checkInDate,
+      checkOutDate: checkOutDate ?? this.checkOutDate,
+      moderators: moderators ?? this.moderators,
+      pilgrims: pilgrims ?? this.pilgrims,
+    );
+  }
 
   int get totalPilgrims => pilgrims.length;
   int get onlineCount => pilgrims.where((p) => p.isOnline).length;
@@ -448,11 +484,19 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
   }
 
   // Create a new group — returns (success, errorMessage)
-  Future<(bool, String?)> createGroup(String groupName) async {
+  Future<(bool, String?)> createGroup(
+    String groupName, {
+    DateTime? checkInDate,
+    DateTime? checkOutDate,
+  }) async {
     try {
+      final data = <String, dynamic>{'group_name': groupName.trim()};
+      if (checkInDate != null) data['check_in_date'] = checkInDate.toIso8601String();
+      if (checkOutDate != null) data['check_out_date'] = checkOutDate.toIso8601String();
+
       final resp = await ApiService.dio.post(
         '/groups/create',
-        data: {'group_name': groupName.trim()},
+        data: data,
       );
       final created = ModeratorGroup.fromJson(
         resp.data as Map<String, dynamic>,

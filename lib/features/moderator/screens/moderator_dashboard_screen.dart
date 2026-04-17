@@ -1261,6 +1261,7 @@ class _ModBottomNav extends ConsumerWidget {
               index: 0,
               current: currentIndex,
               onTap: onTap,
+              badge: false,
               activeColor: AppColors.primary,
             ),
           ),
@@ -1271,6 +1272,7 @@ class _ModBottomNav extends ConsumerWidget {
               index: 1,
               current: currentIndex,
               onTap: onTap,
+              badge: false,
               activeColor: AppColors.primary,
             ),
           ),
@@ -1281,6 +1283,7 @@ class _ModBottomNav extends ConsumerWidget {
               index: 2,
               current: currentIndex,
               onTap: onTap,
+              badge: false,
               activeColor: AppColors.primary,
             ),
           ),
@@ -1291,6 +1294,7 @@ class _ModBottomNav extends ConsumerWidget {
               index: 3,
               current: currentIndex,
               onTap: onTap,
+              badge: false,
               activeColor: AppColors.primary,
             ),
           ),
@@ -1310,12 +1314,12 @@ class _NavItem extends StatelessWidget {
   final Color activeColor;
 
   const _NavItem({
-    this.badge = false,
     required this.icon,
     required this.label,
     required this.index,
     required this.current,
     required this.onTap,
+    required this.badge,
     required this.activeColor,
   });
 

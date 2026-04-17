@@ -1,0 +1,704 @@
+Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final textMuted = isDark
+        ? AppColors.textMutedLight
+        : AppColors.textMutedDark;
+
+    final selectedHotel = _hotels
+        .where((h) => h.id == _selectedHotelId)
+        .firstOrNull;
+    final rooms = (selectedHotel?.rooms ?? const <_RoomOption>[])
+        .where((r) => r.active)
+        .toList();
+
+    return SafeArea(
+      child: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          await Future.wait([_loadGroups(), _loadProvisioningStatus()]);
+        },
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 100.h),
+          children: [
+            Text(
+              'Pilgrim Provisioning',
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontWeight: FontWeight.w800,
+                fontSize: 28.sp,
+                color: textPrimary,
+              ),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              'Create pilgrim accounts and track activation status.',
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 13.sp,
+                color: textMuted,
+              ),
+            ),
+            SizedBox(height: 16.h),
+
+            Container(
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(
+                  color: isDark
+                      ? AppColors.dividerDark
+                      : AppColors.dividerLight,
+                ),
+              ),
+              padding: EdgeInsets.all(12.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Target Group',
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w600,
+                      color: textMuted,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedGroupId,
+                    isExpanded: true,
+                    decoration: _inputDecoration(isDark),
+                    hint: const Text('Select group'),
+                    items: _groups
+                        .map(
+                          (g) => DropdownMenuItem<String>(
+                            value: g.id,
+                            child: Text(
+                              g.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _isLoadingGroups
+                        ? null
+                        : (value) async {
+                            setState(() {
+                              _selectedGroupId = value;
+                              _selectedHotelId = null;
+                              _selectedRoomId = null;
+                              _selectedBusId = null;
+                            });
+                            await Future.wait([
+                              _loadResourceOptions(),
+                              _loadProvisioningStatus(),
+                            ]);
+                          },
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: 16.h),
+            Container(
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(20.r),
+                border: Border.all(
+                  color: isDark
+                      ? AppColors.dividerDark
+                      : AppColors.dividerLight,
+                ),
+              ),
+              padding: EdgeInsets.all(14.w),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Provision Pilgrim Accounts',
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 18.sp,
+                              color: textPrimary,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Symbols.person_add,
+                          color: AppColors.primary,
+                          size: 22.w,
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 14.h),
+                    TextFormField(
+                      controller: _fullNameCtrl,
+                      decoration: _inputDecoration(isDark, label: 'Full Name'),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Full name is required'
+                          : null,
+                    ),
+                    SizedBox(height: 10.h),
+                    TextFormField(
+                      controller: _phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      decoration: _inputDecoration(
+                        isDark,
+                        label: 'Phone Number',
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Phone number is required'
+                          : null,
+                    ),
+                    SizedBox(height: 10.h),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _ageCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: _inputDecoration(isDark, label: 'Age'),
+                          ),
+                        ),
+                        SizedBox(width: 10.w),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _selectedLanguage,
+                            isExpanded: true,
+                            decoration: _inputDecoration(
+                              isDark,
+                              label: 'Language',
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'en',
+                                child: Text('English'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'ar',
+                                child: Text('Arabic'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'ur',
+                                child: Text('Urdu'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'fr',
+                                child: Text('French'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'id',
+                                child: Text('Indonesian'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'tr',
+                                child: Text('Turkish'),
+                              ),
+                            ],
+                            onChanged: (v) {
+                              if (v == null) return;
+                              setState(() => _selectedLanguage = v);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 10.h),
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedHotelId,
+                      isExpanded: true,
+                      decoration: _inputDecoration(
+                        isDark,
+                        label: 'Hotel Selection',
+                      ),
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('No hotel'),
+                        ),
+                        ..._hotels.map(
+                          (h) => DropdownMenuItem<String>(
+                            value: h.id,
+                            child: Text(
+                              h.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: _isLoadingResources
+                          ? null
+                          : (v) {
+                              setState(() {
+                                _selectedHotelId = v;
+                                _selectedRoomId = null;
+                              });
+                            },
+                    ),
+                    SizedBox(height: 10.h),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _selectedRoomId,
+                            isExpanded: true,
+                            decoration: _inputDecoration(
+                              isDark,
+                              label: 'Room No.',
+                            ),
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('No room'),
+                              ),
+                              ...rooms.map(
+                                (r) => DropdownMenuItem<String>(
+                                  value: r.id,
+                                  child: Text(
+                                    r.floor == null
+                                        ? r.roomNumber
+                                        : '${r.roomNumber} - F${r.floor}',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: selectedHotel == null
+                                ? null
+                                : (v) => setState(() => _selectedRoomId = v),
+                          ),
+                        ),
+                        SizedBox(width: 10.w),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _selectedBusId,
+                            isExpanded: true,
+                            decoration: _inputDecoration(
+                              isDark,
+                              label: 'Bus Assigned',
+                            ),
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('No bus'),
+                              ),
+                              ..._buses.map(
+                                (b) => DropdownMenuItem<String>(
+                                  value: b.id,
+                                  child: Text(
+                                    b.destination.isEmpty
+                                        ? b.busNumber
+                                        : '${b.busNumber} - ${b.destination}',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: (v) =>
+                                setState(() => _selectedBusId = v),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 10.h),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _selectedEthnicity,
+                            isExpanded: true,
+                            decoration: _inputDecoration(
+                              isDark,
+                              label: 'Ethnicity',
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'Arab',
+                                child: Text('Arab'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'South Asian',
+                                child: Text('South Asian'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Turkic',
+                                child: Text('Turkic'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Persian',
+                                child: Text('Persian'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Malay/Indonesian',
+                                child: Text('Malay/Indonesian'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'African',
+                                child: Text('African'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Kurdish',
+                                child: Text('Kurdish'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Berber',
+                                child: Text('Berber'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'European Muslim',
+                                child: Text('European Muslim'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Other',
+                                child: Text('Other'),
+                              ),
+                            ],
+                            onChanged: (v) {
+                              if (v == null) return;
+                              setState(() => _selectedEthnicity = v);
+                            },
+                          ),
+                        ),
+                        SizedBox(width: 10.w),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _selectedVisaStatus,
+                            isExpanded: true,
+                            decoration: _inputDecoration(
+                              isDark,
+                              label: 'Visa Status',
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'unknown',
+                                child: Text('Unknown'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'pending',
+                                child: Text('Pending'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'issued',
+                                child: Text('Issued'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'rejected',
+                                child: Text('Rejected'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'expired',
+                                child: Text('Expired'),
+                              ),
+                            ],
+                            onChanged: (v) {
+                              if (v == null) return;
+                              setState(() => _selectedVisaStatus = v);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    SizedBox(height: 14.h),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52.h,
+                      child: ElevatedButton.icon(
+                        onPressed: _isProvisioning ? null : _createPilgrim,
+                        icon: _isProvisioning
+                            ? SizedBox(
+                                width: 18.w,
+                                height: 18.w,
+                                child: const CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.black,
+                                ),
+                              )
+                            : Icon(Symbols.add_circle, size: 20.w),
+                        label: Text(
+                          _isProvisioning ? 'Creating...' : 'Create Pilgrim',
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 18.sp,
+                            color: Colors.black,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF8400),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(26.r),
+                          ),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: 10.h),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _isLoadingStatus
+                                ? null
+                                : () => _loadProvisioningStatus(),
+                            icon: Icon(Symbols.sync, size: 16.w),
+                            label: const Text('Refresh Status'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: textPrimary,
+                              side: BorderSide(
+                                color: isDark
+                                    ? AppColors.dividerDark
+                                    : AppColors.dividerLight,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            SizedBox(height: 12.h),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(bool isDark, {String? label}) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(fontFamily: 'Lexend', fontSize: 12.sp),
+      filled: true,
+      fillColor: isDark ? const Color(0xFF1A2433) : const Color(0xFFE9EBF0),
+      contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14.r),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14.r),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14.r),
+        borderSide: BorderSide(
+          color: AppColors.primary.withValues(alpha: 0.55),
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupOption {
+  final String id;
+  final String name;
+
+  const _GroupOption({required this.id, required this.name});
+}
+
+class _ProvisioningSummary {
+  final int totalProvisioned;
+  final int pendingCount;
+  final int activatedCount;
+
+  const _ProvisioningSummary({
+    this.totalProvisioned = 0,
+    this.pendingCount = 0,
+    this.activatedCount = 0,
+  });
+
+  factory _ProvisioningSummary.fromJson(Map<String, dynamic> map) {
+    int toInt(dynamic value) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '') ?? 0;
+    }
+
+    return _ProvisioningSummary(
+      totalProvisioned: toInt(map['total_provisioned']),
+      pendingCount: toInt(map['pending_count']),
+      activatedCount: toInt(map['activated_count']),
+    );
+  }
+}
+
+class _ProvisioningItem {
+  final String pilgrimId;
+  final String fullName;
+  final String phoneNumber;
+  final String status;
+  final String? token;
+  final String? expiresAt;
+  final String? qrDataUrl;
+
+  const _ProvisioningItem({
+    required this.pilgrimId,
+    required this.fullName,
+    required this.phoneNumber,
+    required this.status,
+    this.token,
+    this.expiresAt,
+    this.qrDataUrl,
+  });
+
+  _ProvisioningItem copyWith({
+    String? pilgrimId,
+    String? fullName,
+    String? phoneNumber,
+    String? status,
+    String? token,
+    String? expiresAt,
+    String? qrDataUrl,
+  }) {
+    return _ProvisioningItem(
+      pilgrimId: pilgrimId ?? this.pilgrimId,
+      fullName: fullName ?? this.fullName,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      status: status ?? this.status,
+      token: token ?? this.token,
+      expiresAt: expiresAt ?? this.expiresAt,
+      qrDataUrl: qrDataUrl ?? this.qrDataUrl,
+    );
+  }
+
+  factory _ProvisioningItem.fromJson(Map<String, dynamic> map) {
+    final pilgrim =
+        (map['pilgrim'] as Map<String, dynamic>? ?? <String, dynamic>{});
+    final login =
+        (map['one_time_login'] as Map<String, dynamic>? ?? <String, dynamic>{});
+
+    return _ProvisioningItem(
+      pilgrimId: pilgrim['_id']?.toString() ?? '',
+      fullName: pilgrim['full_name']?.toString() ?? 'Unknown Pilgrim',
+      phoneNumber: pilgrim['phone_number']?.toString() ?? '-',
+      status: map['status']?.toString() ?? 'pending',
+      token: login['token']?.toString(),
+      expiresAt: login['expires_at']?.toString(),
+      qrDataUrl: login['qr_code_data_url']?.toString(),
+    );
+  }
+}
+
+class _HotelOption {
+  final String id;
+  final String name;
+  final List<_RoomOption> rooms;
+
+  const _HotelOption({
+    required this.id,
+    required this.name,
+    required this.rooms,
+  });
+}
+
+class _RoomOption {
+  final String id;
+  final String roomNumber;
+  final String? floor;
+  final bool active;
+
+  const _RoomOption({
+    required this.id,
+    required this.roomNumber,
+    this.floor,
+    this.active = true,
+  });
+}
+
+class _BusOption {
+  final String id;
+  final String busNumber;
+  final String destination;
+
+  const _BusOption({
+    required this.id,
+    required this.busNumber,
+    required this.destination,
+  });
+}
+
+class _StatCard extends StatelessWidget {
+  final String title;
+  final int value;
+  final Color color;
+  final bool isDark;
+
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.color,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 86.h,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : Colors.white,
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border(
+          left: BorderSide(color: color, width: 3),
+          top: BorderSide(
+            color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
+          ),
+          right: BorderSide(
+            color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
+          ),
+          bottom: BorderSide(
+            color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
+          ),
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w600,
+              color: isDark
+                  ? AppColors.textMutedLight
+                  : AppColors.textMutedDark,
+              letterSpacing: 0.9,
+            ),
+          ),
+          SizedBox(height: 5.h),
+          Text(
+            '$value',
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 34.sp,
+              fontWeight: FontWeight.w800,
+              height: 1,
+              color: isDark ? AppColors.textLight : AppColors.textDark,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusBadge

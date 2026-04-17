@@ -45,11 +45,11 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(reminderProvider.notifier).load(widget.groupId);
+      ref.read(reminderProvider.notifier).load(groupId: widget.groupId);
     });
     // Refresh every 30 s so status/fires_sent stay up-to-date
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) ref.read(reminderProvider.notifier).load(widget.groupId);
+      if (mounted) ref.read(reminderProvider.notifier).load(groupId: widget.groupId);
     });
   }
 
@@ -154,7 +154,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
             icon: const Icon(Symbols.refresh),
             tooltip: 'reminder_refresh'.tr(),
             onPressed: () =>
-                ref.read(reminderProvider.notifier).load(widget.groupId),
+                ref.read(reminderProvider.notifier).load(groupId: widget.groupId),
           ),
         ],
       ),
@@ -178,7 +178,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
           ? const _EmptyState()
           : RefreshIndicator(
               onRefresh: () =>
-                  ref.read(reminderProvider.notifier).load(widget.groupId),
+                  ref.read(reminderProvider.notifier).load(groupId: widget.groupId),
               child: ListView.builder(
                 padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 100.h),
                 itemCount: reminders.length,

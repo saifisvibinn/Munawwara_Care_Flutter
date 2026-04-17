@@ -582,3 +582,4 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
     );
   }
 }
+

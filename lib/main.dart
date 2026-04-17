@@ -593,6 +593,14 @@ class MyApp extends ConsumerWidget {
           supportedLocales: context.supportedLocales,
           locale: context.locale,
           routerConfig: AppRouter.router,
+          builder: (context, child) {
+            return GestureDetector(
+              onTap: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+              },
+              child: child!,
+            );
+          },
         );
       },
     );

@@ -626,6 +626,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       reminder: reminder,
       icon: icon,
       iconColor: iconColor,
+      isLoading: false,
+      isError: false,
     );
   }
 
@@ -1987,13 +1989,13 @@ class _WeatherAlert {
   final bool isError;
 
   const _WeatherAlert({
-    this.isLoading = false,
-    this.isError = false,
     required this.temperatureC,
     required this.condition,
     required this.reminder,
     required this.icon,
     required this.iconColor,
+    required this.isLoading,
+    required this.isError,
   });
 
   const _WeatherAlert.loading()
