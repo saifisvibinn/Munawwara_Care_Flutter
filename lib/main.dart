@@ -91,6 +91,13 @@ void main() async {
       FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
         _globalFcmToken = newToken;
         AppLogger.i('FCM token refreshed: $newToken');
+        // Re-register immediately if user is already authenticated
+        if (_globalContainer != null) {
+          final auth = _globalContainer!.read(authProvider);
+          if (auth.isAuthenticated) {
+            _globalContainer!.read(authProvider.notifier).updateFcmToken(newToken);
+          }
+        }
       });
 
       // ── Handle Foreground Messages ──────────────────────────────────────────
@@ -572,8 +579,12 @@ class MyApp extends ConsumerWidget {
 
     // ── Register FCM Token when user logs in ──────────────────────────────────
     ref.listen<AuthState>(authProvider, (previous, next) {
-      // When user becomes authenticated and we have an FCM token, register it
-      if (next.isAuthenticated && _globalFcmToken != null) {
+      // Register FCM token whenever the user becomes authenticated:
+      // 1. Fresh login (unauthenticated → authenticated)
+      // 2. Session restore (isRestoringSession: true → authenticated)
+      final wasRestoringOrUnauthenticated =
+          previous == null || previous.isRestoringSession || !previous.isAuthenticated;
+      if (next.isAuthenticated && wasRestoringOrUnauthenticated && _globalFcmToken != null) {
         ref.read(authProvider.notifier).updateFcmToken(_globalFcmToken!);
       }
     });
