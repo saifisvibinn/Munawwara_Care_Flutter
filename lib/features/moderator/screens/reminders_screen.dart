@@ -545,7 +545,8 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
   void initState() {
     super.initState();
     _targetType = widget.defaultPilgrimId != null ? 'pilgrim' : 'group';
-    _selectedIntervalMin = 15;
+    // Do NOT pre-select an interval — it only matters when repeatCount > 1
+    _selectedIntervalMin = null;
   }
 
   @override
@@ -610,9 +611,20 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
       return;
     }
 
-    final intervalMin = _isCustomInterval
-        ? int.tryParse(_customIntervalController.text.trim()) ?? 15
-        : (_selectedIntervalMin ?? 15);
+    // Validate interval is chosen when repeating
+    if (_repeatCount > 1 && !_isCustomInterval && _selectedIntervalMin == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('reminder_interval_error'.tr())));
+      return;
+    }
+
+    // Only compute interval when actually repeating
+    final intervalMin = _repeatCount > 1
+        ? (_isCustomInterval
+            ? (int.tryParse(_customIntervalController.text.trim()) ?? 15)
+            : (_selectedIntervalMin ?? 15))
+        : 1; // ignored by backend when repeat_count == 1
 
     setState(() => _isSaving = true);
     final ok = await ref
@@ -871,7 +883,14 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
                       icon: const Icon(Symbols.remove_circle_outline),
                       color: AppColors.primary,
                       onPressed: _repeatCount > 1
-                          ? () => setState(() => _repeatCount--)
+                          ? () => setState(() {
+                              _repeatCount--;
+                              // When count falls back to 1, clear interval selection
+                              if (_repeatCount == 1) {
+                                _selectedIntervalMin = null;
+                                _isCustomInterval = false;
+                              }
+                            })
                           : null,
                     ),
                     SizedBox(width: 4.w),
@@ -893,7 +912,13 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
                       icon: const Icon(Symbols.add_circle_outline),
                       color: AppColors.primary,
                       onPressed: _repeatCount < 20
-                          ? () => setState(() => _repeatCount++)
+                          ? () => setState(() {
+                              _repeatCount++;
+                              // Auto-select default interval when first enabling repeats
+                              if (_repeatCount == 2 && _selectedIntervalMin == null && !_isCustomInterval) {
+                                _selectedIntervalMin = 15;
+                              }
+                            })
                           : null,
                     ),
                     SizedBox(width: 8.w),

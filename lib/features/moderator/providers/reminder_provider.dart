@@ -77,13 +77,14 @@ class ReminderNotifier extends Notifier<ReminderState> {
       final response = await ApiService.dio.post(
         '/reminders',
         data: {
-          'group_id': groupId,
+          'group_ids': [groupId],   // backend expects an array
           'target_type': targetType,
           'pilgrim_id': pilgrimId,
           'text': text,
           'scheduled_at': scheduledAt.toUtc().toIso8601String(),
           'repeat_count': repeatCount,
-          'repeat_interval_min': repeatIntervalMin,
+          // Only send interval when repeating more than once
+          if (repeatCount > 1) 'repeat_interval_min': repeatIntervalMin,
         },
       );
       final created = ReminderModel.fromJson(

@@ -45,7 +45,7 @@ class ReminderCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20.r),
                 ),
                 child: Text(
-                  'reminder_status_'.tr(),
+                  'reminder_status_${reminder.status}'.tr(),
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 10.sp,
@@ -105,12 +105,7 @@ class ReminderCard extends StatelessWidget {
                 Icon(Symbols.repeat, size: 14.sp, color: Colors.grey),
                 SizedBox(width: 4.w),
                 Text(
-                  '${'reminder_fires_sent'.tr(
-                    namedArgs: {
-                      'sent': '',
-                      'total': '',
-                    },
-                  )}    ${'reminder_interval_every'.tr(namedArgs: {'interval': _formatInterval(reminder.repeatIntervalMin)})}',
+                  '${reminder.firesSent}/${reminder.repeatCount}  · every ${_formatInterval(reminder.repeatIntervalMin)}',
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 12.sp,
@@ -160,10 +155,11 @@ class ReminderCard extends StatelessWidget {
     }
   }
 
+  /// Returns a human-readable interval string, e.g. "15m", "2h", "1h 30m"
   String _formatInterval(int minutes) {
-    if (minutes < 60) return 'm';
+    if (minutes < 60) return '${minutes}m';
     final h = minutes ~/ 60;
     final m = minutes % 60;
-    return m == 0 ? 'h' : 'h m';
+    return m == 0 ? '${h}h' : '${h}h ${m}m';
   }
 }

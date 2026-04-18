@@ -171,7 +171,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
       ),
       selected: sel,
       selectedColor: AppColors.primary,
-      backgroundColor: AppColors.primary.withOpacity(0.1),
+      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
       side: BorderSide.none,
       onSelected: (v) {
         if (v) {
@@ -697,12 +697,19 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
                           color: isDark ? Colors.white : const Color(0xFF1A1A4E),
                         ),
                       ),
-                      Row(
+                       Row(
                         children: [
                           IconButton(
                             onPressed: () {
                               if (_repeatCount > 1) {
-                                setState(() => _repeatCount--);
+                                setState(() {
+                                  _repeatCount--;
+                                  // Reset interval when going back to 1
+                                  if (_repeatCount == 1) {
+                                    _selectedIntervalMin = null;
+                                    _isCustomInterval = false;
+                                  }
+                                });
                               }
                             },
                             icon: Icon(
@@ -711,7 +718,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
                             ),
                           ),
                           Text(
-                            '',
+                            '$_repeatCount',
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontWeight: FontWeight.w700,
@@ -721,7 +728,13 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
                           ),
                           IconButton(
                             onPressed: () {
-                              setState(() => _repeatCount++);
+                              setState(() {
+                                _repeatCount++;
+                                // Auto-select 15m interval when first enabling repeats
+                                if (_repeatCount == 2 && _selectedIntervalMin == null && !_isCustomInterval) {
+                                  _selectedIntervalMin = 15;
+                                }
+                              });
                             },
                             icon: const Icon(
                               Icons.add_circle_outline,
@@ -732,49 +745,52 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 20.h),
-                  Text(
-                    'Interval',
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14.sp,
-                      color: isDark ? Colors.white : const Color(0xFF1A1A4E),
+                  // Interval is only shown when repeatCount > 1
+                  if (_repeatCount > 1) ...[
+                    SizedBox(height: 20.h),
+                    Text(
+                      'Interval',
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14.sp,
+                        color: isDark ? Colors.white : const Color(0xFF1A1A4E),
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 12.h),
-                  Wrap(
-                    spacing: 8.w,
-                    runSpacing: 8.h,
-                    children: _intervalOptions.map((opt) {
-                      final isSelected = _selectedIntervalMin == opt['value'];
-                      return ChoiceChip(
-                        label: Text(
-                          opt['label'],
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w500,
-                            fontSize: 12.sp,
-                            color: isSelected
-                                ? Colors.white
-                                : (isDark ? Colors.white70 : Colors.black87),
+                    SizedBox(height: 12.h),
+                    Wrap(
+                      spacing: 8.w,
+                      runSpacing: 8.h,
+                      children: _intervalOptions.map((opt) {
+                        final isSelected = _selectedIntervalMin == opt['value'];
+                        return ChoiceChip(
+                          label: Text(
+                            opt['label'],
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontWeight: FontWeight.w500,
+                              fontSize: 12.sp,
+                              color: isSelected
+                                  ? Colors.white
+                                  : (isDark ? Colors.white70 : Colors.black87),
+                            ),
                           ),
-                        ),
-                        selected: isSelected,
-                        selectedColor: const Color(0xFFF97316),
-                        backgroundColor: isDark
-                            ? const Color(0xFF2A2A3C)
-                            : const Color(0xFFE5E7EB),
-                        onSelected: (val) {
-                          if (val) {
-                            setState(() {
-                              _selectedIntervalMin = opt['value'];
-                            });
-                          }
-                        },
-                      );
-                    }).toList(),
-                  ),
+                          selected: isSelected,
+                          selectedColor: const Color(0xFFF97316),
+                          backgroundColor: isDark
+                              ? const Color(0xFF2A2A3C)
+                              : const Color(0xFFE5E7EB),
+                          onSelected: (val) {
+                            if (val) {
+                              setState(() {
+                                _selectedIntervalMin = opt['value'];
+                              });
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ],
               ),
             ),
