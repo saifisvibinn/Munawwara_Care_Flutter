@@ -87,6 +87,11 @@ void main() async {
       _globalFcmToken = await FirebaseMessaging.instance.getToken();
       AppLogger.i('FCM token: $_globalFcmToken');
 
+      // ── Give AuthNotifier a way to read the current token ──────────────────
+      // This avoids a circular import (main ↔ auth_provider) while still
+      // letting _restoreSession() and login() call updateFcmToken directly.
+      AuthNotifier.setFcmTokenGetter(() => _globalFcmToken);
+
       // ── Handle Token Refresh ──────────────────────────────────────────────────
       FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
         _globalFcmToken = newToken;

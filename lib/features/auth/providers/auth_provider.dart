@@ -1,4 +1,7 @@
+import 'dart:math';
+
 import 'package:dio/dio.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -102,6 +105,10 @@ class AuthState {
 class AuthNotifier extends Notifier<AuthState> {
   static const _deviceBindingIdKey = 'device_binding_id';
 
+  /// Called once from main.dart after the FCM token is obtained.
+  /// Kept for compatibility but no longer relied upon — see _registerFcmToken().
+  static void setFcmTokenGetter(String? Function() getter) {}
+
   @override
   AuthState build() {
     _restoreSession();
@@ -130,17 +137,36 @@ class AuthNotifier extends Notifier<AuthState> {
 
         // Check if role has changed on server (e.g., pilgrim promoted to moderator)
         await _checkRoleSync();
+
+        // Always re-register FCM token on every app start — ensures the token
+        // is up-to-date even if the app was restarted, device changed, etc.
+        await _registerFcmToken();
       } else {
         state = const AuthState(isRestoringSession: false);
       }
       AppLogger.d('AuthNotifier: restore complete');
     } catch (e, st) {
-      // If shared preferences fails for any reason, we still want to clear the
-      // restoring flag so the UI can proceed. Log the error to console.
       AppLogger.e('AuthNotifier restoreSession error: $e\n$st');
       state = const AuthState(isRestoringSession: false);
     }
   }
+
+  // ── Register FCM token with the backend ────────────────────────────────────
+  // Fetches the current FCM token directly from Firebase and sends it to the
+  // backend. Self-contained — no dependency on main.dart or any global state.
+  Future<void> _registerFcmToken() async {
+    try {
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken != null) {
+        await updateFcmToken(fcmToken);
+      } else {
+        AppLogger.w('⚠️ FCM token is null — device may not support FCM');
+      }
+    } catch (e) {
+      AppLogger.e('⚠️ Failed to get FCM token from Firebase: $e');
+    }
+  }
+
 
   // ── Check Role Sync ─────────────────────────────────────────────────────────
   // Verifies if local role matches server role. If not, signs out user.
@@ -334,6 +360,10 @@ class AuthNotifier extends Notifier<AuthState> {
         userId: data['user_id'] as String,
         fullName: data['full_name'] as String,
       );
+
+      // Register FCM token immediately after login
+      await _registerFcmToken();
+
       return true;
     } on DioException catch (e) {
       state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
@@ -372,6 +402,9 @@ class AuthNotifier extends Notifier<AuthState> {
         userId: data['user_id'] as String,
         fullName: data['full_name'] as String,
       );
+
+      // Register FCM token immediately after one-time login
+      await _registerFcmToken();
 
       return true;
     } on DioException catch (e) {
@@ -467,23 +500,22 @@ class AuthNotifier extends Notifier<AuthState> {
   // ── Update FCM Token ────────────────────────────────────────────────────────
   Future<void> updateFcmToken(String fcmToken) async {
     try {
-      // Only hit the backend when the token has actually changed.
-      const lastTokenKey = 'last_registered_fcm_token';
-      final prefs = await SharedPreferences.getInstance();
-      final lastToken = prefs.getString(lastTokenKey);
-      if (lastToken == fcmToken) {
-        AppLogger.d('FCM token unchanged — skipping backend registration');
-        return;
-      }
-
-      await ApiService.dio.put(
+      AppLogger.d('Attempting to register FCM token with backend: ${fcmToken.substring(0, min(20, fcmToken.length))}...');
+      
+      final response = await ApiService.dio.put(
         '/auth/fcm-token',
         data: {'fcm_token': fcmToken},
       );
-      await prefs.setString(lastTokenKey, fcmToken);
-      AppLogger.i('✅ FCM token registered with backend');
+      
+      // Save it locally just for reference, though we no longer short-circuit
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('last_registered_fcm_token', fcmToken);
+      
+      AppLogger.i('✅ FCM token registered with backend successfully. Status: ${response.statusCode}');
+    } on DioException catch (e) {
+      AppLogger.e('⚠️ Failed to register FCM token API error: ${e.response?.statusCode} - ${e.response?.data}');
     } catch (e) {
-      AppLogger.e('⚠️ Failed to register FCM token: $e');
+      AppLogger.e('⚠️ Failed to register FCM token unknown error: $e');
     }
   }
 
