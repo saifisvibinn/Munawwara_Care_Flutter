@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -772,7 +773,7 @@ class _PilgrimProvisioningScreenState
                               isDark,
                               label: 'Language (required)',
                             ),
-                            items: const [
+                            items: [
                               DropdownMenuItem(
                                 value: 'en',
                                 child: Text('lang_english'.tr()),
@@ -818,7 +819,7 @@ class _PilgrimProvisioningScreenState
                               isDark,
                               label: 'Ethnicity (required)',
                             ),
-                            items: const [
+                            items: [
                               DropdownMenuItem(
                                 value: 'Arab',
                                 child: Text('ethnic_arab'.tr()),
@@ -875,7 +876,7 @@ class _PilgrimProvisioningScreenState
                               isDark,
                               label: 'Visa status (required)',
                             ),
-                            items: const [
+                            items: [
                               DropdownMenuItem(
                                 value: 'unknown',
                                 child: Text('status_unknown'.tr()),
@@ -921,7 +922,7 @@ class _PilgrimProvisioningScreenState
                       isExpanded: true,
                       decoration: _inputDecoration(isDark, label: 'Hotel'),
                       items: [
-                        const DropdownMenuItem<String>(
+                        DropdownMenuItem<String>(
                           value: null,
                           child: Text('group_no_hotel'.tr()),
                         ),
@@ -954,7 +955,7 @@ class _PilgrimProvisioningScreenState
                             isExpanded: true,
                             decoration: _inputDecoration(isDark, label: 'Room'),
                             items: [
-                              const DropdownMenuItem<String>(
+                              DropdownMenuItem<String>(
                                 value: null,
                                 child: Text('group_no_room'.tr()),
                               ),
@@ -982,7 +983,7 @@ class _PilgrimProvisioningScreenState
                             isExpanded: true,
                             decoration: _inputDecoration(isDark, label: 'Bus'),
                             items: [
-                              const DropdownMenuItem<String>(
+                              DropdownMenuItem<String>(
                                 value: null,
                                 child: Text('group_no_bus'.tr()),
                               ),
@@ -1104,7 +1105,7 @@ class _PilgrimProvisioningScreenState
                   ),
                   DropdownButton<String>(
                     value: _filterStatus,
-                    items: const [
+                    items: [
                       DropdownMenuItem(value: 'all', child: Text('group_status_all'.tr())),
                       DropdownMenuItem(
                         value: 'pending',

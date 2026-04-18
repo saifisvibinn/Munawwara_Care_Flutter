@@ -776,7 +776,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               );
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
+                SnackBar(
                   content: Text('dash_no_moderator_call'.tr()),
                 ),
               );
@@ -792,14 +792,14 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                 await launchUrl(uri);
               } else if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text('dash_error_dialer'.tr()),
                   ),
                 );
               }
             } else if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
+                SnackBar(
                   content: Text('dash_no_mod_phone'.tr()),
                 ),
               );

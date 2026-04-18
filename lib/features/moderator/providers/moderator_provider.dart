@@ -474,10 +474,12 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
   }) async {
     try {
       final data = <String, dynamic>{'group_name': groupName.trim()};
-      if (checkInDate != null)
+      if (checkInDate != null) {
         data['check_in_date'] = checkInDate.toIso8601String();
-      if (checkOutDate != null)
+      }
+      if (checkOutDate != null) {
         data['check_out_date'] = checkOutDate.toIso8601String();
+      }
 
       final resp = await ApiService.dio.post('/groups/create', data: data);
       final created = ModeratorGroup.fromJson(
