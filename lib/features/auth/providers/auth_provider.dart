@@ -26,9 +26,14 @@ class AuthState {
   final int? age;
   final String? gender;
   final String? medicalHistory;
-  final String?
-  moderatorRequestStatus; // 'pending', 'approved', 'rejected', or null
-  final bool promotedToModeratorPending;
+  final String? hotelName;
+  final String? roomNumber;
+  final String? busInfo;
+  final String? visaNumber;
+  final String? visaStatus;
+  final String? nationalId;
+  final String? language;
+  final String? ethnicity;
 
   const AuthState({
     this.isLoading = false,
@@ -44,8 +49,14 @@ class AuthState {
     this.age,
     this.gender,
     this.medicalHistory,
-    this.moderatorRequestStatus,
-    this.promotedToModeratorPending = false,
+    this.hotelName,
+    this.roomNumber,
+    this.busInfo,
+    this.visaNumber,
+    this.visaStatus,
+    this.nationalId,
+    this.language,
+    this.ethnicity,
   });
 
   bool get isAuthenticated => token != null;
@@ -64,12 +75,17 @@ class AuthState {
     int? age,
     String? gender,
     String? medicalHistory,
-    String? moderatorRequestStatus,
-    bool? promotedToModeratorPending,
+    String? hotelName,
+    String? roomNumber,
+    String? busInfo,
+    String? visaNumber,
+    String? visaStatus,
+    String? nationalId,
+    String? language,
+    String? ethnicity,
     bool clearError = false,
     bool clearPhoneNumber = false,
     bool clearEmail = false,
-    bool clearPromotionFlag = false,
     bool clearAge = false,
     bool clearGender = false,
     bool clearMedicalHistory = false,
@@ -90,11 +106,14 @@ class AuthState {
       medicalHistory: clearMedicalHistory
           ? null
           : (medicalHistory ?? this.medicalHistory),
-      moderatorRequestStatus:
-          moderatorRequestStatus ?? this.moderatorRequestStatus,
-      promotedToModeratorPending: clearPromotionFlag
-          ? false
-          : (promotedToModeratorPending ?? this.promotedToModeratorPending),
+      hotelName: hotelName ?? this.hotelName,
+      roomNumber: roomNumber ?? this.roomNumber,
+      busInfo: busInfo ?? this.busInfo,
+      visaNumber: visaNumber ?? this.visaNumber,
+      visaStatus: visaStatus ?? this.visaStatus,
+      nationalId: nationalId ?? this.nationalId,
+      language: language ?? this.language,
+      ethnicity: ethnicity ?? this.ethnicity,
     );
   }
 }
@@ -135,9 +154,6 @@ class AuthNotifier extends Notifier<AuthState> {
           fullName: fullName,
         );
 
-        // Check if role has changed on server (e.g., pilgrim promoted to moderator)
-        await _checkRoleSync();
-
         // Always re-register FCM token on every app start — ensures the token
         // is up-to-date even if the app was restarted, device changed, etc.
         await _registerFcmToken();
@@ -168,94 +184,6 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
 
-  // ── Check Role Sync ─────────────────────────────────────────────────────────
-  // Verifies if local role matches server role. If not, signs out user.
-  Future<void> _checkRoleSync() async {
-    try {
-      final localRole = state.role;
-      if (localRole == null) return;
-
-      AppLogger.d('Checking role sync: local=$localRole');
-
-      // Fetch fresh profile from server
-      final response = await ApiService.dio.get('/auth/me');
-      final data = response.data as Map<String, dynamic>;
-      final serverRole = data['user_type'] as String?;
-
-      AppLogger.d('Role sync check: local=$localRole, server=$serverRole');
-
-      // If roles don't match, user has been promoted/changed
-      if (serverRole != null && serverRole != localRole) {
-        if (localRole == 'pilgrim' && serverRole == 'moderator') {
-          AppLogger.i(
-            'Role upgraded pilgrim -> moderator. Refreshing session.',
-          );
-          await _refreshSessionAfterPromotion();
-          return;
-        }
-
-        AppLogger.i(
-          'Role mismatch detected ($localRole -> $serverRole). Logging out.',
-        );
-        await logout();
-      }
-    } on DioException catch (e) {
-      final statusCode = e.response?.statusCode;
-
-      // Stale local session: token is invalid/expired or user no longer exists.
-      // Keep auth state consistent by forcing logout and fresh login.
-      if (statusCode == 401 || statusCode == 404) {
-        AppLogger.w(
-          'Role sync failed with status $statusCode. Clearing stale session.',
-        );
-        await logout();
-        return;
-      }
-
-      // Other failures are likely transient network/server issues.
-      AppLogger.w('Role sync check failed (network error): ${e.message}');
-    } catch (e) {
-      AppLogger.e('Role sync check error: $e');
-    }
-  }
-
-  Future<void> _refreshSessionAfterPromotion() async {
-    try {
-      final response = await ApiService.dio.post('/auth/refresh-session');
-      final data = response.data as Map<String, dynamic>;
-
-      final newToken = data['token'] as String;
-      final newRole = data['role'] as String;
-      final newUserId = data['user_id'] as String;
-      final newFullName = data['full_name'] as String;
-
-      await _persistSession(newToken, newRole, newUserId, newFullName);
-
-      state = state.copyWith(
-        token: newToken,
-        role: newRole,
-        userId: newUserId,
-        fullName: newFullName,
-        moderatorRequestStatus:
-            (data['moderator_request_status'] as String?) ?? 'approved',
-        promotedToModeratorPending: true,
-      );
-    } on DioException catch (e) {
-      AppLogger.w('Failed to refresh promoted session: ${e.message}');
-      await logout();
-    } catch (e) {
-      AppLogger.e('Failed to refresh promoted session: $e');
-      await logout();
-    }
-  }
-
-  Future<void> syncRoleWithServer() async {
-    await _checkRoleSync();
-  }
-
-  void acknowledgeModeratorPromotion() {
-    state = state.copyWith(clearPromotionFlag: true);
-  }
 
   Future<void> _persistSession(
     String token,
@@ -433,7 +361,14 @@ class AuthNotifier extends Notifier<AuthState> {
         age: (data['age'] as num?)?.toInt(),
         gender: data['gender'] as String?,
         medicalHistory: data['medical_history'] as String?,
-        moderatorRequestStatus: data['moderator_request_status'] as String?,
+        hotelName: data['hotel_name'] as String?,
+        roomNumber: data['room_number'] as String?,
+        busInfo: data['bus_info'] as String?,
+        visaNumber: data['visa']?['visa_number']?.toString(),
+        visaStatus: data['visa']?['status']?.toString(),
+        nationalId: data['national_id']?.toString(),
+        language: data['language']?.toString(),
+        ethnicity: data['ethnicity']?.toString(),
       );
       // Persist updated full_name to prefs
       if (data['full_name'] != null) {
@@ -516,71 +451,6 @@ class AuthNotifier extends Notifier<AuthState> {
       AppLogger.e('⚠️ Failed to register FCM token API error: ${e.response?.statusCode} - ${e.response?.data}');
     } catch (e) {
       AppLogger.e('⚠️ Failed to register FCM token unknown error: $e');
-    }
-  }
-
-  // ── Add Email ───────────────────────────────────────────────────────────────
-  Future<bool> addEmail(String email) async {
-    state = state.copyWith(isLoading: true, clearError: true);
-    try {
-      await ApiService.dio.post(
-        '/auth/add-email',
-        data: {'email': email.trim()},
-      );
-      state = state.copyWith(
-        isLoading: false,
-        email: email.trim(),
-        emailVerified: false,
-      );
-      return true;
-    } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
-      return false;
-    }
-  }
-
-  // ── Send Email Verification ─────────────────────────────────────────────────
-  Future<bool> sendEmailVerification() async {
-    state = state.copyWith(isLoading: true, clearError: true);
-    try {
-      await ApiService.dio.post('/auth/send-email-verification');
-      state = state.copyWith(isLoading: false);
-      return true;
-    } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
-      return false;
-    }
-  }
-
-  // ── Verify Email ────────────────────────────────────────────────────────────
-  Future<bool> verifyEmail(String code) async {
-    state = state.copyWith(isLoading: true, clearError: true);
-    try {
-      await ApiService.dio.post(
-        '/auth/verify-email',
-        data: {'code': code.trim()},
-      );
-      state = state.copyWith(isLoading: false, emailVerified: true);
-      return true;
-    } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
-      return false;
-    }
-  }
-
-  // ── Request Moderator Status ────────────────────────────────────────────────
-  Future<bool> requestModerator() async {
-    state = state.copyWith(isLoading: true, clearError: true);
-    try {
-      await ApiService.dio.post('/auth/request-moderator');
-      state = state.copyWith(
-        isLoading: false,
-        moderatorRequestStatus: 'pending',
-      );
-      return true;
-    } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
-      return false;
     }
   }
 

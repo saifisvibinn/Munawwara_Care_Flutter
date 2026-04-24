@@ -65,9 +65,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   Timer? _sosCountdownTimer;
   bool _isSosHolding = false;
   int _sosCountdown = 3;
-  Timer? _roleSyncTimer;
   Timer? _weatherRefreshTimer;
-  bool _promotionDialogOpen = false;
 
   // Location
   StreamSubscription<Position>? _locationSub;
@@ -89,30 +87,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     }
   }
 
-  bool _shouldPollRoleSync(AuthState auth) {
-    return auth.role == 'pilgrim' && auth.moderatorRequestStatus == 'pending';
-  }
-
-  void _stopRoleSyncPolling() {
-    _roleSyncTimer?.cancel();
-    _roleSyncTimer = null;
-  }
-
-  void _configureRoleSyncPolling(AuthState auth, {bool runImmediate = false}) {
-    if (!_shouldPollRoleSync(auth)) {
-      _stopRoleSyncPolling();
-      return;
-    }
-
-    if (runImmediate) {
-      ref.read(authProvider.notifier).syncRoleWithServer();
-    }
-
-    _roleSyncTimer ??= Timer.periodic(const Duration(seconds: 60), (_) {
-      if (!mounted) return;
-      ref.read(authProvider.notifier).syncRoleWithServer();
-    });
-  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -257,24 +231,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         SocketService.on('notification_refresh', (_) {
           if (!mounted) return;
           ref.read(notificationProvider.notifier).refetch();
-          final auth = ref.read(authProvider);
-          if (_shouldPollRoleSync(auth)) {
-            ref.read(authProvider.notifier).syncRoleWithServer();
-          }
         });
 
-        // Socket-first moderator request updates (approval/rejection)
-        SocketService.on('moderator-request-approved', (_) {
-          if (!mounted) return;
-          ref.read(notificationProvider.notifier).refetch();
-          ref.read(authProvider.notifier).syncRoleWithServer();
-        });
-
-        SocketService.on('moderator-request-rejected', (_) {
-          if (!mounted) return;
-          ref.read(notificationProvider.notifier).refetch();
-          ref.read(authProvider.notifier).fetchProfile();
-        });
 
         // Listen for missed calls — refresh notifications so badge + list update
         SocketService.on('missed-call-received', (_) {
@@ -323,7 +281,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       _initLocation();
       await ref.read(authProvider.notifier).fetchProfile();
       if (!mounted) return;
-      _configureRoleSyncPolling(ref.read(authProvider), runImmediate: true);
       // Load suggested areas if in a group
       final gIdForAreas = ref.read(pilgrimProvider).groupInfo?.groupId;
       if (gIdForAreas != null) {
@@ -344,7 +301,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _mapController.dispose();
     _sosTimer?.cancel();
     _sosCountdownTimer?.cancel();
-    _roleSyncTimer?.cancel();
     _weatherRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _locationSub?.cancel();
@@ -357,8 +313,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     SocketService.off('area_deleted');
     SocketService.off('notification_refresh');
     SocketService.off('missed-call-received');
-    SocketService.off('moderator-request-approved');
-    SocketService.off('moderator-request-rejected');
     SocketService.off('force_logout');
     SocketService.offConnected(_onSocketConnected);
     super.dispose();
@@ -473,69 +427,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     }
   }
 
-  Future<void> _showModeratorPromotionDialog() async {
-    if (!mounted || _promotionDialogOpen) return;
-    _promotionDialogOpen = true;
 
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
-        return AlertDialog(
-          backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
-          title: Text(
-            'moderator_promotion_title'.tr(),
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : AppColors.textDark,
-            ),
-          ),
-          content: Text(
-            'moderator_promotion_body'.tr(),
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              color: isDark
-                  ? AppColors.textMutedLight
-                  : AppColors.textMutedDark,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                ref.read(authProvider.notifier).acknowledgeModeratorPromotion();
-                Navigator.of(dialogContext).pop();
-              },
-              child: Text(
-                'moderator_promotion_later'.tr(),
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  color: isDark
-                      ? AppColors.textMutedLight
-                      : AppColors.textMutedDark,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                ref.read(authProvider.notifier).acknowledgeModeratorPromotion();
-                Navigator.of(dialogContext).pop();
-                context.go('/moderator-dashboard');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-              child: Text('moderator_promotion_switch'.tr()),
-            ),
-          ],
-        );
-      },
-    );
-
-    _promotionDialogOpen = false;
-  }
 
   // ── Location ────────────────────────────────────────────────────────────────
 
@@ -1000,20 +892,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     });
 
     ref.listen(authProvider, (prev, next) {
-      _configureRoleSyncPolling(next);
-
-      if (next.promotedToModeratorPending == true &&
-          prev?.promotedToModeratorPending != true &&
-          mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('moderator_promotion_snackbar'.tr()),
-            backgroundColor: AppColors.primary,
-          ),
-        );
-        ref.read(notificationProvider.notifier).refetch();
-        _showModeratorPromotionDialog();
-      }
+      // Role sync polling removed in moderator-first workflow
     });
 
     final tabs = [

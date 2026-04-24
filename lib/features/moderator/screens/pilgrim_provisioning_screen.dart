@@ -586,6 +586,128 @@ class _ProvisionTabState
     }
   }
 
+  void _showEditDetailsDialog(_ProvisioningItem item) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hotelCtrl = TextEditingController(text: item.hotelName);
+    final roomCtrl = TextEditingController(text: item.roomNumber);
+    final busCtrl = TextEditingController(text: item.busInfo);
+    final visaNumCtrl = TextEditingController(text: item.visaNumber);
+    String selectedVisaStatus = item.visaStatus ?? 'unknown';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+          title: Text('Edit Pilgrim Details',
+              style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18.sp,
+                  color: isDark ? Colors.white : AppColors.textDark)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildEditField('Hotel Name', hotelCtrl, Symbols.apartment, isDark),
+                _buildEditField(
+                    'Room Number', roomCtrl, Symbols.meeting_room, isDark),
+                _buildEditField('Bus Info', busCtrl, Symbols.directions_bus, isDark),
+                _buildEditField(
+                    'Visa Number', visaNumCtrl, Symbols.credit_card, isDark),
+                SizedBox(height: 12.h),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedVisaStatus,
+                  dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
+                  decoration: InputDecoration(
+                    labelText: 'Visa Status',
+                    labelStyle: TextStyle(fontFamily: 'Lexend', fontSize: 12.sp),
+                    prefixIcon: Icon(Symbols.verified_user, size: 20.w),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.r)),
+                  ),
+                  items: ['pending', 'issued', 'rejected', 'expired', 'unknown']
+                      .map((s) => DropdownMenuItem(
+                          value: s,
+                          child: Text(s.toUpperCase(),
+                              style: TextStyle(
+                                  fontFamily: 'Lexend', fontSize: 13.sp))))
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => selectedVisaStatus = v!),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text('Cancel', style: TextStyle(fontFamily: 'Lexend')),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final updates = {
+                  'hotel_name': hotelCtrl.text.trim(),
+                  'room_number': roomCtrl.text.trim(),
+                  'bus_info': busCtrl.text.trim(),
+                  'visa': {
+                    'visa_number': visaNumCtrl.text.trim(),
+                    'status': selectedVisaStatus,
+                  }
+                };
+                final (success, err) = await ref
+                    .read(moderatorProvider.notifier)
+                    .updatePilgrimDetails(item.pilgrimId, updates);
+                if (!mounted) return;
+                if (success) {
+                  Navigator.pop(dialogCtx);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Pilgrim details updated',
+                        style: const TextStyle(fontFamily: 'Lexend')),
+                    backgroundColor: Colors.green.shade700,
+                    behavior: SnackBarBehavior.floating,
+                  ));
+                  await _loadProvisioningStatus();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(err ?? 'Update failed',
+                        style: const TextStyle(fontFamily: 'Lexend')),
+                    backgroundColor: Colors.red.shade700,
+                    behavior: SnackBarBehavior.floating,
+                  ));
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r)),
+              ),
+              child: Text('Save', style: TextStyle(fontFamily: 'Lexend')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditField(
+      String label, TextEditingController ctrl, IconData icon, bool isDark) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12.h),
+      child: TextField(
+        controller: ctrl,
+        style: TextStyle(fontFamily: 'Lexend', fontSize: 14.sp),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(fontFamily: 'Lexend', fontSize: 12.sp),
+          prefixIcon: Icon(icon, size: 20.w),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+          contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        ),
+      ),
+    );
+  }
+
   void _showQrDialog({
     required String name,
     String? token,
@@ -651,6 +773,21 @@ class _ProvisionTabState
     final mi = local.minute.toString().padLeft(2, '0');
     return '$mm/$dd ${local.year} $hh:$mi';
   }
+
+  Color _getVisaColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'issued':
+        return Colors.green.shade600;
+      case 'pending':
+        return Colors.orange.shade600;
+      case 'rejected':
+      case 'expired':
+        return Colors.red.shade600;
+      default:
+        return Colors.grey.shade600;
+    }
+  }
+
 
 
   @override
@@ -1325,6 +1462,17 @@ class _ProvisionTabState
                               IconButton(
                                 constraints: const BoxConstraints(),
                                 padding: EdgeInsets.zero,
+                                onPressed: () => _showEditDetailsDialog(item),
+                                icon: Icon(
+                                  Symbols.edit_square,
+                                  size: 20.w,
+                                  color: Colors.blue.shade600,
+                                ),
+                              ),
+                              SizedBox(width: 14.w),
+                              IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: EdgeInsets.zero,
                                 onPressed: () => _deleteProvisioned(item),
                                 icon: Icon(
                                   Symbols.delete,
@@ -1351,34 +1499,96 @@ class _ProvisionTabState
                                     _showQrDialog(
                                       name: item.fullName,
                                       token: item.token,
-                                      qrDataUrl: item.qrDataUrl!,
+                                      qrDataUrl: item.qrDataUrl ?? '',
                                     );
                                   },
-                                  icon: Icon(
-                                    Symbols.qr_code_2,
-                                    size: 16.w,
-                                    color: AppColors.primary,
-                                  ),
-                                  label: Text(
-                                    'View ID Card',
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      color: AppColors.primary,
-                                      fontSize: 12.sp,
-                                    ),
-                                  ),
+                                  icon: Icon(Symbols.qr_code_2, size: 18.w),
+                                  label: Text('QR',
+                                      style: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          fontSize: 12.sp)),
                                 ),
                               const Spacer(),
                               IconButton(
                                 constraints: const BoxConstraints(),
                                 padding: EdgeInsets.zero,
-                                onPressed: () => _reissueLogin(item),
+                                onPressed: () => _showEditDetailsDialog(item),
                                 icon: Icon(
-                                  Symbols.refresh,
+                                  Symbols.edit_square,
                                   size: 20.w,
-                                  color: textPrimary,
+                                  color: Colors.blue.shade600,
                                 ),
                               ),
+                              SizedBox(width: 14.w),
+                              IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: EdgeInsets.zero,
+                                onPressed: () => _deleteProvisioned(item),
+                                icon: Icon(
+                                  Symbols.delete,
+                                  size: 20.w,
+                                  color: Colors.red.shade400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (item.hotelName != null || item.busInfo != null || item.visaStatus != null) ...[
+                          SizedBox(height: 8.h),
+                          Row(
+                            children: [
+                              if (item.hotelName != null) ...[
+                                Icon(Symbols.apartment,
+                                    size: 12.w, color: textMuted),
+                                SizedBox(width: 4.w),
+                                Text(
+                                  item.hotelName!,
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 10.sp,
+                                    color: textMuted,
+                                  ),
+                                ),
+                                if (item.roomNumber != null) ...[
+                                  Text(
+                                    ' (Room: ${item.roomNumber})',
+                                    style: TextStyle(
+                                      fontFamily: 'Lexend',
+                                      fontSize: 10.sp,
+                                      color: textMuted,
+                                    ),
+                                  ),
+                                ],
+                                if (item.busInfo != null || item.visaStatus != null) SizedBox(width: 8.w),
+                              ],
+                              if (item.busInfo != null) ...[
+                                Icon(Symbols.directions_bus,
+                                    size: 12.w, color: textMuted),
+                                SizedBox(width: 4.w),
+                                Text(
+                                  item.busInfo!,
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 10.sp,
+                                    color: textMuted,
+                                  ),
+                                ),
+                                if (item.visaStatus != null) SizedBox(width: 8.w),
+                              ],
+                              if (item.visaStatus != null) ...[
+                                Icon(Symbols.verified_user,
+                                    size: 12.w, color: _getVisaColor(item.visaStatus)),
+                                SizedBox(width: 4.w),
+                                Text(
+                                  item.visaStatus!.toUpperCase(),
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 10.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: _getVisaColor(item.visaStatus),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ],
@@ -1386,6 +1596,7 @@ class _ProvisionTabState
                     ),
                   );
                 }),
+
               SizedBox(height: 20.h),
             ],
           ],
@@ -1460,6 +1671,11 @@ class _ProvisioningItem {
   final String? token;
   final String? expiresAt;
   final String? qrDataUrl;
+  final String? hotelName;
+  final String? roomNumber;
+  final String? busInfo;
+  final String? visaNumber;
+  final String? visaStatus;
 
   const _ProvisioningItem({
     required this.pilgrimId,
@@ -1469,6 +1685,11 @@ class _ProvisioningItem {
     this.token,
     this.expiresAt,
     this.qrDataUrl,
+    this.hotelName,
+    this.roomNumber,
+    this.busInfo,
+    this.visaNumber,
+    this.visaStatus,
   });
 
   _ProvisioningItem copyWith({
@@ -1479,6 +1700,11 @@ class _ProvisioningItem {
     String? token,
     String? expiresAt,
     String? qrDataUrl,
+    String? hotelName,
+    String? roomNumber,
+    String? busInfo,
+    String? visaNumber,
+    String? visaStatus,
   }) {
     return _ProvisioningItem(
       pilgrimId: pilgrimId ?? this.pilgrimId,
@@ -1488,6 +1714,11 @@ class _ProvisioningItem {
       token: token ?? this.token,
       expiresAt: expiresAt ?? this.expiresAt,
       qrDataUrl: qrDataUrl ?? this.qrDataUrl,
+      hotelName: hotelName ?? this.hotelName,
+      roomNumber: roomNumber ?? this.roomNumber,
+      busInfo: busInfo ?? this.busInfo,
+      visaNumber: visaNumber ?? this.visaNumber,
+      visaStatus: visaStatus ?? this.visaStatus,
     );
   }
 
@@ -1505,6 +1736,11 @@ class _ProvisioningItem {
       token: login['token']?.toString(),
       expiresAt: login['expires_at']?.toString(),
       qrDataUrl: login['qr_code_data_url']?.toString(),
+      hotelName: pilgrim['hotel_name']?.toString(),
+      roomNumber: pilgrim['room_number']?.toString(),
+      busInfo: pilgrim['bus_info']?.toString(),
+      visaNumber: pilgrim['visa']?['visa_number']?.toString(),
+      visaStatus: pilgrim['visa']?['status']?.toString(),
     );
   }
 }

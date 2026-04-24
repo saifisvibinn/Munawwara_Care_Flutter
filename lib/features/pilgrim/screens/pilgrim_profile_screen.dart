@@ -244,7 +244,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                                     vertical: 3.h,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.15),
+                                    color: AppColors.primary.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(8.r),
                                   ),
                                   child: Text(
@@ -286,137 +286,142 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                       ),
                     ),
 
-                    if (authState.moderatorRequestStatus != null) ...[
-                      SizedBox(height: 24.h),
-                      _SectionLabel(
-                        label: 'edit_profile_moderator_section'.tr(),
-                        textMuted: textMuted,
-                      ),
-                      SizedBox(height: 8.h),
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: cardBg,
-                          borderRadius: BorderRadius.circular(16.r),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(
-                                isDark ? 0.3 : 0.06,
-                              ),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
+                    SizedBox(height: 24.h),
+                    _SectionLabel(
+                      label: 'Travel & Accommodation',
+                      textMuted: textMuted,
+                    ),
+                    SizedBox(height: 8.h),
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(16.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.3 : 0.06,
                             ),
-                          ],
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(16.w),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 38.w,
-                                    height: 38.w,
-                                    decoration: BoxDecoration(
-                                      color: _getStatusColor(
-                                        authState.moderatorRequestStatus!,
-                                      ).withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(10.r),
-                                    ),
-                                    child: Icon(
-                                      _getStatusIcon(
-                                        authState.moderatorRequestStatus!,
-                                      ),
-                                      color: _getStatusColor(
-                                        authState.moderatorRequestStatus!,
-                                      ),
-                                      size: 18.sp,
-                                    ),
-                                  ),
-                                  SizedBox(width: 12.w),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          authState.moderatorRequestStatus ==
-                                                  'pending'
-                                              ? 'moderator_status_pending'.tr()
-                                              : authState
-                                                        .moderatorRequestStatus ==
-                                                    'approved'
-                                              ? 'moderator_status_approved'.tr()
-                                              : 'moderator_status_rejected'
-                                                    .tr(),
-                                          style: TextStyle(
-                                            fontFamily: 'Lexend',
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 14.sp,
-                                            color: textPrimary,
-                                          ),
-                                        ),
-                                        SizedBox(height: 2.h),
-                                        Text(
-                                          authState.moderatorRequestStatus ==
-                                                  'pending'
-                                              ? 'moderator_status_pending_desc'
-                                                    .tr()
-                                              : authState
-                                                        .moderatorRequestStatus ==
-                                                    'approved'
-                                              ? 'moderator_status_approved_desc'
-                                                    .tr()
-                                              : 'moderator_status_rejected_desc'
-                                                    .tr(),
-                                          style: TextStyle(
-                                            fontFamily: 'Lexend',
-                                            fontSize: 11.sp,
-                                            color: textMuted,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (authState.moderatorRequestStatus ==
-                                      'approved' &&
-                                  authState.role == 'moderator') ...[
-                                SizedBox(height: 12.h),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      context.go('/moderator-dashboard');
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primary,
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          10.r,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'profile_switch_moderator_dashboard'.tr(),
-                                      style: TextStyle(
-                                        fontFamily: 'Lexend',
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13.sp,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                      child: Column(
+                        children: [
+                          _InfoTile(
+                            icon: Icons.hotel_rounded,
+                            label: 'Hotel Name',
+                            value: authState.hotelName ?? 'Not Assigned',
+                            isDark: isDark,
+                            textPrimary: textPrimary,
+                            textMuted: textMuted,
+                          ),
+                          _divider(dividerColor),
+                          _InfoTile(
+                            icon: Icons.meeting_room_rounded,
+                            label: 'Room Number',
+                            value: authState.roomNumber ?? 'Not Assigned',
+                            isDark: isDark,
+                            textPrimary: textPrimary,
+                            textMuted: textMuted,
+                          ),
+                          _divider(dividerColor),
+                          _InfoTile(
+                            icon: Icons.directions_bus_rounded,
+                            label: 'Bus Number',
+                            value: authState.busInfo ?? 'Not Assigned',
+                            isDark: isDark,
+                            textPrimary: textPrimary,
+                            textMuted: textMuted,
+                          ),
+                          _divider(dividerColor),
+                          _InfoTile(
+                            icon: Icons.assignment_ind_rounded,
+                            label: 'Visa Status',
+                            value: authState.visaStatus != null
+                                ? '${authState.visaStatus!.toUpperCase()} (${authState.visaNumber ?? '?'})'
+                                : 'Unknown',
+                            isDark: isDark,
+                            textPrimary: textPrimary,
+                            textMuted: textMuted,
+                            valueColor: _getVisaColor(authState.visaStatus),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: 28.h),
+                    _SectionLabel(
+                      label: 'Personal Details',
+                      textMuted: textMuted,
+                    ),
+                    SizedBox(height: 8.h),
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(16.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.3 : 0.06,
+                            ),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          _InfoTile(
+                            icon: Icons.badge_rounded,
+                            label: 'National ID',
+                            value: authState.nationalId ?? 'Not Provided',
+                            isDark: isDark,
+                            textPrimary: textPrimary,
+                            textMuted: textMuted,
+                          ),
+                          _divider(dividerColor),
+                          _InfoTile(
+                            icon: Icons.cake_rounded,
+                            label: 'Age',
+                            value: authState.age != null ? '${authState.age} years' : 'Not Provided',
+                            isDark: isDark,
+                            textPrimary: textPrimary,
+                            textMuted: textMuted,
+                          ),
+                          _divider(dividerColor),
+                          _InfoTile(
+                            icon: Icons.wc_rounded,
+                            label: 'Gender',
+                            value: authState.gender?.toUpperCase() ?? 'Not Provided',
+                            isDark: isDark,
+                            textPrimary: textPrimary,
+                            textMuted: textMuted,
+                          ),
+                          _divider(dividerColor),
+                          _InfoTile(
+                            icon: Icons.medical_services_rounded,
+                            label: 'Medical History',
+                            value: authState.medicalHistory?.isNotEmpty == true ? authState.medicalHistory! : 'None',
+                            isDark: isDark,
+                            textPrimary: textPrimary,
+                            textMuted: textMuted,
+                          ),
+                          _divider(dividerColor),
+                          _InfoTile(
+                            icon: Icons.public_rounded,
+                            label: 'Ethnicity',
+                            value: authState.ethnicity ?? 'Not Provided',
+                            isDark: isDark,
+                            textPrimary: textPrimary,
+                            textMuted: textMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+
 
                     SizedBox(height: 28.h),
 
@@ -453,7 +458,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                               decoration: BoxDecoration(
                                 color: isDark
                                     ? AppColors.surfaceDark
-                                    : AppColors.primary.withOpacity(0.15),
+                                    : AppColors.primary.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(12.r),
                               ),
                               child: Icon(
@@ -491,8 +496,8 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             Switch(
                               value: isDark,
                               activeThumbColor: AppColors.primary,
-                              activeTrackColor: AppColors.primary.withOpacity(
-                                0.3,
+                              activeTrackColor: AppColors.primary.withValues(
+                                alpha: 0.3,
                               ),
                               inactiveThumbColor: isDark
                                   ? AppColors.textLight
@@ -636,30 +641,91 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
+  Color _getVisaColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'issued':
+        return Colors.green;
       case 'pending':
         return Colors.orange;
-      case 'approved':
-        return Colors.green;
       case 'rejected':
+      case 'expired':
         return Colors.red;
       default:
         return AppColors.primary;
     }
   }
 
-  IconData _getStatusIcon(String status) {
-    switch (status) {
-      case 'pending':
-        return Icons.hourglass_empty_rounded;
-      case 'approved':
-        return Icons.check_circle_rounded;
-      case 'rejected':
-        return Icons.cancel_rounded;
-      default:
-        return Icons.help_outline_rounded;
-    }
+  Widget _divider(Color color) => Divider(
+        height: 1,
+        thickness: 1,
+        color: color,
+        indent: 16.w,
+        endIndent: 16.w,
+      );
+}
+
+class _InfoTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool isDark;
+  final Color textPrimary;
+  final Color textMuted;
+  final Color? valueColor;
+
+  const _InfoTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.isDark,
+    required this.textPrimary,
+    required this.textMuted,
+    this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+      child: Row(
+        children: [
+          Container(
+            width: 36.w,
+            height: 36.w,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            child: Icon(icon, color: AppColors.primary, size: 18.sp),
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 11.sp,
+                    color: textMuted,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14.sp,
+                    color: valueColor ?? textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

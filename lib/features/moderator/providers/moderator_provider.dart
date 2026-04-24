@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/api_service.dart';
 
 // ── Pilgrim-in-group model ────────────────────────────────────────────────────
-
 class PilgrimInGroup {
   final String id;
   final String fullName;
@@ -17,9 +16,13 @@ class PilgrimInGroup {
   final double? lng;
   final int? batteryPercent;
   final DateTime? lastUpdated;
-  // Set to true when an SOS notification is received via push (FCM)
   final bool hasSOS;
   final bool isOnline;
+  final String? hotelName;
+  final String? roomNumber;
+  final String? busInfo;
+  final String? visaNumber;
+  final String? visaStatus;
 
   const PilgrimInGroup({
     required this.id,
@@ -35,6 +38,11 @@ class PilgrimInGroup {
     this.lastUpdated,
     this.hasSOS = false,
     this.isOnline = false,
+    this.hotelName,
+    this.roomNumber,
+    this.busInfo,
+    this.visaNumber,
+    this.visaStatus,
   });
 
   factory PilgrimInGroup.fromJson(Map<String, dynamic> j) {
@@ -54,6 +62,11 @@ class PilgrimInGroup {
           ? DateTime.tryParse(j['last_updated'].toString())
           : null,
       isOnline: j['is_online'] == true,
+      hotelName: j['hotel_name']?.toString(),
+      roomNumber: j['room_number']?.toString(),
+      busInfo: j['bus_info']?.toString(),
+      visaNumber: j['visa']?['visa_number']?.toString(),
+      visaStatus: j['visa']?['status']?.toString(),
     );
   }
 
@@ -78,6 +91,11 @@ class PilgrimInGroup {
     lastUpdated: lastUpdated ?? this.lastUpdated,
     hasSOS: hasSOS ?? this.hasSOS,
     isOnline: isOnline ?? this.isOnline,
+    hotelName: hotelName,
+    roomNumber: roomNumber,
+    busInfo: busInfo,
+    visaNumber: visaNumber,
+    visaStatus: visaStatus,
   );
 
   bool get hasLocation => lat != null && lng != null;
@@ -402,6 +420,26 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
         );
       }).toList();
       state = state.copyWith(groups: groups);
+      return (true, null);
+    } on DioException catch (e) {
+      return (false, ApiService.parseError(e));
+    } catch (e) {
+      return (false, e.toString());
+    }
+  }
+
+  // Update a pilgrim's details (hotel, room, etc.)
+  Future<(bool, String?)> updatePilgrimDetails(
+    String pilgrimId,
+    Map<String, dynamic> updates,
+  ) async {
+    try {
+      await ApiService.dio.put(
+        '/auth/pilgrims/$pilgrimId',
+        data: updates,
+      );
+      // Refresh groups to reflect changes
+      await loadDashboard();
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));

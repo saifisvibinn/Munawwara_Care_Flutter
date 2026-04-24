@@ -175,6 +175,39 @@ void showPilgrimProfileSheet(
                   value: 'profile_gender_${pilgrim.gender}'.tr(),
                   isDark: isDark,
                 ),
+              if (pilgrim.hotelName != null || pilgrim.roomNumber != null) ...[
+                SizedBox(height: 12.h),
+                Divider(color: isDark ? Colors.white10 : Colors.grey.shade100),
+                SizedBox(height: 12.h),
+                if (pilgrim.hotelName != null)
+                  _ProfileRow(
+                    icon: Symbols.hotel,
+                    label: 'Hotel',
+                    value: pilgrim.hotelName!,
+                    isDark: isDark,
+                  ),
+                if (pilgrim.roomNumber != null)
+                  _ProfileRow(
+                    icon: Symbols.door_open,
+                    label: 'Room',
+                    value: pilgrim.roomNumber!,
+                    isDark: isDark,
+                  ),
+                if (pilgrim.busInfo != null)
+                  _ProfileRow(
+                    icon: Symbols.directions_bus,
+                    label: 'Bus',
+                    value: pilgrim.busInfo!,
+                    isDark: isDark,
+                  ),
+                if (pilgrim.visaNumber != null)
+                  _ProfileRow(
+                    icon: Symbols.description,
+                    label: 'Visa',
+                    value: '${pilgrim.visaNumber} (${pilgrim.visaStatus ?? '?'})',
+                    isDark: isDark,
+                  ),
+              ],
               if (pilgrim.medicalHistory != null &&
                   pilgrim.medicalHistory!.isNotEmpty) ...[
                 SizedBox(height: 4.h),
