@@ -991,7 +991,8 @@ class _RoomOption {
   final String id;
   final String roomNumber;
   final String? floor;
-  const _RoomOption({required this.id, required this.roomNumber, this.floor});
+  final int capacity;
+  const _RoomOption({required this.id, required this.roomNumber, this.floor, required this.capacity});
 }
 
 class _BusOption {
@@ -1014,6 +1015,7 @@ class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
   bool _isLoading = false;
   List<_HotelOption> _hotels = [];
   List<_BusOption> _buses = [];
+  Map<String, int> _roomOccupancy = {};
 
   String? _selectedHotelId;
   String? _selectedRoomId;
@@ -1026,17 +1028,37 @@ class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
     _selectedVisaStatus = widget.pilgrim.visaStatus ?? 'unknown';
     if (widget.pilgrim.currentGroupId != null) {
       _loadResources();
+      _calculateOccupancy();
     }
+  }
+
+  void _calculateOccupancy() {
+    final modState = ref.read(moderatorProvider);
+    final group = modState.groups.where((g) => g.id == widget.pilgrim.currentGroupId).firstOrNull;
+    if (group == null) return;
+
+    final Map<String, int> occupancy = {};
+    for (final p in group.pilgrims) {
+      if (p.id == widget.pilgrim.id) continue; // Don't count current pilgrim
+      if (p.hotelName != null && p.roomNumber != null) {
+        final key = '${p.hotelName}_${p.roomNumber}';
+        occupancy[key] = (occupancy[key] ?? 0) + 1;
+      }
+    }
+    setState(() => _roomOccupancy = occupancy);
   }
 
   Future<void> _loadResources() async {
     setState(() => _isLoading = true);
     try {
       final resp = await ApiService.dio.get('/groups/${widget.pilgrim.currentGroupId}/resource-options');
-      final data = resp.data['data'] as Map<String, dynamic>;
+      final raw = resp.data;
+      final payload = raw is Map<String, dynamic> 
+          ? (raw['data'] as Map<String, dynamic>? ?? raw) 
+          : <String, dynamic>{};
 
-      final hotelsRaw = (data['hotels'] as List<dynamic>? ?? []);
-      final busesRaw = (data['buses'] as List<dynamic>? ?? []);
+      final hotelsRaw = (payload['hotels'] as List<dynamic>? ?? []);
+      final busesRaw = (payload['buses'] as List<dynamic>? ?? []);
 
       _hotels = hotelsRaw.map((h) {
         final map = h as Map<String, dynamic>;
@@ -1050,6 +1072,7 @@ class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
               id: rMap['_id']?.toString() ?? '',
               roomNumber: rMap['room_number']?.toString() ?? '-',
               floor: rMap['floor']?.toString(),
+              capacity: (rMap['capacity'] as num?)?.toInt() ?? 1,
             );
           }).toList(),
         );
@@ -1131,8 +1154,8 @@ class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final selectedHotel = _hotels.where((h) => h.id == _selectedHotelId).firstOrNull;
-    final rooms = selectedHotel?.rooms ?? [];
+    final hotel = _hotels.where((h) => h.id == _selectedHotelId).firstOrNull;
+    final rooms = hotel?.rooms ?? [];
 
     return AlertDialog(
       backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
@@ -1169,8 +1192,20 @@ class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
                     decoration: _inputDecoration(isDark, 'Room', Symbols.meeting_room),
                     items: [
                       const DropdownMenuItem(value: null, child: Text('No Room')),
-                      ...rooms.map((r) => DropdownMenuItem(
-                          value: r.id, child: Text(r.floor == null ? r.roomNumber : '${r.roomNumber} (F${r.floor})'))),
+                      ...rooms.map((r) {
+                        final current = _roomOccupancy['${hotel?.name}_${r.roomNumber}'] ?? 0;
+                        final isFull = current >= r.capacity;
+                        return DropdownMenuItem(
+                          value: isFull ? null : r.id,
+                          enabled: !isFull,
+                          child: Text(
+                            '${r.roomNumber}${r.floor != null ? ' (F${r.floor})' : ''} - $current/${r.capacity}${isFull ? ' (Full)' : ''}',
+                            style: TextStyle(
+                              color: isFull ? Colors.red.shade400 : null,
+                            ),
+                          ),
+                        );
+                      }),
                     ],
                     onChanged: _selectedHotelId == null ? null : (v) => setState(() => _selectedRoomId = v),
                   ),

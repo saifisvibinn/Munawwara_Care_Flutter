@@ -288,7 +288,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
 
                     SizedBox(height: 24.h),
                     _SectionLabel(
-                      label: 'Travel & Accommodation',
+                      label: 'profile_travel_accommodation'.tr(),
                       textMuted: textMuted,
                     ),
                     SizedBox(height: 8.h),
@@ -311,8 +311,8 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                         children: [
                           _InfoTile(
                             icon: Icons.hotel_rounded,
-                            label: 'Hotel Name',
-                            value: authState.hotelName ?? 'Not Assigned',
+                            label: 'group_hotel_name'.tr(),
+                            value: authState.hotelName ?? 'profile_not_assigned'.tr(),
                             isDark: isDark,
                             textPrimary: textPrimary,
                             textMuted: textMuted,
@@ -320,8 +320,8 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           _divider(dividerColor),
                           _InfoTile(
                             icon: Icons.meeting_room_rounded,
-                            label: 'Room Number',
-                            value: authState.roomNumber ?? 'Not Assigned',
+                            label: 'group_room_number'.tr(),
+                            value: authState.roomNumber ?? 'profile_not_assigned'.tr(),
                             isDark: isDark,
                             textPrimary: textPrimary,
                             textMuted: textMuted,
@@ -329,8 +329,8 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           _divider(dividerColor),
                           _InfoTile(
                             icon: Icons.directions_bus_rounded,
-                            label: 'Bus Number',
-                            value: authState.busInfo ?? 'Not Assigned',
+                            label: 'group_bus_number'.tr(),
+                            value: authState.busInfo ?? 'profile_not_assigned'.tr(),
                             isDark: isDark,
                             textPrimary: textPrimary,
                             textMuted: textMuted,
@@ -338,10 +338,10 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           _divider(dividerColor),
                           _InfoTile(
                             icon: Icons.assignment_ind_rounded,
-                            label: 'Visa Status',
+                            label: 'profile_national_id'.tr(), // Visa status section
                             value: authState.visaStatus != null
-                                ? '${authState.visaStatus!.toUpperCase()} (${authState.visaNumber ?? '?'})'
-                                : 'Unknown',
+                                ? authState.visaStatus!.toUpperCase()
+                                : 'status_unknown'.tr(),
                             isDark: isDark,
                             textPrimary: textPrimary,
                             textMuted: textMuted,
@@ -353,7 +353,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
 
                     SizedBox(height: 28.h),
                     _SectionLabel(
-                      label: 'Personal Details',
+                      label: 'profile_personal_details'.tr(),
                       textMuted: textMuted,
                     ),
                     SizedBox(height: 8.h),
@@ -376,8 +376,8 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                         children: [
                           _InfoTile(
                             icon: Icons.badge_rounded,
-                            label: 'National ID',
-                            value: authState.nationalId ?? 'Not Provided',
+                            label: 'profile_national_id'.tr(),
+                            value: authState.nationalId ?? 'profile_not_provided'.tr(),
                             isDark: isDark,
                             textPrimary: textPrimary,
                             textMuted: textMuted,
@@ -385,8 +385,8 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           _divider(dividerColor),
                           _InfoTile(
                             icon: Icons.cake_rounded,
-                            label: 'Age',
-                            value: authState.age != null ? '${authState.age} years' : 'Not Provided',
+                            label: 'reg_age'.tr(),
+                            value: authState.age != null ? '${authState.age} ${'reg_age_hint'.tr()}' : 'profile_not_provided'.tr(),
                             isDark: isDark,
                             textPrimary: textPrimary,
                             textMuted: textMuted,
@@ -394,8 +394,8 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           _divider(dividerColor),
                           _InfoTile(
                             icon: Icons.wc_rounded,
-                            label: 'Gender',
-                            value: authState.gender?.toUpperCase() ?? 'Not Provided',
+                            label: 'reg_gender'.tr(),
+                            value: authState.gender != null ? 'reg_${authState.gender}'.tr() : 'profile_not_provided'.tr(),
                             isDark: isDark,
                             textPrimary: textPrimary,
                             textMuted: textMuted,
@@ -403,8 +403,8 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           _divider(dividerColor),
                           _InfoTile(
                             icon: Icons.medical_services_rounded,
-                            label: 'Medical History',
-                            value: authState.medicalHistory?.isNotEmpty == true ? authState.medicalHistory! : 'None',
+                            label: 'reg_medical'.tr(),
+                            value: authState.medicalHistory?.isNotEmpty == true ? authState.medicalHistory! : 'profile_none'.tr(),
                             isDark: isDark,
                             textPrimary: textPrimary,
                             textMuted: textMuted,
@@ -412,8 +412,8 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           _divider(dividerColor),
                           _InfoTile(
                             icon: Icons.public_rounded,
-                            label: 'Ethnicity',
-                            value: authState.ethnicity ?? 'Not Provided',
+                            label: 'ethnic_other'.tr(), // Ethnicity
+                            value: authState.ethnicity ?? 'profile_not_provided'.tr(),
                             isDark: isDark,
                             textPrimary: textPrimary,
                             textMuted: textMuted,
