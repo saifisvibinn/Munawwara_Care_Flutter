@@ -1012,6 +1012,14 @@ class _GroupCard extends ConsumerWidget {
                         _VertDivider(isDark: isDark),
                         Expanded(
                           child: _StatCell(
+                            label: 'dashboard_stat_moderators'.tr(),
+                            value: '${group.moderatorCount}',
+                            valueColor: const Color(0xFFF97316),
+                          ),
+                        ),
+                        _VertDivider(isDark: isDark),
+                        Expanded(
+                          child: _StatCell(
                             label: 'dashboard_stat_online'.tr(),
                             value: '${group.onlineCount}',
                             valueColor: const Color(0xFFF97316),

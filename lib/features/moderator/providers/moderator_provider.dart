@@ -220,6 +220,7 @@ class ModeratorGroup {
   }
 
   int get totalPilgrims => pilgrims.length;
+  int get moderatorCount => moderators.length;
   int get onlineCount => pilgrims.where((p) => p.isOnline).length;
   int get sosCount => pilgrims.where((p) => p.hasSOS).length;
   int get batteryLowCount =>
