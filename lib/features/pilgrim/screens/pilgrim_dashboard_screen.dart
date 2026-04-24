@@ -33,7 +33,6 @@ import '../../shared/models/message_model.dart';
 import '../providers/pilgrim_provider.dart';
 import 'group_details_screen.dart';
 import 'group_inbox_screen.dart';
-import 'join_group_screen.dart';
 import 'mecca_hotspots_screen.dart';
 import 'pilgrim_profile_screen.dart';
 import 'qibla_compass_screen.dart';
@@ -295,6 +294,26 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               duration: const Duration(seconds: 5),
             ),
           );
+        });
+
+        // Listen for group membership changes (moderator controlled)
+        SocketService.on('added-to-group', (_) {
+          if (!mounted) return;
+          // Refresh pilgrim state to pick up the new group
+          ref.invalidate(pilgrimProvider);
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (!mounted) return;
+            final gId = ref.read(pilgrimProvider).groupInfo?.groupId;
+            if (gId != null) {
+              ref.read(suggestedAreaProvider.notifier).load(gId);
+            }
+          });
+        });
+
+        SocketService.on('removed-from-group', (_) {
+          if (!mounted) return;
+          // Refresh pilgrim state so limbo UI shows
+          ref.invalidate(pilgrimProvider);
         });
       }
       // Fetch notification badge count
@@ -937,21 +956,10 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     );
   }
 
-  // ── Join Group ──────────────────────────────────────────────────────────────
+  // ── Join Group (no longer used - moderator assigns pilgrims) ────────────────
+  // Kept as stub for any remaining references
+  void _openJoinGroup() {}
 
-  Future<void> _openJoinGroup() async {
-    final result = await Navigator.of(
-      context,
-    ).push<bool>(MaterialPageRoute(builder: (_) => const JoinGroupScreen()));
-    if (result == true && mounted) {
-      await ref.read(pilgrimProvider.notifier).loadDashboard();
-      final gId = ref.read(pilgrimProvider).groupInfo?.groupId;
-      if (gId != null) {
-        SocketService.emit('join_group', gId);
-        ref.read(messageProvider.notifier).fetchUnreadCount(gId);
-      }
-    }
-  }
 
   // ── Navigate to Moderator ──────────────────────────────────────────────────
 
@@ -1064,7 +1072,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               ),
             );
           } else {
-            _openJoinGroup();
+            // No group — do nothing (limbo state, moderator will assign)
           }
         },
         onHotspotsTap: () {
@@ -1105,36 +1113,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             ? AppColors.backgroundDark
             : const Color(0xfff1f5f3),
         body: IndexedStack(index: _currentTab, children: tabs),
-        floatingActionButton: SizedBox(
-          width: 56.w,
-          height: 56.w,
-          child: FloatingActionButton(
-            onPressed: pilgrimState.groupInfo != null
-                ? () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'You are already in a group. Leave your current group to join another.',
-                          style: const TextStyle(fontFamily: 'Lexend'),
-                        ),
-                        backgroundColor: Colors.grey.shade700,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                      ),
-                    );
-                  }
-                : _openJoinGroup,
-            backgroundColor: pilgrimState.groupInfo != null
-                ? Colors.grey
-                : AppColors.primary,
-            foregroundColor: Colors.white,
-            shape: const CircleBorder(),
-            elevation: 6,
-            child: Icon(Symbols.qr_code_scanner, size: 26.w),
-          ),
-        ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         bottomNavigationBar: _BottomNav(
           currentIndex: _currentTab,
@@ -1425,6 +1403,70 @@ class _HomeTab extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // ── Limbo State: No Group Assigned ───────────────────
+                        if (group == null) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.all(16.w),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppColors.primary.withValues(alpha: 0.12),
+                                  AppColors.accentGold.withValues(alpha: 0.08),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(16.r),
+                              border: Border.all(
+                                color: AppColors.primary.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 44.w,
+                                  height: 44.w,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.15),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Symbols.group_work,
+                                    size: 24.w,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                SizedBox(width: 12.w),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Not Assigned to a Group',
+                                        style: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14.sp,
+                                          color: isDark ? Colors.white : AppColors.textDark,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2.h),
+                                      Text(
+                                        'Please wait for your moderator to add you to a group.',
+                                        style: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          fontSize: 12.sp,
+                                          color: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 16.h),
+                        ],
+
                         // ── Card Grid ────────────────────────────────────────
                         IntrinsicHeight(
                           child: Row(

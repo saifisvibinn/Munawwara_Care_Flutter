@@ -12,17 +12,69 @@ import 'package:easy_localization/easy_localization.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../providers/moderator_provider.dart';
+import 'manage_pilgrims_screen.dart';
 
-class PilgrimProvisioningScreen extends ConsumerStatefulWidget {
+// ── Tab Wrapper ───────────────────────────────────────────────────────────────
+
+class PilgrimProvisioningScreen extends StatelessWidget {
   const PilgrimProvisioningScreen({super.key});
 
   @override
-  ConsumerState<PilgrimProvisioningScreen> createState() =>
-      _PilgrimProvisioningScreenState();
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor:
+            isDark ? AppColors.backgroundDark : const Color(0xfff1f5f3),
+        appBar: PreferredSize(
+          preferredSize: Size.fromHeight(kToolbarHeight),
+          child: SafeArea(
+            child: TabBar(
+              labelStyle: TextStyle(
+                fontFamily: 'Lexend',
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+              unselectedLabelStyle: TextStyle(
+                fontFamily: 'Lexend',
+                fontWeight: FontWeight.w400,
+                fontSize: 14,
+              ),
+              labelColor: AppColors.primary,
+              unselectedLabelColor:
+                  isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
+              indicatorColor: AppColors.primary,
+              indicatorSize: TabBarIndicatorSize.label,
+              tabs: const [
+                Tab(text: 'Provision'),
+                Tab(text: 'Manage'),
+              ],
+            ),
+          ),
+        ),
+        body: const TabBarView(
+          children: [
+            _ProvisionTab(),
+            ManagePilgrimsScreen(),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _PilgrimProvisioningScreenState
-    extends ConsumerState<PilgrimProvisioningScreen> {
+// ── Provision Tab (original screen) ──────────────────────────────────────────
+
+class _ProvisionTab extends ConsumerStatefulWidget {
+  const _ProvisionTab();
+
+  @override
+  ConsumerState<_ProvisionTab> createState() => _ProvisionTabState();
+}
+
+class _ProvisionTabState
+    extends ConsumerState<_ProvisionTab> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
@@ -35,6 +87,7 @@ class _PilgrimProvisioningScreenState
   bool _isLoadingResources = false;
   bool _isProvisioning = false;
   String? _error;
+
 
   String? _selectedGroupId;
   String _selectedLanguage = 'en';
@@ -599,6 +652,7 @@ class _PilgrimProvisioningScreenState
     return '$mm/$dd ${local.year} $hh:$mi';
   }
 
+
   @override
   Widget build(BuildContext context) {
     ref.listen(moderatorProvider.select((m) => m.groups.length), (prev, next) {
@@ -1108,30 +1162,7 @@ class _PilgrimProvisioningScreenState
                     ),
 
                     SizedBox(height: 10.h),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _isLoadingStatus
-                                ? null
-                                : () => _loadProvisioningStatus(),
-                            icon: Icon(Symbols.sync, size: 16.w),
-                            label: Text('group_refresh_status'.tr()),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: textPrimary,
-                              side: BorderSide(
-                                color: isDark
-                                    ? AppColors.dividerDark
-                                    : AppColors.dividerLight,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12.r),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+
                   ],
                 ),
               ),
@@ -1152,7 +1183,22 @@ class _PilgrimProvisioningScreenState
                       color: textPrimary,
                     ),
                   ),
-                  DropdownButton<String>(
+                  Row(
+                    children: [
+                      // Refresh button
+                      IconButton(
+                        onPressed: _isLoadingStatus ? null : () => _loadProvisioningStatus(),
+                        icon: _isLoadingStatus
+                            ? SizedBox(
+                                width: 16.w,
+                                height: 16.w,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                              )
+                            : Icon(Symbols.sync, size: 20.w, color: AppColors.primary),
+                        tooltip: 'Refresh status',
+                        splashRadius: 20,
+                      ),
+                      DropdownButton<String>(
                     value: _filterStatus,
                     items: [
                       DropdownMenuItem(value: 'all', child: Text('group_status_all'.tr())),
@@ -1179,6 +1225,8 @@ class _PilgrimProvisioningScreenState
                         : Colors.white,
                     underline: const SizedBox(),
                   ),
+                    ],
+                  ), // end inner Row (refresh + dropdown)
                 ],
               ),
               SizedBox(height: 10.h),
