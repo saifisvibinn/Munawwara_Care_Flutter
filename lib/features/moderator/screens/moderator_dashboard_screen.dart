@@ -1,8 +1,9 @@
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'dart:ui' as ui;
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/services/api_service.dart';
@@ -225,11 +226,11 @@ class _ModeratorDashboardScreenState
           if (showEmptyGroupsArrow)
             IgnorePointer(
               child: Align(
-                alignment: Alignment.bottomRight,
+                alignment: AlignmentDirectional.bottomEnd,
                 child: Padding(
-                  padding: EdgeInsets.only(right: 64.w, bottom: 100.h),
+                  padding: EdgeInsetsDirectional.only(end: 64.w, bottom: 100.h),
                   child: Transform.rotate(
-                    angle: -0.6,
+                    angle: Directionality.of(context) == ui.TextDirection.rtl ? 0.6 : -0.6,
                     child: Icon(
                       Symbols.arrow_downward,
                       size: 32.w,
@@ -1060,10 +1061,13 @@ class _GroupCard extends ConsumerWidget {
                           ),
                         ),
                         const Spacer(),
-                        Icon(
-                          Symbols.arrow_forward,
-                          size: 18.w,
-                          color: const Color(0xFF6B7BAE),
+                        Transform.scale(
+                          scaleX: Directionality.of(context) == ui.TextDirection.rtl ? -1 : 1,
+                          child: Icon(
+                            Symbols.arrow_forward,
+                            size: 18.w,
+                            color: const Color(0xFF6B7BAE),
+                          ),
                         ),
                       ],
                     ),

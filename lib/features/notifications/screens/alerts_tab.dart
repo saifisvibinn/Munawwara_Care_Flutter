@@ -96,6 +96,58 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
     }
   }
 
+  Future<void> _declineInvitation(String invId) async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+
+      final res = await ApiService.dio.post('/invitations/$invId/decline');
+      
+      if (!mounted) return;
+      Navigator.pop(context); // close dialog
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        // Remove or update the notification by fetching
+        ref.read(notificationProvider.notifier).fetch();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res.data['message']?.toString() ?? 'Invitation declined.'),
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // close dialog
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ApiService.parseError(e)),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // close dialog
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('An unexpected error occurred'),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(notificationProvider);
@@ -201,6 +253,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
                               .read(notificationProvider.notifier)
                               .delete(n.id),
                           onAcceptInvitation: (id) => _acceptInvitation(id),
+                          onDeclineInvitation: (id) => _declineInvitation(id),
                         );
                       },
                     ),
@@ -221,48 +274,38 @@ class _NotificationTile extends ConsumerWidget {
   final bool isDark;
   final VoidCallback onDelete;
   final void Function(String)? onAcceptInvitation;
+  final void Function(String)? onDeclineInvitation;
 
   const _NotificationTile({
     required this.notification,
     required this.isDark,
     required this.onDelete,
     this.onAcceptInvitation,
+    this.onDeclineInvitation,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final n = notification;
     final bg = isDark ? const Color(0xFF1A2C24) : Colors.white;
+    final bool isInvitation = n.type == 'group_invitation';
 
-    return Dismissible(
-      key: ValueKey(n.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: EdgeInsets.only(right: 20.w),
-        decoration: BoxDecoration(
-          color: Colors.red.shade400,
-          borderRadius: BorderRadius.circular(16.r),
-        ),
-        child: Icon(Symbols.delete, color: Colors.white, size: 22.w),
+    Widget content = Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(16.r),
+        border: n.read
+            ? null
+            : Border(left: BorderSide(color: n.iconColor, width: 3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      onDismissed: (_) => onDelete(),
-      child: Container(
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(16.r),
-          border: n.read
-              ? null
-              : Border(left: BorderSide(color: n.iconColor, width: 3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Padding(
+      child: Padding(
           padding: EdgeInsets.all(14.w),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -472,51 +515,103 @@ class _NotificationTile extends ConsumerWidget {
                     // Join Group button for group invitations
                     if (n.type == 'group_invitation') ...[
                       SizedBox(height: 8.h),
-                      GestureDetector(
-                        onTap: () {
-                          final invId = n.data?['invitation_id']?.toString();
-                          if (invId != null && onAcceptInvitation != null) {
-                            onAcceptInvitation!(invId);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Invalid invitation data'),
-                                backgroundColor: Colors.red,
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              final invId = n.data?['invitation_id']?.toString();
+                              if (invId != null && onAcceptInvitation != null) {
+                                onAcceptInvitation!(invId);
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Invalid invitation data'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12.w,
+                                vertical: 7.h,
                               ),
-                            );
-                          }
-                        },
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 12.w,
-                            vertical: 7.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: n.iconColor,
-                            borderRadius: BorderRadius.circular(10.r),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Symbols.group_add,
-                                size: 14.w,
-                                color: Colors.white,
-                                fill: 1,
+                              decoration: BoxDecoration(
+                                color: n.iconColor,
+                                borderRadius: BorderRadius.circular(10.r),
                               ),
-                              SizedBox(width: 4.w),
-                              Text(
-                                'Join Group',
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 11.sp,
-                                  color: Colors.white,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Symbols.group_add,
+                                    size: 14.w,
+                                    color: Colors.white,
+                                    fill: 1,
+                                  ),
+                                  SizedBox(width: 4.w),
+                                  Text(
+                                    'invite_accept'.tr(),
+                                    style: TextStyle(
+                                      fontFamily: 'Lexend',
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11.sp,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
+                          SizedBox(width: 8.w),
+                          GestureDetector(
+                            onTap: () {
+                              final invId = n.data?['invitation_id']?.toString();
+                              if (invId != null && onDeclineInvitation != null) {
+                                onDeclineInvitation!(invId);
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Invalid invitation data'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12.w,
+                                vertical: 7.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.transparent,
+                                border: Border.all(color: Colors.red.shade400, width: 1.5),
+                                borderRadius: BorderRadius.circular(10.r),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Symbols.close,
+                                    size: 14.w,
+                                    color: Colors.red.shade400,
+                                    fill: 1,
+                                  ),
+                                  SizedBox(width: 4.w),
+                                  Text(
+                                    'invite_decline'.tr(),
+                                    style: TextStyle(
+                                      fontFamily: 'Lexend',
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11.sp,
+                                      color: Colors.red.shade400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ],
@@ -537,7 +632,26 @@ class _NotificationTile extends ConsumerWidget {
             ],
           ),
         ),
+    );
+
+    if (isInvitation) {
+      return content;
+    }
+
+    return Dismissible(
+      key: ValueKey(n.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: EdgeInsets.only(right: 20.w),
+        decoration: BoxDecoration(
+          color: Colors.red.shade400,
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        child: Icon(Symbols.delete, color: Colors.white, size: 22.w),
       ),
+      onDismissed: (_) => onDelete(),
+      child: content,
     );
   }
 

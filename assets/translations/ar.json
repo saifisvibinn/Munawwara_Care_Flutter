@@ -512,5 +512,8 @@
   "group_leave_only_mod_title": "Cannot Leave Group",
   "group_leave_only_mod_desc": "You are the only moderator remaining in this group. You must delete the group permanently instead.",
   "group_delete_permanently": "Delete Group Permanently",
-  "group_leave_remaining_mods": "Remaining Moderators:"
+  "group_leave_remaining_mods": "Remaining Moderators:",
+  "group_invite_success": "تم إرسال الدعوة بنجاح!",
+  "invite_accept": "قبول",
+  "invite_decline": "رفض"
 }

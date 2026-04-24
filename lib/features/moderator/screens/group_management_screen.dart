@@ -3192,20 +3192,21 @@ class _ModeratorManageSheet extends ConsumerWidget {
   ) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ctrl = TextEditingController();
+    
+    // Variables must be outside the builder so they aren't reset on keyboard toggles
+    bool loading = false;
+    String? fieldError;
 
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
+      builder: (sheetContext) => StatefulBuilder(
         builder: (ctx, setSheetState) {
-          bool loading = false;
-          String? fieldError;
-
           Future<void> submit() async {
             final val = ctrl.text.trim();
             if (val.isEmpty || !val.contains('@')) {
-              setSheetState(() => fieldError = 'group_invite_send'.tr());
+              setSheetState(() => fieldError = 'email_invalid'.tr());
               return;
             }
             setSheetState(() {
@@ -3215,11 +3216,21 @@ class _ModeratorManageSheet extends ConsumerWidget {
             final (ok, err) = await ref
                 .read(moderatorProvider.notifier)
                 .inviteModerator(g.id, val);
-            if (ctx.mounted) {
+            if (sheetContext.mounted) {
               if (ok) {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('group_invite_send'.tr())),
+                final messenger = ScaffoldMessenger.of(context);
+                Navigator.pop(sheetContext);
+                messenger.clearSnackBars();
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'group_invite_success'.tr(),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    backgroundColor: Colors.green.shade600,
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 4),
+                  ),
                 );
               } else {
                 setSheetState(() {
@@ -3232,7 +3243,7 @@ class _ModeratorManageSheet extends ConsumerWidget {
 
           return Padding(
             padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
             ),
             child: Container(
               decoration: BoxDecoration(

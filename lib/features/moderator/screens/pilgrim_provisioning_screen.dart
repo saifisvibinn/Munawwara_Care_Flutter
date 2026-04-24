@@ -147,24 +147,28 @@ class _ProvisionTabState
           .where((g) => g.id.isNotEmpty)
           .toList();
 
-      setState(() {
-        final seen = <String>{};
-        _groups = groups.where((g) => seen.add(g.id)).toList();
-        if (_selectedGroupId == null && _groups.isNotEmpty) {
-          _selectedGroupId = _groups.first.id;
-        } else if (_selectedGroupId != null &&
-            !_groups.any((g) => g.id == _selectedGroupId)) {
-          _selectedGroupId = _groups.isNotEmpty ? _groups.first.id : null;
-        }
-      });
+      if (mounted) {
+        setState(() {
+          final seen = <String>{};
+          _groups = groups.where((g) => seen.add(g.id)).toList();
+          if (_selectedGroupId == null && _groups.isNotEmpty) {
+            _selectedGroupId = _groups.first.id;
+          } else if (_selectedGroupId != null &&
+              !_groups.any((g) => g.id == _selectedGroupId)) {
+            _selectedGroupId = _groups.isNotEmpty ? _groups.first.id : null;
+          }
+        });
+      }
 
       if (_selectedGroupId != null) {
         await Future.wait([_loadResourceOptions(), _loadProvisioningStatus()]);
       }
     } on DioException catch (e) {
-      setState(() {
-        _error = ApiService.parseError(e);
-      });
+      if (mounted) {
+        setState(() {
+          _error = ApiService.parseError(e);
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
