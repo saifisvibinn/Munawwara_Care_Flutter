@@ -446,5 +446,15 @@
   "reminder_create_success": "یادہانیاں کامیابی کے ساتھ بن گئیں!",
   "reminder_create_partial_fail": "کچھ یادہانیاں بنانے میں ناکام رہیں",
   "sos_all_busy_warning": "تمام ماڈریٹرز مصروف ہیں، لیکن انہیں آپ کے ایس او ایس کے بارے میں مطلع کر دیا گیا ہے۔",
-  "select_moderator_to_call": "کال کرنے کے لیے ماڈریٹر منتخب کریں"
+  "select_moderator_to_call": "کال کرنے کے لیے ماڈریٹر منتخب کریں",
+  "group_leave_option": "Leave Group",
+  "group_leave_confirm_title": "Leave Group?",
+  "group_leave_confirm_desc": "Are you sure you want to leave this group?",
+  "group_leave_reassign_title": "Reassign Group Ownership",
+  "group_leave_reassign_desc": "As the group creator, you must reassign ownership to another moderator before leaving.",
+  "group_leave_reassign_btn": "Leave & Reassign",
+  "group_leave_only_mod_title": "Cannot Leave Group",
+  "group_leave_only_mod_desc": "You are the only moderator remaining in this group. You must delete the group permanently instead.",
+  "group_delete_permanently": "Delete Group Permanently",
+  "group_leave_remaining_mods": "Remaining Moderators:"
 }

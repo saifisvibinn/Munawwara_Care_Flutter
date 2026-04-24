@@ -446,5 +446,15 @@
   "reminder_create_success": "Rappels créés avec succès!",
   "reminder_create_partial_fail": "Certains rappels n'ont pas pu être créés",
   "sos_all_busy_warning": "Tous les modérateurs sont occupés, mais ils ont été informés de votre SOS.",
-  "select_moderator_to_call": "Sélectionnez un modérateur à appeler"
+  "select_moderator_to_call": "Sélectionnez un modérateur à appeler",
+  "group_leave_option": "Leave Group",
+  "group_leave_confirm_title": "Leave Group?",
+  "group_leave_confirm_desc": "Are you sure you want to leave this group?",
+  "group_leave_reassign_title": "Reassign Group Ownership",
+  "group_leave_reassign_desc": "As the group creator, you must reassign ownership to another moderator before leaving.",
+  "group_leave_reassign_btn": "Leave & Reassign",
+  "group_leave_only_mod_title": "Cannot Leave Group",
+  "group_leave_only_mod_desc": "You are the only moderator remaining in this group. You must delete the group permanently instead.",
+  "group_delete_permanently": "Delete Group Permanently",
+  "group_leave_remaining_mods": "Remaining Moderators:"
 }

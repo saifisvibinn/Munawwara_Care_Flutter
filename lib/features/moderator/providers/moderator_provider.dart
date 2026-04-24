@@ -532,6 +532,21 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
     }
   }
 
+  // Leave a group — returns (success, errorMessage)
+  Future<(bool, String?)> leaveGroup(String groupId, {String? newCreatorId}) async {
+    try {
+      final body = newCreatorId != null ? {'new_creator_id': newCreatorId} : null;
+      await ApiService.dio.post('/groups/$groupId/leave', data: body);
+      final updated = state.groups.where((g) => g.id != groupId).toList();
+      state = state.copyWith(groups: updated, selectedGroupIndex: 0);
+      return (true, null);
+    } on DioException catch (e) {
+      return (false, ApiService.parseError(e));
+    } catch (e) {
+      return (false, e.toString());
+    }
+  }
+
   // Delete a group — returns (success, errorMessage)
   Future<(bool, String?)> deleteGroup(String groupId) async {
     try {

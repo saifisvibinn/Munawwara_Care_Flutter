@@ -1042,6 +1042,146 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     );
   }
 
+  // ── Leave Group Handlers ──────────────────────────────────────────────────
+
+  Future<void> _handleLeaveGroup(ModeratorGroup group) async {
+    final auth = ref.read(authProvider);
+    final userId = auth.userId;
+    if (userId == null) return;
+
+    final isCreator = group.createdBy == userId;
+    final otherMods = group.moderators.where((m) => m.id != userId).toList();
+
+    if (otherMods.isEmpty) {
+      // Case 1: Only moderator
+      _showOnlyModeratorLeaveDialog(group);
+      return;
+    }
+
+    if (isCreator) {
+      // Case 2: Creator reassign
+      _showReassignDialog(group, otherMods);
+      return;
+    }
+
+    // Case 3: Normal leave
+    _showNormalLeaveDialog(group, otherMods);
+  }
+
+  void _showOnlyModeratorLeaveDialog(ModeratorGroup group) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('group_leave_only_mod_title'.tr()),
+        content: Text('group_leave_only_mod_desc'.tr()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('area_cancel'.tr(), style: const TextStyle(color: AppColors.textMutedLight)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final (ok, err) = await ref.read(moderatorProvider.notifier).deleteGroup(group.id);
+              if (mounted && ok) {
+                Navigator.of(context).pop(); // pop management screen
+              } else if (mounted && err != null) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+              }
+            },
+            child: Text('group_delete_permanently'.tr(), style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReassignDialog(ModeratorGroup group, List<GroupModerator> otherMods) {
+    String? selectedModId;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text('group_leave_reassign_title'.tr()),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('group_leave_reassign_desc'.tr()),
+              SizedBox(height: 16.h),
+              ...otherMods.map((mod) => RadioListTile<String>(
+                    title: Text(mod.fullName),
+                    value: mod.id,
+                    groupValue: selectedModId,
+                    onChanged: (val) => setDialogState(() => selectedModId = val),
+                  )),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('area_cancel'.tr(), style: const TextStyle(color: AppColors.textMutedLight)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: selectedModId == null
+                  ? null
+                  : () async {
+                      Navigator.pop(ctx);
+                      final (ok, err) = await ref.read(moderatorProvider.notifier).leaveGroup(group.id, newCreatorId: selectedModId);
+                      if (mounted && ok) {
+                        Navigator.of(context).pop(); // pop management screen
+                      } else if (mounted && err != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+                      }
+                    },
+              child: Text('group_leave_reassign_btn'.tr(), style: const TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showNormalLeaveDialog(ModeratorGroup group, List<GroupModerator> otherMods) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('group_leave_confirm_title'.tr()),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('group_leave_confirm_desc'.tr()),
+            SizedBox(height: 16.h),
+            Text('group_leave_remaining_mods'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: 8.h),
+            ...otherMods.map((mod) => Text('• ${mod.fullName}')),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('area_cancel'.tr(), style: const TextStyle(color: AppColors.textMutedLight)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final (ok, err) = await ref.read(moderatorProvider.notifier).leaveGroup(group.id);
+              if (mounted && ok) {
+                Navigator.of(context).pop(); // pop management screen
+              } else if (mounted && err != null) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+              }
+            },
+            child: Text('group_leave_option'.tr(), style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Moderator management sheet ────────────────────────────────────────────
 
   void _showManageSheet(ModeratorGroup group) {
@@ -1826,6 +1966,8 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                         _showAreaActions(group, areaState);
                       case 'reminder':
                         _openReminders(group);
+                      case 'leave':
+                        _handleLeaveGroup(group);
                     }
                   },
                   itemBuilder: (_) => [
@@ -1914,6 +2056,28 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                               fontFamily: 'Lexend',
                               fontSize: 14.sp,
                               color: isDark ? Colors.white : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: 'leave',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Symbols.exit_to_app,
+                            size: 18.w,
+                            color: Colors.red,
+                          ),
+                          SizedBox(width: 12.w),
+                          Text(
+                            'group_leave_option'.tr(),
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 14.sp,
+                              color: Colors.red,
                             ),
                           ),
                         ],

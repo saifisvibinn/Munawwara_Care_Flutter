@@ -225,20 +225,17 @@ class _ModeratorDashboardScreenState
           if (showEmptyGroupsArrow)
             IgnorePointer(
               child: Align(
-                alignment: Alignment.bottomCenter,
+                alignment: Alignment.bottomRight,
                 child: Padding(
-                  padding: EdgeInsets.only(bottom: 88.h),
-                  child: Transform.translate(
-                    offset: Offset(54.w, 0),
-                    child: Transform.rotate(
-                      angle: 0.42,
-                      child: Icon(
-                        Symbols.arrow_downward,
-                        size: 28.w,
-                        color: isDark
-                            ? const Color(0xFFD4B896)
-                            : const Color(0xFF1A1A4E),
-                      ),
+                  padding: EdgeInsets.only(right: 64.w, bottom: 100.h),
+                  child: Transform.rotate(
+                    angle: -0.6,
+                    child: Icon(
+                      Symbols.arrow_downward,
+                      size: 32.w,
+                      color: isDark
+                          ? const Color(0xFFD4B896)
+                          : const Color(0xFF1A1A4E),
                     ),
                   ),
                 ),

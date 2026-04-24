@@ -457,6 +457,8 @@ class _ProvisionTabState
       }
     } on DioException catch (e) {
       setState(() => _error = ApiService.parseError(e));
+    } catch (e) {
+      setState(() => _error = 'error_generic'.tr());
     } finally {
       if (mounted) {
         setState(() => _isProvisioning = false);
@@ -987,12 +989,12 @@ class _ProvisionTabState
                             keyboardType: TextInputType.number,
                             decoration: _inputDecoration(
                               isDark,
-                              label: 'Age (0-120) *',
+                              label: 'Age (1-120) *',
                             ),
                             validator: (v) {
                               if (v == null || v.trim().isEmpty) return 'Age is required';
                               final num = int.tryParse(v.trim());
-                              if (num == null || num < 0 || num > 120) return 'Invalid age';
+                              if (num == null || num < 1 || num > 120) return 'Invalid age';
                               return null;
                             },
                           ),
