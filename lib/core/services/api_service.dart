@@ -12,16 +12,37 @@ class ApiService {
       'https://mcbackendapp-199324116788.europe-west8.run.app/api';
 
   static Dio? _dioInstance;
+  static Future<void> Function()? _onUnauthorized;
+
+  static void setUnauthorizedCallback(Future<void> Function() callback) {
+    _onUnauthorized = callback;
+  }
 
   static Dio get dio {
-    _dioInstance ??= Dio(
-      BaseOptions(
-        baseUrl: baseUrl,
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 15),
-        headers: {'Content-Type': 'application/json'},
-      ),
-    );
+    if (_dioInstance == null) {
+      _dioInstance = Dio(
+        BaseOptions(
+          baseUrl: baseUrl,
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 15),
+          headers: {'Content-Type': 'application/json'},
+        ),
+      );
+
+      // Add interceptor for 401 errors
+      _dioInstance!.interceptors.add(
+        InterceptorsWrapper(
+          onError: (DioException e, handler) async {
+            if (e.response?.statusCode == 401) {
+              if (_onUnauthorized != null) {
+                await _onUnauthorized!();
+              }
+            }
+            return handler.next(e);
+          },
+        ),
+      );
+    }
     return _dioInstance!;
   }
 

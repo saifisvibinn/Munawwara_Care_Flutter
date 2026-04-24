@@ -18,6 +18,7 @@ import 'core/theme/app_theme.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:dio/dio.dart';
 import 'core/env/env_check.dart';
+import 'core/services/api_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/callkit_service.dart';
 import 'core/router/app_router.dart' show AppRouter;
@@ -252,6 +253,13 @@ void main() async {
 
   final container = ProviderContainer();
   _globalContainer = container;
+
+  // ── Register global unauthorized (401) handler ─────────────────────────────
+  ApiService.setUnauthorizedCallback(() async {
+    AppLogger.w('🛑 Unauthorized (401) detected — forcing logout');
+    await container.read(authProvider.notifier).logout();
+    AppRouter.router.go('/login');
+  });
 
   // Cold-start safeguard: if accept event fired before listener handling,
   // restore pending call context from persisted CallKit payload.
