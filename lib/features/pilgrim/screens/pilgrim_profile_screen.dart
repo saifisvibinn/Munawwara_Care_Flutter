@@ -286,143 +286,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                       ),
                     ),
 
-                    SizedBox(height: 24.h),
-                    _SectionLabel(
-                      label: 'profile_travel_accommodation'.tr(),
-                      textMuted: textMuted,
-                    ),
-                    SizedBox(height: 8.h),
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(16.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(
-                              alpha: isDark ? 0.3 : 0.06,
-                            ),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          _InfoTile(
-                            icon: Icons.hotel_rounded,
-                            label: 'group_hotel_name'.tr(),
-                            value: authState.hotelName ?? 'profile_not_assigned'.tr(),
-                            isDark: isDark,
-                            textPrimary: textPrimary,
-                            textMuted: textMuted,
-                          ),
-                          _divider(dividerColor),
-                          _InfoTile(
-                            icon: Icons.meeting_room_rounded,
-                            label: 'group_room_number'.tr(),
-                            value: authState.roomNumber ?? 'profile_not_assigned'.tr(),
-                            isDark: isDark,
-                            textPrimary: textPrimary,
-                            textMuted: textMuted,
-                          ),
-                          _divider(dividerColor),
-                          _InfoTile(
-                            icon: Icons.directions_bus_rounded,
-                            label: 'group_bus_number'.tr(),
-                            value: authState.busInfo ?? 'profile_not_assigned'.tr(),
-                            isDark: isDark,
-                            textPrimary: textPrimary,
-                            textMuted: textMuted,
-                          ),
-                          _divider(dividerColor),
-                          _InfoTile(
-                            icon: Icons.assignment_ind_rounded,
-                            label: 'profile_national_id'.tr(), // Visa status section
-                            value: authState.visaStatus != null
-                                ? authState.visaStatus!.toUpperCase()
-                                : 'status_unknown'.tr(),
-                            isDark: isDark,
-                            textPrimary: textPrimary,
-                            textMuted: textMuted,
-                            valueColor: _getVisaColor(authState.visaStatus),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    SizedBox(height: 28.h),
-                    _SectionLabel(
-                      label: 'profile_personal_details'.tr(),
-                      textMuted: textMuted,
-                    ),
-                    SizedBox(height: 8.h),
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(16.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(
-                              alpha: isDark ? 0.3 : 0.06,
-                            ),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          _InfoTile(
-                            icon: Icons.badge_rounded,
-                            label: 'profile_national_id'.tr(),
-                            value: authState.nationalId ?? 'profile_not_provided'.tr(),
-                            isDark: isDark,
-                            textPrimary: textPrimary,
-                            textMuted: textMuted,
-                          ),
-                          _divider(dividerColor),
-                          _InfoTile(
-                            icon: Icons.cake_rounded,
-                            label: 'reg_age'.tr(),
-                            value: authState.age != null ? '${authState.age} ${'reg_age_hint'.tr()}' : 'profile_not_provided'.tr(),
-                            isDark: isDark,
-                            textPrimary: textPrimary,
-                            textMuted: textMuted,
-                          ),
-                          _divider(dividerColor),
-                          _InfoTile(
-                            icon: Icons.wc_rounded,
-                            label: 'reg_gender'.tr(),
-                            value: authState.gender != null ? 'reg_${authState.gender}'.tr() : 'profile_not_provided'.tr(),
-                            isDark: isDark,
-                            textPrimary: textPrimary,
-                            textMuted: textMuted,
-                          ),
-                          _divider(dividerColor),
-                          _InfoTile(
-                            icon: Icons.medical_services_rounded,
-                            label: 'reg_medical'.tr(),
-                            value: authState.medicalHistory?.isNotEmpty == true ? authState.medicalHistory! : 'profile_none'.tr(),
-                            isDark: isDark,
-                            textPrimary: textPrimary,
-                            textMuted: textMuted,
-                          ),
-                          _divider(dividerColor),
-                          _InfoTile(
-                            icon: Icons.public_rounded,
-                            label: 'ethnic_other'.tr(), // Ethnicity
-                            value: authState.ethnicity ?? 'profile_not_provided'.tr(),
-                            isDark: isDark,
-                            textPrimary: textPrimary,
-                            textMuted: textMuted,
-                          ),
-                        ],
-                      ),
-                    ),
-
-
                     SizedBox(height: 28.h),
 
                     // ── APPEARANCE section ───────────────────────────────
@@ -562,6 +425,168 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             },
                           );
                         }),
+                      ),
+                    ),
+
+                    SizedBox(height: 28.h),
+
+                    // ── Travel & Accommodation (Retractable) ────────────────
+                    Theme(
+                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(16.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: isDark ? 0.3 : 0.06,
+                              ),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ExpansionTile(
+                          shape: const RoundedRectangleBorder(side: BorderSide.none),
+                          collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                          tilePadding: EdgeInsets.symmetric(horizontal: 16.w),
+                          title: Text(
+                            'profile_travel_accommodation'.tr(),
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14.sp,
+                              color: textPrimary,
+                            ),
+                          ),
+                          leading: Icon(Icons.travel_explore_rounded, color: AppColors.primary, size: 22.sp),
+                          children: [
+                            _InfoTile(
+                              icon: Icons.hotel_rounded,
+                              label: 'group_hotel_name'.tr(),
+                              value: authState.hotelName ?? 'profile_not_assigned'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.meeting_room_rounded,
+                              label: 'group_room_number'.tr(),
+                              value: authState.roomNumber ?? 'profile_not_assigned'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.directions_bus_rounded,
+                              label: 'group_bus_number'.tr(),
+                              value: authState.busInfo ?? 'profile_not_assigned'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.assignment_ind_rounded,
+                              label: 'profile_national_id'.tr(), // Visa status section
+                              value: authState.visaStatus != null
+                                  ? authState.visaStatus!.toUpperCase()
+                                  : 'status_unknown'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                              valueColor: _getVisaColor(authState.visaStatus),
+                            ),
+                            SizedBox(height: 12.h),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: 16.h),
+
+                    // ── Personal Details (Retractable) ──────────────────────
+                    Theme(
+                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(16.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: isDark ? 0.3 : 0.06,
+                              ),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ExpansionTile(
+                          shape: const RoundedRectangleBorder(side: BorderSide.none),
+                          collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                          tilePadding: EdgeInsets.symmetric(horizontal: 16.w),
+                          title: Text(
+                            'profile_personal_details'.tr(),
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14.sp,
+                              color: textPrimary,
+                            ),
+                          ),
+                          leading: Icon(Icons.person_outline_rounded, color: AppColors.primary, size: 22.sp),
+                          children: [
+                            _InfoTile(
+                              icon: Icons.badge_rounded,
+                              label: 'profile_national_id'.tr(),
+                              value: authState.nationalId ?? 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.cake_rounded,
+                              label: 'reg_age'.tr(),
+                              value: authState.age != null ? '${authState.age} ${'reg_age_hint'.tr()}' : 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.wc_rounded,
+                              label: 'reg_gender'.tr(),
+                              value: authState.gender != null ? 'reg_${authState.gender}'.tr() : 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.medical_services_rounded,
+                              label: 'reg_medical'.tr(),
+                              value: authState.medicalHistory?.isNotEmpty == true ? authState.medicalHistory! : 'profile_none'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.public_rounded,
+                              label: 'ethnic_other'.tr(), // Ethnicity
+                              value: authState.ethnicity ?? 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            SizedBox(height: 12.h),
+                          ],
+                        ),
                       ),
                     ),
 
