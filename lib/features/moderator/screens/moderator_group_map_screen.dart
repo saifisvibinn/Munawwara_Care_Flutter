@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 import '../providers/moderator_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -195,19 +196,11 @@ class _ModeratorGroupMapScreenState
     final ok = await ref.read(moderatorProvider.notifier).broadcastSOS();
     if (!mounted) return;
     setState(() => _sosLoading = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: ok ? Colors.red.shade700 : Colors.grey.shade700,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.r),
-        ),
-        content: Text(
-          ok ? '🚨 SOS broadcast sent!' : 'Failed to send SOS. Try again.',
-          style: const TextStyle(color: Colors.white, fontFamily: 'Lexend'),
-        ),
-      ),
-    );
+    if (ok) {
+      StandardSnackBar.showSuccess(context, '🚨 SOS broadcast sent!');
+    } else {
+      StandardSnackBar.showError(context, 'Failed to send SOS. Try again.');
+    }
   }
 
   List<PilgrimInGroup> get _filteredPilgrims {

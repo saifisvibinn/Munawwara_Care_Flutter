@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -241,7 +240,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Text(
                           _isModeratorLogin ? 'Moderator Login' : 'Pilgrim Login',
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.lexend(
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
                             fontSize: 28.sp,
                             fontWeight: FontWeight.w700,
                             letterSpacing: -0.5,
@@ -295,7 +295,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     text: _isModeratorLogin
                                         ? 'Not a moderator? '
                                         : 'Not a pilgrim? ',
-                                    style: GoogleFonts.lexend(
+                                    style: TextStyle(
+                                      fontFamily: 'Lexend',
                                       color: isDark ? AppColors.textMutedLight : const Color(0xff64748b),
                                       fontSize: 14.sp,
                                     ),
@@ -304,7 +305,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         text: _isModeratorLogin
                                             ? 'Log in as a pilgrim'
                                             : 'Log in as a moderator',
-                                        style: GoogleFonts.lexend(
+                                        style: TextStyle(
+                                          fontFamily: 'Lexend',
                                           color: isDark ? Colors.white : AppColors.textDark,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -355,7 +357,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             icon: const Icon(Symbols.keyboard_return, color: AppColors.primary),
             label: Text(
               'Back to Code Entry',
-              style: GoogleFonts.lexend(
+              style: TextStyle(
+                fontFamily: 'Lexend',
                 fontSize: 14.sp,
                 fontWeight: FontWeight.w600,
                 color: AppColors.primary,
@@ -371,30 +374,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       children: [
         _buildFieldLabel('Enter your login code', isDark),
         SizedBox(height: 6.h),
-        Container(
-          decoration: _fieldDecoration(isDark),
-          child: TextField(
-            controller: _codeController,
-            textCapitalization: TextCapitalization.characters,
-            style: GoogleFonts.lexend(
-              fontSize: 14.sp,
-              color: isDark ? Colors.white : AppColors.textDark,
-            ),
-            decoration: InputDecoration(
-              hintText: '',
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-            ),
+        TextField(
+          controller: _codeController,
+          textCapitalization: TextCapitalization.characters,
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontSize: 14.sp,
+            color: isDark ? Colors.white : AppColors.textDark,
+          ),
+          decoration: const InputDecoration(
+            hintText: 'Enter code',
           ),
         ),
         _buildErrorUI(isDark),
         SizedBox(height: 24.h),
         ElevatedButton(
           onPressed: isLoading ? null : () => _handlePilgrimLoginCode(_codeController.text),
-          style: _primaryButtonStyle(),
           child: isLoading
               ? _loadingIndicator()
-              : Text('Continue', style: _buttonTextStyle()),
+              : const Text('Continue'),
         ),
         SizedBox(height: 16.h),
         OutlinedButton.icon(
@@ -405,13 +403,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                _scanHandled = false;
              });
           },
-          icon: Icon(Symbols.qr_code_scanner, size: 20.w, color: AppColors.primary),
-          label: Text('Scan QR Code', style: GoogleFonts.lexend(fontSize: 16.sp, fontWeight: FontWeight.w600, color: AppColors.primary)),
-          style: OutlinedButton.styleFrom(
-            side: BorderSide(color: AppColors.primary, width: 1.5),
-            padding: EdgeInsets.symmetric(vertical: 16.h),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-          ),
+          icon: const Icon(Symbols.qr_code_scanner),
+          label: const Text('Scan QR Code'),
         ),
       ],
     );
@@ -423,62 +416,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       children: [
         _buildFieldLabel('Email or Phone', isDark),
         SizedBox(height: 6.h),
-        Container(
-          decoration: _fieldDecoration(isDark),
-          child: Row(
-            children: [
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                child: Icon(Symbols.person, size: 20.w, color: AppColors.textMutedLight),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: _identifierController,
-                  style: GoogleFonts.lexend(fontSize: 14.sp, color: isDark ? Colors.white : AppColors.textDark),
-                  decoration: InputDecoration(
-                    hintText: 'Email or Phone',
-                    hintStyle: GoogleFonts.lexend(color: AppColors.textMutedLight),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: 16.h),
-                  ),
-                ),
-              ),
-            ],
+        TextField(
+          controller: _identifierController,
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontSize: 14.sp,
+            color: isDark ? Colors.white : AppColors.textDark,
+          ),
+          decoration: InputDecoration(
+            hintText: 'Email or Phone',
+            prefixIcon: Icon(Symbols.person, size: 20.w),
           ),
         ),
         SizedBox(height: 20.h),
         _buildFieldLabel('Password', isDark),
         SizedBox(height: 6.h),
-        Container(
-          decoration: _fieldDecoration(isDark),
-          child: Row(
-            children: [
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                child: Icon(Symbols.lock, size: 20.w, color: AppColors.textMutedLight),
+        TextField(
+          controller: _passwordController,
+          obscureText: _obscurePassword,
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontSize: 14.sp,
+            color: isDark ? Colors.white : AppColors.textDark,
+          ),
+          decoration: InputDecoration(
+            hintText: '••••••••',
+            prefixIcon: Icon(Symbols.lock, size: 20.w),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscurePassword ? Symbols.visibility_off : Symbols.visibility,
+                size: 20.w,
               ),
-              Expanded(
-                child: TextField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  style: GoogleFonts.lexend(fontSize: 14.sp, color: isDark ? Colors.white : AppColors.textDark),
-                  decoration: InputDecoration(
-                    hintText: '••••••••',
-                    hintStyle: GoogleFonts.lexend(color: AppColors.textMutedLight),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: 16.h),
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: Icon(
-                  _obscurePassword ? Symbols.visibility_off : Symbols.visibility,
-                  size: 20.w,
-                  color: AppColors.textMutedLight,
-                ),
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-              ),
-            ],
+              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+            ),
           ),
         ),
         SizedBox(height: 8.h),
@@ -488,7 +458,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             onTap: () {},
             child: Text(
               'Forgot Password?',
-              style: GoogleFonts.lexend(
+              style: TextStyle(
+                fontFamily: 'Lexend',
                 fontSize: 13.sp,
                 fontWeight: FontWeight.w600,
                 color: const Color(0xff3b82f6),
@@ -500,10 +471,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         SizedBox(height: 24.h),
         ElevatedButton(
           onPressed: isLoading ? null : _handleModeratorLogin,
-          style: _primaryButtonStyle(),
           child: isLoading
               ? _loadingIndicator()
-              : Text('Log In', style: _buttonTextStyle()),
+              : const Text('Log In'),
         ),
       ],
     );
@@ -514,21 +484,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       padding: EdgeInsets.only(left: 4.w),
       child: Text(
         text,
-        style: GoogleFonts.lexend(
+        style: TextStyle(
+          fontFamily: 'Lexend',
           fontSize: 13.sp,
           fontWeight: FontWeight.w500,
           color: isDark ? Colors.white : AppColors.textDark,
         ),
-      ),
-    );
-  }
-
-  BoxDecoration _fieldDecoration(bool isDark) {
-    return BoxDecoration(
-      color: isDark ? Colors.black.withValues(alpha: 0.2) : const Color(0xfff8fafc),
-      borderRadius: BorderRadius.circular(12.r),
-      border: Border.all(
-        color: isDark ? const Color(0xff334155) : const Color(0xffe2e8f0),
       ),
     );
   }
@@ -553,7 +514,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Expanded(
               child: Text(
                 _loginError!,
-                style: GoogleFonts.lexend(
+                style: TextStyle(
+                  fontFamily: 'Lexend',
                   fontSize: 12.sp,
                   color: Colors.red.shade700,
                 ),
@@ -565,23 +527,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  ButtonStyle _primaryButtonStyle() {
-    return ElevatedButton.styleFrom(
-      backgroundColor: AppColors.primary,
-      foregroundColor: Colors.white,
-      elevation: 0,
-      shadowColor: AppColors.primary.withValues(alpha: 0.3),
-      padding: EdgeInsets.symmetric(vertical: 16.h),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-    );
-  }
-
-  TextStyle _buttonTextStyle() {
-    return GoogleFonts.lexend(
-      fontSize: 16.sp,
-      fontWeight: FontWeight.w700,
-    );
-  }
 
   Widget _loadingIndicator() {
     return SizedBox(
@@ -634,7 +579,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               children: [
                 Text(
                   langName,
-                  style: GoogleFonts.lexend(
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
                     fontSize: 14.sp,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                     color: isSelected
@@ -665,7 +611,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             SizedBox(width: 8.w),
             Text(
               currentLangName,
-              style: GoogleFonts.lexend(
+              style: TextStyle(
+                fontFamily: 'Lexend',
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w500,
                 color: isDark ? AppColors.textMutedLight : const Color(0xff475569),

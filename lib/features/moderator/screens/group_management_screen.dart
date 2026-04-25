@@ -13,6 +13,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/widgets/custom_dialog.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -193,9 +194,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
 
   void _focusPilgrim(PilgrimInGroup p) {
     if (!p.hasLocation) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${p.firstName} has no location data yet')),
-      );
+      StandardSnackBar.showWarning(context, '${p.firstName} has no location data yet');
       return;
     }
     setState(() => _focusedPilgrimId = p.id);
@@ -209,9 +208,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
 
   Future<void> _navigateToPilgrim(PilgrimInGroup p) async {
     if (!p.hasLocation) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${p.firstName} ${'group_not_found'.tr()}')),
-      );
+      StandardSnackBar.showWarning(context, '${p.firstName} ${'group_not_found'.tr()}');
       return;
     }
     final lat = p.lat!;
@@ -273,17 +270,11 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
       'moderatorId': auth.userId,
       'moderatorName': auth.fullName ?? 'Moderator',
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(newVal ? 'nav_beacon_on'.tr() : 'nav_beacon_off'.tr()),
-        backgroundColor: newVal ? AppColors.primary : Colors.grey.shade600,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.r),
-        ),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    if (newVal) {
+      StandardSnackBar.showSuccess(context, 'nav_beacon_on'.tr());
+    } else {
+      StandardSnackBar.showInfo(context, 'nav_beacon_off'.tr());
+    }
   }
 
   // ── Add Pilgrim ───────────────────────────────────────────────────────────
@@ -334,9 +325,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
             if (ctx.mounted) {
               if (ok) {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('group_add_success'.tr())),
-                );
+                StandardSnackBar.showSuccess(context, 'group_add_success'.tr());
               } else {
                 setSheetState(() {
                   loading = false;
@@ -527,16 +516,14 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
           .read(moderatorProvider.notifier)
           .removePilgrimFromGroup(group.id, pilgrim.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              ok
-                  ? '${pilgrim.firstName} ${'group_remove_confirm'.tr().toLowerCase()}'
-                  : err ?? 'group_not_found'.tr(),
-            ),
-            backgroundColor: ok ? null : Colors.red,
-          ),
-        );
+        if (ok) {
+          StandardSnackBar.showSuccess(
+            context,
+            '${pilgrim.firstName} ${'group_remove_confirm'.tr().toLowerCase()}',
+          );
+        } else {
+          StandardSnackBar.showError(context, err ?? 'group_not_found'.tr());
+        }
       }
       return ok;
     }
@@ -1031,117 +1018,112 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
   }
 
   void _showOnlyModeratorLeaveDialog(ModeratorGroup group) {
-    showDialog(
+    StandardDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('group_leave_only_mod_title'.tr()),
-        content: Text('group_leave_only_mod_desc'.tr()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('area_cancel'.tr(), style: const TextStyle(color: AppColors.textMutedLight)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final (ok, err) = await ref.read(moderatorProvider.notifier).deleteGroup(group.id);
-              if (mounted && ok) {
-                Navigator.of(context).pop(); // pop management screen
-              } else if (mounted && err != null) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
-              }
-            },
-            child: Text('group_delete_permanently'.tr(), style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
+      title: 'group_leave_only_mod_title',
+      content: 'group_leave_only_mod_desc',
+      confirmText: 'group_delete_permanently',
+      cancelText: 'area_cancel',
+      isDestructive: true,
+    ).then((confirmed) async {
+      if (confirmed == true) {
+        final (ok, err) = await ref.read(moderatorProvider.notifier).deleteGroup(group.id);
+        if (mounted && ok) {
+          Navigator.of(context).pop(); // pop management screen
+        } else if (mounted && err != null) {
+          StandardSnackBar.showError(context, err);
+        }
+      }
+    });
   }
 
   void _showReassignDialog(ModeratorGroup group, List<GroupModerator> otherMods) {
     String? selectedModId;
-    showDialog(
+    StandardDialog.show(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: Text('group_leave_reassign_title'.tr()),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('group_leave_reassign_desc'.tr()),
-              SizedBox(height: 16.h),
-              ...otherMods.map((mod) => RadioListTile<String>(
-                    title: Text(mod.fullName),
-                    value: mod.id,
-                    groupValue: selectedModId,
-                    onChanged: (val) => setDialogState(() => selectedModId = val),
-                  )),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('area_cancel'.tr(), style: const TextStyle(color: AppColors.textMutedLight)),
+      title: 'group_leave_reassign_title',
+      confirmText: 'group_leave_reassign_btn',
+      cancelText: 'area_cancel',
+      isDestructive: true,
+      contentWidget: StatefulBuilder(
+        builder: (ctx, setDialogState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'group_leave_reassign_desc'.tr(),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 14.sp,
+                color: Theme.of(context).brightness == Brightness.dark 
+                  ? Colors.white70 : AppColors.textMutedLight,
+              ),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: selectedModId == null
-                  ? null
-                  : () async {
-                      Navigator.pop(ctx);
-                      final (ok, err) = await ref.read(moderatorProvider.notifier).leaveGroup(group.id, newCreatorId: selectedModId);
-                      if (mounted && ok) {
-                        Navigator.of(context).pop(); // pop management screen
-                      } else if (mounted && err != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
-                      }
-                    },
-              child: Text('group_leave_reassign_btn'.tr(), style: const TextStyle(color: Colors.white)),
-            ),
+            SizedBox(height: 16.h),
+            ...otherMods.map((mod) => RadioListTile<String>(
+              title: Text(mod.fullName, style: const TextStyle(fontFamily: 'Lexend')),
+              value: mod.id,
+              activeColor: AppColors.primary,
+              groupValue: selectedModId,
+              onChanged: (val) => setDialogState(() => selectedModId = val),
+            )),
           ],
         ),
       ),
-    );
+    ).then((confirmed) async {
+      if (confirmed == true && selectedModId != null) {
+        final (ok, err) = await ref.read(moderatorProvider.notifier).leaveGroup(group.id, newCreatorId: selectedModId);
+        if (mounted && ok) {
+          Navigator.of(context).pop(); // pop management screen
+        } else if (mounted && err != null) {
+          StandardSnackBar.showError(context, err);
+        }
+      }
+    });
   }
 
   void _showNormalLeaveDialog(ModeratorGroup group, List<GroupModerator> otherMods) {
-    showDialog(
+    StandardDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('group_leave_confirm_title'.tr()),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('group_leave_confirm_desc'.tr()),
-            SizedBox(height: 16.h),
-            Text('group_leave_remaining_mods'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
-            SizedBox(height: 8.h),
-            ...otherMods.map((mod) => Text('• ${mod.fullName}')),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('area_cancel'.tr(), style: const TextStyle(color: AppColors.textMutedLight)),
+      title: 'group_leave_confirm_title',
+      confirmText: 'group_leave_reassign_btn',
+      cancelText: 'area_cancel',
+      isDestructive: true,
+      contentWidget: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'group_leave_confirm_desc'.tr(),
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 14.sp,
+              color: Theme.of(context).brightness == Brightness.dark 
+                ? Colors.white70 : AppColors.textMutedLight,
+            ),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final (ok, err) = await ref.read(moderatorProvider.notifier).leaveGroup(group.id);
-              if (mounted && ok) {
-                Navigator.of(context).pop(); // pop management screen
-              } else if (mounted && err != null) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
-              }
-            },
-            child: Text('group_leave_option'.tr(), style: const TextStyle(color: Colors.white)),
+          SizedBox(height: 16.h),
+          Text(
+            'group_leave_remaining_mods'.tr(),
+            style: const TextStyle(fontFamily: 'Lexend', fontWeight: FontWeight.bold),
           ),
+          SizedBox(height: 8.h),
+          ...otherMods.map((mod) => Text(
+            '• ${mod.fullName}',
+            style: const TextStyle(fontFamily: 'Lexend'),
+          )),
         ],
       ),
-    );
+    ).then((confirmed) async {
+      if (confirmed == true) {
+        final (ok, err) = await ref.read(moderatorProvider.notifier).leaveGroup(group.id);
+        if (mounted && ok) {
+          Navigator.of(context).pop(); // pop management screen
+        } else if (mounted && err != null) {
+          StandardSnackBar.showError(context, err);
+        }
+      }
+    });
   }
 
   // ── Moderator management sheet ────────────────────────────────────────────
@@ -1268,16 +1250,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                     onTap: () {
                       Navigator.pop(ctx);
                       if (areaState.hasMeetpoint) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('area_meetpoint_exists'.tr()),
-                            backgroundColor: Colors.orange.shade700,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12.r),
-                            ),
-                          ),
-                        );
+                        StandardSnackBar.showWarning(context, 'area_meetpoint_exists'.tr());
                         return;
                       }
                       _openAreaPicker(group, 'meetpoint');
@@ -1618,18 +1591,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                           .read(suggestedAreaProvider.notifier)
                                           .deleteArea(group.id, area.id);
                                       if (ok && mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text('area_deleted'.tr()),
-                                            behavior: SnackBarBehavior.floating,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12.r),
-                                            ),
-                                          ),
-                                        );
+                                        StandardSnackBar.showSuccess(context, 'area_deleted');
                                       }
                                     },
                                     child: Container(
@@ -2712,9 +2674,7 @@ class _QrShareSheetState extends State<_QrShareSheet> {
                         Clipboard.setData(
                           ClipboardData(text: widget.group.groupCode),
                         );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('group_code_copied'.tr())),
-                        );
+                        StandardSnackBar.showSuccess(context, 'group_code_copied'.tr());
                       },
                       child: Container(
                         width: 36.w,
@@ -3036,16 +2996,17 @@ class _ModeratorManageSheet extends ConsumerWidget {
                             .read(moderatorProvider.notifier)
                             .removeModeratorFromGroup(liveGroup.id, mod.id);
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                ok
-                                    ? '${mod.fullName} ${'group_remove_confirm'.tr().toLowerCase()}'
-                                    : err ?? 'group_not_found'.tr(),
-                              ),
-                              backgroundColor: ok ? null : Colors.red,
-                            ),
-                          );
+                          if (ok) {
+                            StandardSnackBar.showSuccess(
+                              context,
+                              '${mod.fullName} ${'group_remove_confirm'.tr().toLowerCase()}',
+                            );
+                          } else {
+                            StandardSnackBar.showError(
+                              context,
+                              err ?? 'group_not_found'.tr(),
+                            );
+                          }
                         }
                       },
                       child: Container(
@@ -3962,20 +3923,12 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
     if (success) {
       Navigator.pop(context);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            errorMsg ??
-                (widget.areaType == 'meetpoint'
-                    ? 'area_meetpoint_exists'.tr()
-                    : 'error_generic'.tr()),
-          ),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.r),
-          ),
-        ),
+      StandardSnackBar.showError(
+        context,
+        errorMsg ??
+            (widget.areaType == 'meetpoint'
+                ? 'area_meetpoint_exists'.tr()
+                : 'error_generic'.tr()),
       );
     }
   }
@@ -4028,11 +3981,6 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
               ),
               decoration: InputDecoration(
                 hintText: 'area_search_hint'.tr(),
-                hintStyle: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontSize: 13.sp,
-                  color: AppColors.textMutedLight,
-                ),
                 prefixIcon: Icon(
                   Symbols.search,
                   size: 20.w,
@@ -4051,15 +3999,6 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                         ),
                       )
                     : null,
-                filled: true,
-                fillColor: isDark
-                    ? AppColors.backgroundDark
-                    : const Color(0xFFF0F0F8),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14.r),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: EdgeInsets.symmetric(vertical: 12.h),
               ),
             ),
           ),
@@ -4191,25 +4130,11 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                   ),
                   decoration: InputDecoration(
                     hintText: 'area_name_hint'.tr(),
-                    hintStyle: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 13.sp,
-                      color: AppColors.textMutedLight,
-                    ),
                     prefixIcon: Icon(
                       isMeetpoint ? Symbols.crisis_alert : Symbols.pin_drop,
                       size: 18.w,
                       color: accentColor,
                     ),
-                    filled: true,
-                    fillColor: isDark
-                        ? AppColors.backgroundDark
-                        : const Color(0xFFF0F0F8),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14.r),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: EdgeInsets.symmetric(vertical: 12.h),
                   ),
                 ),
                 SizedBox(height: 8.h),
@@ -4223,25 +4148,11 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                   maxLines: 1,
                   decoration: InputDecoration(
                     hintText: 'area_desc_hint'.tr(),
-                    hintStyle: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 13.sp,
-                      color: AppColors.textMutedLight,
-                    ),
                     prefixIcon: Icon(
                       Symbols.description,
                       size: 18.w,
                       color: AppColors.textMutedLight,
                     ),
-                    filled: true,
-                    fillColor: isDark
-                        ? AppColors.backgroundDark
-                        : const Color(0xFFF0F0F8),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14.r),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: EdgeInsets.symmetric(vertical: 12.h),
                   ),
                 ),
               ],
@@ -4265,11 +4176,6 @@ class _AreaPickerScreenState extends ConsumerState<_AreaPickerScreen> {
                     : _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: accentColor,
-                  disabledBackgroundColor: accentColor.withOpacity(0.35),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.r),
-                  ),
-                  elevation: 0,
                 ),
                 child: _submitting
                     ? SizedBox(

@@ -14,6 +14,7 @@ import '../../moderator/widgets/pilgrim_profile_sheet.dart';
 import 'package:dio/dio.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/widgets/custom_dialog.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 import '../../pilgrim/providers/pilgrim_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -44,7 +45,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
       final res = await ApiService.dio.post('/invitations/$invId/accept');
       
       if (!mounted) return;
-      Navigator.pop(context); // close dialog
+      StandardDialog.hide(context); // close dialog
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         // Reload dashboard so groupInfo is populated
@@ -58,36 +59,18 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
         // Remove or update the notification by fetching
         ref.read(notificationProvider.notifier).fetch();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res.data['message']?.toString() ?? 'Invitation accepted!'),
-            backgroundColor: AppColors.primary,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        StandardSnackBar.showSuccess(context, res.data['message']?.toString() ?? 'Invitation accepted!');
       }
     } on DioException catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // close dialog
+      StandardDialog.hide(context); // close dialog
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ApiService.parseError(e)),
-          backgroundColor: Colors.red.shade700,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      StandardSnackBar.showError(context, ApiService.parseError(e));
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // close dialog
+      StandardDialog.hide(context); // close dialog
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('An unexpected error occurred'),
-          backgroundColor: Colors.red.shade700,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      StandardSnackBar.showError(context, 'An unexpected error occurred');
     }
   }
 
@@ -98,42 +81,24 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
       final res = await ApiService.dio.post('/invitations/$invId/decline');
       
       if (!mounted) return;
-      Navigator.pop(context); // close dialog
+      StandardDialog.hide(context); // close dialog
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         // Remove or update the notification by fetching
         ref.read(notificationProvider.notifier).fetch();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res.data['message']?.toString() ?? 'Invitation declined.'),
-            backgroundColor: AppColors.primary,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        StandardSnackBar.showSuccess(context, res.data['message']?.toString() ?? 'Invitation declined.');
       }
     } on DioException catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // close dialog
+      StandardDialog.hide(context); // close dialog
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ApiService.parseError(e)),
-          backgroundColor: Colors.red.shade700,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      StandardSnackBar.showError(context, ApiService.parseError(e));
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // close dialog
+      StandardDialog.hide(context); // close dialog
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('An unexpected error occurred'),
-          backgroundColor: Colors.red.shade700,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      StandardSnackBar.showError(context, 'An unexpected error occurred');
     }
   }
 
@@ -406,17 +371,7 @@ class _NotificationTile extends ConsumerWidget {
                                   uid,
                                 );
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Pilgrim not found in your groups',
-                                      style: const TextStyle(
-                                        fontFamily: 'Lexend',
-                                      ),
-                                    ),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
+                                StandardSnackBar.showWarning(context, 'Pilgrim not found in your groups');
                               }
                             },
                             child: Container(
@@ -512,12 +467,7 @@ class _NotificationTile extends ConsumerWidget {
                               if (invId != null && onAcceptInvitation != null) {
                                 onAcceptInvitation!(invId);
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Invalid invitation data'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
+                                StandardSnackBar.showError(context, 'Invalid invitation data');
                               }
                             },
                             child: Container(
@@ -559,12 +509,7 @@ class _NotificationTile extends ConsumerWidget {
                               if (invId != null && onDeclineInvitation != null) {
                                 onDeclineInvitation!(invId);
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Invalid invitation data'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
+                                StandardSnackBar.showError(context, 'Invalid invitation data');
                               }
                             },
                             child: Container(

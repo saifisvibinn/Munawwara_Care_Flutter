@@ -13,6 +13,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/custom_dialog.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 import '../../shared/models/message_model.dart';
 import '../../shared/providers/message_provider.dart';
 import '../../shared/widgets/message_widgets.dart';
@@ -329,49 +331,13 @@ class _IndividualMessagesScreenState
   // ── Delete ─────────────────────────────────────────────────────────────────
 
   Future<void> _deleteMessage(GroupMessage msg) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await StandardDialog.show<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14.r),
-        ),
-        title: Text(
-          'msg_delete_title'.tr(),
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontWeight: FontWeight.w700,
-            fontSize: 15.sp,
-          ),
-        ),
-        content: Text(
-          'msg_delete_body'.tr(),
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontSize: 13.sp,
-            color: AppColors.textMutedLight,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'settings_cancel'.tr(),
-              style: const TextStyle(fontFamily: 'Lexend'),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              'msg_delete_confirm'.tr(),
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                color: Colors.red.shade600,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+      title: 'msg_delete_title',
+      content: 'msg_delete_body',
+      confirmText: 'msg_delete_confirm',
+      cancelText: 'settings_cancel',
+      isDestructive: true,
     );
     if (confirmed != true) return;
     final ok = await ref.read(messageProvider.notifier).deleteMessage(msg.id);
@@ -379,13 +345,7 @@ class _IndividualMessagesScreenState
   }
 
   void _snack(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(text, style: const TextStyle(fontFamily: 'Lexend')),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
+    StandardSnackBar.showInfo(context, text);
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────

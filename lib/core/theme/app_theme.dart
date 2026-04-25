@@ -31,55 +31,37 @@ class AppTheme {
   );
 
   static ThemeData get lightTheme {
-    return ThemeData(
-      useMaterial3: true,
-      scaffoldBackgroundColor: AppColors.backgroundLight,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.primary,
-        brightness: Brightness.light,
-        surface: AppColors.backgroundLight,
-      ),
-      textTheme: _textTheme.apply(
-        bodyColor: AppColors.textDark,
-        displayColor: AppColors.textDark,
-      ),
-      dialogTheme: DialogThemeData(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24.r),
-        ),
-        titleTextStyle: TextStyle(
-          fontFamily: 'Lexend',
-          fontSize: 18.sp,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textDark,
-        ),
-        contentTextStyle: TextStyle(
-          fontFamily: 'Lexend',
-          fontSize: 14.sp,
-          color: AppColors.textMutedDark,
-        ),
-      ),
-    );
+    return _buildTheme(Brightness.light);
   }
 
   static ThemeData get darkTheme {
+    return _buildTheme(Brightness.dark);
+  }
+
+  static ThemeData _buildTheme(Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
+    final primaryColor = AppColors.primary;
+    final backgroundColor = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+    final surfaceColor = isDark ? AppColors.surfaceDark : Colors.white;
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final textMuted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+
     return ThemeData(
       useMaterial3: true,
-      scaffoldBackgroundColor: AppColors.backgroundDark,
+      brightness: brightness,
+      scaffoldBackgroundColor: backgroundColor,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.primary,
-        brightness: Brightness.dark,
-        surface: AppColors.backgroundDark,
+        seedColor: primaryColor,
+        brightness: brightness,
+        surface: backgroundColor,
       ),
       textTheme: _textTheme.apply(
-        bodyColor: AppColors.textLight,
-        displayColor: AppColors.textLight,
+        bodyColor: textPrimary,
+        displayColor: textPrimary,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: AppColors.surfaceDark,
-        surfaceTintColor: AppColors.surfaceDark,
+        backgroundColor: surfaceColor,
+        surfaceTintColor: surfaceColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24.r),
         ),
@@ -87,13 +69,84 @@ class AppTheme {
           fontFamily: 'Lexend',
           fontSize: 18.sp,
           fontWeight: FontWeight.w700,
-          color: Colors.white,
+          color: textPrimary,
         ),
         contentTextStyle: TextStyle(
           fontFamily: 'Lexend',
           fontSize: 14.sp,
-          color: AppColors.textMutedLight,
+          color: textMuted,
         ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14.r),
+          ),
+          padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+          textStyle: TextStyle(
+            fontFamily: 'Lexend',
+            fontWeight: FontWeight.w600,
+            fontSize: 16.sp,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          side: const BorderSide(color: AppColors.primary, width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14.r),
+          ),
+          padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+          textStyle: TextStyle(
+            fontFamily: 'Lexend',
+            fontWeight: FontWeight.w600,
+            fontSize: 16.sp,
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+          textStyle: TextStyle(
+            fontFamily: 'Lexend',
+            fontWeight: FontWeight.w600,
+            fontSize: 14.sp,
+          ),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: isDark 
+            ? AppColors.surfaceDark 
+            : AppColors.iconBgLight.withOpacity(0.5),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+        labelStyle: TextStyle(
+          fontFamily: 'Lexend',
+          fontSize: 12.sp,
+          color: textMuted,
+        ),
+        hintStyle: TextStyle(
+          fontFamily: 'Lexend',
+          fontSize: 14.sp,
+          color: textMuted,
+        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       ),
     );
   }

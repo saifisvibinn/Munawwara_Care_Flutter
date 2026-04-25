@@ -9,6 +9,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
 import '../../calling/screens/voice_call_screen.dart';
@@ -80,37 +81,13 @@ class _ModeratorDashboardScreenState
     await _alertTts.speak('SOS Alert! $name needs immediate help!');
     // Show a persistent red SnackBar
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: Colors.red.shade700,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14.r),
-        ),
-        content: Row(
-          children: [
-            const Icon(Symbols.sos, color: Colors.white, size: 22),
-            SizedBox(width: 10.w),
-            Expanded(
-              child: Text(
-                '🚨 SOS — $name',
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14.sp,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-        action: SnackBarAction(
-          label: 'View',
-          textColor: Colors.white,
-          onPressed: () => setState(() => _currentTab = 4),
-        ),
-      ),
+    StandardSnackBar.show(
+      context,
+      message: '🚨 SOS — $name',
+      type: SnackBarType.error,
+      duration: const Duration(seconds: 8),
+      actionLabel: 'View',
+      onAction: () => setState(() => _currentTab = 4),
     );
   }
 
@@ -851,21 +828,11 @@ class _GroupCard extends ConsumerWidget {
         .read(moderatorProvider.notifier)
         .deleteGroup(group.id);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? '"${group.groupName}" deleted.'
-              : (err ?? 'Failed to delete group'),
-          style: const TextStyle(fontFamily: 'Lexend'),
-        ),
-        backgroundColor: ok ? const Color(0xFF1E293B) : Colors.red.shade700,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.r),
-        ),
-      ),
-    );
+    if (ok) {
+      StandardSnackBar.showSuccess(context, '"${group.groupName}" deleted.');
+    } else {
+      StandardSnackBar.showError(context, err ?? 'Failed to delete group');
+    }
   }
 
   @override

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/widgets/custom_dialog.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../providers/moderator_provider.dart';
@@ -86,9 +87,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
   Future<void> _createReminders() async {
     final msg = _messageController.text.trim();
     if (msg.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a reminder message')),
-      );
+      StandardSnackBar.showError(context, 'Please enter a reminder message');
       return;
     }
 
@@ -105,9 +104,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
     }
 
     if (targetGroups.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No groups selected to send reminder to')),
-      );
+      StandardSnackBar.showWarning(context, 'No groups selected to send reminder to');
       return;
     }
 
@@ -142,9 +139,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
     setState(() => _isCreating = false);
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reminders created successfully!')),
-      );
+      StandardSnackBar.showSuccess(context, 'Reminders created successfully!');
       _messageController.clear();
       _selectedGroupIds.clear();
       setState(() {
@@ -154,9 +149,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
         _isCustomInterval = false;
       });
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Some reminders failed to create')),
-      );
+      StandardSnackBar.showError(context, 'Some reminders failed to create');
     }
   }
 

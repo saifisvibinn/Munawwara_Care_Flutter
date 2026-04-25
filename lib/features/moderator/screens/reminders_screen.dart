@@ -415,14 +415,7 @@ class _ReminderCard extends StatelessWidget {
                     color: Colors.redAccent,
                   ),
                 ),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 10.w,
-                    vertical: 4.h,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
+                style: TextButton.styleFrom(),
               ),
             ),
           ],
@@ -722,8 +715,8 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
                     SizedBox(height: 8.h),
                     DropdownButtonFormField<String>(
                       initialValue: _selectedPilgrimId,
-                      decoration: _inputDecoration(
-                        'reminder_select_pilgrim'.tr(),
+                      decoration: InputDecoration(
+                        labelText: 'reminder_select_pilgrim'.tr(),
                       ),
                       isExpanded: true,
                       items: widget.pilgrims
@@ -817,7 +810,7 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
                   maxLines: 3,
                   maxLength: 500,
                   style: TextStyle(fontFamily: 'Lexend', fontSize: 14.sp),
-                  decoration: _inputDecoration('reminder_text_hint'.tr()),
+                  decoration: InputDecoration(hintText: 'reminder_text_hint'.tr()),
                   validator: (v) => (v == null || v.trim().isEmpty)
                       ? 'reminder_text_error'.tr()
                       : null,
@@ -975,8 +968,8 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       style: TextStyle(fontFamily: 'Lexend', fontSize: 14.sp),
-                      decoration: _inputDecoration(
-                        'reminder_interval_hint'.tr(),
+                      decoration: InputDecoration(
+                        hintText: 'reminder_interval_hint'.tr(),
                       ),
                       validator: (v) {
                         if (!_isCustomInterval) return null;
@@ -997,13 +990,7 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
                   height: 50.h,
                   child: ElevatedButton(
                     onPressed: _isSaving ? null : _save,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      elevation: 0,
-                    ),
+                    style: ElevatedButton.styleFrom(),
                     child: _isSaving
                         ? const SizedBox(
                             width: 22,
@@ -1032,35 +1019,6 @@ class _CreateReminderSheetState extends ConsumerState<_CreateReminderSheet> {
     );
   }
 
-  InputDecoration _inputDecoration(String hint) => InputDecoration(
-    hintText: hint,
-    hintStyle: TextStyle(
-      fontFamily: 'Lexend',
-      fontSize: 13.sp,
-      color: Colors.grey,
-    ),
-    filled: true,
-    fillColor: isDark
-        ? Colors.white.withValues(alpha: 0.05)
-        : Colors.grey.withValues(alpha: 0.07),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10.r),
-      borderSide: BorderSide.none,
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10.r),
-      borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-    ),
-    errorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10.r),
-      borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-    ),
-    focusedErrorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10.r),
-      borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-    ),
-    contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

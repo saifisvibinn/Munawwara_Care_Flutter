@@ -7,6 +7,8 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../providers/moderator_provider.dart';
+import '../../../core/widgets/standard_snackbar.dart';
+import '../../../core/widgets/custom_dialog.dart';
 
 // ── Data Models ──────────────────────────────────────────────────────────────
 
@@ -181,23 +183,14 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
         data: {'identifier': pilgrim.phoneNumber},
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-          '${pilgrim.fullName} moved to ${group.name}',
-          style: const TextStyle(fontFamily: 'Lexend'),
-        ),
-        backgroundColor: Colors.green.shade700,
-        behavior: SnackBarBehavior.floating,
-      ));
+      StandardSnackBar.showSuccess(
+        context,
+        '${pilgrim.fullName} moved to ${group.name}',
+      );
       await _load();
     } on DioException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(ApiService.parseError(e),
-            style: const TextStyle(fontFamily: 'Lexend')),
-        backgroundColor: Colors.red.shade700,
-        behavior: SnackBarBehavior.floating,
-      ));
+      StandardSnackBar.showError(context, ApiService.parseError(e));
     }
   }
 
@@ -210,23 +203,14 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
         data: {'user_id': pilgrim.id},
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-          '${pilgrim.fullName} removed from group',
-          style: const TextStyle(fontFamily: 'Lexend'),
-        ),
-        backgroundColor: Colors.orange.shade700,
-        behavior: SnackBarBehavior.floating,
-      ));
+      StandardSnackBar.showWarning(
+        context,
+        '${pilgrim.fullName} removed from group',
+      );
       await _load();
     } on DioException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(ApiService.parseError(e),
-            style: const TextStyle(fontFamily: 'Lexend')),
-        backgroundColor: Colors.red.shade700,
-        behavior: SnackBarBehavior.floating,
-      ));
+      StandardSnackBar.showError(context, ApiService.parseError(e));
     }
   }
 
@@ -238,9 +222,9 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
         pilgrim: pilgrim,
         groups: _groups,
         isDark: isDark,
-        onAssign: (group) {
+        onAssign: () {
           Navigator.pop(context);
-          _assignToGroup(pilgrim, group);
+          _showAssignGroupDialog(pilgrim);
         },
         onRemove: () {
           Navigator.pop(context);
@@ -258,11 +242,127 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
     );
   }
 
+  void _showAssignGroupDialog(_PilgrimItem pilgrim) {
+    final available = _groups.where((g) => g.id != pilgrim.currentGroupId).toList();
+    
+    if (available.isEmpty) {
+      StandardDialog.show(
+        context: context,
+        title: 'Assign to Group',
+        content: 'No other groups available for assignment.',
+        confirmText: 'OK',
+      );
+      return;
+    }
+
+    String searchQuery = '';
+    
+    StandardDialog.show(
+      context: context,
+      title: 'Assign to Group',
+      showActions: false, // Custom actions for better control
+      contentWidget: SizedBox(
+        width: double.maxFinite,
+        child: StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final filtered = available.where((g) => 
+              g.name.toLowerCase().contains(searchQuery.toLowerCase())
+            ).toList();
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (available.length > 5) ...[
+                  TextField(
+                    onChanged: (v) => setDialogState(() => searchQuery = v),
+                    style: TextStyle(fontFamily: 'Lexend', fontSize: 14.sp),
+                    decoration: InputDecoration(
+                      hintText: 'Search groups...',
+                      prefixIcon: Icon(Symbols.search, size: 20.w),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+                    ),
+                  ),
+                  SizedBox(height: 16.h),
+                ],
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: 400.h),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, _) => Divider(height: 1.h, indent: 48.w),
+                    itemBuilder: (ctx, i) {
+                      final g = filtered[i];
+                      return ListTile(
+                        onTap: () {
+                          Navigator.pop(ctx, true);
+                          _assignToGroup(pilgrim, g);
+                        },
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                        leading: Container(
+                          padding: EdgeInsets.all(8.w),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Symbols.group, size: 20.w, color: AppColors.primary),
+                        ),
+                        title: Text(
+                          g.name,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14.sp,
+                          ),
+                        ),
+                        trailing: Icon(Symbols.chevron_right, size: 18.w, color: AppColors.textMutedLight),
+                      );
+                    },
+                  ),
+                ),
+                if (filtered.isEmpty)
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20.h),
+                    child: Text('No matching groups found.', 
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontFamily: 'Lexend', color: AppColors.textMutedLight)),
+                  ),
+                SizedBox(height: 24.h),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.symmetric(vertical: 14.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16.r),
+                      side: BorderSide(color: Colors.black.withValues(alpha: 0.05)),
+                    ),
+                  ),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textMutedLight,
+                      fontSize: 14.sp,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   void _showEditProfileDialog(_PilgrimItem pilgrim) {
-    showDialog(
+    StandardDialog.show(
       context: context,
       barrierDismissible: false,
-      builder: (dialogCtx) => _EditLogisticsDialog(
+      showActions: false,
+      title: 'Edit Logistics',
+      contentWidget: _EditLogisticsContent(
         pilgrim: pilgrim,
         onSaved: _load,
       ),
@@ -275,25 +375,6 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _PilgrimProfileSheet(pilgrim: pilgrim, isDark: isDark),
-    );
-  }
-
-
-  Widget _buildEditField(
-      String label, TextEditingController ctrl, IconData icon, bool isDark) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 12.h),
-      child: TextField(
-        controller: ctrl,
-        style: TextStyle(fontFamily: 'Lexend', fontSize: 14.sp),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: TextStyle(fontFamily: 'Lexend', fontSize: 12.sp),
-          prefixIcon: Icon(icon, size: 20.w),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
-          contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-        ),
-      ),
     );
   }
 
@@ -767,7 +848,7 @@ class _ActionsSheet extends StatelessWidget {
   final _PilgrimItem pilgrim;
   final List<_GroupOption> groups;
   final bool isDark;
-  final Function(_GroupOption) onAssign;
+  final VoidCallback onAssign;
   final VoidCallback onRemove;
   final VoidCallback onEdit;
   final VoidCallback onViewProfile;
@@ -788,7 +869,6 @@ class _ActionsSheet extends StatelessWidget {
     final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
     final textMuted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
 
-    final available = groups.where((g) => g.id != pilgrim.currentGroupId).toList();
 
     return Container(
       decoration: BoxDecoration(
@@ -858,111 +938,21 @@ class _ActionsSheet extends StatelessWidget {
             onTap: onEdit,
           ),
 
-          if (pilgrim.isAssigned)
+          if (!pilgrim.isAssigned)
+            _ActionTile(
+              icon: Symbols.group_add,
+              label: 'Assign to Group',
+              isDark: isDark,
+              onTap: onAssign,
+            )
+          else
             _ActionTile(
               icon: Symbols.group_remove,
               label: 'Remove from Group',
               isDark: isDark,
               color: Colors.red.shade600,
               onTap: onRemove,
-            )
-          else ...[
-            if (available.isNotEmpty) ...[
-              Padding(
-                padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 8.h),
-                child: Row(
-                  children: [
-                    Icon(Symbols.group_add, size: 18.w, color: AppColors.primary),
-                    SizedBox(width: 8.w),
-                    Text(
-                      'Assign to Group',
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13.sp,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(
-                height: 140.h,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  itemCount: available.length,
-                  itemBuilder: (context, index) {
-                    final g = available[index];
-                    return GestureDetector(
-                      onTap: () => onAssign(g),
-                      child: Container(
-                        width: 130.w,
-                        margin: EdgeInsets.only(right: 12.w, bottom: 8.h),
-                        padding: EdgeInsets.all(12.w),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                          borderRadius: BorderRadius.circular(16.r),
-                          border: Border.all(
-                            color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: isDark ? Colors.black26 : Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: EdgeInsets.all(10.w),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Symbols.group,
-                                color: AppColors.primary,
-                                size: 24.w,
-                              ),
-                            ),
-                            SizedBox(height: 12.h),
-                            Text(
-                              g.name,
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: 'Lexend',
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w600,
-                                color: textPrimary,
-                                height: 1.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ] else
-              Padding(
-                padding: EdgeInsets.all(20.w),
-                child: Text(
-                  'No other groups available for assignment.',
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 12.sp,
-                    color: textMuted,
-                  ),
-                ),
-              ),
-          ],
+            ),
           SizedBox(height: 20.h),
         ],
       ),
@@ -1029,16 +1019,16 @@ class _BusOption {
   const _BusOption({required this.id, required this.busNumber, required this.destination});
 }
 
-class _EditLogisticsDialog extends ConsumerStatefulWidget {
+class _EditLogisticsContent extends ConsumerStatefulWidget {
   final _PilgrimItem pilgrim;
   final VoidCallback onSaved;
-  const _EditLogisticsDialog({required this.pilgrim, required this.onSaved});
+  const _EditLogisticsContent({required this.pilgrim, required this.onSaved});
 
   @override
-  ConsumerState<_EditLogisticsDialog> createState() => _EditLogisticsDialogState();
+  ConsumerState<_EditLogisticsContent> createState() => _EditLogisticsContentState();
 }
 
-class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
+class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
   bool _isLoading = false;
   List<_HotelOption> _hotels = [];
   List<_BusOption> _buses = [];
@@ -1163,18 +1153,10 @@ class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
 
     if (success) {
       widget.onSaved();
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Logistics updated', style: const TextStyle(fontFamily: 'Lexend')),
-        backgroundColor: Colors.green.shade700,
-        behavior: SnackBarBehavior.floating,
-      ));
+      StandardDialog.hide(context);
+      StandardSnackBar.showSuccess(context, 'Logistics updated');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(err ?? 'Update failed', style: const TextStyle(fontFamily: 'Lexend')),
-        backgroundColor: Colors.red.shade700,
-        behavior: SnackBarBehavior.floating,
-      ));
+      StandardSnackBar.showError(context, err ?? 'Update failed');
     }
   }
 
@@ -1184,24 +1166,21 @@ class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
     final hotel = _hotels.where((h) => h.id == _selectedHotelId).firstOrNull;
     final rooms = hotel?.rooms ?? [];
 
-    return AlertDialog(
-      backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
-      title: Text('Edit Logistics',
-          style: TextStyle(
-              fontFamily: 'Lexend',
-              fontWeight: FontWeight.w700,
-              fontSize: 18.sp,
-              color: isDark ? Colors.white : AppColors.textDark)),
-      content: _isLoading && _hotels.isEmpty
-          ? SizedBox(height: 100.h, child: const Center(child: CircularProgressIndicator()))
-          : SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+    if (_isLoading && _hotels.isEmpty) {
+      return SizedBox(height: 100.h, child: const Center(child: CircularProgressIndicator()));
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
                   DropdownButtonFormField<String?>(
                     initialValue: _selectedHotelId,
                     dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
-                    decoration: _inputDecoration(isDark, 'Hotel', Symbols.apartment),
+                    decoration: const InputDecoration(
+                      labelText: 'Hotel',
+                      prefixIcon: Icon(Symbols.apartment),
+                    ),
                     items: [
                       const DropdownMenuItem(value: null, child: Text('No Hotel')),
                       ..._hotels.map((h) => DropdownMenuItem(value: h.id, child: Text(h.name, overflow: TextOverflow.ellipsis))),
@@ -1216,7 +1195,10 @@ class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
                     initialValue: _selectedRoomId,
                     disabledHint: const Text('Select Hotel first'),
                     dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
-                    decoration: _inputDecoration(isDark, 'Room', Symbols.meeting_room),
+                    decoration: const InputDecoration(
+                      labelText: 'Room',
+                      prefixIcon: Icon(Symbols.meeting_room),
+                    ),
                     items: [
                       const DropdownMenuItem(value: null, child: Text('No Room')),
                       ...rooms.map((r) {
@@ -1240,7 +1222,10 @@ class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
                   DropdownButtonFormField<String?>(
                     initialValue: _selectedBusId,
                     dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
-                    decoration: _inputDecoration(isDark, 'Bus', Symbols.directions_bus),
+                    decoration: const InputDecoration(
+                      labelText: 'Bus',
+                      prefixIcon: Icon(Symbols.directions_bus),
+                    ),
                     items: [
                       const DropdownMenuItem(value: null, child: Text('No Bus')),
                       ..._buses.map((b) => DropdownMenuItem(
@@ -1252,45 +1237,61 @@ class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
                   DropdownButtonFormField<String>(
                     initialValue: _selectedVisaStatus,
                     dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
-                    decoration: _inputDecoration(isDark, 'Visa Status', Symbols.verified_user),
+                    decoration: const InputDecoration(
+                      labelText: 'Visa Status',
+                      prefixIcon: Icon(Symbols.verified_user),
+                    ),
                     items: ['pending', 'issued', 'rejected', 'expired', 'unknown']
                         .map((s) => DropdownMenuItem(
-                            value: s, child: Text(s.toUpperCase(), style: TextStyle(fontFamily: 'Lexend', fontSize: 13.sp))))
+                            value: s,
+                            child: Text(s.toUpperCase(),
+                                style: TextStyle(
+                                    fontFamily: 'Lexend', fontSize: 13.sp))))
                         .toList(),
                     onChanged: (v) => setState(() => _selectedVisaStatus = v!),
                   ),
+                  SizedBox(height: 24.h),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => StandardDialog.hide(context),
+                          style: TextButton.styleFrom(),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white60 : AppColors.textMutedLight,
+                              fontSize: 14.sp,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _save,
+                          style: ElevatedButton.styleFrom(),
+                          child: _isLoading
+                              ? SizedBox(width: 20.w, height: 20.w, child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : Text(
+                                  'Save',
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14.sp,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: TextStyle(fontFamily: 'Lexend')),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _save,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-          ),
-          child: _isLoading
-              ? SizedBox(width: 20.w, height: 20.w, child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Text('Save', style: TextStyle(fontFamily: 'Lexend')),
-        ),
-      ],
-    );
+            );
   }
 
-  InputDecoration _inputDecoration(bool isDark, String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(fontFamily: 'Lexend', fontSize: 12.sp, color: isDark ? AppColors.textMutedLight : AppColors.textMutedDark),
-      prefixIcon: Icon(icon, size: 20.w, color: AppColors.primary),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
-      contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-    );
-  }
 }
 
 // ── Pilgrim Profile Sheet ───────────────────────────────────────────────────

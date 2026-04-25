@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 import '../providers/moderator_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -227,66 +228,19 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
 
         SizedBox(height: 8.h),
 
-        Container(
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.surfaceDark : Colors.white,
-            borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(
-              color: _fieldError != null
-                  ? Colors.red.shade400
-                  : (_focusNode.hasFocus
-                        ? AppColors.primary
-                        : (isDark
-                              ? AppColors.backgroundDark
-                              : const Color(0xFFE2E2F0))),
-              width: _focusNode.hasFocus ? 1.5 : 1,
+        TextField(
+          controller: _nameController,
+          focusNode: _focusNode,
+          onChanged: (_) => setState(() {}),
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(
+            hintText: 'create_group_name_hint'.tr(),
+            prefixIcon: Icon(
+              Symbols.group,
+              size: 22.w,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: _focusNode.hasFocus
-                    ? AppColors.primary.withOpacity(0.08)
-                    : Colors.black.withOpacity(0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
-          child: TextField(
-            controller: _nameController,
-            focusNode: _focusNode,
-            onChanged: (_) => setState(() {}),
-            textCapitalization: TextCapitalization.words,
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 15.sp,
-              color: isDark ? const Color(0xFFE2E8F0) : AppColors.textDark,
-            ),
-            decoration: InputDecoration(
-              hintText: 'create_group_name_hint'.tr(),
-              hintStyle: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 15.sp,
-                color: AppColors.textMutedLight,
-              ),
-              prefixIcon: Padding(
-                padding: EdgeInsets.only(left: 14.w, right: 8.w),
-                child: Icon(
-                  Symbols.group,
-                  size: 22.w,
-                  color: _focusNode.hasFocus
-                      ? AppColors.primary
-                      : AppColors.textMutedLight,
-                ),
-              ),
-              prefixIconConstraints: BoxConstraints(minWidth: 46.w),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(
-                vertical: 16.h,
-                horizontal: 14.w,
-              ),
-            ),
-            onSubmitted: (_) => _submit(),
-          ),
+          onSubmitted: (_) => _submit(),
         ),
 
         if (_fieldError != null) ...[
@@ -480,15 +434,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
           height: 54.h,
           child: ElevatedButton(
             onPressed: _isLoading ? null : _submit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.r),
-              ),
-            ),
+            style: ElevatedButton.styleFrom(),
             child: _isLoading
                 ? SizedBox(
                     width: 22.w,
@@ -631,19 +577,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                     Clipboard.setData(
                       ClipboardData(text: _createdGroupCode ?? ''),
                     );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'create_group_code_copied'.tr(),
-                          style: const TextStyle(fontFamily: 'Lexend'),
-                        ),
-                        behavior: SnackBarBehavior.floating,
-                        backgroundColor: AppColors.primaryDark,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                      ),
-                    );
+                        StandardSnackBar.showSuccess(context, 'create_group_code_copied'.tr());
                   },
                   child: Container(
                     padding: EdgeInsets.symmetric(
@@ -704,14 +638,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
             height: 54.h,
             child: ElevatedButton(
               onPressed: () => Navigator.of(context).pop(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.r),
-                ),
-              ),
+              style: ElevatedButton.styleFrom(),
               child: Text(
                 'create_group_back'.tr(),
                 style: TextStyle(

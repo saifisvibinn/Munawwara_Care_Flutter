@@ -20,6 +20,7 @@ import '../../../core/services/api_service.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/in_app_popup.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
 import '../../calling/screens/voice_call_screen.dart';
@@ -173,13 +174,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           // Show notification to user
           final map = data as Map<String, dynamic>;
           final groupName = map['group_name'] as String? ?? 'the group';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('You have been removed from $groupName'),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 5),
-            ),
-          );
+          StandardSnackBar.showWarning(context, 'You have been removed from $groupName', duration: const Duration(seconds: 5));
         });
 
         // Listen for new group messages — append silently to avoid flicker
@@ -245,13 +240,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           if (!mounted) return;
           ref.read(authProvider.notifier).logout();
           context.go('/login');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Your login code was refreshed. You have been logged out.'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 5),
-            ),
-          );
+          StandardSnackBar.showError(context, 'Your login code was refreshed. You have been logged out.', duration: const Duration(seconds: 5));
         });
 
         // Listen for group membership changes (moderator controlled)
@@ -711,31 +700,20 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                   autoRouteMods: autoRouteMods,
                   onAllBusy: () {
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('sos_all_busy_warning'.tr()),
-                          backgroundColor: Colors.red.shade700,
-                        ),
-                      );
+                      StandardSnackBar.showError(context, 'sos_all_busy_warning');
                     }
                   },
                 )),
               );
             } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('dash_no_moderator_call'.tr()),
-                ),
-              );
+              StandardSnackBar.showWarning(context, 'dash_no_moderator_call');
             }
           },
           onNormalCall: () async {
             final mods = ref.read(pilgrimProvider).groupInfo?.moderators ?? [];
             if (mods.isEmpty) {
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('dash_no_mod_phone'.tr())),
-                );
+                StandardSnackBar.showWarning(context, 'dash_no_mod_phone');
               }
               return;
             }
@@ -790,9 +768,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                               if (await canLaunchUrl(uri)) {
                                 await launchUrl(uri);
                               } else if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('dash_error_dialer'.tr())),
-                                );
+                                StandardSnackBar.showError(context, 'dash_error_dialer');
                               }
                             } : null,
                           );
@@ -810,16 +786,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       // Get the actual error message from the provider
       final errorMsg = ref.read(pilgrimProvider).error ?? 'sos_failed'.tr();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.grey.shade700,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.r),
-          ),
-          content: Text(errorMsg, style: const TextStyle(color: Colors.white)),
-        ),
-      );
+      StandardSnackBar.showError(context, errorMsg);
     }
   }
 
@@ -833,19 +800,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       });
     }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: Colors.green.shade700,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.r),
-        ),
-        content: Text(
-          'sos_cancelled'.tr(),
-          style: const TextStyle(color: Colors.white),
-        ),
-      ),
-    );
+    StandardSnackBar.showSuccess(context, 'sos_cancelled');
   }
 
   // ── Join Group (no longer used - moderator assigns pilgrims) ────────────────
@@ -2973,10 +2928,6 @@ void _showAreaInfo(BuildContext context, SuggestedArea area) {
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: color,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.r),
-                ),
-                elevation: 0,
               ),
             ),
           ),
@@ -3185,10 +3136,6 @@ class _SosCallOptionsSheet extends StatelessWidget {
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: 14.h),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.r),
-                  ),
-                  elevation: 0,
                 ),
               ),
             ),
@@ -3209,12 +3156,7 @@ class _SosCallOptionsSheet extends StatelessWidget {
                   ),
                 ),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: BorderSide(color: AppColors.primary, width: 1.5),
                   padding: EdgeInsets.symmetric(vertical: 14.h),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.r),
-                  ),
                 ),
               ),
             ),

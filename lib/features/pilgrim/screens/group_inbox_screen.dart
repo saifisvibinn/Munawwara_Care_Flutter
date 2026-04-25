@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 import '../../shared/models/message_model.dart';
 import '../../shared/providers/message_provider.dart';
 import '../../shared/widgets/message_widgets.dart';
@@ -913,12 +914,9 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     final detected = _detectLikelyLanguage(originalText);
     if (detected != 'unknown' && detected == targetLang) {
       final name = _langNames[targetLang] ?? targetLang;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('This message already appears to be in $name.'),
-          backgroundColor: Colors.orange.shade700,
-          behavior: SnackBarBehavior.floating,
-        ),
+      StandardSnackBar.showInfo(
+        context,
+        'This message already appears to be in $name.',
       );
       return;
     }

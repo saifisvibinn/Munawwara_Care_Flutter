@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/widgets/custom_dialog.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -57,14 +58,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
 
   void _saveChanges() {
     // Settings is a tab, nothing to pop — just show success feedback
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('edit_profile_success'.tr()),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
+    StandardSnackBar.showSuccess(context, 'edit_profile_success');
   }
 
   Future<void> _signOut() async {
@@ -556,21 +550,8 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                       height: 52.h,
                       child: ElevatedButton(
                         onPressed: _saveChanges,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14.r),
-                          ),
-                        ),
                         child: Text(
                           'settings_save'.tr(),
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16.sp,
-                          ),
                         ),
                       ),
                     ),
@@ -590,18 +571,12 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                         ),
                         label: Text(
                           'settings_sign_out'.tr(),
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w500,
-                            fontSize: 16.sp,
+                          style: const TextStyle(
                             color: Colors.red,
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Colors.red, width: 1.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14.r),
-                          ),
                         ),
                       ),
                     ),

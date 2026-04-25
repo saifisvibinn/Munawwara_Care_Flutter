@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/utils/app_logger.dart';
@@ -173,7 +172,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 // App Name & Tagline
                 RichText(
                   text: TextSpan(
-                    style: GoogleFonts.lexend(
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
                       fontSize: 36.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.5,
@@ -196,7 +196,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   child: Text(
                     'splash_tagline'.tr(),
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.lexend(
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w500,
                       height: 1.5,
@@ -215,7 +216,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   children: [
                     Text(
                       'splash_version'.tr().toUpperCase(),
-                      style: GoogleFonts.lexend(
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
                         fontSize: 10.sp,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1.5,
