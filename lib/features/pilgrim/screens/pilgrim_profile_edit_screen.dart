@@ -699,7 +699,6 @@ class _ReadOnlyField extends StatelessWidget {
     required this.isDark,
     required this.textPrimary,
     required this.textMuted,
-    this.isVerified = false,
   });
 
   final String value;

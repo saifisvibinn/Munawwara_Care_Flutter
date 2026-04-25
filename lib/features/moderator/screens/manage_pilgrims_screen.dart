@@ -1199,7 +1199,7 @@ class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButtonFormField<String?>(
-                    value: _selectedHotelId,
+                    initialValue: _selectedHotelId,
                     dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
                     decoration: _inputDecoration(isDark, 'Hotel', Symbols.apartment),
                     items: [
@@ -1213,7 +1213,7 @@ class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
                   ),
                   SizedBox(height: 12.h),
                   DropdownButtonFormField<String?>(
-                    value: _selectedRoomId,
+                    initialValue: _selectedRoomId,
                     disabledHint: const Text('Select Hotel first'),
                     dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
                     decoration: _inputDecoration(isDark, 'Room', Symbols.meeting_room),
@@ -1238,7 +1238,7 @@ class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
                   ),
                   SizedBox(height: 12.h),
                   DropdownButtonFormField<String?>(
-                    value: _selectedBusId,
+                    initialValue: _selectedBusId,
                     dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
                     decoration: _inputDecoration(isDark, 'Bus', Symbols.directions_bus),
                     items: [
@@ -1250,7 +1250,7 @@ class _EditLogisticsDialogState extends ConsumerState<_EditLogisticsDialog> {
                   ),
                   SizedBox(height: 12.h),
                   DropdownButtonFormField<String>(
-                    value: _selectedVisaStatus,
+                    initialValue: _selectedVisaStatus,
                     dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
                     decoration: _inputDecoration(isDark, 'Visa Status', Symbols.verified_user),
                     items: ['pending', 'issued', 'rejected', 'expired', 'unknown']
