@@ -208,7 +208,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                   color: const Color(0xFF16A34A),
                   onTap: () async {
                     await ref.read(callProvider.notifier).acceptCall();
-                    if (mounted) {
+                    if (context.mounted) {
                       Navigator.of(context).pushReplacement(
                         MaterialPageRoute(
                           builder: (_) => const VoiceCallScreen(),

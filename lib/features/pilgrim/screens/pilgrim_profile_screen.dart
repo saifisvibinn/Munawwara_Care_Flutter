@@ -139,7 +139,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                         borderRadius: BorderRadius.circular(16.r),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(
+                            color: Colors.black.withValues(alpha: 
                               isDark ? 0.3 : 0.06,
                             ),
                             blurRadius: 12,
@@ -252,7 +252,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                         borderRadius: BorderRadius.circular(16.r),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(
+                            color: Colors.black.withValues(alpha: 
                               isDark ? 0.3 : 0.06,
                             ),
                             blurRadius: 12,
@@ -341,7 +341,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                         borderRadius: BorderRadius.circular(16.r),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(
+                            color: Colors.black.withValues(alpha: 
                               isDark ? 0.3 : 0.06,
                             ),
                             blurRadius: 12,

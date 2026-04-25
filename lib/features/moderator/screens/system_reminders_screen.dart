@@ -93,7 +93,6 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
 
     final state = ref.read(moderatorProvider);
     final allGroups = state.groups;
-    final remState = ref.watch(reminderProvider);
 
     // Determine target groups
     List<String> targetGroups = [];
@@ -139,7 +138,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
     setState(() => _isCreating = false);
 
     if (success) {
-      StandardSnackBar.showSuccess(context, 'Reminders created successfully!');
+      if (mounted) StandardSnackBar.showSuccess(context, 'Reminders created successfully!');
       _messageController.clear();
       _selectedGroupIds.clear();
       setState(() {
@@ -149,36 +148,10 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
         _isCustomInterval = false;
       });
     } else {
-      StandardSnackBar.showError(context, 'Some reminders failed to create');
+      if (mounted) StandardSnackBar.showError(context, 'Some reminders failed to create');
     }
   }
 
-  Widget _intervalChip(int min, String label) {
-    final sel = !_isCustomInterval && _selectedIntervalMin == min;
-    return ChoiceChip(
-      label: Text(
-        label,
-        style: TextStyle(
-          fontFamily: 'Lexend',
-          fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
-          fontSize: 12.sp,
-          color: sel ? Colors.white : AppColors.primary,
-        ),
-      ),
-      selected: sel,
-      selectedColor: AppColors.primary,
-      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-      side: BorderSide.none,
-      onSelected: (v) {
-        if (v) {
-          setState(() {
-            _isCustomInterval = false;
-            _selectedIntervalMin = min;
-          });
-        }
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {

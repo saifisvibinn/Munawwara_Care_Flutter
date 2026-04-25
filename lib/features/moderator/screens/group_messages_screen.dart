@@ -395,7 +395,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
         color: isDark ? AppColors.surfaceDark : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -444,7 +444,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
               width: 36.w,
               height: 36.w,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10.r),
               ),
               child: Icon(
@@ -520,7 +520,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
           border: Border.all(color: borderColor, width: 1.2),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -813,7 +813,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
         color: isDark ? AppColors.surfaceDark : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 12,
             offset: const Offset(0, -3),
           ),
@@ -867,7 +867,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
                         ? Colors.red.shade600
                         : (isDark
                               ? Colors.white10
-                              : Colors.black.withOpacity(0.05)),
+                              : Colors.black.withValues(alpha: 0.05)),
                     borderRadius: BorderRadius.circular(20.r),
                   ),
                   child: Row(

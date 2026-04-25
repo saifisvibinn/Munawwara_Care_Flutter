@@ -17,7 +17,6 @@ class StandardSnackBar {
     String? actionLabel,
     VoidCallback? onAction,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     Color bgColor;
     Color iconColor;

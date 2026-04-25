@@ -123,7 +123,7 @@ class AppTheme {
         filled: true,
         fillColor: isDark 
             ? AppColors.surfaceDark 
-            : AppColors.iconBgLight.withOpacity(0.5),
+            : AppColors.iconBgLight.withValues(alpha: 0.5),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12.r),
           borderSide: BorderSide.none,

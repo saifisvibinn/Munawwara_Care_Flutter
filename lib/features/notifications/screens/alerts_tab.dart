@@ -56,8 +56,9 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
           await ref.read(pilgrimProvider.notifier).loadDashboard();
         }
         
-        // Remove or update the notification by fetching
         ref.read(notificationProvider.notifier).fetch();
+        
+        if (!mounted) return;
 
         StandardSnackBar.showSuccess(context, res.data['message']?.toString() ?? 'Invitation accepted!');
       }
@@ -253,7 +254,7 @@ class _NotificationTile extends ConsumerWidget {
             : Border(left: BorderSide(color: n.iconColor, width: 3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

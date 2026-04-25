@@ -67,7 +67,7 @@ class StandardDialog {
                     padding: EdgeInsets.symmetric(vertical: 14.h),
                     foregroundColor: isDark ? Colors.white60 : AppColors.textMutedLight,
                     side: BorderSide(
-                      color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
+                      color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
                     ),
                   ),
                   child: Text(
@@ -130,7 +130,7 @@ class StandardDialog {
                 Container(
                   padding: EdgeInsets.all(16.w),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const CircularProgressIndicator(

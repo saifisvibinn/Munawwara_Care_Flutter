@@ -179,7 +179,7 @@ class _ModeratorProfileEditScreenState
                             vertical: 4.h,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.15),
+                            color: AppColors.primary.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8.r),
                           ),
                           child: Text(
@@ -209,7 +209,7 @@ class _ModeratorProfileEditScreenState
                           borderRadius: BorderRadius.circular(16.r),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(
+                              color: Colors.black.withValues(alpha: 
                                 isDark ? 0.3 : 0.06,
                               ),
                               blurRadius: 12,
@@ -274,7 +274,7 @@ class _ModeratorProfileEditScreenState
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             disabledBackgroundColor: AppColors.primary
-                                .withOpacity(0.6),
+                                .withValues(alpha: 0.6),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(

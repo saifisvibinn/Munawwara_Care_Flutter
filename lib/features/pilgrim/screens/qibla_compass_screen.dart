@@ -46,8 +46,6 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
   bool _loading = true;
   String? _error;
 
-  /// Latest raw heading from the magnetometer (degrees, true-north).
-  double? _rawHeading;
 
   /// Low-pass filtered heading used for all rendering.
   double? _smoothedHeading;
@@ -58,8 +56,6 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
   /// Haversine distance to the Kaaba in kilometres.
   double? _distanceKm;
 
-  // ignore: unused_field
-  Position? _lastGpsPosition;
 
   /// GPS coordinates at which [_qiblaBearing] was last computed.
   double? _lastBearingLat;
@@ -118,7 +114,7 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
           accuracy: LocationAccuracy.bestForNavigation,
         ),
       );
-      _lastGpsPosition = initial;
+
       _applyLocation(lat: initial.latitude, lng: initial.longitude);
 
       // 3 – Stream GPS updates; 15 m filter keeps battery use reasonable.
@@ -129,7 +125,7 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
           distanceFilter: 15,
         ),
       ).listen((pos) {
-        _lastGpsPosition = pos;
+
         _applyLocation(lat: pos.latitude, lng: pos.longitude);
       });
 
@@ -159,7 +155,6 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
     }
 
     final raw = QiblaMath.normalize360(heading);
-    _rawHeading = raw;
 
     if (_smoothedHeading == null) {
       // Cold start: accept the first sample directly so there is no initial

@@ -203,6 +203,7 @@ void main() async {
                   schedTime =
                       'SCHEDULED FOR TODAY  ${DateFormat('HH:mm').format(DateTime.now())}';
                 }
+                if (!ctx.mounted) return;
                 ReminderPopup.show(ctx, body: text, scheduledTime: schedTime);
               } else {
                 AppLogger.w('⚠️ No navigator context — cannot show reminder popup');

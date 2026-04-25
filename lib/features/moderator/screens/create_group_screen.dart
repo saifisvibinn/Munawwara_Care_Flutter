@@ -134,7 +134,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.06),
+                            color: Colors.black.withValues(alpha: 0.06),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -399,12 +399,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
           decoration: BoxDecoration(
             color: isDark
                 ? AppColors.surfaceDark
-                : AppColors.primary.withOpacity(0.06),
+                : AppColors.primary.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(14.r),
             border: Border.all(
               color: isDark
-                  ? AppColors.primary.withOpacity(0.16)
-                  : AppColors.primary.withOpacity(0.18),
+                  ? AppColors.primary.withValues(alpha: 0.16)
+                  : AppColors.primary.withValues(alpha: 0.18),
             ),
           ),
           child: Row(
@@ -531,7 +531,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 12,
                   offset: const Offset(0, 3),
                 ),
@@ -585,10 +585,10 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                       vertical: 10.h,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.08),
+                      color: AppColors.primary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(10.r),
                       border: Border.all(
-                        color: AppColors.primary.withOpacity(0.2),
+                        color: AppColors.primary.withValues(alpha: 0.2),
                       ),
                     ),
                     child: Row(

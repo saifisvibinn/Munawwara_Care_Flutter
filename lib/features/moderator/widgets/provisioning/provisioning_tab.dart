@@ -248,20 +248,23 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
     final group = _groups.where((g) => g.id == _selectedGroupId).firstOrNull;
     final groupName = group?.name ?? 'Group';
     final modName = ref.read(authProvider).fullName ?? 'Moderator';
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final mediaQuery = MediaQuery.of(context);
 
     try {
       final files = <XFile>[];
       final tempDir = await getTemporaryDirectory();
 
       for (int i = 0; i < pendingItems.length; i++) {
+        if (!mounted) break;
         final item = pendingItems[i];
         if (mounted) setState(() => _bulkCaptureProgress = (i + 1) / pendingItems.length);
 
         // Capture image
-        final Uint8List? imageBytes = await _screenshotController.captureFromWidget(
+        final Uint8List imageBytes = await _screenshotController.captureFromWidget(
           MediaQuery(
-            data: MediaQuery.of(context),
+            data: mediaQuery,
             child: Material(
               color: Colors.transparent,
               child: SizedBox(
@@ -280,7 +283,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
           delay: const Duration(milliseconds: 100),
         );
 
-        if (imageBytes != null) {
+        if (imageBytes.isNotEmpty) {
           final String fileName = 'login_${item.fullName.replaceAll(' ', '_')}.png';
           final File file = File('${tempDir.path}/$fileName');
           await file.writeAsBytes(imageBytes);
@@ -292,7 +295,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
         await Share.shareXFiles(files, text: 'Login credentials for $groupName');
       }
     } catch (e) {
-      if (context.mounted) StandardSnackBar.showError(context, 'Failed to generate images: $e');
+      if (mounted) StandardSnackBar.showError(context, 'Failed to generate images: $e');
     } finally {
       if (mounted) {
         setState(() {
