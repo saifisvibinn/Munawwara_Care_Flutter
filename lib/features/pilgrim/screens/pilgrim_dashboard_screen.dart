@@ -1046,38 +1046,26 @@ class _HomeTab extends StatelessWidget {
                       // Top row: Avatar + ID + Settings
                       Row(
                         children: [
-                          Container(
-                            width: 52.w,
-                            height: 52.w,
-                            decoration: BoxDecoration(
-                              color: iconContainerBg,
-                              shape: BoxShape.circle,
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10.r),
+                            child: Image.asset(
+                              'assets/static/logo.jpeg',
+                              width: 34.w,
+                              height: 34.w,
+                              fit: BoxFit.cover,
                             ),
-                            child: Icon(
-                              Icons.person,
-                              size: 30.w,
+                          ),
+                          SizedBox(width: 10.w),
+                          Text(
+                            'Munawwara Care',
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w700,
                               color: AppColors.primary,
                             ),
                           ),
-                          SizedBox(width: 12.w),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  pilgrimState.isLoading
-                                      ? '${'pilgrim_id_prefix'.tr()} ...'
-                                      : '${'pilgrim_id_prefix'.tr()} ${profile?.displayId ?? '------'}',
-                                  style: TextStyle(
-                                    fontFamily: 'Lexend',
-                                    fontSize: 13.sp,
-                                    fontWeight: FontWeight.w600,
-                                    color: headerText,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          const Spacer(),
                           GestureDetector(
                             onTap: onSettingsTap,
                             child: Container(
@@ -1095,7 +1083,7 @@ class _HomeTab extends StatelessWidget {
                           ),
                         ],
                       ),
-                      SizedBox(height: 28.h),
+                      SizedBox(height: 18.h),
 
                       // Greeting + Name (Multi-line)
                       Text(

@@ -47,16 +47,6 @@ class PilgrimProfile {
     return fullName;
   }
 
-  /// Display ID like "#7821-KSA" derived from national_id or object id tail
-  String get displayId {
-    if (nationalId != null && nationalId!.length >= 4) {
-      return '#${nationalId!.substring(nationalId!.length - 4)}-KSA';
-    }
-    if (id.length >= 4) {
-      return '#${id.substring(id.length - 4).toUpperCase()}';
-    }
-    return '#----';
-  }
 }
 
 // ── Group Info Model ──────────────────────────────────────────────────────────
