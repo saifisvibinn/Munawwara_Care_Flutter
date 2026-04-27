@@ -171,6 +171,7 @@ class ModeratorGroup {
   final String createdBy;
   final DateTime? checkInDate;
   final DateTime? checkOutDate;
+  final DateTime? createdAt;
   final List<GroupModerator> moderators;
   final List<PilgrimInGroup> pilgrims;
 
@@ -181,6 +182,7 @@ class ModeratorGroup {
     required this.createdBy,
     this.checkInDate,
     this.checkOutDate,
+    this.createdAt,
     required this.moderators,
     required this.pilgrims,
   });
@@ -198,6 +200,7 @@ class ModeratorGroup {
       createdBy: j['created_by']?.toString() ?? '',
       checkInDate: parseDate(j['check_in_date']),
       checkOutDate: parseDate(j['check_out_date']),
+      createdAt: parseDate(j['createdAt']),
       moderators: (j['moderator_ids'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .map(GroupModerator.fromJson)
@@ -214,6 +217,7 @@ class ModeratorGroup {
     String? groupName,
     DateTime? checkInDate,
     DateTime? checkOutDate,
+    DateTime? createdAt,
   }) {
     return ModeratorGroup(
       id: id,
@@ -222,6 +226,7 @@ class ModeratorGroup {
       createdBy: createdBy,
       checkInDate: checkInDate ?? this.checkInDate,
       checkOutDate: checkOutDate ?? this.checkOutDate,
+      createdAt: createdAt ?? this.createdAt,
       moderators: moderators ?? this.moderators,
       pilgrims: pilgrims ?? this.pilgrims,
     );

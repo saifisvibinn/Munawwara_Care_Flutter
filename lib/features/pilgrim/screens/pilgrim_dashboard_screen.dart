@@ -153,6 +153,12 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         // Listen for moderator navigation beacon
         SocketService.on('mod_nav_beacon', (data) {
           if (!mounted) return;
+          // Note: no groupInfo null-guard here — the server only sends
+          // mod_nav_beacon to sockets that are in the group room, so if
+          // we receive it we are legitimately in the group. A null-guard
+          // causes a race condition where the beacon sync sent immediately
+          // after join_group arrives before the async provider refresh
+          // completes, causing the beacon to be silently dropped.
           final map = data as Map<String, dynamic>;
           final modId = map['moderatorId'] as String? ?? '';
           final modName = map['moderatorName'] as String? ?? 'Moderator';
@@ -167,16 +173,26 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         // Listen for removal from group
         SocketService.on('removed-from-group', (data) {
           if (!mounted) return;
-          // Clear all group-related state
+          
+          final map = data is Map<String, dynamic> ? data : <String, dynamic>{};
+          final groupId = map['group_id']?.toString();
+          if (groupId != null) {
+            SocketService.emit('leave_group', groupId);
+          }
+
+          // Clear all group-related state immediately
           ref.read(pilgrimProvider.notifier).clearGroupState();
           // Clear suggested areas
           ref.read(suggestedAreaProvider.notifier).clear();
           // Show notification to user
-          final map = data is Map<String, dynamic> ? data : {};
           final groupName = map['group_name'] as String? ?? 'the group';
-          StandardSnackBar.showWarning(context, 'You have been removed from $groupName', duration: const Duration(seconds: 5));
-          // Refresh pilgrim state so limbo UI shows
-          ref.invalidate(pilgrimProvider);
+          StandardSnackBar.showWarning(
+            context,
+            'You have been removed from $groupName',
+            duration: const Duration(seconds: 5),
+          );
+          // Reload from server to confirm state (force bypasses throttle)
+          ref.read(pilgrimProvider.notifier).loadDashboard(force: true);
         });
 
         // Listen for new group messages — append silently to avoid flicker
@@ -246,13 +262,23 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         });
 
         // Listen for group membership changes (moderator controlled)
-        SocketService.on('added-to-group', (_) {
+        SocketService.on('added-to-group', (data) {
           if (!mounted) return;
-          // Refresh pilgrim state to pick up the new group
-          ref.invalidate(pilgrimProvider);
-          Future.delayed(const Duration(milliseconds: 500), () {
+          // Immediately join the socket room using the payload group_id so
+          // the server can sync the active beacon right away — before the
+          // async provider refresh completes. This prevents a race condition
+          // where the beacon sync arrives while groupInfo is still null.
+          final payload = data is Map<String, dynamic> ? data : <String, dynamic>{};
+          final newGroupId = payload['group_id']?.toString();
+          if (newGroupId != null) {
+            SocketService.emit('join_group', newGroupId);
+          }
+          // Use loadDashboard(force:true) instead of ref.invalidate —
+          // invalidate resets to empty state but build() never calls
+          // loadDashboard, leaving groupInfo permanently null.
+          ref.read(pilgrimProvider.notifier).loadDashboard(force: true).then((_) {
             if (!mounted) return;
-            final gId = ref.read(pilgrimProvider).groupInfo?.groupId;
+            final gId = ref.read(pilgrimProvider).groupInfo?.groupId ?? newGroupId;
             if (gId != null) {
               ref.read(suggestedAreaProvider.notifier).load(gId);
             }
@@ -333,10 +359,19 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             msg.meetpointData?['name']?.toString() ?? 'meetpoint'.tr();
         final lat = msg.meetpointData?['latitude'];
         final lng = msg.meetpointData?['longitude'];
+        final mTimeRaw = msg.meetpointData?['meetpoint_time'];
+        String? displayTime;
+        if (mTimeRaw != null) {
+          try {
+            final dt = DateTime.parse(mTimeRaw.toString());
+            displayTime = DateFormat('hh:mm a').format(dt);
+          } catch (_) {}
+        }
         InAppPopup.showMeetpoint(
           context,
           name: mpName,
           body: msg.content,
+          time: displayTime,
           onNavigate: (lat != null && lng != null)
               ? () {
                   final url = Uri.parse(
@@ -841,6 +876,19 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
 
     ref.listen(authProvider, (prev, next) {
       // Role sync polling removed in moderator-first workflow
+    });
+
+    ref.listen(pilgrimProvider, (prev, next) {
+      final prevGroupId = prev?.groupInfo?.groupId;
+      final nextGroupId = next.groupInfo?.groupId;
+      if (prevGroupId != nextGroupId) {
+        if (prevGroupId != null) {
+          SocketService.emit('leave_group', prevGroupId);
+        }
+        if (nextGroupId != null) {
+          SocketService.emit('join_group', nextGroupId);
+        }
+      }
     });
 
     final tabs = [
@@ -1764,7 +1812,6 @@ class _SosButton extends StatefulWidget {
 
 class _SosButtonState extends State<_SosButton>
     with SingleTickerProviderStateMixin {
-  bool _isPressed = false;
   late AnimationController _scaleController;
   late Animation<double> _scaleAnim;
 
@@ -1773,10 +1820,10 @@ class _SosButtonState extends State<_SosButton>
     super.initState();
     _scaleController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 120),
+      duration: const Duration(milliseconds: 150),
     );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.88).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.easeInOut),
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.92).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.easeOutBack),
     );
   }
 
@@ -1787,23 +1834,26 @@ class _SosButtonState extends State<_SosButton>
   }
 
   void _onDown() {
-    setState(() => _isPressed = true);
     _scaleController.forward();
+    HapticFeedback.mediumImpact();
   }
 
   void _onUp() {
-    setState(() => _isPressed = false);
     _scaleController.reverse();
   }
 
   @override
   Widget build(BuildContext context) {
-    const double size = 180;
-    const double ringStroke = 6;
+    const double size = 190;
+    const double ringStroke = 8;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
       onLongPressDown: (_) => _onDown(),
-      onLongPressStart: (_) => widget.onHoldStart(),
+      onLongPressStart: (_) {
+        HapticFeedback.heavyImpact();
+        widget.onHoldStart();
+      },
       onLongPressEnd: (_) {
         _onUp();
         widget.onHoldEnd();
@@ -1822,117 +1872,51 @@ class _SosButtonState extends State<_SosButton>
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Pulse glow
+              // ── Layered Animated Glows ─────────────────────────────────────
               AnimatedBuilder(
                 animation: widget.pulseController,
                 builder: (_, _) {
-                  final scale = 1.0 + 0.15 * widget.pulseController.value;
-                  return Transform.scale(
-                    scale: scale,
-                    child: Container(
-                      width: size.w,
-                      height: size.w,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.red.withValues(alpha: 
-                          0.15 * widget.pulseController.value,
+                  final p = widget.pulseController.value;
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Outer faint glow
+                      Transform.scale(
+                        scale: 1.0 + (0.6 * p),
+                        child: Container(
+                          width: (size - 10).w,
+                          height: (size - 10).w,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.red.withValues(alpha: 0.15 * (1 - p)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.withValues(alpha: 0.2 * (1 - p)),
+                                blurRadius: 25 * p,
+                                spreadRadius: 10 * p,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+                      // Inner pulse
+                      Transform.scale(
+                        scale: 1.0 + (0.3 * p),
+                        child: Container(
+                          width: (size - 20).w,
+                          height: (size - 20).w,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.red.withValues(alpha: 0.25 * (1 - p)),
+                          ),
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),
 
-              // Main red circle
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
-                width: (size - 20).w,
-                height: (size - 20).w,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: _isPressed || widget.isHolding
-                        ? [Colors.red.shade600, Colors.red.shade900]
-                        : [
-                            widget.sosActive
-                                ? Colors.red.shade300
-                                : Colors.red.shade400,
-                            widget.sosActive
-                                ? Colors.red.shade700
-                                : Colors.red.shade700,
-                          ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.red.withValues(alpha: 
-                        _isPressed || widget.isHolding ? 0.25 : 0.45,
-                      ),
-                      blurRadius: _isPressed || widget.isHolding ? 14 : 30,
-                      spreadRadius: _isPressed || widget.isHolding ? 1 : 4,
-                    ),
-                  ],
-                ),
-                child: widget.isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 3,
-                        ),
-                      )
-                    : widget.isHolding
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '${widget.countdown}',
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 56.sp,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                            ),
-                          ),
-                          Text(
-                            'sec',
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 14.sp,
-                              color: Colors.white70,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            widget.sosActive
-                                ? 'sos_active_text'.tr()
-                                : 'sos_hold_label'.tr(),
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 20.sp,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white.withValues(alpha: 0.6),
-                              letterSpacing: 2,
-                            ),
-                          ),
-                          Text(
-                            'SOS',
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 28.sp,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: 4,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-
-              // Hold progress ring
+              // ── Holding Progress Ring ──────────────────────────────────────
               if (widget.isHolding)
                 AnimatedBuilder(
                   animation: widget.holdController,
@@ -1941,16 +1925,130 @@ class _SosButtonState extends State<_SosButton>
                     height: size.w,
                     child: CircularProgressIndicator(
                       value: widget.holdController.value,
-                      strokeWidth: ringStroke,
+                      strokeWidth: ringStroke.w,
                       color: Colors.white,
-                      backgroundColor: Colors.white.withValues(alpha: 0.2),
+                      backgroundColor: Colors.white24,
+                      strokeCap: StrokeCap.round,
                     ),
                   ),
                 ),
+
+              // ── Main Button Surface ────────────────────────────────────────
+              Container(
+                width: (size - 24).w,
+                height: (size - 24).w,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: widget.sosActive
+                        ? [Colors.red.shade400, Colors.red.shade700]
+                        : [const Color(0xFFFF4B4B), const Color(0xFFC41E3A)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withValues(alpha: widget.sosActive ? 0.3 : 0.5),
+                      blurRadius: 24,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 8),
+                    ),
+                    // Inner highlight
+                    BoxShadow(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      blurRadius: 0,
+                      spreadRadius: -4,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: widget.isLoading
+                    ? Center(
+                        child: SizedBox(
+                          width: 40.w,
+                          height: 40.w,
+                          child: const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 4,
+                          ),
+                        ),
+                      )
+                    : widget.isHolding
+                        ? _SosHoldingContent(countdown: widget.countdown)
+                        : _SosIdleContent(sosActive: widget.sosActive),
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SosHoldingContent extends StatelessWidget {
+  final int countdown;
+  const _SosHoldingContent({required this.countdown});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          '$countdown',
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontSize: 68.sp,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+          ),
+        ),
+        Text(
+          'SECONDS',
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w800,
+            color: Colors.white.withValues(alpha: 0.7),
+            letterSpacing: 2,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SosIdleContent extends StatelessWidget {
+  final bool sosActive;
+  const _SosIdleContent({required this.sosActive});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          'sos_title'.tr(),
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontSize: 48.sp,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            letterSpacing: 4,
+          ),
+        ),
+        SizedBox(height: 4.h),
+        Text(
+          sosActive ? 'sos_active_text'.tr() : 'sos_hold_label'.tr(),
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w800,
+            color: Colors.white.withValues(alpha: 0.8),
+            letterSpacing: 1.5,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2880,7 +2978,6 @@ void _showAreaInfo(BuildContext context, SuggestedArea area) {
               textAlign: TextAlign.center,
             ),
           ],
-          SizedBox(height: 6.h),
           Text(
             '${'area_by'.tr()} ${area.createdByName}',
             style: TextStyle(
@@ -2889,6 +2986,58 @@ void _showAreaInfo(BuildContext context, SuggestedArea area) {
               color: AppColors.textMutedLight,
             ),
           ),
+          if (isMeetpoint && area.meetpointTime != null) ...[
+            SizedBox(height: 16.h),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(color: color.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36.w,
+                    height: 36.w,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Symbols.schedule, color: color, size: 20.w),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          DateFormat('hh:mm a').format(area.meetpointTime!),
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16.sp,
+                            color: isDark ? Colors.white : AppColors.textDark,
+                          ),
+                        ),
+                        if (area.reminderMinutes != null)
+                          Text(
+                            area.reminderMinutes! > 0
+                                ? 'area_reminder_mins'.tr(args: [area.reminderMinutes.toString()])
+                                : 'area_reminder_at_time'.tr(),
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 11.sp,
+                              color: AppColors.textMutedLight,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           SizedBox(height: 20.h),
           SizedBox(
             width: double.infinity,

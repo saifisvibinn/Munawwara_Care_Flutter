@@ -56,7 +56,7 @@ class StandardSnackBar {
           SizedBox(width: 12.w),
           Expanded(
             child: Text(
-              message.tr(),
+              message,
               style: TextStyle(
                 fontFamily: 'Lexend',
                 fontSize: 13.sp,
@@ -77,7 +77,7 @@ class StandardSnackBar {
       duration: duration,
       action: (actionLabel != null && onAction != null)
           ? SnackBarAction(
-              label: actionLabel.tr(),
+              label: actionLabel,
               textColor: Colors.white,
               onPressed: onAction,
             )

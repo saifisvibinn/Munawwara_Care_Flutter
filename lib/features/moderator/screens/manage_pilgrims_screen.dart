@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -10,7 +11,6 @@ import '../providers/moderator_provider.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
-import '../providers/moderator_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 
 // ── Data Models ──────────────────────────────────────────────────────────────
@@ -212,7 +212,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
       if (!mounted) return;
       StandardSnackBar.showSuccess(
         context,
-        '${pilgrim.fullName} moved to ${group.name}',
+        'group_move_success_msg'.tr(namedArgs: {'name': pilgrim.fullName, 'groupName': group.name}),
       );
       await _load();
     } on DioException catch (e) {
@@ -232,7 +232,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
       if (!mounted) return;
       StandardSnackBar.showWarning(
         context,
-        '${pilgrim.fullName} removed from group',
+        'group_remove_success_msg'.tr(namedArgs: {'name': pilgrim.fullName}),
       );
       await _load();
     } on DioException catch (e) {
@@ -275,8 +275,8 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
     if (available.isEmpty) {
       StandardDialog.show(
         context: context,
-        title: 'Assign to Group',
-        content: 'No other groups available for assignment.',
+        title: 'assign_to_group_title'.tr(),
+        content: 'assign_to_group_no_available'.tr(),
         confirmText: 'OK',
       );
       return;
@@ -286,7 +286,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
     
     StandardDialog.show(
       context: context,
-      title: 'Assign to Group',
+      title: 'assign_to_group_title'.tr(),
       showActions: false, // Custom actions for better control
       contentWidget: SizedBox(
         width: double.maxFinite,
@@ -424,7 +424,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Manage Pilgrims',
+                      'manage_pilgrims_title'.tr(),
                       style: TextStyle(
                         fontFamily: 'Lexend',
                         fontWeight: FontWeight.w800,
@@ -434,7 +434,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
                     ),
                     SizedBox(height: 4.h),
                     Text(
-                      'Assign, transfer, or remove pilgrims from groups.',
+                      'manage_pilgrims_subtitle'.tr(),
                       style: TextStyle(
                           fontFamily: 'Lexend',
                           fontSize: 13.sp,
@@ -460,7 +460,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
                             fontSize: 14.sp,
                             color: textPrimary),
                         decoration: InputDecoration(
-                          hintText: 'Search by name, phone, or ID…',
+                          hintText: 'manage_pilgrims_search_hint'.tr(),
                           hintStyle: TextStyle(
                               fontFamily: 'Lexend',
                               color: textMuted,

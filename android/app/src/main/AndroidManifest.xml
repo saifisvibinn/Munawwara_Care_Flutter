@@ -27,7 +27,7 @@
     <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
     <application
         android:label="Munawwara Care"
-        android:name="${applicationName}"
+        android:name=".CallDeclineApplication"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true"
         android:usesCleartextTraffic="true">
@@ -111,6 +111,15 @@
             android:name=".IncomingCallService"
             android:exported="false"
             android:foregroundServiceType="phoneCall" />
+
+        <receiver
+            android:name=".CallDeclineReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.munawwaracare.andriod.com.hiennv.flutter_callkit_incoming.ACTION_CALL_DECLINE" />
+                <action android:name="com.munawwaracare.andriod.com.hiennv.flutter_callkit_incoming.ACTION_CALL_TIMEOUT" />
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -68,6 +68,7 @@ dependencies:
   qr_flutter: ^4.1.0
   screenshot: ^3.0.0
   flutter_qiblah: ^3.2.0
+  flutter_compass_v2: any
 dependency_overrides:
   # Local copy of flutter_callkit_incoming with native Android HTTP decline fix.
   # The BroadcastReceiver now posts to /call-history/decline when the pilgrim

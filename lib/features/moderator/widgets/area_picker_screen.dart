@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,6 +40,8 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
   final _searchController = TextEditingController();
+  final _sheetController = DraggableScrollableController();
+
 
   LatLng? _pickedPoint;
   bool _submitting = false;
@@ -608,60 +609,82 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
   }
 
   Widget _buildBottomSheet(bool isDark, Color accentColor, bool isMeetpoint) {
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 350),
-      curve: Curves.easeOutCubic,
-      bottom: _isFullScreenMap ? -700.h : 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, MediaQuery.of(context).padding.bottom + 20.h),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32.r)),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 25, offset: const Offset(0, -5))],
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(child: Container(width: 40.w, height: 4.h, margin: EdgeInsets.only(bottom: 20.h), decoration: BoxDecoration(color: isDark ? Colors.white12 : Colors.grey.shade300, borderRadius: BorderRadius.circular(2.r)))),
-              if (isMeetpoint && ref.watch(suggestedAreaProvider).activeMeetpoint != null) ...[
-                ActiveMeetpointCard(
-                  activeMp: ref.watch(suggestedAreaProvider).activeMeetpoint!,
-                  isDark: isDark,
-                  onDelete: () => _deleteActiveMeetpoint(ref.read(suggestedAreaProvider).activeMeetpoint!.id),
-                ),
-              ],
-              _buildSectionHeader('area_name_desc_header'.tr()),
-              SizedBox(height: 8.h),
-              _buildTextField(_nameController, isMeetpoint ? Symbols.crisis_alert : Symbols.pin_drop, 'area_name_hint'.tr(), accentColor, isDark),
-              SizedBox(height: 12.h),
-              _buildTextField(_descController, Symbols.description, 'area_desc_hint'.tr(), AppColors.textMutedLight, isDark),
-              if (isMeetpoint) ...[
-                SizedBox(height: 24.h),
-                _buildSectionHeader('area_schedule_title'.tr()),
-                SizedBox(height: 12.h),
-                Row(
-                  children: [
-                    Expanded(child: _buildDateTimeTile(label: 'area_date_label'.tr(), value: _meetpointTime == null ? 'area_select_date'.tr() : DateFormat('MMM dd, yyyy').format(_meetpointTime!), icon: Symbols.calendar_today, isDark: isDark, accentColor: accentColor, onTap: _onSelectDate)),
-                    SizedBox(width: 12.w),
-                    Expanded(child: _buildDateTimeTile(label: 'area_time_label'.tr(), value: _meetpointTime == null ? 'area_select_time'.tr() : DateFormat('hh:mm a').format(_meetpointTime!), icon: Symbols.schedule, isDark: isDark, accentColor: accentColor, onTap: _onSelectTime)),
-                  ],
-                ),
-                SizedBox(height: 24.h),
-                _buildSectionHeader('area_reminder_label'.tr()),
-                SizedBox(height: 12.h),
-                _buildReminderOptions(isDark, accentColor),
-              ],
-              SizedBox(height: 32.h),
-              _buildSubmitButton(isMeetpoint, accentColor),
+    if (_isFullScreenMap) return const SizedBox.shrink();
+
+    return DraggableScrollableSheet(
+      controller: _sheetController,
+      initialChildSize: 0.5,
+      minChildSize: 0.08,
+      maxChildSize: 0.95,
+      snap: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32.r)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 25,
+                offset: const Offset(0, -5),
+              )
             ],
           ),
-        ),
-      ),
+          child: SingleChildScrollView(
+            controller: scrollController,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, MediaQuery.of(context).padding.bottom + 20.h),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40.w,
+                      height: 4.h,
+                      margin: EdgeInsets.only(bottom: 20.h),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white12 : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2.r),
+                      ),
+                    ),
+                  ),
+                  if (isMeetpoint && ref.watch(suggestedAreaProvider).activeMeetpoint != null) ...[
+                    ActiveMeetpointCard(
+                      activeMp: ref.watch(suggestedAreaProvider).activeMeetpoint!,
+                      isDark: isDark,
+                      onDelete: () => _deleteActiveMeetpoint(ref.read(suggestedAreaProvider).activeMeetpoint!.id),
+                    ),
+                  ],
+                  _buildSectionHeader('area_name_desc_header'.tr()),
+                  SizedBox(height: 8.h),
+                  _buildTextField(_nameController, isMeetpoint ? Symbols.crisis_alert : Symbols.pin_drop, 'area_name_hint'.tr(), accentColor, isDark),
+                  SizedBox(height: 12.h),
+                  _buildTextField(_descController, Symbols.description, 'area_desc_hint'.tr(), AppColors.textMutedLight, isDark),
+                  if (isMeetpoint) ...[
+                    SizedBox(height: 24.h),
+                    _buildSectionHeader('area_schedule_title'.tr()),
+                    SizedBox(height: 12.h),
+                    Row(
+                      children: [
+                        Expanded(child: _buildDateTimeTile(label: 'area_date_label'.tr(), value: _meetpointTime == null ? 'area_select_date'.tr() : DateFormat('MMM dd, yyyy').format(_meetpointTime!), icon: Symbols.calendar_today, isDark: isDark, accentColor: accentColor, onTap: _onSelectDate)),
+                        SizedBox(width: 12.w),
+                        Expanded(child: _buildDateTimeTile(label: 'area_time_label'.tr(), value: _meetpointTime == null ? 'area_select_time'.tr() : DateFormat('hh:mm a').format(_meetpointTime!), icon: Symbols.schedule, isDark: isDark, accentColor: accentColor, onTap: _onSelectTime)),
+                      ],
+                    ),
+                    SizedBox(height: 24.h),
+                    _buildSectionHeader('area_reminder_label'.tr()),
+                    SizedBox(height: 12.h),
+                    _buildReminderOptions(isDark, accentColor),
+                  ],
+                  SizedBox(height: 32.h),
+                  _buildSubmitButton(isMeetpoint, accentColor),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

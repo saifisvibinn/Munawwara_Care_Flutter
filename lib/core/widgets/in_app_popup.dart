@@ -54,6 +54,7 @@ class InAppPopup {
     BuildContext context, {
     required String name,
     String? body,
+    String? time,
     VoidCallback? onNavigate,
     Duration? duration,
   }) {
@@ -65,6 +66,7 @@ class InAppPopup {
       builder: (_) => _PopupCard(
         senderName: name,
         body: body ?? '',
+        time: time,
         isUrgent: true,
         isMeetpoint: true,
         onNavigate: onNavigate,
@@ -91,6 +93,7 @@ class InAppPopup {
 class _PopupCard extends StatefulWidget {
   final String senderName;
   final String body;
+  final String? time;
   final bool isUrgent;
   final bool isMeetpoint;
   final VoidCallback? onViewChat;
@@ -108,6 +111,7 @@ class _PopupCard extends StatefulWidget {
     this.onViewChat,
     this.onDismiss,
     this.onNavigate,
+    this.time,
     this.lockUntilDismiss = false,
     this.playType,
     this.playValue,
@@ -481,14 +485,51 @@ class _PopupCardState extends State<_PopupCard>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'popup_urgent_meetpoint'.tr(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16.sp,
-                          color: red,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'popup_urgent_meetpoint'.tr(),
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16.sp,
+                                color: red,
+                              ),
+                            ),
+                          ),
+                          if (widget.time != null)
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8.w,
+                                vertical: 2.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: red.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6.r),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Symbols.schedule,
+                                    size: 12.w,
+                                    color: red,
+                                  ),
+                                  SizedBox(width: 4.w),
+                                  Text(
+                                    widget.time!,
+                                    style: TextStyle(
+                                      fontFamily: 'Lexend',
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11.sp,
+                                      color: red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
                       SizedBox(height: 4.h),
                       Text(

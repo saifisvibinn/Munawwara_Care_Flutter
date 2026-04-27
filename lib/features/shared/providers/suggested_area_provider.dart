@@ -90,7 +90,7 @@ class SuggestedAreaNotifier extends Notifier<SuggestedAreaState> {
           'longitude': longitude,
           'area_type': areaType,
           if (meetpointTime != null) 'meetpoint_time': meetpointTime.toIso8601String(),
-          if (reminderMinutes != null) 'reminder_minutes': reminderMinutes,
+          'reminder_minutes': ?reminderMinutes,
         },
       );
       // Don't update state here - let the socket event handle it
@@ -133,12 +133,12 @@ class SuggestedAreaNotifier extends Notifier<SuggestedAreaState> {
       await ApiService.dio.put(
         '/groups/$groupId/suggested-areas/$areaId',
         data: {
-          if (name != null) 'name': name,
-          if (description != null) 'description': description,
-          if (latitude != null) 'latitude': latitude,
-          if (longitude != null) 'longitude': longitude,
+          'name': ?name,
+          'description': ?description,
+          'latitude': ?latitude,
+          'longitude': ?longitude,
           if (meetpointTime != null) 'meetpoint_time': meetpointTime.toIso8601String(),
-          if (reminderMinutes != null) 'reminder_minutes': reminderMinutes,
+          'reminder_minutes': ?reminderMinutes,
         },
       );
       // We don't update state manually here as the socket event 'area_updated'

@@ -257,6 +257,9 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
             ? GroupInfo.fromJson(groupData)
             : null,
         clearGroup: !(groupData != null && groupData.containsKey('group_id')),
+        navBeacons: !(groupData != null && groupData.containsKey('group_id'))
+            ? const {}
+            : null,
       );
     } on DioException catch (e) {
       state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
@@ -332,16 +335,19 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
     double? lng,
   ) {
     final updated = Map<String, ModeratorBeacon>.from(state.navBeacons);
-    if (enabled && lat != null && lng != null) {
+    if (!enabled) {
+      updated.remove(modId);
+    } else if (lat != null && lng != null) {
       updated[modId] = ModeratorBeacon(
         id: modId,
         name: modName,
         lat: lat,
         lng: lng,
       );
-    } else {
-      updated.remove(modId);
     }
+    // If enabled but lat/lng is null, we just keep the previous beacon if it exists
+    // rather than removing it, to avoid flicker while moderator is getting GPS fix.
+    
     state = state.copyWith(navBeacons: updated);
   }
 

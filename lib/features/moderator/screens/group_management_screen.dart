@@ -66,6 +66,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
   final _mapController = MapController();
   final _dssController = DraggableScrollableController();
   final _searchController = TextEditingController();
+  final ValueNotifier<double> _sheetExtent = ValueNotifier(0.28);
   String _searchQuery = '';
 
   bool get isDark => Theme.of(context).brightness == Brightness.dark;
@@ -136,6 +137,26 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
             .updatePilgrimStatus(pilgrimId, active, lastActiveAt);
       }
     });
+    // Re-join group room & re-emit beacon on every reconnect (server state is lost on restart)
+    SocketService.onConnected(_onSocketConnected);
+  }
+
+  // Named reconnect handler so offConnected can find it.
+  void _onSocketConnected() {
+    if (!mounted) return;
+    SocketService.emit('join_group', widget.groupId);
+    // Re-sync beacon state if it was enabled
+    if (_navBeaconEnabled && _myLocation != null) {
+      final auth = ref.read(authProvider);
+      SocketService.emit('mod_nav_beacon', {
+        'groupId': widget.groupId,
+        'enabled': true,
+        'lat': _myLocation!.latitude,
+        'lng': _myLocation!.longitude,
+        'moderatorId': auth.userId,
+        'moderatorName': auth.fullName ?? 'Moderator',
+      });
+    }
   }
 
   @override
@@ -148,6 +169,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     SocketService.off('area_deleted');
     SocketService.off('location_update');
     SocketService.off('status_update');
+    SocketService.offConnected(_onSocketConnected);
     SocketService.emit('leave_group', widget.groupId);
     super.dispose();
   }
@@ -166,6 +188,19 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
       if (!mounted) return;
       setState(() => _myLocation = LatLng(pos.latitude, pos.longitude));
       _mapController.move(_myLocation!, 15);
+
+      // If beacon was already enabled (from cache/persistence), emit it now that we have coords
+      if (_navBeaconEnabled) {
+        final auth = ref.read(authProvider);
+        SocketService.emit('mod_nav_beacon', {
+          'groupId': widget.groupId,
+          'enabled': true,
+          'lat': pos.latitude,
+          'lng': pos.longitude,
+          'moderatorId': auth.userId,
+          'moderatorName': auth.fullName ?? 'Moderator',
+        });
+      }
     } catch (_) {}
     _locationSub =
         Geolocator.getPositionStream(
@@ -196,7 +231,10 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
 
   void _focusPilgrim(PilgrimInGroup p) {
     if (!p.hasLocation) {
-      StandardSnackBar.showWarning(context, '${p.firstName} has no location data yet');
+      StandardSnackBar.showWarning(
+        context,
+        '${p.firstName} has no location data yet',
+      );
       return;
     }
     setState(() => _focusedPilgrimId = p.id);
@@ -210,7 +248,10 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
 
   Future<void> _navigateToPilgrim(PilgrimInGroup p) async {
     if (!p.hasLocation) {
-      StandardSnackBar.showWarning(context, '${p.firstName} ${'group_not_found'.tr()}');
+      StandardSnackBar.showWarning(
+        context,
+        '${p.firstName} ${'group_not_found'.tr()}',
+      );
       return;
     }
     final lat = p.lat!;
@@ -243,16 +284,18 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     if (!mounted || !saved) return;
     setState(() => _navBeaconEnabled = true);
     _navBeaconCache[widget.groupId] = true;
-    // Re-emit so pilgrims see beacon immediately
-    final auth = ref.read(authProvider);
-    SocketService.emit('mod_nav_beacon', {
-      'groupId': widget.groupId,
-      'enabled': true,
-      'lat': _myLocation?.latitude,
-      'lng': _myLocation?.longitude,
-      'moderatorId': auth.userId,
-      'moderatorName': auth.fullName ?? 'Moderator',
-    });
+    // Re-emit so pilgrims see beacon immediately (only if we have coordinates)
+    if (_myLocation != null) {
+      final auth = ref.read(authProvider);
+      SocketService.emit('mod_nav_beacon', {
+        'groupId': widget.groupId,
+        'enabled': true,
+        'lat': _myLocation!.latitude,
+        'lng': _myLocation!.longitude,
+        'moderatorId': auth.userId,
+        'moderatorName': auth.fullName ?? 'Moderator',
+      });
+    }
   }
 
   void _toggleNavBeacon(ModeratorGroup group) {
@@ -264,14 +307,29 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
       (prefs) => prefs.setBool('nav_beacon_${group.id}', newVal),
     );
     final auth = ref.read(authProvider);
-    SocketService.emit('mod_nav_beacon', {
-      'groupId': group.id,
-      'enabled': newVal,
-      'lat': _myLocation?.latitude,
-      'lng': _myLocation?.longitude,
-      'moderatorId': auth.userId,
-      'moderatorName': auth.fullName ?? 'Moderator',
-    });
+    if (!newVal) {
+      // Turning OFF — always emit immediately so pilgrims lose the beacon
+      SocketService.emit('mod_nav_beacon', {
+        'groupId': group.id,
+        'enabled': false,
+        'lat': null,
+        'lng': null,
+        'moderatorId': auth.userId,
+        'moderatorName': auth.fullName ?? 'Moderator',
+      });
+    } else if (_myLocation != null) {
+      // Turning ON and we already have a GPS fix — emit now
+      SocketService.emit('mod_nav_beacon', {
+        'groupId': group.id,
+        'enabled': true,
+        'lat': _myLocation!.latitude,
+        'lng': _myLocation!.longitude,
+        'moderatorId': auth.userId,
+        'moderatorName': auth.fullName ?? 'Moderator',
+      });
+    }
+    // If turning ON but no GPS fix yet: _navBeaconEnabled is now true, and
+    // _initLocation's first-fix handler will emit as soon as coords arrive.
     if (newVal) {
       StandardSnackBar.showSuccess(context, 'nav_beacon_on'.tr());
     } else {
@@ -281,9 +339,6 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
 
   // ── Add Pilgrim ───────────────────────────────────────────────────────────
 
-
-
-
   // ── Remove pilgrim ────────────────────────────────────────────────────────
 
   Future<bool> _confirmRemovePilgrim(
@@ -292,10 +347,12 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
   ) async {
     final confirmed = await StandardDialog.show<bool>(
       context: context,
-      title: 'group_remove_title',
-      content: '${'group_remove_body'.tr()} ${pilgrim.fullName}?',
-      confirmText: 'group_remove_confirm',
-      cancelText: 'group_remove_cancel',
+      title: 'group_remove_title'.tr(),
+      content: 'group_remove_confirm_body'.tr(
+        namedArgs: {'name': pilgrim.fullName},
+      ),
+      confirmText: 'group_remove_confirm'.tr(),
+      cancelText: 'group_remove_cancel'.tr(),
       isDestructive: true,
     );
     if (confirmed == true && mounted) {
@@ -306,7 +363,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
         if (ok) {
           StandardSnackBar.showSuccess(
             context,
-            '${pilgrim.firstName} ${'group_remove_confirm'.tr().toLowerCase()}',
+            'group_remove_success_msg'.tr(
+              namedArgs: {'name': pilgrim.firstName},
+            ),
           );
         } else {
           StandardSnackBar.showError(context, err ?? 'group_not_found'.tr());
@@ -544,7 +603,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
       isDestructive: true,
     ).then((confirmed) async {
       if (confirmed == true) {
-        final (ok, err) = await ref.read(moderatorProvider.notifier).deleteGroup(group.id);
+        final (ok, err) = await ref
+            .read(moderatorProvider.notifier)
+            .deleteGroup(group.id);
         if (mounted && ok) {
           Navigator.of(context).pop(); // pop management screen
         } else if (mounted && err != null) {
@@ -554,7 +615,10 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     });
   }
 
-  void _showReassignDialog(ModeratorGroup group, List<GroupModerator> otherMods) {
+  void _showReassignDialog(
+    ModeratorGroup group,
+    List<GroupModerator> otherMods,
+  ) {
     String? selectedModId;
     StandardDialog.show(
       context: context,
@@ -572,8 +636,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
               style: TextStyle(
                 fontFamily: 'Lexend',
                 fontSize: 14.sp,
-                color: Theme.of(context).brightness == Brightness.dark 
-                  ? Colors.white70 : AppColors.textMutedLight,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white70
+                    : AppColors.textMutedLight,
               ),
             ),
             SizedBox(height: 16.h),
@@ -581,11 +646,18 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
               groupValue: selectedModId,
               onChanged: (val) => setDialogState(() => selectedModId = val),
               child: Column(
-                children: otherMods.map((mod) => RadioListTile<String>(
-                  title: Text(mod.fullName, style: const TextStyle(fontFamily: 'Lexend')),
-                  value: mod.id,
-                  activeColor: AppColors.primary,
-                )).toList(),
+                children: otherMods
+                    .map(
+                      (mod) => RadioListTile<String>(
+                        title: Text(
+                          mod.fullName,
+                          style: const TextStyle(fontFamily: 'Lexend'),
+                        ),
+                        value: mod.id,
+                        activeColor: AppColors.primary,
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ],
@@ -593,7 +665,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
       ),
     ).then((confirmed) async {
       if (confirmed == true && selectedModId != null) {
-        final (ok, err) = await ref.read(moderatorProvider.notifier).leaveGroup(group.id, newCreatorId: selectedModId);
+        final (ok, err) = await ref
+            .read(moderatorProvider.notifier)
+            .leaveGroup(group.id, newCreatorId: selectedModId);
         if (mounted && ok) {
           Navigator.of(context).pop(); // pop management screen
         } else if (mounted && err != null) {
@@ -603,7 +677,10 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     });
   }
 
-  void _showNormalLeaveDialog(ModeratorGroup group, List<GroupModerator> otherMods) {
+  void _showNormalLeaveDialog(
+    ModeratorGroup group,
+    List<GroupModerator> otherMods,
+  ) {
     StandardDialog.show(
       context: context,
       title: 'group_leave_confirm_title',
@@ -619,25 +696,33 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
             style: TextStyle(
               fontFamily: 'Lexend',
               fontSize: 14.sp,
-              color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.white70 : AppColors.textMutedLight,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white70
+                  : AppColors.textMutedLight,
             ),
           ),
           SizedBox(height: 16.h),
           Text(
             'group_leave_remaining_mods'.tr(),
-            style: const TextStyle(fontFamily: 'Lexend', fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              fontFamily: 'Lexend',
+              fontWeight: FontWeight.bold,
+            ),
           ),
           SizedBox(height: 8.h),
-          ...otherMods.map((mod) => Text(
-            '• ${mod.fullName}',
-            style: const TextStyle(fontFamily: 'Lexend'),
-          )),
+          ...otherMods.map(
+            (mod) => Text(
+              '• ${mod.fullName}',
+              style: const TextStyle(fontFamily: 'Lexend'),
+            ),
+          ),
         ],
       ),
     ).then((confirmed) async {
       if (confirmed == true) {
-        final (ok, err) = await ref.read(moderatorProvider.notifier).leaveGroup(group.id);
+        final (ok, err) = await ref
+            .read(moderatorProvider.notifier)
+            .leaveGroup(group.id);
         if (mounted && ok) {
           Navigator.of(context).pop(); // pop management screen
         } else if (mounted && err != null) {
@@ -771,7 +856,10 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                     onTap: () {
                       Navigator.pop(ctx);
                       if (areaState.hasMeetpoint) {
-                        StandardSnackBar.showWarning(context, 'area_meetpoint_exists'.tr());
+                        StandardSnackBar.showWarning(
+                          context,
+                          'area_meetpoint_exists'.tr(),
+                        );
                         return;
                       }
                       _openAreaPicker(group, 'meetpoint');
@@ -961,17 +1049,17 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                               decoration: BoxDecoration(
                                 color: area.isMeetpoint
                                     ? (isDark
-                                        ? const Color(0xFF450a0a)
-                                        : const Color(0xFFFEF2F2))
+                                          ? const Color(0xFF450a0a)
+                                          : const Color(0xFFFEF2F2))
                                     : (isDark
-                                        ? AppColors.backgroundDark
-                                        : const Color(0xFFF0F0F8)),
+                                          ? AppColors.backgroundDark
+                                          : const Color(0xFFF0F0F8)),
                                 borderRadius: BorderRadius.circular(14.r),
                                 border: Border.all(
                                   color: area.isMeetpoint
                                       ? (isDark
-                                          ? const Color(0xFF991b1b)
-                                          : const Color(0xFFFECACA))
+                                            ? const Color(0xFF991b1b)
+                                            : const Color(0xFFFECACA))
                                       : Colors.transparent,
                                 ),
                               ),
@@ -1029,7 +1117,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                                         0xFFDC2626,
                                                       ).withValues(alpha: 0.15)
                                                     : AppColors.primary
-                                                        .withValues(alpha: 0.15),
+                                                          .withValues(
+                                                            alpha: 0.15,
+                                                          ),
                                                 borderRadius:
                                                     BorderRadius.circular(6.r),
                                               ),
@@ -1037,7 +1127,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                                 area.isMeetpoint
                                                     ? 'area_meetpoint'.tr()
                                                     : 'area_suggestion_label'
-                                                        .tr(),
+                                                          .tr(),
                                                 style: TextStyle(
                                                   fontFamily: 'Lexend',
                                                   fontWeight: FontWeight.w600,
@@ -1097,11 +1187,12 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) => AreaPickerScreen(
-                                            groupId: group.id,
-                                            areaType: area.areaType,
-                                            existingArea: area,
-                                          ),
+                                          builder: (context) =>
+                                              AreaPickerScreen(
+                                                groupId: group.id,
+                                                areaType: area.areaType,
+                                                existingArea: area,
+                                              ),
                                         ),
                                       );
                                     },
@@ -1128,14 +1219,16 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                       if (area.isMeetpoint) {
                                         final shouldDelete =
                                             await StandardDialog.show<bool>(
-                                          context: context,
-                                          title: 'area_delete_meetpoint_confirm_title',
-                                          content: 'area_delete_meetpoint_confirm_message',
-                                          confirmText: 'msg_delete_confirm',
-                                          cancelText: 'area_cancel',
-                                          isDestructive: true,
-                                        ) ??
-                                        false;
+                                              context: context,
+                                              title:
+                                                  'area_delete_meetpoint_confirm_title',
+                                              content:
+                                                  'area_delete_meetpoint_confirm_message',
+                                              confirmText: 'msg_delete_confirm',
+                                              cancelText: 'area_cancel',
+                                              isDestructive: true,
+                                            ) ??
+                                            false;
 
                                         if (!shouldDelete) return;
                                       }
@@ -1145,14 +1238,19 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                           .deleteArea(group.id, area.id);
                                       if (!context.mounted) return;
                                       if (ok) {
-                                        StandardSnackBar.showSuccess(context, 'area_deleted');
+                                        StandardSnackBar.showSuccess(
+                                          context,
+                                          'area_deleted',
+                                        );
                                       }
                                     },
                                     child: Container(
                                       width: 32.w,
                                       height: 32.w,
                                       decoration: BoxDecoration(
-                                        color: Colors.red.withValues(alpha: 0.1),
+                                        color: Colors.red.withValues(
+                                          alpha: 0.1,
+                                        ),
                                         shape: BoxShape.circle,
                                       ),
                                       child: Icon(
@@ -1178,7 +1276,8 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
 
   Future<void> _handleDeleteArea(SuggestedArea area) async {
     if (area.isMeetpoint) {
-      final shouldDelete = await StandardDialog.show<bool>(
+      final shouldDelete =
+          await StandardDialog.show<bool>(
             context: context,
             title: 'area_delete_meetpoint_confirm_title',
             content: 'area_delete_meetpoint_confirm_message',
@@ -1193,7 +1292,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     final group = ref.read(moderatorProvider).currentGroup;
     if (group == null) return;
 
-    final ok = await ref.read(suggestedAreaProvider.notifier).deleteArea(group.id, area.id);
+    final ok = await ref
+        .read(suggestedAreaProvider.notifier)
+        .deleteArea(group.id, area.id);
     if (!context.mounted) return;
     if (ok) {
       StandardSnackBar.showSuccess(context, 'area_deleted'.tr());
@@ -1209,6 +1310,114 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
           initialCenter: _myLocation,
         ),
       ),
+    );
+  }
+
+  // ── Map Controls ──────────────────────────────────────────────────────────
+
+  /// Recenter button — positioned above the bottom sheet at any snap height.
+  Widget _buildMapControls() {
+    final hasLocation = _myLocation != null;
+    return ValueListenableBuilder<double>(
+      valueListenable: _sheetExtent,
+      builder: (context, extent, child) {
+        // Calculate padding based on screen height and sheet extent
+        // extent is a fraction of the screen (e.g., 0.1 to 0.72)
+        final screenHeight = MediaQuery.of(context).size.height;
+        final bottomPadding = (screenHeight * extent) + 16.h;
+
+        return Positioned(
+          bottom: bottomPadding,
+          right: 16.w,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Recenter pill ────────────────────────────────────────────────
+              GestureDetector(
+                onTap: () {
+                  if (_myLocation != null) {
+                    _mapController.move(_myLocation!, 16);
+                  }
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14.w,
+                    vertical: 10.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.surfaceDark : Colors.white,
+                    borderRadius: BorderRadius.circular(24.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(
+                          alpha: isDark ? 0.35 : 0.12,
+                        ),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Live location indicator dot
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 400),
+                        width: 8.w,
+                        height: 8.w,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: hasLocation
+                              ? const Color(0xFF22C55E) // green = GPS locked
+                              : const Color(
+                                  0xFFF59E0B,
+                                ), // amber = waiting for GPS
+                          boxShadow: hasLocation
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFF22C55E,
+                                    ).withValues(alpha: 0.5),
+                                    blurRadius: 6,
+                                    spreadRadius: 1,
+                                  ),
+                                ]
+                              : [],
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      Icon(
+                        Symbols.my_location,
+                        size: 18.w,
+                        color: hasLocation
+                            ? AppColors.primary
+                            : (isDark
+                                  ? Colors.white54
+                                  : AppColors.textMutedLight),
+                      ),
+                      SizedBox(width: 6.w),
+                      Text(
+                        'my_location'.tr(),
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12.sp,
+                          color: hasLocation
+                              ? (isDark ? Colors.white : AppColors.textDark)
+                              : (isDark
+                                    ? Colors.white54
+                                    : AppColors.textMutedLight),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1401,27 +1610,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
           ),
 
           // ── Map Controls ──────────────────────────────────────────────────
-          Positioned(
-            bottom: 110.h,
-            right: 16.w,
-            child: Column(
-              children: [
-                CircleButton(
-                  icon: Symbols.my_location,
-                  onTap: () {
-                    if (_myLocation != null) {
-                      _mapController.move(_myLocation!, 16);
-                    }
-                  },
-                ),
-                SizedBox(height: 12.h),
-                CircleButton(
-                  icon: Symbols.layers,
-                  onTap: () {},
-                ),
-              ],
-            ),
-          ),
+          _buildMapControls(),
 
           // ── Top-right 3-dot menu ──────────────────────────────────────────
           Positioned(
@@ -1553,7 +1742,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.10),
+                          color: Colors.black.withValues(
+                            alpha: isDark ? 0.3 : 0.10,
+                          ),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -1570,305 +1761,322 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
             ),
           ),
 
-          // ── Pilgrim list sheet ────────────────────────────────────────────
           Positioned.fill(
-            child: DraggableScrollableSheet(
-              controller: _dssController,
-              expand: false,
-              initialChildSize: 0.28,
-              minChildSize: 0.1,
-              maxChildSize: 0.72,
-              snap: true,
-              snapSizes: const [0.1, 0.28, 0.72],
-              builder: (ctx, scrollController) => DecoratedBox(
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.surfaceDark : Colors.white,
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(24.r),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
-                      blurRadius: 16,
-                      offset: const Offset(0, -4),
+            child: NotificationListener<DraggableScrollableNotification>(
+              onNotification: (notification) {
+                _sheetExtent.value = notification.extent;
+                return false; // Let it bubble up if needed
+              },
+              child: DraggableScrollableSheet(
+                controller: _dssController,
+                expand: false,
+                initialChildSize: 0.28,
+                minChildSize: 0.1,
+                maxChildSize: 0.72,
+                snap: true,
+                snapSizes: const [0.1, 0.28, 0.72],
+                builder: (ctx, scrollController) => DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.surfaceDark : Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(24.r),
                     ),
-                  ],
-                ),
-                child: CustomScrollView(
-                  controller: scrollController,
-                  slivers: [
-                    // Drag handle
-                    SliverToBoxAdapter(
-                      child: Center(
-                        child: Padding(
-                          padding: EdgeInsets.only(top: 12.h, bottom: 8.h),
-                          child: Container(
-                            width: 36.w,
-                            height: 4.h,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.white24
-                                  : const Color(0xFFE2E8F0),
-                              borderRadius: BorderRadius.circular(2.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(
+                          alpha: isDark ? 0.3 : 0.08,
+                        ),
+                        blurRadius: 16,
+                        offset: const Offset(0, -4),
+                      ),
+                    ],
+                  ),
+                  child: CustomScrollView(
+                    controller: scrollController,
+                    slivers: [
+                      // Drag handle
+                      SliverToBoxAdapter(
+                        child: Center(
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 12.h, bottom: 8.h),
+                            child: Container(
+                              width: 36.w,
+                              height: 4.h,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.white24
+                                    : const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(2.r),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    // Sheet header
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
-                        child: Row(
-                          children: [
-                            Text(
-                              group.totalPilgrims == 0
-                                  ? 'group_no_pilgrims'.tr()
-                                  : '${group.totalPilgrims} Pilgrims',
-                              style: TextStyle(
-                                fontFamily: 'Lexend',
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15.sp,
-                                color: isDark
-                                    ? Colors.white
-                                    : AppColors.textDark,
-                              ),
-                            ),
-                            const Spacer(),
-                            // Chat button with label
-                            GestureDetector(
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => GroupMessagesScreen(
-                                    groupId: group.id,
-                                    groupName: group.groupName,
-                                    currentUserId: widget.currentUserId,
-                                  ),
+                      // Sheet header
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
+                          child: Row(
+                            children: [
+                              Text(
+                                group.totalPilgrims == 0
+                                    ? 'group_no_pilgrims'.tr()
+                                    : '${group.totalPilgrims} Pilgrims',
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15.sp,
+                                  color: isDark
+                                      ? Colors.white
+                                      : AppColors.textDark,
                                 ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 34.w,
-                                    height: 34.w,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary,
-                                      shape: BoxShape.circle,
+                              const Spacer(),
+                              // Chat button with label
+                              GestureDetector(
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => GroupMessagesScreen(
+                                      groupId: group.id,
+                                      groupName: group.groupName,
+                                      currentUserId: widget.currentUserId,
                                     ),
-                                    child: Icon(
-                                      Symbols.chat_bubble,
-                                      size: 16.w,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  SizedBox(width: 6.w),
-                                  Text(
-                                    'group_menu_chat'.tr(),
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13.sp,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(width: 8.w),
-                            if (group.sosCount > 0)
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 8.w,
-                                  vertical: 4.h,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFF1F2),
-                                  borderRadius: BorderRadius.circular(100.r),
-                                  border: Border.all(
-                                    color: const Color(0xFFFFE4E6),
                                   ),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(
-                                      Symbols.warning,
-                                      size: 12.w,
-                                      color: const Color(0xFFDC2626),
-                                      fill: 1,
-                                    ),
-                                    SizedBox(width: 3.w),
-                                    Text(
-                                      '${group.sosCount} SOS',
-                                      style: TextStyle(
-                                        fontFamily: 'Lexend',
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 11.sp,
-                                        color: const Color(0xFFDC2626),
+                                    Container(
+                                      width: 34.w,
+                                      height: 34.w,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary,
+                                        shape: BoxShape.circle,
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Active Meetpoint Card (if exists)
-                    if (areaState.activeMeetpoint != null)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16.w),
-                          child: ActiveMeetpointCard(
-                            activeMp: areaState.activeMeetpoint!,
-                            isDark: isDark,
-                            onDelete: () => _handleDeleteArea(areaState.activeMeetpoint!),
-                            onTap: () {
-                              _mapController.move(
-                                LatLng(areaState.activeMeetpoint!.latitude, areaState.activeMeetpoint!.longitude),
-                                17,
-                              );
-                              _dssController.animateTo(0.08, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-                            },
-                          ),
-                        ),
-                      ),
-                    // Search bar
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
-                        child: Container(
-                          height: 40.h,
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.backgroundDark
-                                : const Color(0xFFF0F0F8),
-                            borderRadius: BorderRadius.circular(12.r),
-                          ),
-                          child: TextField(
-                            controller: _searchController,
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 13.sp,
-                              color: isDark ? Colors.white : AppColors.textDark,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Search pilgrims...',
-                              hintStyle: TextStyle(
-                                fontFamily: 'Lexend',
-                                fontSize: 13.sp,
-                                color: AppColors.textMutedLight,
-                              ),
-                              prefixIcon: Icon(
-                                Symbols.search,
-                                size: 18.w,
-                                color: AppColors.textMutedLight,
-                              ),
-                              suffixIcon: _searchQuery.isNotEmpty
-                                  ? IconButton(
-                                      icon: Icon(
-                                        Symbols.close,
+                                      child: Icon(
+                                        Symbols.chat_bubble,
                                         size: 16.w,
-                                        color: AppColors.textMutedLight,
-                                      ),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                        setState(() => _searchQuery = '');
-                                      },
-                                    )
-                                  : null,
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(
-                                vertical: 11.h,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Pilgrim tiles
-                    if (filtered.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: Text(
-                            _searchQuery.isNotEmpty
-                                ? 'group_no_matches'.tr()
-                                : 'group_no_pilgrims'.tr(),
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              color: AppColors.textMutedLight,
-                              fontSize: 13.sp,
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      SliverPadding(
-                        padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate((ctx, i) {
-                            final p = filtered[i];
-                            return Dismissible(
-                              key: ValueKey(p.id),
-                              direction: DismissDirection.endToStart,
-                              confirmDismiss: (_) =>
-                                  _confirmRemovePilgrim(group, p),
-                              background: Container(
-                                alignment: Alignment.centerRight,
-                                padding: EdgeInsets.only(right: 20.w),
-                                margin: EdgeInsets.only(bottom: 8.h),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(16.r),
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Symbols.person_remove,
-                                      color: Colors.white,
-                                      size: 22.w,
-                                    ),
-                                    SizedBox(height: 2.h),
-                                    Text(
-                                      'group_remove_confirm'.tr(),
-                                      style: TextStyle(
                                         color: Colors.white,
-                                        fontSize: 10.sp,
+                                      ),
+                                    ),
+                                    SizedBox(width: 6.w),
+                                    Text(
+                                      'group_menu_chat'.tr(),
+                                      style: TextStyle(
                                         fontFamily: 'Lexend',
                                         fontWeight: FontWeight.w600,
+                                        fontSize: 13.sp,
+                                        color: AppColors.primary,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              child: _PilgrimManageTile(
-                                pilgrim: p,
-                                isSelected: _focusedPilgrimId == p.id,
-                                onTap: () => _focusPilgrim(p),
-                                onNavigate: () => _navigateToPilgrim(p),
-                                onCall: () => _showCallSheet(p),
-                                onRemove: () => _confirmRemovePilgrim(group, p),
-                                onViewProfile: () => _showPilgrimProfile(p),
-                              ),
-                            );
-                          }, childCount: filtered.length),
+                              SizedBox(width: 8.w),
+                              if (group.sosCount > 0)
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 8.w,
+                                    vertical: 4.h,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF1F2),
+                                    borderRadius: BorderRadius.circular(100.r),
+                                    border: Border.all(
+                                      color: const Color(0xFFFFE4E6),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Symbols.warning,
+                                        size: 12.w,
+                                        color: const Color(0xFFDC2626),
+                                        fill: 1,
+                                      ),
+                                      SizedBox(width: 3.w),
+                                      Text(
+                                        '${group.sosCount} SOS',
+                                        style: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 11.sp,
+                                          color: const Color(0xFFDC2626),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
-                  ],
+                      // Active Meetpoint Card (if exists)
+                      if (areaState.activeMeetpoint != null)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16.w),
+                            child: ActiveMeetpointCard(
+                              activeMp: areaState.activeMeetpoint!,
+                              isDark: isDark,
+                              onDelete: () =>
+                                  _handleDeleteArea(areaState.activeMeetpoint!),
+                              onTap: () {
+                                _mapController.move(
+                                  LatLng(
+                                    areaState.activeMeetpoint!.latitude,
+                                    areaState.activeMeetpoint!.longitude,
+                                  ),
+                                  17,
+                                );
+                                _dssController.animateTo(
+                                  0.08,
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeOut,
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      // Search bar
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
+                          child: Container(
+                            height: 40.h,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppColors.backgroundDark
+                                  : const Color(0xFFF0F0F8),
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontSize: 13.sp,
+                                color: isDark
+                                    ? Colors.white
+                                    : AppColors.textDark,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Search pilgrims...',
+                                hintStyle: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 13.sp,
+                                  color: AppColors.textMutedLight,
+                                ),
+                                prefixIcon: Icon(
+                                  Symbols.search,
+                                  size: 18.w,
+                                  color: AppColors.textMutedLight,
+                                ),
+                                suffixIcon: _searchQuery.isNotEmpty
+                                    ? IconButton(
+                                        icon: Icon(
+                                          Symbols.close,
+                                          size: 16.w,
+                                          color: AppColors.textMutedLight,
+                                        ),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          setState(() => _searchQuery = '');
+                                        },
+                                      )
+                                    : null,
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(
+                                  vertical: 11.h,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Pilgrim tiles
+                      if (filtered.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(
+                            child: Text(
+                              _searchQuery.isNotEmpty
+                                  ? 'group_no_matches'.tr()
+                                  : 'group_no_pilgrims'.tr(),
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                color: AppColors.textMutedLight,
+                                fontSize: 13.sp,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate((ctx, i) {
+                              final p = filtered[i];
+                              return Dismissible(
+                                key: ValueKey(p.id),
+                                direction: DismissDirection.endToStart,
+                                confirmDismiss: (_) =>
+                                    _confirmRemovePilgrim(group, p),
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: EdgeInsets.only(right: 20.w),
+                                  margin: EdgeInsets.only(bottom: 8.h),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(16.r),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Symbols.person_remove,
+                                        color: Colors.white,
+                                        size: 22.w,
+                                      ),
+                                      SizedBox(height: 2.h),
+                                      Text(
+                                        'group_remove_confirm'.tr(),
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10.sp,
+                                          fontFamily: 'Lexend',
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                child: _PilgrimManageTile(
+                                  pilgrim: p,
+                                  isSelected: _focusedPilgrimId == p.id,
+                                  onTap: () => _focusPilgrim(p),
+                                  onNavigate: () => _navigateToPilgrim(p),
+                                  onCall: () => _showCallSheet(p),
+                                  onRemove: () =>
+                                      _confirmRemovePilgrim(group, p),
+                                  onViewProfile: () => _showPilgrimProfile(p),
+                                ),
+                              );
+                            }, childCount: filtered.length),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ), // DraggableScrollableSheet
-          ), // Positioned(bottom: 0)
+              ), // DraggableScrollableSheet
+            ), // NotificationListener
+          ), // Positioned.fill
         ],
       ),
     );
   }
 }
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QR share bottom sheet
@@ -2099,7 +2307,10 @@ class _QrShareSheetState extends State<_QrShareSheet> {
                         Clipboard.setData(
                           ClipboardData(text: widget.group.groupCode),
                         );
-                        StandardSnackBar.showSuccess(context, 'group_code_copied'.tr());
+                        StandardSnackBar.showSuccess(
+                          context,
+                          'group_code_copied'.tr(),
+                        );
                       },
                       child: Container(
                         width: 36.w,
@@ -2358,7 +2569,9 @@ class _ModeratorManageSheet extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               leading: CircleAvatar(
                 radius: 20.r,
-                backgroundColor: const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                backgroundColor: const Color(
+                  0xFF6C63FF,
+                ).withValues(alpha: 0.15),
                 child: Text(
                   mod.initials,
                   style: TextStyle(
@@ -2495,7 +2708,7 @@ class _ModeratorManageSheet extends ConsumerWidget {
   ) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ctrl = TextEditingController();
-    
+
     // Variables must be outside the builder so they aren't reset on keyboard toggles
     bool loading = false;
     String? fieldError;
@@ -2528,7 +2741,10 @@ class _ModeratorManageSheet extends ConsumerWidget {
                   SnackBar(
                     content: Text(
                       'group_invite_success'.tr(),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     backgroundColor: Colors.green.shade600,
                     behavior: SnackBarBehavior.floating,
@@ -2960,4 +3176,3 @@ class _PilgrimManageTile extends StatelessWidget {
     );
   }
 }
-

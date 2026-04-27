@@ -6,13 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/widgets/custom_dialog.dart';
-import '../../../core/widgets/standard_snackbar.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/api_service.dart';
 import '../../auth/providers/auth_provider.dart';
-import 'pilgrim_profile_edit_screen.dart';
 
 class PilgrimProfileScreen extends ConsumerStatefulWidget {
   const PilgrimProfileScreen({super.key});
@@ -56,10 +54,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
     _selectedLocale = context.locale.languageCode;
   }
 
-  void _saveChanges() {
-    // Settings is a tab, nothing to pop — just show success feedback
-    StandardSnackBar.showSuccess(context, 'edit_profile_success');
-  }
 
   Future<void> _signOut() async {
     final confirmed = await StandardDialog.show<bool>(
@@ -210,28 +204,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                                   ),
                                 ),
                               ],
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const PilgrimProfileEditScreen(),
-                              ),
-                            ),
-                            child: Container(
-                              padding: EdgeInsets.all(8.r),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? AppColors.iconBgDark
-                                    : AppColors.iconBgLight,
-                                borderRadius: BorderRadius.circular(8.r),
-                              ),
-                              child: Icon(
-                                Icons.edit_rounded,
-                                color: AppColors.primary,
-                                size: 18.sp,
-                              ),
                             ),
                           ),
                         ],
@@ -544,19 +516,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
 
                     SizedBox(height: 32.h),
 
-                    // ── Save Changes button ─────────────────────────────
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52.h,
-                      child: ElevatedButton(
-                        onPressed: _saveChanges,
-                        child: Text(
-                          'settings_save'.tr(),
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: 16.h),
 
                     // ── Sign Out button ──────────────────────────────────
                     SizedBox(

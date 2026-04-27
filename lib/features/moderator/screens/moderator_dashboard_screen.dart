@@ -22,6 +22,7 @@ import 'pilgrim_provisioning_screen.dart';
 import 'create_group_screen.dart';
 import 'moderator_profile_screen.dart';
 import 'group_management_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'moderator_group_map_screen.dart';
 import 'system_reminders_screen.dart';
 
@@ -255,6 +256,16 @@ class _ModeratorDashboardScreenState
 // Groups Home Tab
 // ─────────────────────────────────────────────────────────────────────────────
 
+enum GroupSortType {
+  alphabetical,
+  oldestToNewest,
+  newestToOldest,
+  pilgrimCount,
+  moderatorCount,
+  mostOnline,
+  lowBatteryPriority
+}
+
 class _GroupsHomeTab extends ConsumerStatefulWidget {
   final TextEditingController searchController;
   final VoidCallback onNotificationTap;
@@ -270,10 +281,13 @@ class _GroupsHomeTab extends ConsumerStatefulWidget {
 
 class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
   String _searchQuery = '';
+  GroupSortType _sortType = GroupSortType.oldestToNewest;
+  bool _isAscending = false;
 
   @override
   void initState() {
     super.initState();
+    _loadSortPreferences();
     widget.searchController.addListener(() {
       if (mounted) {
         setState(
@@ -283,11 +297,267 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
     });
   }
 
-  List<ModeratorGroup> _filtered(List<ModeratorGroup> groups) {
-    if (_searchQuery.isEmpty) return groups;
-    return groups
-        .where((g) => g.groupName.toLowerCase().contains(_searchQuery))
-        .toList();
+  Future<void> _loadSortPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final sortIndex = prefs.getInt('mod_group_sort_type');
+    final isAsc = prefs.getBool('mod_group_sort_asc');
+    if (mounted) {
+      setState(() {
+        if (sortIndex != null && sortIndex < GroupSortType.values.length) {
+          _sortType = GroupSortType.values[sortIndex];
+        }
+        if (isAsc != null) {
+          _isAscending = isAsc;
+        }
+      });
+    }
+  }
+
+  Future<void> _saveSortPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('mod_group_sort_type', _sortType.index);
+    await prefs.setBool('mod_group_sort_asc', _isAscending);
+  }
+
+  List<ModeratorGroup> _filteredAndSorted(List<ModeratorGroup> groups) {
+    var list = groups.toList();
+    if (_searchQuery.isNotEmpty) {
+      list = list
+          .where((g) => g.groupName.toLowerCase().contains(_searchQuery))
+          .toList();
+    }
+
+    // Sort
+    switch (_sortType) {
+      case GroupSortType.alphabetical:
+        list.sort((a, b) => a.groupName.compareTo(b.groupName));
+        break;
+      case GroupSortType.oldestToNewest:
+        list.sort((a, b) {
+          final da = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final db = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return da.compareTo(db);
+        });
+        break;
+      case GroupSortType.newestToOldest:
+        list.sort((a, b) {
+          final da = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final db = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return db.compareTo(da);
+        });
+        break;
+      case GroupSortType.pilgrimCount:
+        list.sort((a, b) => _isAscending
+            ? a.totalPilgrims.compareTo(b.totalPilgrims)
+            : b.totalPilgrims.compareTo(a.totalPilgrims));
+        break;
+      case GroupSortType.moderatorCount:
+        list.sort((a, b) => _isAscending
+            ? a.moderatorCount.compareTo(b.moderatorCount)
+            : b.moderatorCount.compareTo(a.moderatorCount));
+        break;
+      case GroupSortType.mostOnline:
+        list.sort((a, b) => _isAscending
+            ? a.onlineCount.compareTo(b.onlineCount)
+            : b.onlineCount.compareTo(a.onlineCount));
+        break;
+      case GroupSortType.lowBatteryPriority:
+        list.sort((a, b) => b.batteryLowCount.compareTo(a.batteryLowCount));
+        break;
+    }
+
+    return list;
+  }
+
+  void _showSortBottomSheet(bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          return Container(
+            padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 32.h),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.surfaceDark : Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40.w,
+                    height: 4.h,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black12,
+                      borderRadius: BorderRadius.circular(2.r),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 20.h),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'filter_sort_title'.tr(),
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontWeight: FontWeight.w800,
+                        fontSize: 20.sp,
+                        color: isDark ? Colors.white : const Color(0xFF1A1A4E),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _sortType = GroupSortType.oldestToNewest;
+                          _isAscending = false;
+                        });
+                        _saveSortPreferences();
+                        Navigator.pop(ctx);
+                      },
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'reset'.tr(),
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20.h),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _SortOption(
+                          label: 'sort_az'.tr(),
+                          icon: Symbols.sort_by_alpha,
+                          isSelected: _sortType == GroupSortType.alphabetical,
+                          onTap: () {
+                            setState(() => _sortType = GroupSortType.alphabetical);
+                            _saveSortPreferences();
+                            Navigator.pop(ctx);
+                          },
+                          isDark: isDark,
+                        ),
+                        _SortOption(
+                          label: 'sort_newest'.tr(),
+                          icon: Symbols.schedule,
+                          isSelected: _sortType == GroupSortType.newestToOldest,
+                          onTap: () {
+                            setState(() => _sortType = GroupSortType.newestToOldest);
+                            _saveSortPreferences();
+                            Navigator.pop(ctx);
+                          },
+                          isDark: isDark,
+                        ),
+                        _SortOption(
+                          label: 'sort_oldest'.tr(),
+                          icon: Symbols.calendar_month,
+                          isSelected: _sortType == GroupSortType.oldestToNewest,
+                          onTap: () {
+                            setState(() => _sortType = GroupSortType.oldestToNewest);
+                            _saveSortPreferences();
+                            Navigator.pop(ctx);
+                          },
+                          isDark: isDark,
+                        ),
+                        _SortOption(
+                          label: 'sort_pilgrim_count'.tr(),
+                          icon: Symbols.groups,
+                          isSelected: _sortType == GroupSortType.pilgrimCount,
+                          isAscending: _sortType == GroupSortType.pilgrimCount ? _isAscending : null,
+                          onTap: () {
+                            if (_sortType == GroupSortType.pilgrimCount) {
+                              setState(() => _isAscending = !_isAscending);
+                              setSheetState(() {});
+                            } else {
+                              setState(() {
+                                _sortType = GroupSortType.pilgrimCount;
+                                _isAscending = false; // Default to Descending for counts
+                              });
+                              Navigator.pop(ctx);
+                            }
+                            _saveSortPreferences();
+                          },
+                          isDark: isDark,
+                        ),
+                        _SortOption(
+                          label: 'sort_mod_count'.tr(),
+                          icon: Symbols.shield_person,
+                          isSelected: _sortType == GroupSortType.moderatorCount,
+                          isAscending: _sortType == GroupSortType.moderatorCount ? _isAscending : null,
+                          onTap: () {
+                            if (_sortType == GroupSortType.moderatorCount) {
+                              setState(() => _isAscending = !_isAscending);
+                              setSheetState(() {});
+                            } else {
+                              setState(() {
+                                _sortType = GroupSortType.moderatorCount;
+                                _isAscending = false;
+                              });
+                              Navigator.pop(ctx);
+                            }
+                            _saveSortPreferences();
+                          },
+                          isDark: isDark,
+                        ),
+                        _SortOption(
+                          label: 'sort_most_online'.tr(),
+                          icon: Symbols.bolt,
+                          isSelected: _sortType == GroupSortType.mostOnline,
+                          isAscending: _sortType == GroupSortType.mostOnline ? _isAscending : null,
+                          onTap: () {
+                            if (_sortType == GroupSortType.mostOnline) {
+                              setState(() => _isAscending = !_isAscending);
+                              setSheetState(() {});
+                            } else {
+                              setState(() {
+                                _sortType = GroupSortType.mostOnline;
+                                _isAscending = false;
+                              });
+                              Navigator.pop(ctx);
+                            }
+                            _saveSortPreferences();
+                          },
+                          isDark: isDark,
+                        ),
+                        _SortOption(
+                          label: 'sort_low_battery'.tr(),
+                          icon: Symbols.battery_alert,
+                          isSelected: _sortType == GroupSortType.lowBatteryPriority,
+                          onTap: () {
+                            setState(() => _sortType = GroupSortType.lowBatteryPriority);
+                            _saveSortPreferences();
+                            Navigator.pop(ctx);
+                          },
+                          isDark: isDark,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -295,7 +565,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
     final state = ref.watch(moderatorProvider);
     final notifCount = ref.watch(notificationProvider).unreadCount;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final groups = _filtered(state.groups);
+    final groups = _filteredAndSorted(state.groups);
     final showEmptyState =
         !state.isLoading && state.error == null && groups.isEmpty;
     final anySOS = state.groups.any((g) => g.sosCount > 0);
@@ -519,33 +789,54 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                           ),
                         ),
                         SizedBox(width: 10.w),
-                        Container(
-                          width: 48.w,
-                          height: 48.h,
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.surfaceDark
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(14.r),
-                            border: Border.all(
+                        GestureDetector(
+                          onTap: () => _showSortBottomSheet(isDark),
+                          child: Container(
+                            width: 48.w,
+                            height: 48.h,
+                            decoration: BoxDecoration(
                               color: isDark
-                                  ? AppColors.backgroundDark
-                                  : const Color(0xFFE2E2F0),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 6,
-                                offset: const Offset(0, 1),
+                                  ? AppColors.surfaceDark
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(14.r),
+                              border: Border.all(
+                                color: isDark
+                                    ? AppColors.backgroundDark
+                                    : const Color(0xFFE2E2F0),
                               ),
-                            ],
-                          ),
-                          child: Icon(
-                            Symbols.tune,
-                            size: 20.w,
-                            color: isDark
-                                ? AppColors.primary
-                                : const Color(0xFF8A6A30),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Icon(
+                                  Symbols.tune,
+                                  size: 20.w,
+                                  color: isDark
+                                      ? AppColors.primary
+                                      : const Color(0xFF8A6A30),
+                                ),
+                                if (_sortType != GroupSortType.oldestToNewest)
+                                  Positioned(
+                                    top: 12.h,
+                                    right: 12.w,
+                                    child: Container(
+                                      width: 6.w,
+                                      height: 6.w,
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.primary,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -1446,6 +1737,89 @@ class _NavItem extends StatelessWidget {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SortOption extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final bool? isAscending;
+  final VoidCallback onTap;
+  final bool isDark;
+
+  const _SortOption({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    required this.onTap,
+    required this.isDark,
+    this.isAscending,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12.h),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark
+                  ? AppColors.primary.withValues(alpha: 0.1)
+                  : AppColors.primary.withValues(alpha: 0.05))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primary.withValues(alpha: 0.3)
+                : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 22.w,
+              color: isSelected
+                  ? AppColors.primary
+                  : (isDark ? Colors.white70 : AppColors.textDark),
+            ),
+            SizedBox(width: 16.w),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 15.sp,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected
+                      ? AppColors.primary
+                      : (isDark ? Colors.white : AppColors.textDark),
+                ),
+              ),
+            ),
+            if (isSelected && isAscending != null)
+              Padding(
+                padding: EdgeInsetsDirectional.only(end: 8.w),
+                child: Icon(
+                  isAscending! ? Symbols.arrow_upward : Symbols.arrow_downward,
+                  size: 20.w,
+                  color: AppColors.primary,
+                ),
+              ),
+            if (isSelected)
+              Icon(
+                Symbols.check_circle,
+                size: 20.w,
+                color: AppColors.primary,
+                fill: 1,
+              ),
           ],
         ),
       ),
