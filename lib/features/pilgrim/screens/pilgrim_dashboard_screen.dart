@@ -833,7 +833,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       });
     }
     if (!mounted) return;
-    StandardSnackBar.showSuccess(context, 'sos_cancelled');
+    StandardSnackBar.showSuccess(context, 'sos_cancelled'.tr());
   }
 
   // ── Navigate to Moderator ──────────────────────────────────────────────────

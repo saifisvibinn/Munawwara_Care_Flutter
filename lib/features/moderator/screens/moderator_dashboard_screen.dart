@@ -23,8 +23,8 @@ import 'create_group_screen.dart';
 import 'moderator_profile_screen.dart';
 import 'group_management_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'moderator_group_map_screen.dart';
 import 'system_reminders_screen.dart';
+import '../widgets/pilgrim_profile_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Moderator Dashboard Screen
@@ -68,6 +68,8 @@ class _ModeratorDashboardScreenState
     
     final map = data is Map ? data : <String, dynamic>{};
     final name = map['pilgrim_name'] as String? ?? 'A pilgrim';
+    final pilgrimId = map['pilgrim_id'] as String?;
+    final groupId = map['group_id'] as String?;
 
     // Show a system notification
     NotificationService.instance.showUrgentNotification(
@@ -80,6 +82,23 @@ class _ModeratorDashboardScreenState
     await _alertTts.setVolume(1.0);
     await _alertTts.setSpeechRate(0.42);
     await _alertTts.speak('SOS Alert! $name needs immediate help!');
+    
+    // Look up pilgrim from state to pass to profile sheet
+    PilgrimInGroup? targetPilgrim;
+    if (groupId != null && pilgrimId != null) {
+      final groups = ref.read(moderatorProvider).groups;
+      for (final g in groups) {
+        if (g.id == groupId) {
+          try {
+            targetPilgrim = g.pilgrims.firstWhere((p) => p.id == pilgrimId);
+          } catch (_) {}
+          break;
+        }
+      }
+    }
+
+    final currentUserId = ref.read(authProvider).userId ?? '';
+
     // Show a persistent red SnackBar
     if (!mounted) return;
     StandardSnackBar.show(
@@ -88,7 +107,13 @@ class _ModeratorDashboardScreenState
       type: SnackBarType.error,
       duration: const Duration(seconds: 8),
       actionLabel: 'View',
-      onAction: () => setState(() => _currentTab = 4),
+      onAction: () {
+        if (targetPilgrim != null && groupId != null) {
+          showPilgrimProfileSheet(context, targetPilgrim, groupId, currentUserId);
+        } else {
+          setState(() => _currentTab = 4);
+        }
+      },
     );
   }
 
@@ -131,9 +156,17 @@ class _ModeratorDashboardScreenState
         // Listen for real-time SOS alerts
         SocketService.on('sos-alert-received', _onSosAlertArrived);
         // Listen for SOS cancellations
-        SocketService.on('sos-alert-cancelled', (_) {
+        SocketService.on('sos-alert-cancelled', (data) {
           if (!mounted) return;
           _alertTts.stop();
+          
+          if (data is Map) {
+            final pilgrimId = data['pilgrim_id'] as String?;
+            if (pilgrimId != null) {
+              ref.read(moderatorProvider.notifier).markPilgrimSOS(pilgrimId, active: false);
+            }
+          }
+          
           ref.read(notificationProvider.notifier).fetch();
         });
         // Listen for missed calls — refresh notification badge + list
@@ -1001,17 +1034,19 @@ class _GroupsEmptyState extends StatelessWidget {
 // SOS Alert Banner
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _SosAlertBanner extends StatelessWidget {
+class _SosAlertBanner extends ConsumerWidget {
   final List<ModeratorGroup> groups;
   const _SosAlertBanner({required this.groups});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final sosGroups = groups.where((g) => g.sosCount > 0).toList();
+    if (sosGroups.isEmpty) return const SizedBox.shrink();
+    
     final first = sosGroups.first;
-    final pilgrimName = first.pilgrims
-        .firstWhere((p) => p.hasSOS, orElse: () => first.pilgrims.first)
-        .fullName;
+    final targetPilgrim = first.pilgrims
+        .firstWhere((p) => p.hasSOS, orElse: () => first.pilgrims.first);
+    final pilgrimName = targetPilgrim.fullName;
 
     return Container(
       padding: EdgeInsets.all(14.w),
@@ -1072,11 +1107,10 @@ class _SosAlertBanner extends StatelessWidget {
           ),
           SizedBox(width: 8.w),
           GestureDetector(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ModeratorGroupMapScreen(group: first),
-              ),
-            ),
+            onTap: () {
+              final currentUserId = ref.read(authProvider).userId ?? '';
+              showPilgrimProfileSheet(context, targetPilgrim, first.id, currentUserId);
+            },
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 7.h),
               decoration: BoxDecoration(

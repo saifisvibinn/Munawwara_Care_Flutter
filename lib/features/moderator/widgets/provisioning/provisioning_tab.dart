@@ -49,6 +49,8 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
   String _filterStatus = 'pending';
   bool _isBulkCapturing = false;
   double _bulkCaptureProgress = 0;
+  bool _isSelectionMode = false;
+  final Set<String> _selectedPilgrimIds = {};
 
   @override
   void initState() {
@@ -208,10 +210,13 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
     }
   }
 
-  void _handleShareAllText() {
-    final pendingItems = _items.where((i) => i.status.toLowerCase() == 'pending').toList();
-    if (pendingItems.isEmpty) {
-      StandardSnackBar.showError(context, 'No pending accounts to share');
+  void _handleShareSelectedText() {
+    final itemsToShare = _isSelectionMode
+        ? _items.where((i) => _selectedPilgrimIds.contains(i.pilgrimId) && i.token != null).toList()
+        : _items.where((i) => i.status.toLowerCase() == 'pending').toList();
+
+    if (itemsToShare.isEmpty) {
+      StandardSnackBar.showError(context, 'No valid accounts selected to share');
       return;
     }
 
@@ -225,7 +230,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
     buffer.writeln('Invited by: $modName');
     buffer.writeln('-----------------------------------');
     
-    for (var item in pendingItems) {
+    for (var item in itemsToShare) {
       buffer.writeln('\n👤 Name: *${item.fullName}*');
       buffer.writeln('🔑 Login Code: `${item.token ?? '---'}`');
     }
@@ -236,10 +241,13 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
     Share.share(buffer.toString(), subject: 'Login credentials for $groupName');
   }
 
-  Future<void> _handleShareAllImages() async {
-    final pendingItems = _items.where((i) => i.status.toLowerCase() == 'pending').toList();
-    if (pendingItems.isEmpty) {
-      StandardSnackBar.showError(context, 'No pending accounts to share');
+  Future<void> _handleShareSelectedImages() async {
+    final itemsToShare = _isSelectionMode
+        ? _items.where((i) => _selectedPilgrimIds.contains(i.pilgrimId) && i.token != null).toList()
+        : _items.where((i) => i.status.toLowerCase() == 'pending').toList();
+
+    if (itemsToShare.isEmpty) {
+      StandardSnackBar.showError(context, 'No valid accounts selected to share');
       return;
     }
 
@@ -259,10 +267,10 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
       final files = <XFile>[];
       final tempDir = await getTemporaryDirectory();
 
-      for (int i = 0; i < pendingItems.length; i++) {
+      for (int i = 0; i < itemsToShare.length; i++) {
         if (!mounted) break;
-        final item = pendingItems[i];
-        if (mounted) setState(() => _bulkCaptureProgress = (i + 1) / pendingItems.length);
+        final item = itemsToShare[i];
+        if (mounted) setState(() => _bulkCaptureProgress = (i + 1) / itemsToShare.length);
 
         // Capture image
         final Uint8List imageBytes = await _screenshotController.captureFromWidget(
@@ -537,10 +545,37 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
                   onRefresh: _loadProvisioningStatus,
                   onShowQr: (item) => _showCredentialDialog(item, groupName, modName),
                   onShareQr: (item) => _handleShareQr(item),
-                  onShareAllText: _handleShareAllText,
-                  onShareAllImages: _handleShareAllImages,
+                  onShareSelectedText: _handleShareSelectedText,
+                  onShareSelectedImages: _handleShareSelectedImages,
                   onReissue: _handleReissue,
                   onDelete: _handleDelete,
+                  isSelectionMode: _isSelectionMode,
+                  selectedIds: _selectedPilgrimIds,
+                  onToggleSelectionMode: () {
+                    setState(() {
+                      _isSelectionMode = !_isSelectionMode;
+                      if (!_isSelectionMode) _selectedPilgrimIds.clear();
+                    });
+                  },
+                  onSelectionChanged: (id, selected) {
+                    setState(() {
+                      if (selected) {
+                        _selectedPilgrimIds.add(id);
+                      } else {
+                        _selectedPilgrimIds.remove(id);
+                      }
+                    });
+                  },
+                  onSelectAll: () {
+                    setState(() {
+                      final itemsWithTokens = filteredItems.where((i) => i.token != null).map((i) => i.pilgrimId).toList();
+                      if (_selectedPilgrimIds.length == itemsWithTokens.length) {
+                         _selectedPilgrimIds.clear();
+                      } else {
+                         _selectedPilgrimIds.addAll(itemsWithTokens);
+                      }
+                    });
+                  },
                 ),
             ],
           ),

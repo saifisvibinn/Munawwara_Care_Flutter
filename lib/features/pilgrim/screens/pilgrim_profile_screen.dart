@@ -4,8 +4,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
-import '../../../core/widgets/custom_dialog.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -54,21 +52,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
     _selectedLocale = context.locale.languageCode;
   }
 
-
-  Future<void> _signOut() async {
-    final confirmed = await StandardDialog.show<bool>(
-      context: context,
-      title: 'settings_sign_out_confirm_title',
-      content: 'settings_sign_out_confirm_body',
-      confirmText: 'settings_sign_out',
-      cancelText: 'settings_cancel',
-      isDestructive: true,
-    );
-    if (confirmed == true && mounted) {
-      await ref.read(authProvider.notifier).logout();
-      if (mounted) context.go('/login');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -510,32 +493,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             ),
                             SizedBox(height: 12.h),
                           ],
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: 32.h),
-
-
-                    // ── Sign Out button ──────────────────────────────────
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52.h,
-                      child: OutlinedButton.icon(
-                        onPressed: _signOut,
-                        icon: Icon(
-                          Icons.logout_rounded,
-                          size: 18.sp,
-                          color: Colors.red,
-                        ),
-                        label: Text(
-                          'settings_sign_out'.tr(),
-                          style: const TextStyle(
-                            color: Colors.red,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.red, width: 1.5),
                         ),
                       ),
                     ),

@@ -14,10 +14,15 @@ class ProvisioningTrackerList extends StatelessWidget {
   final VoidCallback onRefresh;
   final Function(ProvisioningItem item) onShowQr;
   final Function(ProvisioningItem item) onShareQr;
-  final VoidCallback onShareAllText;
-  final VoidCallback onShareAllImages;
+  final VoidCallback onShareSelectedText;
+  final VoidCallback onShareSelectedImages;
   final Function(ProvisioningItem item) onReissue;
   final Function(ProvisioningItem item) onDelete;
+  final bool isSelectionMode;
+  final Set<String> selectedIds;
+  final VoidCallback onToggleSelectionMode;
+  final Function(String id, bool selected) onSelectionChanged;
+  final VoidCallback onSelectAll;
 
   const ProvisioningTrackerList({
     super.key,
@@ -29,10 +34,15 @@ class ProvisioningTrackerList extends StatelessWidget {
     required this.onRefresh,
     required this.onShowQr,
     required this.onShareQr,
-    required this.onShareAllText,
-    required this.onShareAllImages,
+    required this.onShareSelectedText,
+    required this.onShareSelectedImages,
     required this.onReissue,
     required this.onDelete,
+    required this.isSelectionMode,
+    required this.selectedIds,
+    required this.onToggleSelectionMode,
+    required this.onSelectionChanged,
+    required this.onSelectAll,
   });
 
   @override
@@ -71,35 +81,78 @@ class ProvisioningTrackerList extends StatelessWidget {
                 ],
               ),
             ),
-            PopupMenuButton<String>(
-              onSelected: (val) {
-                if (val == 'text') onShareAllText();
-                if (val == 'images') onShareAllImages();
-              },
-              icon: Icon(Symbols.ios_share, size: 20.w, color: AppColors.primary),
-              tooltip: 'Bulk Share',
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'images',
-                  child: Row(
-                    children: [
-                      Icon(Symbols.image, size: 20.w, color: AppColors.primary),
-                      SizedBox(width: 8.w),
-                      Text('Share All Images', style: TextStyle(fontSize: 13.sp, fontFamily: 'Lexend')),
-                    ],
+            if (isSelectionMode) ...[
+              IconButton(
+                onPressed: onSelectAll,
+                icon: Icon(Symbols.checklist, size: 20.w, color: AppColors.primary),
+                tooltip: 'Select All',
+              ),
+              PopupMenuButton<String>(
+                onSelected: (val) {
+                  if (val == 'text') onShareSelectedText();
+                  if (val == 'images') onShareSelectedImages();
+                },
+                icon: Icon(Symbols.ios_share, size: 20.w, color: AppColors.primary),
+                tooltip: 'Bulk Share Selected',
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'images',
+                    child: Row(
+                      children: [
+                        Icon(Symbols.image, size: 20.w, color: AppColors.primary),
+                        SizedBox(width: 8.w),
+                        Text('Share Selected Images', style: TextStyle(fontSize: 13.sp, fontFamily: 'Lexend')),
+                      ],
+                    ),
                   ),
-                ),
-                PopupMenuItem(
-                  value: 'text',
-                  child: Row(
-                    children: [
-                      Icon(Symbols.description, size: 20.w, color: AppColors.primary),
-                      SizedBox(width: 8.w),
-                      Text('Share All Codes (Text)', style: TextStyle(fontSize: 13.sp, fontFamily: 'Lexend')),
-                    ],
+                  PopupMenuItem(
+                    value: 'text',
+                    child: Row(
+                      children: [
+                        Icon(Symbols.description, size: 20.w, color: AppColors.primary),
+                        SizedBox(width: 8.w),
+                        Text('Share Selected (Text)', style: TextStyle(fontSize: 13.sp, fontFamily: 'Lexend')),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+            ] else ...[
+              PopupMenuButton<String>(
+                onSelected: (val) {
+                  if (val == 'text') onShareSelectedText();
+                  if (val == 'images') onShareSelectedImages();
+                },
+                icon: Icon(Symbols.ios_share, size: 20.w, color: AppColors.primary),
+                tooltip: 'Bulk Share Pending',
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'images',
+                    child: Row(
+                      children: [
+                        Icon(Symbols.image, size: 20.w, color: AppColors.primary),
+                        SizedBox(width: 8.w),
+                        Text('Share All Pending Images', style: TextStyle(fontSize: 13.sp, fontFamily: 'Lexend')),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'text',
+                    child: Row(
+                      children: [
+                        Icon(Symbols.description, size: 20.w, color: AppColors.primary),
+                        SizedBox(width: 8.w),
+                        Text('Share All Pending (Text)', style: TextStyle(fontSize: 13.sp, fontFamily: 'Lexend')),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            IconButton(
+              onPressed: onToggleSelectionMode,
+              icon: Icon(isSelectionMode ? Symbols.cancel : Symbols.rule, size: 20.w, color: isSelectionMode ? Colors.red : AppColors.primary),
+              tooltip: isSelectionMode ? 'Cancel Selection' : 'Select Pilgrims',
             ),
             SizedBox(width: 4.w),
             _buildFilterDropdown(),
@@ -122,6 +175,9 @@ class ProvisioningTrackerList extends StatelessWidget {
                 onShareQr: () => onShareQr(item),
                 onReissue: () => onReissue(item),
                 onDelete: () => onDelete(item),
+                isSelectionMode: isSelectionMode,
+                isSelected: selectedIds.contains(item.pilgrimId),
+                onSelectionChanged: (selected) => onSelectionChanged(item.pilgrimId, selected ?? false),
               );
             },
           ),
@@ -201,6 +257,9 @@ class _TrackerItemCard extends StatelessWidget {
   final VoidCallback onShareQr;
   final VoidCallback onReissue;
   final VoidCallback onDelete;
+  final bool isSelectionMode;
+  final bool isSelected;
+  final Function(bool?)? onSelectionChanged;
 
   const _TrackerItemCard({
     required this.item,
@@ -209,6 +268,9 @@ class _TrackerItemCard extends StatelessWidget {
     required this.onShareQr,
     required this.onReissue,
     required this.onDelete,
+    this.isSelectionMode = false,
+    this.isSelected = false,
+    this.onSelectionChanged,
   });
 
   @override
@@ -217,13 +279,18 @@ class _TrackerItemCard extends StatelessWidget {
     final textMuted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
     final isActivated = item.status.toLowerCase() == 'activated';
 
-    return Container(
+    final isSelectable = !isActivated && item.token != null;
+
+    Widget cardContent = Container(
       margin: EdgeInsets.only(bottom: 12.h),
       decoration: BoxDecoration(
         color: isDark ? AppColors.surfaceDark : Colors.white,
         borderRadius: BorderRadius.circular(20.r),
         border: Border.all(
-          color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
+          color: isSelectionMode && isSelected 
+              ? AppColors.primary 
+              : (isDark ? AppColors.dividerDark : AppColors.dividerLight),
+          width: isSelectionMode && isSelected ? 2 : 1,
         ),
       ),
       padding: EdgeInsets.all(16.w),
@@ -233,6 +300,15 @@ class _TrackerItemCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (isSelectionMode && isSelectable) ...[
+                Checkbox(
+                  value: isSelected,
+                  onChanged: onSelectionChanged,
+                  activeColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4.r)),
+                ),
+                SizedBox(width: 8.w),
+              ],
               _Avatar(initials: _getInitials(item.fullName), isDark: isDark),
               SizedBox(width: 12.w),
               Expanded(
@@ -372,6 +448,19 @@ class _TrackerItemCard extends StatelessWidget {
         ],
       ),
     );
+
+    if (isSelectionMode && isSelectable) {
+      return GestureDetector(
+        onTap: () {
+          if (onSelectionChanged != null) {
+            onSelectionChanged!(!isSelected);
+          }
+        },
+        child: cardContent,
+      );
+    }
+
+    return cardContent;
   }
 
   String _getInitials(String name) {
