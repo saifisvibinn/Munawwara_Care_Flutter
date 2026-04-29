@@ -27,6 +27,7 @@ import 'group_management_screen.dart';
 import 'group_messages_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'system_reminders_screen.dart';
+import '../widgets/moderator_groups_speed_dial.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
 import '../../shared/helpers/chat_notification_helper.dart';
 import '../../shared/providers/message_provider.dart';
@@ -370,194 +371,27 @@ class _ModeratorDashboardScreenState
                   ),
                 ),
               ),
+            // FAB lives in the body Stack — Scaffold's floatingActionButton slot
+            // clips/constrains hit targets for tall expanded menus, so "Join Group"
+            // often received no taps.
+            if (_currentTab == 0)
+              PositionedDirectional(
+                end: 16.w,
+                bottom: 16.h,
+                child: ModeratorGroupsSpeedDial(
+                  onCreateGroup: () => Navigator.of(context, rootNavigator: true).push(
+                    MaterialPageRoute(builder: (_) => const CreateGroupScreen()),
+                  ),
+                  onJoinGroup: () => Navigator.of(context, rootNavigator: true).push(
+                    MaterialPageRoute(builder: (_) => const JoinGroupScreen()),
+                  ),
+                ),
+              ),
           ],
         ),
-        floatingActionButton: _currentTab == 0
-            ? _AnimatedFAB(
-                onCreateGroup: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const CreateGroupScreen()),
-                ),
-                onJoinGroup: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const JoinGroupScreen()),
-                ),
-              )
-            : null,
         bottomNavigationBar: _ModBottomNav(
           currentIndex: _currentTab,
           onTap: (i) => setState(() => _currentTab = i),
-        ),
-      ),
-    );
-  }
-}
-
-class _AnimatedFAB extends StatefulWidget {
-  final VoidCallback onCreateGroup;
-  final VoidCallback onJoinGroup;
-
-  const _AnimatedFAB({required this.onCreateGroup, required this.onJoinGroup});
-
-  @override
-  State<_AnimatedFAB> createState() => _AnimatedFABState();
-}
-
-class _AnimatedFABState extends State<_AnimatedFAB>
-    with SingleTickerProviderStateMixin {
-  bool _isOpen = false;
-  late AnimationController _controller;
-  late Animation<double> _expandAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      value: 0.0,
-      duration: const Duration(milliseconds: 250),
-      vsync: this,
-    );
-    _expandAnimation = CurvedAnimation(
-      curve: Curves.fastOutSlowIn,
-      reverseCurve: Curves.easeOutQuad,
-      parent: _controller,
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _toggle() {
-    setState(() {
-      _isOpen = !_isOpen;
-      if (_isOpen) {
-        _controller.forward();
-      } else {
-        _controller.reverse();
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 220.w,
-      height: 100.h,
-      child: Stack(
-        alignment: Alignment.bottomRight,
-        clipBehavior: Clip.none,
-        children: [
-          _buildAnimatedOption(
-            index: 1,
-            child: _buildOption(
-              label: 'dashboard_create_group'.tr(),
-              icon: Symbols.group_add,
-              onTap: () {
-                _toggle();
-                widget.onCreateGroup();
-              },
-            ),
-          ),
-          _buildAnimatedOption(
-            index: 2,
-            child: _buildOption(
-              label: 'join_group'.tr(),
-              icon: Symbols.qr_code_scanner,
-              onTap: () {
-                _toggle();
-                widget.onJoinGroup();
-              },
-            ),
-          ),
-          FloatingActionButton(
-            onPressed: _toggle,
-            backgroundColor: const Color(0xFFF97316),
-            foregroundColor: Colors.white,
-            shape: const CircleBorder(),
-            elevation: 6,
-            child: AnimatedRotation(
-              turns: _isOpen ? 0.125 : 0,
-              duration: const Duration(milliseconds: 250),
-              child: Icon(Symbols.add, size: 28.w),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnimatedOption({required int index, required Widget child}) {
-    final distance = (index * 52).h;
-    return AnimatedBuilder(
-      animation: _expandAnimation,
-      builder: (context, _) {
-        final t = _expandAnimation.value;
-        return IgnorePointer(
-          ignoring: t < 0.05,
-          child: Opacity(
-            opacity: t,
-            child: Transform.translate(
-              offset: Offset(0, -distance * t),
-              child: Transform.scale(
-                scale: 0.82 + (0.18 * t),
-                alignment: Alignment.bottomRight,
-                child: child,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildOption({
-    required String label,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24.r),
-          onTap: onTap,
-          child: Container(
-            height: 46.h,
-            padding: EdgeInsets.symmetric(horizontal: 14.w),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.surfaceDark : Colors.white,
-              borderRadius: BorderRadius.circular(24.r),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 18.w, color: const Color(0xFFF97316)),
-                SizedBox(width: 8.w),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13.sp,
-                    color: isDark ? Colors.white : AppColors.textDark,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );

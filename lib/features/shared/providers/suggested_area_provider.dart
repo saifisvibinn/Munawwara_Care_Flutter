@@ -35,12 +35,30 @@ class SuggestedAreaState {
   List<SuggestedArea> get meetpoints =>
       areas.where((a) => a.isMeetpoint).toList();
 
+  List<SuggestedArea> get expiredMeetpoints {
+    final now = DateTime.now();
+    return meetpoints
+        .where(
+          (a) =>
+              a.meetpointTime != null &&
+              now.isAfter(a.meetpointTime!.add(const Duration(minutes: 45))),
+        )
+        .toList();
+  }
+
   SuggestedArea? get activeMeetpoint {
-    final mps = meetpoints;
+    final now = DateTime.now();
+    final mps = meetpoints
+        .where(
+          (a) =>
+              a.meetpointTime == null ||
+              now.isBefore(a.meetpointTime!.add(const Duration(minutes: 45))),
+        )
+        .toList();
     return mps.isEmpty ? null : mps.first;
   }
 
-  bool get hasMeetpoint => meetpoints.isNotEmpty;
+  bool get hasMeetpoint => activeMeetpoint != null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -59,7 +77,9 @@ class SuggestedAreaNotifier extends Notifier<SuggestedAreaState> {
       final res = await ApiService.dio.get('/groups/$groupId/suggested-areas');
       final data = res.data is Map ? res.data : {};
       final List<dynamic> list = (data['areas'] ?? data['data'] ?? []) as List<dynamic>;
-      final raw = list.map((j) => SuggestedArea.fromJson(j as Map<String, dynamic>)).toList();
+      final raw = list
+          .map((j) => SuggestedArea.fromJson(j as Map<String, dynamic>))
+          .toList();
       state = state.copyWith(areas: raw, isLoading: false);
     } on DioException catch (e) {
       state = state.copyWith(isLoading: false, error: ApiService.parseError(e));

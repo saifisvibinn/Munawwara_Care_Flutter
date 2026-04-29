@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -7,6 +9,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/qr_barcode_utils.dart';
+import '../../../core/widgets/qr_scanner_view.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -36,20 +40,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _codeController.dispose();
     _scannerController.dispose();
     super.dispose();
-  }
-
-  String _extractToken(String rawValue) {
-    final raw = rawValue.trim();
-    if (raw.isEmpty) return '';
-
-    final uri = Uri.tryParse(raw);
-    if (uri != null) {
-      final qpToken = uri.queryParameters['token'];
-      if (qpToken != null && qpToken.trim().isNotEmpty) {
-        return qpToken.trim();
-      }
-    }
-    return raw;
   }
 
   Future<void> _handleModeratorLogin() async {
@@ -83,7 +73,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() => _loginError = 'login_enter_code_error'.tr());
       return;
     }
-    final token = _extractToken(rawToken).toUpperCase();
+    final token = tokenOrQueryParamFromPayload(rawToken).toUpperCase();
     if (token.isEmpty) {
       setState(() => _loginError = 'login_invalid_code'.tr());
       return;
@@ -113,12 +103,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _onDetect(BarcodeCapture capture) {
     if (_scanHandled || ref.read(authProvider).isLoading) return;
-    final code = capture.barcodes.firstOrNull?.rawValue;
-    if (code == null || code.trim().isEmpty) return;
+    final code = firstBarcodeRawValue(capture);
+    if (code == null) return;
 
     _scanHandled = true;
     _scannerController.stop();
-    void _ = _handlePilgrimLoginCode(code);
+    unawaited(_handlePilgrimLoginCode(code));
   }
 
   @override
@@ -336,15 +326,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: 300.h,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16.r),
-              child: MobileScanner(
-                controller: _scannerController,
-                onDetect: _onDetect,
-              ),
-            ),
+          QrScannerView(
+            controller: _scannerController,
+            onDetect: _onDetect,
+            showScanFrame: false,
+            borderRadius: 16.r,
           ),
           SizedBox(height: 16.h),
           TextButton.icon(

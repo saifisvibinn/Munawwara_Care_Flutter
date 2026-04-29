@@ -21,6 +21,11 @@ class ActiveMeetpointCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isExpired =
+        activeMp.meetpointTime != null &&
+        DateTime.now().isAfter(
+          activeMp.meetpointTime!.add(const Duration(minutes: 45)),
+        );
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -46,7 +51,7 @@ class ActiveMeetpointCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        'area_meetpoint'.tr().toUpperCase(),
+                        (isExpired ? 'status_expired' : 'area_meetpoint').tr(),
                         style: TextStyle(
                           fontFamily: 'Lexend',
                           fontWeight: FontWeight.w800,
