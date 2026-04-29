@@ -28,7 +28,6 @@ import 'group_messages_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'system_reminders_screen.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
-import '../../shared/helpers/chat_notification_helper.dart';
 import '../../shared/providers/message_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -365,6 +364,8 @@ class _AnimatedFABState extends State<_AnimatedFAB>
   bool _isOpen = false;
   late AnimationController _controller;
   late Animation<double> _expandAnimation;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
@@ -378,6 +379,18 @@ class _AnimatedFABState extends State<_AnimatedFAB>
       curve: Curves.fastOutSlowIn,
       reverseCurve: Curves.easeOutQuad,
       parent: _controller,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 0.8, curve: Curves.easeOut),
+      reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeIn),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.88, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOutBack,
+        reverseCurve: Curves.easeInCubic,
+      ),
     );
   }
 
@@ -400,36 +413,73 @@ class _AnimatedFABState extends State<_AnimatedFAB>
 
   @override
   Widget build(BuildContext context) {
+    final fabSize = 56.w;
+    final optionHeight = 44.h;
+    final iconSize = 20.w;
+    final fabToFirstGap = 12.h;
+    final optionSpacing = 10.h;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        SizeTransition(
-          sizeFactor: _expandAnimation,
-          child: Padding(
-            padding: EdgeInsets.only(bottom: 18.h, right: 4.w), // Precisely aligned with FAB center (56w vs 48w)
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _buildOption(
-                  label: 'join_group'.tr(),
-                  icon: Symbols.qr_code_scanner,
-                  onTap: () {
-                    _toggle();
-                    widget.onJoinGroup();
-                  },
+        Padding(
+          padding: EdgeInsets.only(bottom: fabToFirstGap),
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              return IgnorePointer(
+                ignoring: !_isOpen && _controller.value == 0,
+                child: Opacity(
+                  opacity: _fadeAnimation.value,
+                  child: Transform.scale(
+                    scale: _scaleAnimation.value,
+                    alignment: Alignment.bottomRight,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Transform.translate(
+                          offset: Offset(
+                            0,
+                            (1 - _expandAnimation.value) * 16.h,
+                          ),
+                          child: _buildOption(
+                            label: 'join_group'.tr(),
+                            icon: Symbols.qr_code_scanner,
+                            height: optionHeight,
+                            iconSize: iconSize,
+                            fabSize: fabSize,
+                            onTap: () {
+                              _toggle();
+                              widget.onJoinGroup();
+                            },
+                          ),
+                        ),
+                        SizedBox(height: optionSpacing),
+                        Transform.translate(
+                          offset: Offset(
+                            0,
+                            (1 - _expandAnimation.value) * 8.h,
+                          ),
+                          child: _buildOption(
+                            label: 'dashboard_create_group'.tr(),
+                            icon: Symbols.group_add,
+                            height: optionHeight,
+                            iconSize: iconSize,
+                            fabSize: fabSize,
+                            onTap: () {
+                              _toggle();
+                              widget.onCreateGroup();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                SizedBox(height: 14.h), // Equal vertical spacing
-                _buildOption(
-                  label: 'dashboard_create_group'.tr(),
-                  icon: Symbols.group_add,
-                  onTap: () {
-                    _toggle();
-                    widget.onCreateGroup();
-                  },
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ),
         FloatingActionButton(
@@ -451,73 +501,53 @@ class _AnimatedFABState extends State<_AnimatedFAB>
   Widget _buildOption({
     required String label,
     required IconData icon,
+    required double height,
+    required double iconSize,
+    required double fabSize,
     required VoidCallback onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 180.w, // Reduced width to prevent "too far left" appearance
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Label Container
-            Expanded(
-              child: Container(
-                height: 48.h, // Identical height for buttons
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                alignment: Alignment.centerRight,
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.surfaceDark : Colors.white,
-                  borderRadius: BorderRadius.circular(12.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13.sp,
-                    color: isDark ? Colors.white : AppColors.textDark,
-                  ),
-                ),
+      child: Padding(
+        padding: EdgeInsets.only(right: (fabSize - height) / 2),
+        child: Container(
+          height: height,
+          padding: EdgeInsets.symmetric(horizontal: 14.w),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : Colors.white,
+            borderRadius: BorderRadius.circular(22.r),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
-            ),
-            SizedBox(width: 10.w), // Equal spacing between text and icon
-            // Icon Circle
-            Container(
-              width: 48.h, // Height match for consistency
-              height: 48.h,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceDark : Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: iconSize,
+                color: const Color(0xFFF97316),
               ),
-              child: Center(
-                child: Icon(
-                  icon,
-                  size: 20.w,
-                  color: const Color(0xFFF97316),
+              SizedBox(width: 8.w),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13.sp,
+                  color: isDark ? Colors.white : AppColors.textDark,
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

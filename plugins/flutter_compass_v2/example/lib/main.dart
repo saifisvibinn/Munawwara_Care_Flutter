@@ -107,10 +107,11 @@ class _MyAppState extends State<MyApp> {
 
         // if direction is null, then device does not support this sensor
         // show error message
-        if (direction == null)
+        if (direction == null) {
           return Center(
             child: Text("Device does not have sensors !"),
           );
+        }
 
         return Material(
           shape: CircleBorder(),

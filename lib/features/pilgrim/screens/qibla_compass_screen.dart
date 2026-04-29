@@ -764,7 +764,7 @@ class _InfoChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final String? value;
-  final Widget? valueWidget;
+  final Widget? valueWidget = null;
   final Color? valueColor;
   final bool isDark;
   final bool highlight;
@@ -774,7 +774,6 @@ class _InfoChip extends StatelessWidget {
     required this.icon,
     required this.label,
     this.value,
-    this.valueWidget,
     this.valueColor,
     required this.isDark,
     this.highlight = false,

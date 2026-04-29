@@ -1063,7 +1063,7 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
   bool _isLoading = false;
   List<_HotelOption> _hotels = [];
   List<_BusOption> _buses = [];
-  Map<String, int> _roomOccupancy = {};
+  final Map<String, int> _roomOccupancy = {};
 
   String? _selectedHotelId;
   String? _selectedRoomId;

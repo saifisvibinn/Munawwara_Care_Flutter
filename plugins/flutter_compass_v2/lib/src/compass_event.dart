@@ -14,8 +14,8 @@ class CompassEvent {
   final double? accuracy;
 
   CompassEvent.fromList(List<double>? data)
-      : heading = data?[0] ?? null,
-        headingForCameraMode = data?[1] ?? null,
+      : heading = data?[0],
+        headingForCameraMode = data?[1],
         accuracy = (data == null) || (data[2] == -1) ? null : data[2];
 
   @override
