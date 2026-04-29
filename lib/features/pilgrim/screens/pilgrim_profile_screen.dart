@@ -80,7 +80,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
           children: [
             // ── Header ──────────────────────────────────────────────────
             Padding(
-              padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 0),
+              padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 0),
               child: Align(
                 alignment: AlignmentDirectional.centerStart,
                 child: Text(
@@ -102,7 +102,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: 24.h),
+                    SizedBox(height: 16.h),
 
                     // ── Profile card ─────────────────────────────────────
                     Container(

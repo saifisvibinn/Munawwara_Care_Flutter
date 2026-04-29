@@ -351,7 +351,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(8.w, 12.h, 20.w, 0),
+      padding: EdgeInsets.fromLTRB(8.w, 8.h, 20.w, 0),
       child: Row(
         children: [
           GestureDetector(

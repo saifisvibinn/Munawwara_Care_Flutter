@@ -1036,7 +1036,7 @@ class _HomeTab extends StatelessWidget {
               // ── Header Section ─────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 24.h),
+                  padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 16.h),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

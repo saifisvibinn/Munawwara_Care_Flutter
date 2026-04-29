@@ -89,7 +89,8 @@ class SuggestedAreaNotifier extends Notifier<SuggestedAreaState> {
           'latitude': latitude,
           'longitude': longitude,
           'area_type': areaType,
-          if (meetpointTime != null) 'meetpoint_time': meetpointTime.toIso8601String(),
+          if (meetpointTime != null)
+            'meetpoint_time': meetpointTime.toUtc().toIso8601String(),
           'reminder_minutes': ?reminderMinutes,
         },
       );
@@ -137,7 +138,8 @@ class SuggestedAreaNotifier extends Notifier<SuggestedAreaState> {
           'description': ?description,
           'latitude': ?latitude,
           'longitude': ?longitude,
-          if (meetpointTime != null) 'meetpoint_time': meetpointTime.toIso8601String(),
+          if (meetpointTime != null)
+            'meetpoint_time': meetpointTime.toUtc().toIso8601String(),
           'reminder_minutes': ?reminderMinutes,
         },
       );

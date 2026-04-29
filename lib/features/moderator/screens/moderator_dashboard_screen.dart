@@ -883,7 +883,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
             // ── Header + search ──
             SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 0),
+                padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1292,7 +1292,7 @@ class _GroupsEmptyState extends StatelessWidget {
               color: isDark ? const Color(0xFFCBD5E1) : AppColors.textDark,
             ),
           ),
-          SizedBox(height: 96.h),
+          SizedBox(height: 72.h),
         ],
       ),
     );

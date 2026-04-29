@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:io';
@@ -47,6 +48,7 @@ bool get isNavigatingToCall => _navigatingToCall;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   AppLogger.d('main: after ensureInitialized');
 
   // Attach CallKit listener as early as possible. On cold start from native
@@ -637,6 +639,14 @@ class MyApp extends ConsumerWidget {
       minTextAdapt: true,
       ensureScreenSize: true,
       builder: (context, child) {
+        final bool isDarkUi = switch (themeMode) {
+          ThemeMode.dark => true,
+          ThemeMode.light => false,
+          ThemeMode.system =>
+            View.of(context).platformDispatcher.platformBrightness ==
+                Brightness.dark,
+        };
+
         return MaterialApp.router(
           title: 'Munawwara Care',
           debugShowCheckedModeBanner: false,
@@ -648,11 +658,25 @@ class MyApp extends ConsumerWidget {
           locale: context.locale,
           routerConfig: AppRouter.router,
           builder: (context, child) {
-            return GestureDetector(
-              onTap: () {
-                FocusManager.instance.primaryFocus?.unfocus();
-              },
-              child: child!,
+            return AnnotatedRegion<SystemUiOverlayStyle>(
+              value: SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness:
+                    isDarkUi ? Brightness.light : Brightness.dark,
+                statusBarBrightness:
+                    isDarkUi ? Brightness.dark : Brightness.light,
+                systemNavigationBarColor: Colors.transparent,
+                systemNavigationBarDividerColor: Colors.transparent,
+                systemNavigationBarIconBrightness:
+                    isDarkUi ? Brightness.light : Brightness.dark,
+                systemNavigationBarContrastEnforced: false,
+              ),
+              child: GestureDetector(
+                onTap: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                },
+                child: child!,
+              ),
             );
           },
         );

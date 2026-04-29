@@ -51,9 +51,11 @@ class SuggestedArea {
       createdAt:
           DateTime.tryParse(
             (j['createdAt'] ?? j['created_at'] ?? '').toString(),
-          ) ??
+          )?.toLocal() ??
           DateTime.now(),
-      meetpointTime: j['meetpoint_time'] != null ? DateTime.tryParse(j['meetpoint_time'].toString()) : null,
+      meetpointTime: j['meetpoint_time'] != null
+          ? DateTime.tryParse(j['meetpoint_time'].toString())?.toLocal()
+          : null,
       reminderMinutes: (j['reminder_minutes'] as num?)?.toInt(),
     );
   }
