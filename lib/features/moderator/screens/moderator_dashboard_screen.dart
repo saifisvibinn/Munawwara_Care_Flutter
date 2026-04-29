@@ -355,7 +355,10 @@ class _ModeratorDashboardScreenState
                 child: Align(
                   alignment: AlignmentDirectional.bottomEnd,
                   child: Padding(
-                    padding: EdgeInsetsDirectional.only(end: 64.w, bottom: 100.h),
+                    padding: EdgeInsetsDirectional.only(
+                      end: 64.w,
+                      bottom: 100.h,
+                    ),
                     child: Transform.rotate(
                       angle: Directionality.of(context) == ui.TextDirection.rtl
                           ? 0.6
@@ -379,12 +382,18 @@ class _ModeratorDashboardScreenState
                 end: 16.w,
                 bottom: 16.h,
                 child: ModeratorGroupsSpeedDial(
-                  onCreateGroup: () => Navigator.of(context, rootNavigator: true).push(
-                    MaterialPageRoute(builder: (_) => const CreateGroupScreen()),
-                  ),
-                  onJoinGroup: () => Navigator.of(context, rootNavigator: true).push(
-                    MaterialPageRoute(builder: (_) => const JoinGroupScreen()),
-                  ),
+                  onCreateGroup: () =>
+                      Navigator.of(context, rootNavigator: true).push(
+                        MaterialPageRoute(
+                          builder: (_) => const CreateGroupScreen(),
+                        ),
+                      ),
+                  onJoinGroup: () =>
+                      Navigator.of(context, rootNavigator: true).push(
+                        MaterialPageRoute(
+                          builder: (_) => const JoinGroupScreen(),
+                        ),
+                      ),
                 ),
               ),
           ],
@@ -1599,7 +1608,9 @@ class _GroupCard extends ConsumerWidget {
                             ),
                             decoration: BoxDecoration(
                               color: isDark
-                                  ? const Color(0xFF6B7BAE).withValues(alpha: 0.1)
+                                  ? const Color(
+                                      0xFF6B7BAE,
+                                    ).withValues(alpha: 0.1)
                                   : const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(12.r),
                               border: Border.all(
