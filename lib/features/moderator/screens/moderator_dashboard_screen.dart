@@ -29,7 +29,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'system_reminders_screen.dart';
 import '../widgets/moderator_groups_speed_dial.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
-import '../../shared/helpers/chat_notification_helper.dart';
 import '../../shared/providers/message_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,13 +149,14 @@ class _ModeratorDashboardScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Subscribe for RouteAware callbacks
       final route = ModalRoute.of(context);
-      if (route != null)
+      if (route != null) {
         AppRouter.moderatorRouteObserver.subscribe(this, route);
+      }
       await ref.read(moderatorProvider.notifier).loadDashboard();
       // Connect socket with this moderator's identity
       final auth = ref.read(authProvider);
       if (auth.userId != null) {
-        final socketUrl = ApiService.baseUrl.replaceFirst(RegExp(r'/api$'), '');
+        final socketUrl = ApiService.socketOrigin;
         SocketService.connect(
           serverUrl: socketUrl,
           userId: auth.userId!,
@@ -1503,11 +1503,15 @@ class _GroupCard extends ConsumerWidget {
                   SizedBox(height: 18.h),
 
                   // Actions Row: View on Map & Chat
-                  Row(
-                    children: [
+                  // IntrinsicHeight: stretch needs bounded cross-axis; Column in sliver gives unbounded height.
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
                       // View on Map
                       Expanded(
                         child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
                           onTap: () {
                             final userId = ref.read(authProvider).userId ?? '';
                             Navigator.of(context).push(
@@ -1520,9 +1524,10 @@ class _GroupCard extends ConsumerWidget {
                             );
                           },
                           child: Container(
+                            alignment: Alignment.center,
                             padding: EdgeInsets.symmetric(
                               vertical: 11.h,
-                              horizontal: 14.w,
+                              horizontal: 12.w,
                             ),
                             decoration: BoxDecoration(
                               color: isDark
@@ -1540,27 +1545,29 @@ class _GroupCard extends ConsumerWidget {
                               ),
                             ),
                             child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Icon(
                                   Symbols.map,
                                   size: 16.w,
                                   color: const Color(0xFF6B7BAE),
                                 ),
-                                SizedBox(width: 8.w),
+                                SizedBox(width: 6.w),
                                 Expanded(
                                   child: Text(
                                     'dashboard_view_on_map'.tr(),
-                                    maxLines: 1,
+                                    maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontFamily: 'Lexend',
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13.sp,
+                                      height: 1.2,
                                       color: const Color(0xFF6B7BAE),
                                     ),
                                   ),
                                 ),
-                                SizedBox(width: 8.w),
+                                SizedBox(width: 6.w),
                                 Transform.scale(
                                   scaleX:
                                       Directionality.of(context) ==
@@ -1582,9 +1589,9 @@ class _GroupCard extends ConsumerWidget {
                       SizedBox(width: 12.w),
 
                       // Chat Button
-                      Flexible(
-                        fit: FlexFit.loose,
+                      Expanded(
                         child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
                           onTap: () {
                             final userId = ref.read(authProvider).userId ?? '';
                             // Clear unread count when opening
@@ -1602,9 +1609,10 @@ class _GroupCard extends ConsumerWidget {
                             );
                           },
                           child: Container(
+                            alignment: Alignment.center,
                             padding: EdgeInsets.symmetric(
                               vertical: 11.h,
-                              horizontal: 16.w,
+                              horizontal: 12.w,
                             ),
                             decoration: BoxDecoration(
                               color: isDark
@@ -1623,35 +1631,36 @@ class _GroupCard extends ConsumerWidget {
                             ),
                             child: Stack(
                               clipBehavior: Clip.none,
+                              alignment: Alignment.center,
                               children: [
                                 Row(
-                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.max,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     Icon(
                                       Symbols.chat_bubble,
-                                      size: 18.w,
+                                      size: 16.w,
                                       color: const Color(0xFF6B7BAE),
                                     ),
                                     SizedBox(width: 8.w),
-                                    Flexible(
-                                      child: Text(
-                                        'chat'.tr(),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontFamily: 'Lexend',
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13.sp,
-                                          color: const Color(0xFF6B7BAE),
-                                        ),
+                                    Text(
+                                      'chat'.tr(),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13.sp,
+                                        color: const Color(0xFF6B7BAE),
                                       ),
                                     ),
                                   ],
                                 ),
                                 if (group.unreadCount > 0)
                                   Positioned(
-                                    top: -2.h,
-                                    right: -2.w,
+                                    top: 4.h,
+                                    right: 4.w,
                                     child: Container(
                                       width: 10.w,
                                       height: 10.w,
@@ -1673,6 +1682,7 @@ class _GroupCard extends ConsumerWidget {
                         ),
                       ),
                     ],
+                    ),
                   ),
                 ],
               ),

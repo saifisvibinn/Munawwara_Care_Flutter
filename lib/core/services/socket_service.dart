@@ -64,7 +64,8 @@ class SocketService {
     _socket = io.io(
       cleanUrl,
       io.OptionBuilder()
-          .setTransports(['websocket'])
+          // Try websocket first; polling helps some proxies / Cloud setups.
+          .setTransports(['websocket', 'polling'])
           .setReconnectionDelay(2000)
           .setReconnectionAttempts(20)
           .enableReconnection()

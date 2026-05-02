@@ -1,15 +1,66 @@
+import 'dart:io' show Platform;
+
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiService {
-  // ─── Backend URL ─────────────────────────────────────────────────────────────
-  // Use `API_BASE_URL` from .env when available; fall back to the
-  // production Cloud Run URL. For local dev, set API_BASE_URL to
-  // 'http://192.168.x.x:5000/api' in your .env.
-  static String get baseUrl =>
-      dotenv.env['API_BASE_URL'] ??
+  static const _prodBaseUrl =
       'https://mcbackendapp-199324116788.europe-west8.run.app/api';
+
+  // ─── Backend URL ─────────────────────────────────────────────────────────────
+  // `API_BASE_URL` in .env (see comments there). Falls back to production.
+  // Optional: `API_ANDROID_HOST=10.0.2.2` replaces the hostname on Android only
+  // (emulator → host machine); port and path stay the same.
+  static String get baseUrl {
+    final fromEnv = dotenv.env['API_BASE_URL']?.trim();
+    String url = (fromEnv != null && fromEnv.isNotEmpty) ? fromEnv : _prodBaseUrl;
+
+    if (Platform.isAndroid) {
+      final hostOverride = dotenv.env['API_ANDROID_HOST']?.trim();
+      if (hostOverride != null && hostOverride.isNotEmpty) {
+        try {
+          final uri = Uri.parse(url);
+          url = uri.replace(host: hostOverride).toString();
+        } catch (_) {}
+      }
+    }
+    return url;
+  }
+
+  /// Host root for this API (no `/api` suffix): uploads, static files, etc.
+  static String get apiOrigin {
+    return _normalizeHttpOrigin(
+      baseUrl.replaceFirst(RegExp(r'/api/?$'), ''),
+    );
+  }
+
+  /// Socket.IO server origin (scheme + host + port, no path).
+  /// Set `SOCKET_BASE_URL` when realtime runs on a different host than REST
+  /// (e.g. Cloud Run REST only — use your Node URL that mounts socket.io).
+  static String get socketOrigin {
+    final explicit = dotenv.env['SOCKET_BASE_URL']?.trim();
+    if (explicit != null && explicit.isNotEmpty) {
+      return _normalizeHttpOrigin(explicit);
+    }
+    return apiOrigin;
+  }
+
+  /// Normalizes origin for Dart Socket.IO / WebSocket (avoids `:0` port bugs on
+  /// some Android builds; keeps explicit default ports).
+  static String _normalizeHttpOrigin(String raw) {
+    var o = raw.trim();
+    if (o.endsWith('/')) o = o.substring(0, o.length - 1);
+    try {
+      var uri = Uri.parse(o);
+      if (uri.scheme != 'http' && uri.scheme != 'https') return o;
+      if (uri.host.isEmpty) return o;
+      final port = uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80);
+      return '${uri.scheme}://${uri.host}:$port';
+    } catch (_) {
+      return o;
+    }
+  }
 
   static Dio? _dioInstance;
   static Future<void> Function()? _onUnauthorized;

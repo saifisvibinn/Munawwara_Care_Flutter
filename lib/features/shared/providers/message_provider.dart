@@ -50,9 +50,7 @@ class MessageNotifier extends Notifier<MessageState> {
   @override
   MessageState build() => const MessageState();
 
-  // Strips "/api" suffix to build the upload base URL
-  String get _uploadBase =>
-      ApiService.baseUrl.replaceFirst(RegExp(r'/api$'), '');
+  String get _uploadBase => ApiService.apiOrigin;
 
   /// Full URL to stream a voice/image upload from the server
   String buildUploadUrl(String filename) => '$_uploadBase/uploads/$filename';

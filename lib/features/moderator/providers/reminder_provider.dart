@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/api_service.dart';
@@ -54,6 +55,19 @@ class ReminderNotifier extends Notifier<ReminderState> {
           .map((j) => ReminderModel.fromJson(j as Map<String, dynamic>))
           .toList();
       state = state.copyWith(reminders: list, isLoading: false);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        AppLogger.d(
+          '[ReminderProvider] GET /reminders not implemented on server (404)',
+        );
+        state = state.copyWith(reminders: [], isLoading: false);
+        return;
+      }
+      AppLogger.e('[ReminderProvider] load error: $e');
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Failed to load reminders',
+      );
     } catch (e) {
       AppLogger.e('[ReminderProvider] load error: $e');
       state = state.copyWith(

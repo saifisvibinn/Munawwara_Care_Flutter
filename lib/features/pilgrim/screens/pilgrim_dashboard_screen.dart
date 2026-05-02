@@ -21,7 +21,6 @@ import '../../shared/helpers/chat_notification_helper.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/in_app_popup.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
@@ -32,7 +31,6 @@ import '../../notifications/screens/alerts_tab.dart';
 import '../../shared/providers/message_provider.dart';
 import '../../shared/providers/suggested_area_provider.dart';
 import '../../shared/models/suggested_area_model.dart';
-import '../../shared/models/message_model.dart';
 import '../providers/pilgrim_provider.dart';
 import 'group_details_screen.dart';
 import 'group_inbox_screen.dart';
@@ -140,7 +138,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       // Connect socket with this pilgrim's identity
       final auth = ref.read(authProvider);
       if (auth.userId != null) {
-        final socketUrl = ApiService.baseUrl.replaceFirst(RegExp(r'/api$'), '');
+        final socketUrl = ApiService.socketOrigin;
         SocketService.connect(
           serverUrl: socketUrl,
           userId: auth.userId!,
