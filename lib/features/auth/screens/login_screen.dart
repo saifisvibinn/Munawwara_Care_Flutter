@@ -9,6 +9,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_popup_menu.dart';
 import '../../../core/utils/qr_barcode_utils.dart';
 import '../../../core/widgets/qr_scanner_view.dart';
 import '../providers/auth_provider.dart';
@@ -280,29 +281,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               },
                               child: Padding(
                                 padding: EdgeInsets.symmetric(vertical: 8.h),
-                                child: Text.rich(
-                                  TextSpan(
-                                    text: _isModeratorLogin
-                                        ? 'login_not_moderator'.tr()
-                                        : 'login_not_pilgrim'.tr(),
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      color: isDark ? AppColors.textMutedLight : const Color(0xff64748b),
-                                      fontSize: 14.sp,
-                                    ),
-                                    children: [
-                                      TextSpan(
-                                        text: _isModeratorLogin
-                                            ? 'login_as_pilgrim'.tr()
-                                            : 'login_as_moderator'.tr(),
-                                        style: TextStyle(
-                                          fontFamily: 'Lexend',
-                                          color: isDark ? Colors.white : AppColors.textDark,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _isModeratorLogin
+                                          ? 'login_not_moderator'.tr()
+                                          : 'login_not_pilgrim'.tr(),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        color: isDark
+                                            ? AppColors.textMutedLight
+                                            : const Color(0xff64748b),
+                                        fontSize: 14.sp,
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                    SizedBox(height: 8.h),
+                                    Text(
+                                      _isModeratorLogin
+                                          ? 'login_as_pilgrim'.tr()
+                                          : 'login_as_moderator'.tr(),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        color: AppColors.primary,
+                                        fontSize: 15.sp,
+                                        fontWeight: FontWeight.w700,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -541,14 +551,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         .key;
 
     return PopupMenuButton<String>(
-      offset: const Offset(0, 40),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.r),
-        side: BorderSide(
-          color: isDark ? const Color(0xff334155) : const Color(0xffe2e8f0),
-        ),
-      ),
-      color: isDark ? AppColors.surfaceDark : Colors.white,
+      offset: AppPopupMenu.offsetBelowChip,
+      shape: AppPopupMenu.panelShape(),
+      constraints: AppPopupMenu.panelConstraints(),
+      color: AppPopupMenu.panelColor(isDark) ?? Colors.white,
       onSelected: (langName) {
         final newLocale = supportedLanguages[langName];
         if (newLocale != null) {
@@ -560,23 +566,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           final isSelected = langName == currentLangName;
           return PopupMenuItem<String>(
             value: langName,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  langName,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 14.sp,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected
-                        ? AppColors.primary
-                        : (isDark ? Colors.white : AppColors.textDark),
-                  ),
-                ),
-                if (isSelected)
-                  Icon(Symbols.check, size: 16.w, color: AppColors.primary),
-              ],
+            child: AppPopupMenu.selectionRow(
+              label: langName,
+              isSelected: isSelected,
+              isDark: isDark,
             ),
           );
         }).toList();

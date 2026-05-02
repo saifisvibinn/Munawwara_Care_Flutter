@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../theme/app_colors.dart';
@@ -12,7 +13,7 @@ class ReminderPopup {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'Dismiss Reminder',
+      barrierLabel: 'reminder_popup_dismiss'.tr(),
       barrierColor: Colors.black.withValues(alpha: 0.3),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, animation, secondaryAnimation) {
@@ -109,7 +110,7 @@ class _ReminderPopupCard extends StatelessWidget {
                 ),
                 SizedBox(height: 24.h),
                 Text(
-                  'Reminder', // We could use tr() but keeping it literal to match UI exactly
+                  'reminder_popup_title'.tr(),
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 24.sp,
@@ -165,7 +166,7 @@ class _ReminderPopupCard extends StatelessWidget {
                       vertical: 12.h,
                     ),
                     child: Text(
-                      'Dismiss',
+                      'reminder_popup_dismiss'.tr(),
                       style: TextStyle(
                         fontFamily: 'Lexend',
                         fontSize: 18.sp,

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dropdown_theme.dart';
+import '../../../../core/widgets/app_popup_menu.dart';
 import '../../models/provisioning_models.dart';
 
 class ProvisioningTrackerList extends StatelessWidget {
@@ -88,62 +90,68 @@ class ProvisioningTrackerList extends StatelessWidget {
                 tooltip: 'provisioning_select_all'.tr(),
               ),
               PopupMenuButton<String>(
+                tooltip: 'provisioning_bulk_share_selected'.tr(),
+                padding: EdgeInsets.zero,
+                offset: AppPopupMenu.offsetBelowChip,
+                shape: AppPopupMenu.panelShape(),
+                constraints: AppPopupMenu.panelConstraints(),
+                color: AppPopupMenu.panelColor(isDark),
                 onSelected: (val) {
                   if (val == 'text') onShareSelectedText();
                   if (val == 'images') onShareSelectedImages();
                 },
                 icon: Icon(Symbols.ios_share, size: 20.w, color: AppColors.primary),
-                tooltip: 'provisioning_bulk_share_selected'.tr(),
                 itemBuilder: (context) => [
                   PopupMenuItem(
                     value: 'images',
-                    child: Row(
-                      children: [
-                        Icon(Symbols.image, size: 20.w, color: AppColors.primary),
-                        SizedBox(width: 8.w),
-                        Text('provisioning_share_selected_images'.tr(), style: TextStyle(fontSize: 13.sp, fontFamily: 'Lexend')),
-                      ],
+                    child: AppPopupMenu.actionRow(
+                      icon: Symbols.image,
+                      label: 'provisioning_share_selected_images'.tr(),
+                      isDark: isDark,
+                      iconColor: AppColors.primary,
                     ),
                   ),
                   PopupMenuItem(
                     value: 'text',
-                    child: Row(
-                      children: [
-                        Icon(Symbols.description, size: 20.w, color: AppColors.primary),
-                        SizedBox(width: 8.w),
-                        Text('provisioning_share_selected_text'.tr(), style: TextStyle(fontSize: 13.sp, fontFamily: 'Lexend')),
-                      ],
+                    child: AppPopupMenu.actionRow(
+                      icon: Symbols.description,
+                      label: 'provisioning_share_selected_text'.tr(),
+                      isDark: isDark,
+                      iconColor: AppColors.primary,
                     ),
                   ),
                 ],
               ),
             ] else ...[
               PopupMenuButton<String>(
+                tooltip: 'provisioning_bulk_share_pending'.tr(),
+                padding: EdgeInsets.zero,
+                offset: AppPopupMenu.offsetBelowChip,
+                shape: AppPopupMenu.panelShape(),
+                constraints: AppPopupMenu.panelConstraints(),
+                color: AppPopupMenu.panelColor(isDark),
                 onSelected: (val) {
                   if (val == 'text') onShareSelectedText();
                   if (val == 'images') onShareSelectedImages();
                 },
                 icon: Icon(Symbols.ios_share, size: 20.w, color: AppColors.primary),
-                tooltip: 'provisioning_bulk_share_pending'.tr(),
                 itemBuilder: (context) => [
                   PopupMenuItem(
                     value: 'images',
-                    child: Row(
-                      children: [
-                        Icon(Symbols.image, size: 20.w, color: AppColors.primary),
-                        SizedBox(width: 8.w),
-                        Text('provisioning_share_pending_images'.tr(), style: TextStyle(fontSize: 13.sp, fontFamily: 'Lexend')),
-                      ],
+                    child: AppPopupMenu.actionRow(
+                      icon: Symbols.image,
+                      label: 'provisioning_share_pending_images'.tr(),
+                      isDark: isDark,
+                      iconColor: AppColors.primary,
                     ),
                   ),
                   PopupMenuItem(
                     value: 'text',
-                    child: Row(
-                      children: [
-                        Icon(Symbols.description, size: 20.w, color: AppColors.primary),
-                        SizedBox(width: 8.w),
-                        Text('provisioning_share_pending_text'.tr(), style: TextStyle(fontSize: 13.sp, fontFamily: 'Lexend')),
-                      ],
+                    child: AppPopupMenu.actionRow(
+                      icon: Symbols.description,
+                      label: 'provisioning_share_pending_text'.tr(),
+                      isDark: isDark,
+                      iconColor: AppColors.primary,
                     ),
                   ),
                 ],
@@ -188,32 +196,44 @@ class ProvisioningTrackerList extends StatelessWidget {
   Widget _buildFilterDropdown() {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.w),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
-        ),
-      ),
+      decoration: AppDropdownTheme.inlineContainerDecoration(isDark),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: filterStatus,
           items: [
-            DropdownMenuItem(value: 'all', child: Text('group_status_all'.tr())),
-            DropdownMenuItem(value: 'pending', child: Text('group_status_pending_only'.tr())),
-            DropdownMenuItem(value: 'activated', child: Text('group_status_activated'.tr())),
+            DropdownMenuItem(
+              value: 'all',
+              child: Text(
+                'group_status_all'.tr(),
+                style: AppDropdownTheme.menuItemStyle(isDark, fontSize: 13),
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'pending',
+              child: Text(
+                'group_status_pending_only'.tr(),
+                style: AppDropdownTheme.menuItemStyle(isDark, fontSize: 13),
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'activated',
+              child: Text(
+                'group_status_activated'.tr(),
+                style: AppDropdownTheme.menuItemStyle(isDark, fontSize: 13),
+              ),
+            ),
           ],
           onChanged: (val) {
             if (val != null) onFilterChanged(val);
           },
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontSize: 13.sp,
-            color: isDark ? Colors.white : AppColors.textDark,
-            fontWeight: FontWeight.w600,
+          style: AppDropdownTheme.valueStyle(isDark, fontSize: 13),
+          dropdownColor: AppDropdownTheme.menuBackground(isDark),
+          borderRadius: AppDropdownTheme.menuBorderRadius(),
+          elevation: AppDropdownTheme.menuElevation(),
+          icon: AppDropdownTheme.menuTrailingIcon(
+            icon: Symbols.filter_list,
+            size: 18.w,
           ),
-          dropdownColor: isDark ? const Color(0xFF2A2A3C) : Colors.white,
-          icon: Icon(Symbols.filter_list, size: 18.w, color: AppColors.primary),
         ),
       ),
     );

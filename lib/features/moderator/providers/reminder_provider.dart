@@ -86,8 +86,12 @@ class ReminderNotifier extends Notifier<ReminderState> {
     required DateTime scheduledAt,
     required int repeatCount,
     required int repeatIntervalMin,
+    List<int>? weeklyDays,
   }) async {
     try {
+      final wd = weeklyDays == null || weeklyDays.isEmpty
+          ? null
+          : (List<int>.from(weeklyDays)..sort());
       final response = await ApiService.dio.post(
         '/reminders',
         data: {
@@ -97,8 +101,9 @@ class ReminderNotifier extends Notifier<ReminderState> {
           'text': text,
           'scheduled_at': scheduledAt.toUtc().toIso8601String(),
           'repeat_count': repeatCount,
-          // Only send interval when repeating more than once
-          if (repeatCount > 1) 'repeat_interval_min': repeatIntervalMin,
+          if (wd != null && wd.isNotEmpty) 'weekly_days': wd,
+          if (repeatCount > 1 && (wd == null || wd.isEmpty))
+            'repeat_interval_min': repeatIntervalMin,
         },
       );
       final created = ReminderModel.fromJson(
@@ -135,6 +140,8 @@ class ReminderNotifier extends Notifier<ReminderState> {
                       status: 'cancelled',
                       firesSent: r.firesSent,
                       createdAt: r.createdAt,
+                      groupIdsCount: r.groupIdsCount,
+                      weeklyDays: r.weeklyDays,
                     )
                   : r,
             )
@@ -156,10 +163,7 @@ class ReminderNotifier extends Notifier<ReminderState> {
       AppLogger.i('[ReminderProvider] Deleted reminder $reminderId');
     } catch (e) {
       AppLogger.e('[ReminderProvider] delete error: $e');
-      // Reload to restore accurate state on failure
-      if (state.reminders.isNotEmpty) {
-        await load(groupId: state.reminders.first.groupId);
-      }
+      await load();
     }
   }
 }

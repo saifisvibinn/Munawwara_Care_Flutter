@@ -7,6 +7,7 @@ import '../../../core/widgets/custom_dialog.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_dropdown_theme.dart';
 import '../providers/moderator_provider.dart';
 import '../providers/reminder_provider.dart';
 import '../widgets/reminder_card.dart';
@@ -27,6 +28,8 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncPilgrimAudienceWithGroups(ref.read(moderatorProvider).groups);
       ref.read(reminderProvider.notifier).load();
     });
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -48,6 +51,8 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
   int _repeatCount = 1;
   int? _selectedIntervalMin; // null = custom
   bool _isCustomInterval = false;
+  /// Dart weekdays 1=Mon … 7=Sun — same time on each selected day (server UTC anchor).
+  final Set<int> _weeklyDays = {};
   
   List<Map<String, dynamic>> get _intervalOptions => [
         {'labelKey': 'reminder_interval_chip_1m', 'value': 1},
@@ -76,7 +81,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
-    if (picked != null) setState(() => _selectedDate = picked);
+    if (picked != null && mounted) setState(() => _selectedDate = picked);
   }
 
   void _onSelectTime() async {
@@ -84,7 +89,36 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
       context: context,
       initialTime: _startTime,
     );
-    if (picked != null) setState(() => _selectedTime = picked);
+    if (picked != null && mounted) setState(() => _selectedTime = picked);
+  }
+
+  /// Keeps pilgrim-audience dropdown state aligned with [moderatorProvider] after refresh.
+  void _syncPilgrimAudienceWithGroups(List<ModeratorGroup> allGroups) {
+    String? gid = _selectedGroupIdForPilgrim;
+    if (gid != null && !allGroups.any((g) => g.id == gid)) {
+      gid = null;
+    }
+    ModeratorGroup? group;
+    if (gid != null) {
+      for (final g in allGroups) {
+        if (g.id == gid) {
+          group = g;
+          break;
+        }
+      }
+    }
+    String? pid = _selectedPilgrimId;
+    if (pid != null &&
+        (group == null || !group.pilgrims.any((p) => p.id == pid))) {
+      pid = null;
+    }
+    if (gid != _selectedGroupIdForPilgrim || pid != _selectedPilgrimId) {
+      if (!mounted) return;
+      setState(() {
+        _selectedGroupIdForPilgrim = gid;
+        _selectedPilgrimId = pid;
+      });
+    }
   }
 
   Future<void> _createReminders() async {
@@ -134,6 +168,9 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
     int intervalMin = _isCustomInterval ? 15 : (_selectedIntervalMin ?? 15);
     int count = _repeatCount;
 
+    final weeklyList =
+        _weeklyDays.isEmpty ? null : (List<int>.from(_weeklyDays)..sort());
+
     final success = await ref
         .read(reminderProvider.notifier)
         .create(
@@ -144,12 +181,15 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
           scheduledAt: sched,
           repeatCount: count,
           repeatIntervalMin: intervalMin,
+          weeklyDays: weeklyList,
         );
+
+    if (!mounted) return;
 
     setState(() => _isCreating = false);
 
     if (success) {
-      if (mounted) StandardSnackBar.showSuccess(context, 'reminder_create_success'.tr());
+      StandardSnackBar.showSuccess(context, 'reminder_create_success'.tr());
       _messageController.clear();
       _selectedGroupIds.clear();
       setState(() {
@@ -159,9 +199,10 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
         _isCustomInterval = false;
         _selectedGroupIdForPilgrim = null;
         _selectedPilgrimId = null;
+        _weeklyDays.clear();
       });
     } else {
-      if (mounted) StandardSnackBar.showError(context, 'reminder_create_partial_fail'.tr());
+      StandardSnackBar.showError(context, 'reminder_create_partial_fail'.tr());
     }
   }
 
@@ -170,6 +211,10 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final state = ref.watch(moderatorProvider);
+    ref.listen<ModeratorState>(moderatorProvider, (previous, next) {
+      if (!mounted) return;
+      _syncPilgrimAudienceWithGroups(next.groups);
+    });
     final allGroups = state.groups;
     final remState = ref.watch(reminderProvider);
 
@@ -437,59 +482,33 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
                     ),
                     SizedBox(height: 12.h),
                     DropdownButtonFormField<String>(
-                      key: ValueKey(_selectedGroupIdForPilgrim),
-                      initialValue: _selectedGroupIdForPilgrim,
-                      decoration: InputDecoration(
+                      key: const ValueKey('system_reminder_specific_group'),
+                      value: _selectedGroupIdForPilgrim != null &&
+                              allGroups.any((g) => g.id == _selectedGroupIdForPilgrim)
+                          ? _selectedGroupIdForPilgrim
+                          : null,
+                      decoration: AppDropdownTheme.formFieldDecoration(
+                        isDark: isDark,
                         labelText: 'reminder_select_group_dropdown'.tr(),
-                        labelStyle: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 14.sp,
-                          color: AppColors.textMutedLight,
-                        ),
-                        filled: true,
-                        fillColor: isDark ? const Color(0xFF2A2A3C) : const Color(0xFFF3F4F6),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14.r),
-                          borderSide: BorderSide(
-                            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14.r),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFF97316),
-                            width: 1.5,
-                          ),
-                        ),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                        nested: true,
                       ),
-                      icon: Icon(
-                        Symbols.keyboard_arrow_down,
-                        color: isDark ? Colors.white70 : Colors.black54,
-                        size: 22.sp,
-                      ),
-                      dropdownColor: isDark ? const Color(0xFF2A2A3C) : Colors.white,
-                      borderRadius: BorderRadius.circular(14.r),
-                      elevation: 8,
-                      menuMaxHeight: 300.h,
+                      icon: AppDropdownTheme.menuTrailingIcon(),
+                      dropdownColor: AppDropdownTheme.menuBackground(isDark),
+                      borderRadius: AppDropdownTheme.menuBorderRadius(),
+                      elevation: AppDropdownTheme.menuElevation(),
+                      menuMaxHeight: AppDropdownTheme.menuMaxHeight(),
                       isExpanded: true,
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 14.sp,
-                        color: isDark ? Colors.white : const Color(0xFF1A1A4E),
-                      ),
+                      style: AppDropdownTheme.valueStyle(isDark, fontSize: 14),
                       items: allGroups
-                          .map((g) => DropdownMenuItem(
-                                value: g.id,
-                                child: Text(
-                                  g.groupName,
-                                  style: TextStyle(
-                                    fontFamily: 'Lexend',
-                                    fontSize: 14.sp,
-                                    color: isDark ? Colors.white : const Color(0xFF1A1A4E),
-                                  ),
-                                ),
-                              ))
+                          .map(
+                            (g) => DropdownMenuItem(
+                              value: g.id,
+                              child: Text(
+                                g.groupName,
+                                style: AppDropdownTheme.menuItemStyle(isDark),
+                              ),
+                            ),
+                          )
                           .toList(),
                       onChanged: (val) {
                         setState(() {
@@ -502,65 +521,59 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
                     if (_selectedGroupIdForPilgrim != null) ...[
                       Builder(
                         builder: (ctx) {
-                          final group = allGroups.firstWhere((g) => g.id == _selectedGroupIdForPilgrim);
+                          ModeratorGroup? group;
+                          for (final g in allGroups) {
+                            if (g.id == _selectedGroupIdForPilgrim) {
+                              group = g;
+                              break;
+                            }
+                          }
+                          if (group == null) {
+                            return Text(
+                              'reminder_select_group_dropdown'.tr(),
+                              style: TextStyle(color: Colors.red, fontSize: 12.sp),
+                            );
+                          }
                           final pilgrims = group.pilgrims;
                           if (pilgrims.isEmpty) {
                             return Text('reminder_no_pilgrims'.tr(), style: TextStyle(color: Colors.red, fontSize: 12.sp));
                           }
+                          final validPilgrimId =
+                              _selectedPilgrimId != null &&
+                                      pilgrims.any((p) => p.id == _selectedPilgrimId)
+                                  ? _selectedPilgrimId
+                                  : null;
                           return DropdownButtonFormField<String>(
-                            key: ValueKey(_selectedPilgrimId),
-                            initialValue: _selectedPilgrimId,
-                            decoration: InputDecoration(
+                            key: ValueKey(
+                              'system_reminder_specific_pilgrim_$_selectedGroupIdForPilgrim',
+                            ),
+                            value: validPilgrimId,
+                            decoration: AppDropdownTheme.formFieldDecoration(
+                              isDark: isDark,
                               labelText: 'reminder_select_pilgrim'.tr(),
-                              labelStyle: TextStyle(
-                                fontFamily: 'Lexend',
-                                fontSize: 14.sp,
-                                color: AppColors.textMutedLight,
-                              ),
-                              filled: true,
-                              fillColor: isDark ? const Color(0xFF2A2A3C) : const Color(0xFFF3F4F6),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14.r),
-                                borderSide: BorderSide(
-                                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14.r),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFF97316),
-                                  width: 1.5,
-                                ),
-                              ),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                              nested: true,
                             ),
-                            icon: Icon(
-                              Symbols.keyboard_arrow_down,
-                              color: isDark ? Colors.white70 : Colors.black54,
-                              size: 22.sp,
-                            ),
-                            dropdownColor: isDark ? const Color(0xFF2A2A3C) : Colors.white,
-                            borderRadius: BorderRadius.circular(14.r),
-                            elevation: 8,
-                            menuMaxHeight: 300.h,
+                            icon: AppDropdownTheme.menuTrailingIcon(),
+                            dropdownColor:
+                                AppDropdownTheme.menuBackground(isDark),
+                            borderRadius: AppDropdownTheme.menuBorderRadius(),
+                            elevation: AppDropdownTheme.menuElevation(),
+                            menuMaxHeight: AppDropdownTheme.menuMaxHeight(),
                             isExpanded: true,
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 14.sp,
-                              color: isDark ? Colors.white : const Color(0xFF1A1A4E),
-                            ),
+                            style:
+                                AppDropdownTheme.valueStyle(isDark, fontSize: 14),
                             items: pilgrims
-                                .map((p) => DropdownMenuItem(
-                                      value: p.id,
-                                      child: Text(
-                                        p.fullName,
-                                        style: TextStyle(
-                                          fontFamily: 'Lexend',
-                                          fontSize: 14.sp,
-                                          color: isDark ? Colors.white : const Color(0xFF1A1A4E),
-                                        ),
+                                .map(
+                                  (p) => DropdownMenuItem(
+                                    value: p.id,
+                                    child: Text(
+                                      p.fullName,
+                                      style: AppDropdownTheme.menuItemStyle(
+                                        isDark,
                                       ),
-                                    ))
+                                    ),
+                                  ),
+                                )
                                 .toList(),
                             onChanged: (val) {
                               setState(() {
@@ -817,6 +830,65 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
                     ],
                   ),
                   SizedBox(height: 20.h),
+                  Text(
+                    'reminder_weekdays_section'.tr(),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14.sp,
+                      color: isDark ? Colors.white : const Color(0xFF1A1A4E),
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    'reminder_weekdays_hint'.tr(),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 11.sp,
+                      color: AppColors.textMutedLight,
+                    ),
+                  ),
+                  SizedBox(height: 10.h),
+                  Wrap(
+                    spacing: 6.w,
+                    runSpacing: 6.h,
+                    children: List.generate(7, (i) {
+                      final d = i + 1;
+                      final selected = _weeklyDays.contains(d);
+                      return FilterChip(
+                        label: Text(
+                          'reminder_weekday_short_$d'.tr(),
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 11.sp,
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
+                            color: selected
+                                ? Colors.white
+                                : (isDark ? Colors.white70 : Colors.black87),
+                          ),
+                        ),
+                        selected: selected,
+                        onSelected: (v) {
+                          setState(() {
+                            if (v) {
+                              _weeklyDays.add(d);
+                            } else {
+                              _weeklyDays.remove(d);
+                            }
+                          });
+                        },
+                        selectedColor: const Color(0xFFF97316),
+                        backgroundColor: isDark
+                            ? const Color(0xFF2A2A3C)
+                            : const Color(0xFFE5E7EB),
+                        checkmarkColor: Colors.white,
+                        showCheckmark: false,
+                        padding: EdgeInsets.symmetric(horizontal: 4.w),
+                      );
+                    }),
+                  ),
+                  SizedBox(height: 20.h),
 // REPEAT SETTINGS
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -861,10 +933,13 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
                           ),
                           IconButton(
                             onPressed: () {
+                              if (_repeatCount >= 104) return;
                               setState(() {
                                 _repeatCount++;
-                                // Auto-select 15m interval when first enabling repeats
-                                if (_repeatCount == 2 && _selectedIntervalMin == null && !_isCustomInterval) {
+                                if (_weeklyDays.isEmpty &&
+                                    _repeatCount == 2 &&
+                                    _selectedIntervalMin == null &&
+                                    !_isCustomInterval) {
                                   _selectedIntervalMin = 15;
                                 }
                               });
@@ -878,8 +953,8 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
                       ),
                     ],
                   ),
-                  // Interval is only shown when repeatCount > 1
-                  if (_repeatCount > 1) ...[
+                  // Interval only when repeating by delay (not weekly multi-day)
+                  if (_repeatCount > 1 && _weeklyDays.isEmpty) ...[
                     SizedBox(height: 20.h),
                     Text(
                       'reminder_interval_short'.tr(),
@@ -999,7 +1074,10 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen> {
                       final filtered = remState.reminders.where((r) {
                         if (_historyFilterIndex == 0) return true;
                         if (_historyFilterIndex == 1) return r.targetType == 'system';
-                        if (_historyFilterIndex == 2) return r.targetType == 'group';
+                        if (_historyFilterIndex == 2) {
+                          return r.targetType == 'group' ||
+                              r.targetType == 'all_groups';
+                        }
                         if (_historyFilterIndex == 3) return r.targetType == 'pilgrim';
                         return true;
                       }).toList();

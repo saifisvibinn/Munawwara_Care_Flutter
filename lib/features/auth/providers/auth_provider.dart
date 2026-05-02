@@ -144,8 +144,98 @@ class AuthNotifier extends Notifier<AuthState> {
       final userId = prefs.getString('user_id');
       final fullName = prefs.getString('user_full_name');
 
-      if (token != null) {
-        ApiService.dio.options.headers['Authorization'] = 'Bearer $token';
+      if (token == null || token.isEmpty) {
+        state = const AuthState(isRestoringSession: false);
+        AppLogger.d('AuthNotifier: restore complete (no token)');
+        return;
+      }
+
+      ApiService.dio.options.headers['Authorization'] = 'Bearer $token';
+
+      try {
+        final response = await ApiService.dio.get('/auth/me');
+        final raw = response.data;
+        final data = raw is Map<String, dynamic>
+            ? raw
+            : (raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{});
+
+        final resolvedRole =
+            (data['role'] ?? data['user_type'] ?? role)?.toString();
+        final resolvedId =
+            (data['_id'] ?? data['id'] ?? userId)?.toString();
+        final resolvedName =
+            (data['full_name'] ?? fullName)?.toString();
+
+        if (userId != null &&
+            userId.isNotEmpty &&
+            resolvedId != null &&
+            resolvedId.isNotEmpty &&
+            userId != resolvedId) {
+          AppLogger.w(
+            'AuthNotifier: stored user id does not match /auth/me — clearing session',
+          );
+          await _invalidateSessionLocally();
+          return;
+        }
+
+        state = AuthState(
+          isRestoringSession: false,
+          token: token,
+          role: resolvedRole,
+          userId: resolvedId,
+          fullName: resolvedName,
+          email: data['email'] as String?,
+          emailVerified: data['email_verified'] as bool? ?? false,
+          phoneNumber: data['phone_number'] as String?,
+          age: (data['age'] as num?)?.toInt(),
+          gender: data['gender'] as String?,
+          medicalHistory: data['medical_history'] as String?,
+          hotelName: data['hotel_name'] as String?,
+          roomNumber: data['room_number'] as String?,
+          busInfo: data['bus_info'] as String?,
+          visaNumber: data['visa']?['visa_number']?.toString(),
+          visaStatus: data['visa']?['status']?.toString(),
+          nationalId: data['national_id']?.toString(),
+          language: data['language']?.toString(),
+          ethnicity: data['ethnicity']?.toString(),
+        );
+
+        if (data['full_name'] != null) {
+          await prefs.setString('user_full_name', data['full_name'] as String);
+        }
+        if (resolvedId != null && resolvedId.isNotEmpty) {
+          await prefs.setString('user_id', resolvedId);
+        }
+        if (resolvedRole != null && resolvedRole.isNotEmpty) {
+          await prefs.setString('user_role', resolvedRole);
+        }
+
+        await _registerFcmToken();
+      } on DioException catch (e) {
+        final code = e.response?.statusCode;
+        if (code == 401) {
+          AppLogger.w('AuthNotifier: /auth/me 401 during restore');
+          final prefsAfter = await SharedPreferences.getInstance();
+          if (prefsAfter.getString('auth_token') != null) {
+            await _invalidateSessionLocally();
+          } else {
+            state = const AuthState(isRestoringSession: false);
+          }
+          AppLogger.d('AuthNotifier: restore complete (401)');
+          return;
+        }
+        if (code == 404) {
+          AppLogger.w(
+            'AuthNotifier: /auth/me 404 during restore — account likely removed',
+          );
+          await _invalidateSessionLocally();
+          AppLogger.d('AuthNotifier: restore complete (404)');
+          return;
+        }
+
+        AppLogger.w(
+          'AuthNotifier: /auth/me failed during restore (HTTP $code) — keeping offline session',
+        );
         state = AuthState(
           isRestoringSession: false,
           token: token,
@@ -153,18 +243,25 @@ class AuthNotifier extends Notifier<AuthState> {
           userId: userId,
           fullName: fullName,
         );
-
-        // Always re-register FCM token on every app start — ensures the token
-        // is up-to-date even if the app was restarted, device changed, etc.
         await _registerFcmToken();
-      } else {
-        state = const AuthState(isRestoringSession: false);
       }
+
       AppLogger.d('AuthNotifier: restore complete');
     } catch (e, st) {
       AppLogger.e('AuthNotifier restoreSession error: $e\n$st');
       state = const AuthState(isRestoringSession: false);
     }
+  }
+
+  /// Clear local auth without calling the server (user record already gone or 401 handled).
+  Future<void> _invalidateSessionLocally() async {
+    try {
+      SocketService.disconnect();
+    } catch (_) {}
+    await ApiService.clearAuthToken();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('last_registered_fcm_token');
+    state = const AuthState(isRestoringSession: false);
   }
 
   // ── Register FCM token with the backend ────────────────────────────────────
@@ -349,7 +446,9 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   // ── Fetch profile ───────────────────────────────────────────────────────────
-  Future<void> fetchProfile() async {
+  /// Returns `false` when the session is invalid (401/404), after [logout] runs if needed.
+  Future<bool> fetchProfile() async {
+    if (!state.isAuthenticated) return false;
     try {
       final response = await ApiService.dio.get('/auth/me');
       final data = response.data as Map<String, dynamic>;
@@ -370,13 +469,30 @@ class AuthNotifier extends Notifier<AuthState> {
         language: data['language']?.toString(),
         ethnicity: data['ethnicity']?.toString(),
       );
-      // Persist updated full_name to prefs
+      final prefs = await SharedPreferences.getInstance();
       if (data['full_name'] != null) {
-        final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user_full_name', data['full_name'] as String);
       }
-    } on DioException catch (_) {
-      // Silent — profile fetch failures shouldn't disrupt UX
+      final uid = data['_id']?.toString() ?? data['id']?.toString();
+      if (uid != null && uid.isNotEmpty) {
+        await prefs.setString('user_id', uid);
+      }
+      final r = data['role']?.toString() ?? data['user_type']?.toString();
+      if (r != null && r.isNotEmpty) {
+        await prefs.setString('user_role', r);
+      }
+      return true;
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      if (code == 401 || code == 404) {
+        AppLogger.w('fetchProfile: invalid session (HTTP $code)');
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getString('auth_token') != null) {
+          await logout();
+        }
+        return false;
+      }
+      return true;
     }
   }
 

@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -38,7 +39,11 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(authProvider.notifier).fetchProfile());
+    Future.microtask(() async {
+      final ok = await ref.read(authProvider.notifier).fetchProfile();
+      if (!mounted) return;
+      if (!ok) context.go('/login');
+    });
   }
 
   @override

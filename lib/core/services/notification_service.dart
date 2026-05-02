@@ -15,6 +15,8 @@ import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import '../../features/pilgrim/screens/group_inbox_screen.dart';
 import '../../features/moderator/screens/group_messages_screen.dart';
+import '../../features/notifications/screens/alerts_tab.dart';
+import '../theme/app_colors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Background Message Handler
@@ -181,6 +183,30 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   //    to avoid duplicates. We only create a local notification for
   //    data-only messages (urgent TTS, etc.) that Android won't display.
   if (message.notification != null) {
+    // Standard FCM still delivers to this handler on some devices. If the main
+    // isolate is alive, show the in-app reminder card (tray may be enough,
+    // but pilgrims expect the same popup as foreground onMessage).
+    final msgTypeEarly = message.data['messageType']?.toString() ?? '';
+    if (msgTypeEarly == 'reminder_tts') {
+      final sendPort = IsolateNameServer.lookupPortByName('popup_port');
+      if (sendPort != null) {
+        final text =
+            message.data['body']?.toString() ??
+            message.data['content']?.toString() ??
+            message.notification?.body ??
+            '';
+        if (text.isNotEmpty) {
+          sendPort.send({
+            'type': 'reminder_popup',
+            'body': text,
+            'rawTime':
+                message.data['scheduledAt']?.toString() ??
+                message.data['scheduled_time']?.toString() ??
+                '',
+          });
+        }
+      }
+    }
     AppLogger.i('📩 Notification block present — Android already displayed it');
     return;
   }
@@ -208,12 +234,17 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
   // ── Urgent TTS / Reminder TTS → show notification then speak ──────────────
   if (dataType == 'urgent' && (msgType == 'tts' || msgType == 'reminder_tts')) {
-    final text =
+    var text =
         message.data['body']?.toString() ??
         message.data['content']?.toString() ??
         '';
     final isReminder = msgType == 'reminder_tts';
     final prefix = isReminder ? 'Incoming reminder.' : 'Urgent message.';
+    if (text.isEmpty &&
+        isReminder &&
+        (message.notification?.body ?? '').isNotEmpty) {
+      text = message.notification!.body!;
+    }
     AppLogger.i(
       '🔊 ${isReminder ? "Reminder" : "Urgent"} TTS [background]: "$text"',
     );
@@ -555,14 +586,22 @@ class NotificationService {
     final groupId = data['group_id']?.toString() ?? '';
     final groupName = data['group_name']?.toString() ?? '';
 
+    final messageType = data['messageType']?.toString() ?? '';
+
     AppLogger.i(
       '📱 Navigating from notification: type=$notificationType, '
-      'groupId=$groupId, groupName=$groupName',
+      'messageType=$messageType, groupId=$groupId, groupName=$groupName',
     );
 
+    final isReminderTap = notificationType == 'reminder' ||
+        messageType == 'reminder_tts' ||
+        (notificationType == 'urgent' && messageType == 'reminder_tts');
+    if (isReminderTap) {
+      _navigateToAlertsInbox();
+      return;
+    }
+
     if (notificationType == 'new_message' && groupId.isNotEmpty) {
-      _navigateToChat(groupId: groupId, groupName: groupName);
-    } else if (notificationType == 'meetpoint' && groupId.isNotEmpty) {
       _navigateToChat(groupId: groupId, groupName: groupName);
     } else if (notificationType == 'meetpoint' && groupId.isNotEmpty) {
       _navigateToChat(groupId: groupId, groupName: groupName);
@@ -601,6 +640,35 @@ class NotificationService {
       MaterialPageRoute(
         builder: (_) =>
             _ChatRouteResolver(groupId: groupId, groupName: groupName),
+      ),
+    );
+  }
+
+  /// Full-screen alerts list (reminder / in-app notification taps).
+  static void _navigateToAlertsInbox() {
+    final nav = AppRouter.navigatorKey.currentState;
+    if (nav == null) {
+      AppLogger.w('📱 Navigator not ready — storing pending reminder nav');
+      _pendingNotificationData = {
+        'notification_type': 'reminder',
+        'messageType': 'reminder_tts',
+      };
+      return;
+    }
+
+    nav.push(
+      MaterialPageRoute<void>(
+        builder: (ctx) {
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          return Scaffold(
+            backgroundColor: isDark
+                ? AppColors.backgroundDark
+                : const Color(0xfff1f5f3),
+            body: SafeArea(
+              child: AlertsTab(onBack: () => Navigator.of(ctx).pop()),
+            ),
+          );
+        },
       ),
     );
   }

@@ -59,6 +59,7 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
   LatLng? _mapCenter;
   String? _tempAddress;
   bool _isReverseGeocoding = false;
+  bool _recenteringGps = false;
 
   @override
   void initState() {
@@ -173,27 +174,64 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
   }
 
   Future<void> _recenterOnMe() async {
+    if (_recenteringGps) return;
+    setState(() => _recenteringGps = true);
+
+    Position? lastKnown;
     try {
-      final permission = await Geolocator.checkPermission();
+      var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
-        await Geolocator.requestPermission();
+        permission = await Geolocator.requestPermission();
       }
-      
-      final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      
-      final point = LatLng(pos.latitude, pos.longitude);
-      _mapController.move(point, 17);
-      
-      // Also pick this point by default if nothing is picked yet
-      if (_pickedPoint == null) {
+      if (permission == LocationPermission.deniedForever ||
+          permission == LocationPermission.denied) {
+        if (mounted) {
+          StandardSnackBar.showError(context, 'Could not get current location');
+        }
+        return;
+      }
+
+      // Fast path: fused / cached location (especially indoors vs cold GPS).
+      lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null && mounted) {
+        final age = DateTime.now().difference(lastKnown.timestamp);
+        if (age.inMinutes < 30 && lastKnown.accuracy <= 5000) {
+          final quick = LatLng(lastKnown.latitude, lastKnown.longitude);
+          _mapController.move(quick, 17);
+          if (_pickedPoint == null) {
+            setState(() => _pickedPoint = quick);
+          }
+        }
+      }
+
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 18),
+          ),
+        );
+        if (!mounted) return;
+        final point = LatLng(pos.latitude, pos.longitude);
+        _mapController.move(point, 17);
         setState(() => _pickedPoint = point);
+      } on TimeoutException {
+        if (!mounted) return;
+        if (lastKnown == null) {
+          StandardSnackBar.showError(context, 'Could not get current location');
+        } else {
+          StandardSnackBar.showWarning(
+            context,
+            'area_location_refine_timeout'.tr(),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
         StandardSnackBar.showError(context, 'Could not get current location');
       }
+    } finally {
+      if (mounted) setState(() => _recenteringGps = false);
     }
   }
 
@@ -536,6 +574,7 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
               _buildOverlayButton(
                 icon: Symbols.my_location,
                 isDark: isDark,
+                isLoading: _recenteringGps,
                 onTap: _recenterOnMe,
               ),
             ],
@@ -688,10 +727,27 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
     );
   }
 
-  Widget _buildOverlayButton({required IconData icon, required bool isDark, required VoidCallback onTap}) {
+  Widget _buildOverlayButton({
+    required IconData icon,
+    required bool isDark,
+    required VoidCallback onTap,
+    bool isLoading = false,
+  }) {
     return Container(
       decoration: BoxDecoration(color: isDark ? AppColors.surfaceDark : Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)]),
-      child: IconButton(icon: Icon(icon, color: isDark ? Colors.white : AppColors.textDark), onPressed: onTap),
+      child: IconButton(
+        icon: isLoading
+            ? SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: isDark ? Colors.white : AppColors.textDark,
+                ),
+              )
+            : Icon(icon, color: isDark ? Colors.white : AppColors.textDark),
+        onPressed: isLoading ? null : onTap,
+      ),
     );
   }
 

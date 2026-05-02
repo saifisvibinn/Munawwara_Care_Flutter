@@ -14,6 +14,7 @@ import 'dart:io';
 
 import '../../../../core/services/api_service.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dropdown_theme.dart';
 import '../../../../core/widgets/custom_dialog.dart';
 import '../../../../core/widgets/standard_snackbar.dart';
 import '../../../auth/providers/auth_provider.dart';
@@ -51,6 +52,8 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
   double _bulkCaptureProgress = 0;
   bool _isSelectionMode = false;
   final Set<String> _selectedPilgrimIds = {};
+  /// Bumped after a successful provision so [CreatePilgrimCard] remounts with empty fields.
+  int _createPilgrimFormGeneration = 0;
 
   @override
   void initState() {
@@ -204,7 +207,10 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
     try {
       await ApiService.dio.post('/auth/groups/$groupId/provision-pilgrim', data: data);
       await _loadProvisioningStatus();
-      if (mounted) StandardSnackBar.showSuccess(context, 'group_pilgrim_created_success'.tr());
+      if (mounted) {
+        setState(() => _createPilgrimFormGeneration++);
+        StandardSnackBar.showSuccess(context, 'group_pilgrim_created_success'.tr());
+      }
     } on DioException catch (e) {
       if (mounted) StandardSnackBar.showError(context, ApiService.parseError(e));
     } finally {
@@ -525,7 +531,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
               SizedBox(height: 24.h),
               
               CreatePilgrimCard(
-                key: ValueKey(_selectedGroupId),
+                key: ValueKey('create_${_selectedGroupId}_$_createPilgrimFormGeneration'),
                 isDark: isDark,
                 isProvisioning: _isProvisioning,
                 hotels: _hotels,
@@ -659,29 +665,49 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
 
   Widget _buildGroupSelector(bool isDark) {
     return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: isDark ? AppColors.dividerDark : AppColors.dividerLight),
-      ),
+      decoration: AppDropdownTheme.inlineContainerDecoration(isDark),
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _selectedGroupId,
           isExpanded: true,
-          hint: Text('group_select'.tr(), style: TextStyle(fontFamily: 'Lexend', fontSize: 14.sp)),
-          items: _groups.map((g) => DropdownMenuItem(value: g.id, child: Text(g.name))).toList(),
-          onChanged: _isLoadingGroups ? null : (v) async {
-            setState(() {
-              _selectedGroupId = v;
-            });
-            await Future.wait([_loadResourceOptions(), _loadProvisioningStatus()]);
-          },
-          style: TextStyle(fontFamily: 'Lexend', fontSize: 15.sp, fontWeight: FontWeight.w600, color: isDark ? Colors.white : AppColors.textDark),
-          dropdownColor: isDark ? const Color(0xFF2A2A3C) : Colors.white,
-          icon: _isLoadingGroups 
-              ? SizedBox(width: 16.w, height: 16.w, child: const CircularProgressIndicator(strokeWidth: 2))
-              : Icon(Symbols.expand_more, color: AppColors.primary),
+          hint: Text(
+            'group_select'.tr(),
+            style: AppDropdownTheme.menuItemStyle(isDark),
+          ),
+          items: _groups
+              .map(
+                (g) => DropdownMenuItem(
+                  value: g.id,
+                  child: Text(
+                    g.name,
+                    style: AppDropdownTheme.menuItemStyle(isDark),
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: _isLoadingGroups
+              ? null
+              : (v) async {
+                  setState(() {
+                    _selectedGroupId = v;
+                  });
+                  await Future.wait([
+                    _loadResourceOptions(),
+                    _loadProvisioningStatus(),
+                  ]);
+                },
+          style: AppDropdownTheme.valueStyle(isDark),
+          dropdownColor: AppDropdownTheme.menuBackground(isDark),
+          borderRadius: AppDropdownTheme.menuBorderRadius(),
+          elevation: AppDropdownTheme.menuElevation(),
+          icon: _isLoadingGroups
+              ? SizedBox(
+                  width: 16.w,
+                  height: 16.w,
+                  child: const CircularProgressIndicator(strokeWidth: 2),
+                )
+              : AppDropdownTheme.menuTrailingIcon(),
         ),
       ),
     );

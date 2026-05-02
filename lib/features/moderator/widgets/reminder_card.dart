@@ -83,33 +83,60 @@ class ReminderCard extends StatelessWidget {
 
           // Target + repeat info
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                reminder.targetType == 'pilgrim' ? Symbols.person : Symbols.group,
+                _targetIcon(reminder.targetType),
                 size: 14.sp,
                 color: AppColors.primary,
               ),
               SizedBox(width: 4.w),
-              Text(
-                reminder.targetType == 'pilgrim'
-                    ? (reminder.pilgrimName ?? 'reminder_target_pilgrim'.tr())
-                    : 'reminder_target_group'.tr(),
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontSize: 12.sp,
-                  color: AppColors.primary,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _targetLabel(reminder),
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    if (reminder.weeklyDays.isNotEmpty) ...[
+                      SizedBox(height: 4.h),
+                      Text(
+                        'reminder_card_weekly_days'.tr(namedArgs: {
+                          'days': reminder.weeklyDays
+                              .map((d) => 'reminder_weekday_short_$d'.tr())
+                              .join(', '),
+                        }),
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 11.sp,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              if (reminder.repeatCount > 1) ...[
-                SizedBox(width: 16.w),
+              if (reminder.repeatCount > 1 ||
+                  reminder.weeklyDays.isNotEmpty) ...[
+                SizedBox(width: 8.w),
                 Icon(Symbols.repeat, size: 14.sp, color: Colors.grey),
                 SizedBox(width: 4.w),
-                Text(
-                  '${reminder.firesSent}/${reminder.repeatCount}  · every ${_formatInterval(reminder.repeatIntervalMin)}',
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 12.sp,
-                    color: Colors.grey,
+                Flexible(
+                  child: Text(
+                    reminder.weeklyDays.isNotEmpty
+                        ? '${reminder.firesSent}/${reminder.repeatCount}'
+                        : '${reminder.firesSent}/${reminder.repeatCount}  · every ${_formatInterval(reminder.repeatIntervalMin)}',
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 12.sp,
+                      color: Colors.grey,
+                    ),
                   ),
                 ),
               ],
@@ -143,6 +170,38 @@ class ReminderCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  IconData _targetIcon(String targetType) {
+    switch (targetType) {
+      case 'pilgrim':
+        return Symbols.person;
+      case 'system':
+        return Symbols.public;
+      case 'all_groups':
+        return Symbols.groups;
+      default:
+        return Symbols.group;
+    }
+  }
+
+  String _targetLabel(ReminderModel reminder) {
+    switch (reminder.targetType) {
+      case 'pilgrim':
+        return reminder.pilgrimName ?? 'reminder_target_pilgrim'.tr();
+      case 'system':
+        return 'reminder_target_system_wide'.tr();
+      case 'all_groups':
+        return 'reminder_target_all_groups'.tr();
+      case 'group':
+        final n = reminder.groupIdsCount;
+        if (n <= 1) {
+          return 'reminder_target_one_group'.tr();
+        }
+        return 'reminder_target_n_groups'.tr(namedArgs: {'n': '$n'});
+      default:
+        return 'reminder_target_group'.tr();
+    }
   }
 
   Color _statusColor(String status) {

@@ -360,8 +360,12 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       // Fire weather load immediately (don't await — let it run in parallel)
       _loadWeatherAlert(force: true);
       _initLocation();
-      await ref.read(authProvider.notifier).fetchProfile();
+      final profileOk = await ref.read(authProvider.notifier).fetchProfile();
       if (!mounted) return;
+      if (!profileOk) {
+        context.go('/login');
+        return;
+      }
       // Load suggested areas if in a group
       final gIdForAreas = ref.read(pilgrimProvider).groupInfo?.groupId;
       if (gIdForAreas != null) {
@@ -1121,43 +1125,67 @@ class _HomeTab extends StatelessWidget {
                       SizedBox(height: 20.h),
 
                       // Sharing Status indicator (Full width badge style)
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                        decoration: BoxDecoration(
-                          color: iconContainerBg,
-                          borderRadius: BorderRadius.circular(16.r),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              myLocation == null ? Symbols.location_off : Icons.navigation_rounded,
-                              color: myLocation == null ? Colors.red : AppColors.primary,
-                              size: 18.w,
+                      Builder(
+                        builder: (context) {
+                          final sharingOn = pilgrimState.isSharingLocation;
+                          final hasFix = myLocation != null;
+                          final IconData statusIcon = !sharingOn
+                              ? Symbols.location_off
+                              : (!hasFix
+                                  ? Icons.gps_not_fixed_rounded
+                                  : Icons.navigation_rounded);
+                          final Color iconColor = !sharingOn
+                              ? headerMuted
+                              : (!hasFix
+                                  ? Colors.orange.shade700
+                                  : AppColors.primary);
+                          final String statusLabel = !sharingOn
+                              ? 'card_paused'.tr()
+                              : (!hasFix
+                                  ? 'home_location_sharing_waiting'.tr()
+                                  : 'card_active'.tr());
+                          final Color statusColor = !sharingOn
+                              ? headerMuted
+                              : (!hasFix
+                                  ? Colors.orange.shade700
+                                  : AppColors.primary);
+                          return Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                            decoration: BoxDecoration(
+                              color: iconContainerBg,
+                              borderRadius: BorderRadius.circular(16.r),
                             ),
-                            SizedBox(width: 10.w),
-                            Text(
-                              'home_location_sharing'.tr(),
-                              style: TextStyle(
-                                fontFamily: 'Lexend',
-                                fontSize: 13.sp,
-                                color: headerMuted,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  statusIcon,
+                                  color: iconColor,
+                                  size: 18.w,
+                                ),
+                                SizedBox(width: 10.w),
+                                Text(
+                                  'home_location_sharing'.tr(),
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 13.sp,
+                                    color: headerMuted,
+                                  ),
+                                ),
+                                SizedBox(width: 6.w),
+                                Text(
+                                  statusLabel,
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 13.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: statusColor,
+                                  ),
+                                ),
+                              ],
                             ),
-                            SizedBox(width: 6.w),
-                            Text(
-                              pilgrimState.isSharingLocation
-                                  ? 'card_active'.tr()
-                                  : 'card_paused'.tr(),
-                              style: TextStyle(
-                                fontFamily: 'Lexend',
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -1808,7 +1836,6 @@ class _SosButtonState extends State<_SosButton>
   Widget build(BuildContext context) {
     const double size = 190;
     const double ringStroke = 8;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
       onLongPressDown: (_) => _onDown(),

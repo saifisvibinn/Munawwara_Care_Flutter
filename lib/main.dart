@@ -126,13 +126,21 @@ void main() async {
             if (rawTime.isNotEmpty) {
               try {
                 final parsed = DateTime.parse(rawTime).toLocal();
-                schedTime = 'SCHEDULED FOR TODAY  ${DateFormat('HH:mm').format(parsed)}';
+                schedTime = 'reminder_popup_scheduled_for'.tr(namedArgs: {
+                  'time': DateFormat('HH:mm').format(parsed),
+                });
               } catch (_) {}
             }
             if (schedTime.isEmpty) {
-              schedTime = 'SCHEDULED FOR TODAY  ${DateFormat('HH:mm').format(DateTime.now())}';
+              schedTime = 'reminder_popup_scheduled_for'.tr(namedArgs: {
+                'time': DateFormat('HH:mm').format(DateTime.now()),
+              });
             }
-            ReminderPopup.show(ctx, body: data['body'], scheduledTime: schedTime);
+            ReminderPopup.show(
+              ctx,
+              body: data['body']?.toString() ?? '',
+              scheduledTime: schedTime,
+            );
           } else {
             AppLogger.w('⚠️ No navigator context — cannot show reminder popup');
           }
@@ -145,6 +153,7 @@ void main() async {
         final notifType = msg.data['notification_type']?.toString() ?? '';
         final dataType = msg.data['type']?.toString() ?? '';
         final msgType = msg.data['messageType']?.toString() ?? '';
+        final isReminderTts = msgType == 'reminder_tts';
         final isUrgentTts =
             dataType == 'urgent' &&
             (msgType == 'tts' || msgType == 'reminder_tts');
@@ -172,46 +181,54 @@ void main() async {
           AppLogger.i('FCM onMessage: suppressed system notif (in-app popup)');
           return;
         }
-        // ── Foreground TTS + popup for urgent / reminder messages ────────────
+        // Reminder (moderator default = data type "normal"): still show popup + optional TTS
+        if (isReminderTts) {
+          final text =
+              msg.data['body']?.toString() ??
+              msg.data['content']?.toString() ??
+              msg.notification?.body ??
+              '';
+          if (text.isNotEmpty) {
+            AppLogger.i('🔔 Foreground reminder TTS payload: "$text"');
+            final ctx = AppRouter.navigatorKey.currentContext;
+            if (ctx != null && ctx.mounted) {
+              String schedTime = '';
+              final rawTime =
+                  msg.data['scheduledAt']?.toString() ??
+                  msg.data['scheduled_time']?.toString() ??
+                  '';
+              if (rawTime.isNotEmpty) {
+                try {
+                  final parsed = DateTime.parse(rawTime).toLocal();
+                  schedTime = 'reminder_popup_scheduled_for'.tr(namedArgs: {
+                    'time': DateFormat('HH:mm').format(parsed),
+                  });
+                } catch (_) {}
+              }
+              if (schedTime.isEmpty) {
+                schedTime = 'reminder_popup_scheduled_for'.tr(namedArgs: {
+                  'time': DateFormat('HH:mm').format(DateTime.now()),
+                });
+              }
+              ReminderPopup.show(ctx, body: text, scheduledTime: schedTime);
+            } else {
+              AppLogger.w('⚠️ No navigator context — cannot show reminder popup');
+            }
+            if (isUrgentTts) {
+              await NotificationService.speakTts('Incoming reminder. $text');
+            }
+          }
+          return;
+        }
+        // Other urgent TTS (not reminder)
         if (isUrgentTts) {
           final text =
               msg.data['body']?.toString() ??
               msg.data['content']?.toString() ??
               '';
           if (text.isNotEmpty) {
-            final isReminder = msgType == 'reminder_tts';
-            final prefix = isReminder
-                ? 'Incoming reminder.'
-                : 'Urgent message.';
-            AppLogger.i(
-              '🔊 Foreground TTS (${isReminder ? "reminder" : "urgent"}): "$text"',
-            );
-            if (isReminder) {
-              final ctx = AppRouter.navigatorKey.currentContext;
-              if (ctx != null) {
-                String schedTime = '';
-                final rawTime =
-                    msg.data['scheduledAt']?.toString() ??
-                    msg.data['scheduled_time']?.toString() ??
-                    '';
-                if (rawTime.isNotEmpty) {
-                  try {
-                    final parsed = DateTime.parse(rawTime).toLocal();
-                    schedTime =
-                        'SCHEDULED FOR TODAY  ${DateFormat('HH:mm').format(parsed)}';
-                  } catch (_) {}
-                }
-                if (schedTime.isEmpty) {
-                  schedTime =
-                      'SCHEDULED FOR TODAY  ${DateFormat('HH:mm').format(DateTime.now())}';
-                }
-                if (!ctx.mounted) return;
-                ReminderPopup.show(ctx, body: text, scheduledTime: schedTime);
-              } else {
-                AppLogger.w('⚠️ No navigator context — cannot show reminder popup');
-              }
-            }
-            await NotificationService.speakTts('$prefix $text');
+            AppLogger.i('🔊 Foreground urgent TTS: "$text"');
+            await NotificationService.speakTts('Urgent message. $text');
           }
         }
 

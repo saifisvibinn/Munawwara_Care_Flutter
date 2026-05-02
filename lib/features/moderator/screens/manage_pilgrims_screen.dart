@@ -7,6 +7,7 @@ import 'package:easy_localization/easy_localization.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_dropdown_theme.dart';
 import '../providers/moderator_provider.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../../core/widgets/custom_dialog.dart';
@@ -1148,10 +1149,32 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
           break;
         }
       }
+
+      _syncSelectionsWithOptions();
     } catch (e) {
       // ignore
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _syncSelectionsWithOptions() {
+    if (_selectedHotelId != null &&
+        !_hotels.any((h) => h.id == _selectedHotelId)) {
+      _selectedHotelId = null;
+      _selectedRoomId = null;
+    }
+    final hotel = _hotels.where((h) => h.id == _selectedHotelId).firstOrNull;
+    final rooms = hotel?.rooms ?? [];
+    if (_selectedRoomId != null && !rooms.any((r) => r.id == _selectedRoomId)) {
+      _selectedRoomId = null;
+    }
+    if (_selectedBusId != null && !_buses.any((b) => b.id == _selectedBusId)) {
+      _selectedBusId = null;
+    }
+    const validVisa = {'pending', 'issued', 'rejected', 'expired', 'unknown'};
+    if (!validVisa.contains(_selectedVisaStatus)) {
+      _selectedVisaStatus = 'unknown';
     }
   }
 
@@ -1198,15 +1221,37 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
         mainAxisSize: MainAxisSize.min,
         children: [
                   DropdownButtonFormField<String?>(
-                    initialValue: _selectedHotelId,
-                    dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
-                    decoration: InputDecoration(
+                    value: _selectedHotelId,
+                    isExpanded: true,
+                    decoration: AppDropdownTheme.formFieldDecoration(
+                      isDark: isDark,
                       labelText: 'group_hotel_name'.tr(),
                       prefixIcon: Icon(Symbols.apartment),
                     ),
+                    icon: AppDropdownTheme.menuTrailingIcon(),
+                    dropdownColor: AppDropdownTheme.menuBackground(isDark),
+                    borderRadius: AppDropdownTheme.menuBorderRadius(),
+                    elevation: AppDropdownTheme.menuElevation(),
+                    menuMaxHeight: AppDropdownTheme.menuMaxHeight(),
+                    style: AppDropdownTheme.valueStyle(isDark),
                     items: [
-                      DropdownMenuItem(value: null, child: Text('group_no_hotel'.tr())),
-                      ..._hotels.map((h) => DropdownMenuItem(value: h.id, child: Text(h.name, overflow: TextOverflow.ellipsis))),
+                      DropdownMenuItem(
+                        value: null,
+                        child: Text(
+                          'group_no_hotel'.tr(),
+                          style: AppDropdownTheme.menuItemStyle(isDark),
+                        ),
+                      ),
+                      ..._hotels.map(
+                        (h) => DropdownMenuItem(
+                          value: h.id,
+                          child: Text(
+                            h.name,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppDropdownTheme.menuItemStyle(isDark),
+                          ),
+                        ),
+                      ),
                     ],
                     onChanged: (v) => setState(() {
                       _selectedHotelId = v;
@@ -1215,62 +1260,111 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
                   ),
                   SizedBox(height: 12.h),
                   DropdownButtonFormField<String?>(
-                    initialValue: _selectedRoomId,
+                    value: _selectedRoomId,
+                    isExpanded: true,
                     disabledHint: Text('manage_select_hotel_first'.tr()),
-                    dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
-                    decoration: InputDecoration(
+                    decoration: AppDropdownTheme.formFieldDecoration(
+                      isDark: isDark,
                       labelText: 'group_room_number'.tr(),
                       prefixIcon: Icon(Symbols.meeting_room),
                     ),
+                    icon: AppDropdownTheme.menuTrailingIcon(),
+                    dropdownColor: AppDropdownTheme.menuBackground(isDark),
+                    borderRadius: AppDropdownTheme.menuBorderRadius(),
+                    elevation: AppDropdownTheme.menuElevation(),
+                    menuMaxHeight: AppDropdownTheme.menuMaxHeight(),
+                    style: AppDropdownTheme.valueStyle(isDark),
                     items: [
-                      DropdownMenuItem(value: null, child: Text('group_no_room'.tr())),
+                      DropdownMenuItem(
+                        value: null,
+                        child: Text(
+                          'group_no_room'.tr(),
+                          style: AppDropdownTheme.menuItemStyle(isDark),
+                        ),
+                      ),
                       ...rooms.map((r) {
                         final current = r.currentOccupancy;
                         final isFull = current >= r.capacity;
-                        // Note: Backend filters out rooms that are full for OTHERS, 
-                        // so if a room is here and isFull, it means the CURRENT pilgrim is in it.
+                        final base = AppDropdownTheme.menuItemStyle(isDark);
                         return DropdownMenuItem(
                           value: r.id,
                           child: Text(
                             '${r.roomNumber}${r.floor != null ? ' (F${r.floor})' : ''} - $current/${r.capacity}${isFull ? ' (${ 'manage_full'.tr() })' : ''}',
-                            style: TextStyle(
-                              color: isFull ? Colors.green.shade400 : null,
-                            ),
+                            style: isFull
+                                ? base.copyWith(color: Colors.green.shade400)
+                                : base,
                           ),
                         );
                       }),
                     ],
-                    onChanged: _selectedHotelId == null ? null : (v) => setState(() => _selectedRoomId = v),
+                    onChanged: _selectedHotelId == null
+                        ? null
+                        : (v) => setState(() => _selectedRoomId = v),
                   ),
                   SizedBox(height: 12.h),
                   DropdownButtonFormField<String?>(
-                    initialValue: _selectedBusId,
-                    dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
-                    decoration: InputDecoration(
+                    value: _selectedBusId,
+                    isExpanded: true,
+                    decoration: AppDropdownTheme.formFieldDecoration(
+                      isDark: isDark,
                       labelText: 'group_bus_number'.tr(),
                       prefixIcon: Icon(Symbols.directions_bus),
                     ),
+                    icon: AppDropdownTheme.menuTrailingIcon(),
+                    dropdownColor: AppDropdownTheme.menuBackground(isDark),
+                    borderRadius: AppDropdownTheme.menuBorderRadius(),
+                    elevation: AppDropdownTheme.menuElevation(),
+                    menuMaxHeight: AppDropdownTheme.menuMaxHeight(),
+                    style: AppDropdownTheme.valueStyle(isDark),
                     items: [
-                      DropdownMenuItem(value: null, child: Text('group_no_bus'.tr())),
-                      ..._buses.map((b) => DropdownMenuItem(
-                          value: b.id, child: Text('${b.busNumber} - ${b.destination}', overflow: TextOverflow.ellipsis))),
+                      DropdownMenuItem(
+                        value: null,
+                        child: Text(
+                          'group_no_bus'.tr(),
+                          style: AppDropdownTheme.menuItemStyle(isDark),
+                        ),
+                      ),
+                      ..._buses.map(
+                        (b) => DropdownMenuItem(
+                          value: b.id,
+                          child: Text(
+                            '${b.busNumber} - ${b.destination}',
+                            overflow: TextOverflow.ellipsis,
+                            style: AppDropdownTheme.menuItemStyle(isDark),
+                          ),
+                        ),
+                      ),
                     ],
                     onChanged: (v) => setState(() => _selectedBusId = v),
                   ),
                   SizedBox(height: 12.h),
                   DropdownButtonFormField<String>(
-                    initialValue: _selectedVisaStatus,
-                    dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
-                    decoration: InputDecoration(
+                    value: _selectedVisaStatus,
+                    isExpanded: true,
+                    decoration: AppDropdownTheme.formFieldDecoration(
+                      isDark: isDark,
                       labelText: 'profile_visa_status'.tr(),
                       prefixIcon: Icon(Symbols.verified_user),
                     ),
+                    icon: AppDropdownTheme.menuTrailingIcon(),
+                    dropdownColor: AppDropdownTheme.menuBackground(isDark),
+                    borderRadius: AppDropdownTheme.menuBorderRadius(),
+                    elevation: AppDropdownTheme.menuElevation(),
+                    menuMaxHeight: AppDropdownTheme.menuMaxHeight(),
+                    style: AppDropdownTheme.valueStyle(isDark, fontSize: 13),
                     items: ['pending', 'issued', 'rejected', 'expired', 'unknown']
-                        .map((s) => DropdownMenuItem(
+                        .map(
+                          (s) => DropdownMenuItem(
                             value: s,
-                            child: Text(s.toUpperCase(),
-                                style: TextStyle(
-                                    fontFamily: 'Lexend', fontSize: 13.sp))))
+                            child: Text(
+                              s.toUpperCase(),
+                              style: AppDropdownTheme.menuItemStyle(
+                                isDark,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        )
                         .toList(),
                     onChanged: (v) => setState(() => _selectedVisaStatus = v!),
                   ),

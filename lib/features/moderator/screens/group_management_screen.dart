@@ -26,6 +26,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_popup_menu.dart';
 import '../providers/moderator_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
@@ -217,17 +218,29 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
   Future<void> _initLocation() async {
     final status = await Permission.locationWhenInUse.request();
     if (!status.isGranted || !mounted) return;
+
+    try {
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null && mounted) {
+        final age = DateTime.now().difference(last.timestamp);
+        if (age.inMinutes < 30) {
+          setState(() => _myLocation = LatLng(last.latitude, last.longitude));
+          _mapController.move(_myLocation!, 15);
+        }
+      }
+    } catch (_) {}
+
     try {
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 20),
         ),
       );
       if (!mounted) return;
       setState(() => _myLocation = LatLng(pos.latitude, pos.longitude));
       _mapController.move(_myLocation!, 15);
 
-      // If beacon was already enabled (from cache/persistence), emit it now that we have coords
       if (_navBeaconEnabled) {
         final auth = ref.read(authProvider);
         SocketService.emit('mod_nav_beacon', {
@@ -239,7 +252,10 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
           'moderatorName': auth.fullName ?? 'Moderator',
         });
       }
+    } on TimeoutException catch (_) {
+      // Keep _myLocation from last-known if set; stream still updates later.
     } catch (_) {}
+
     _locationSub =
         Geolocator.getPositionStream(
           locationSettings: const LocationSettings(
@@ -1661,12 +1677,10 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                 child: PopupMenuButton<String>(
                   tooltip: '',
                   padding: EdgeInsets.zero,
-                  offset: const Offset(0, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.r),
-                  ),
-                  constraints: BoxConstraints(minWidth: 200.w),
-                  color: isDark ? AppColors.surfaceDark : null,
+                  offset: AppPopupMenu.offsetBelowCircular40,
+                  shape: AppPopupMenu.panelShape(),
+                  constraints: AppPopupMenu.panelConstraints(),
+                  color: AppPopupMenu.panelColor(isDark),
                   onSelected: (value) {
                     switch (value) {
                       case 'nav':
@@ -1682,93 +1696,43 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                   itemBuilder: (_) => [
                     PopupMenuItem(
                       value: 'nav',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Symbols.navigation,
-                            size: 18.w,
-                            color: _navBeaconEnabled
-                                ? AppColors.primary
-                                : (isDark
-                                      ? Colors.white70
-                                      : AppColors.textMutedLight),
-                          ),
-                          SizedBox(width: 12.w),
-                          Text(
-                            _navBeaconEnabled
-                                ? 'group_menu_disable_beacon'.tr()
-                                : 'group_menu_enable_beacon'.tr(),
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 14.sp,
-                              color: isDark ? Colors.white : null,
-                            ),
-                          ),
-                        ],
+                      child: AppPopupMenu.actionRow(
+                        icon: Symbols.navigation,
+                        label: _navBeaconEnabled
+                            ? 'group_menu_disable_beacon'.tr()
+                            : 'group_menu_enable_beacon'.tr(),
+                        isDark: isDark,
+                        iconColor: _navBeaconEnabled
+                            ? AppColors.primary
+                            : (isDark
+                                ? Colors.white70
+                                : AppColors.textMutedLight),
                       ),
                     ),
                     PopupMenuItem(
                       value: 'manage',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Symbols.settings,
-                            size: 18.w,
-                            color: isDark ? Colors.white70 : AppColors.textDark,
-                          ),
-                          SizedBox(width: 12.w),
-                          Text(
-                            'group_menu_manage'.tr(),
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 14.sp,
-                              color: isDark ? Colors.white : null,
-                            ),
-                          ),
-                        ],
+                      child: AppPopupMenu.actionRow(
+                        icon: Symbols.settings,
+                        label: 'group_menu_manage'.tr(),
+                        isDark: isDark,
                       ),
                     ),
                     PopupMenuItem(
                       value: 'areas',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Symbols.pin_drop,
-                            size: 18.w,
-                            color: isDark ? Colors.white70 : AppColors.textDark,
-                          ),
-                          SizedBox(width: 12.w),
-                          Text(
-                            'group_menu_areas'.tr(),
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 14.sp,
-                              color: isDark ? Colors.white : null,
-                            ),
-                          ),
-                        ],
+                      child: AppPopupMenu.actionRow(
+                        icon: Symbols.pin_drop,
+                        label: 'group_menu_areas'.tr(),
+                        isDark: isDark,
                       ),
                     ),
                     const PopupMenuDivider(),
                     PopupMenuItem(
                       value: 'leave',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Symbols.exit_to_app,
-                            size: 18.w,
-                            color: Colors.red,
-                          ),
-                          SizedBox(width: 12.w),
-                          Text(
-                            'group_leave_option'.tr(),
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 14.sp,
-                              color: Colors.red,
-                            ),
-                          ),
-                        ],
+                      child: AppPopupMenu.actionRow(
+                        icon: Symbols.exit_to_app,
+                        label: 'group_leave_option'.tr(),
+                        isDark: isDark,
+                        destructive: true,
                       ),
                     ),
                   ],
@@ -3238,12 +3202,10 @@ class _PilgrimManageTile extends StatelessWidget {
                 color: isDark ? AppColors.primary : AppColors.textMutedLight,
               ),
               iconSize: 18.w,
-              offset: const Offset(-20, 36),
-              color: isDark ? AppColors.surfaceDark : null,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14.r),
-              ),
-              constraints: BoxConstraints(minWidth: 180.w),
+              offset: AppPopupMenu.offsetRowTrailingMore,
+              shape: AppPopupMenu.panelShape(),
+              constraints: AppPopupMenu.panelConstraints(),
+              color: AppPopupMenu.panelColor(isDark),
               onSelected: (value) {
                 switch (value) {
                   case 'profile':
@@ -3260,88 +3222,40 @@ class _PilgrimManageTile extends StatelessWidget {
                 if (onViewProfile != null)
                   PopupMenuItem(
                     value: 'profile',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Symbols.person,
-                          size: 16.w,
-                          color: AppColors.primary,
-                        ),
-                        SizedBox(width: 10.w),
-                        Text(
-                          'View Profile',
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontSize: 13.sp,
-                            color: isDark ? AppColors.textLight : null,
-                          ),
-                        ),
-                      ],
+                    child: AppPopupMenu.actionRow(
+                      icon: Symbols.person,
+                      label: 'View Profile',
+                      isDark: isDark,
+                      iconColor: AppColors.primary,
                     ),
                   ),
                 PopupMenuItem(
                   value: 'navigate',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Symbols.near_me,
-                        size: 16.w,
-                        color: AppColors.primary,
-                      ),
-                      SizedBox(width: 10.w),
-                      Text(
-                        'Navigate',
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 13.sp,
-                          color: isDark ? AppColors.textLight : null,
-                        ),
-                      ),
-                    ],
+                  child: AppPopupMenu.actionRow(
+                    icon: Symbols.near_me,
+                    label: 'Navigate',
+                    isDark: isDark,
+                    iconColor: AppColors.primary,
                   ),
                 ),
                 if (onCall != null)
                   PopupMenuItem(
                     value: 'call',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Symbols.call,
-                          size: 16.w,
-                          color: const Color(0xFF16A34A),
-                        ),
-                        SizedBox(width: 10.w),
-                        Text(
-                          'Call',
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontSize: 13.sp,
-                            color: isDark ? AppColors.textLight : null,
-                          ),
-                        ),
-                      ],
+                    child: AppPopupMenu.actionRow(
+                      icon: Symbols.call,
+                      label: 'Call',
+                      isDark: isDark,
+                      iconColor: const Color(0xFF16A34A),
                     ),
                   ),
                 if (onRemove != null)
                   PopupMenuItem(
                     value: 'remove',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Symbols.person_remove,
-                          size: 16.w,
-                          color: Colors.red,
-                        ),
-                        SizedBox(width: 10.w),
-                        Text(
-                          'Remove',
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontSize: 13.sp,
-                            color: Colors.red,
-                          ),
-                        ),
-                      ],
+                    child: AppPopupMenu.actionRow(
+                      icon: Symbols.person_remove,
+                      label: 'Remove',
+                      isDark: isDark,
+                      destructive: true,
                     ),
                   ),
               ],

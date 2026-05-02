@@ -41,7 +41,11 @@ class _ModeratorProfileScreenState
   void initState() {
     super.initState();
     // Eagerly load email + phoneNumber from the API
-    Future.microtask(() => ref.read(authProvider.notifier).fetchProfile());
+    Future.microtask(() async {
+      final ok = await ref.read(authProvider.notifier).fetchProfile();
+      if (!mounted) return;
+      if (!ok) context.go('/login');
+    });
   }
 
   @override

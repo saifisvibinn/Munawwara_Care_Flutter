@@ -1634,8 +1634,6 @@ class _GroupCard extends ConsumerWidget {
                               alignment: Alignment.center,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.max,
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     Icon(
@@ -1643,15 +1641,30 @@ class _GroupCard extends ConsumerWidget {
                                       size: 16.w,
                                       color: const Color(0xFF6B7BAE),
                                     ),
-                                    SizedBox(width: 8.w),
-                                    Text(
-                                      'chat'.tr(),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontFamily: 'Lexend',
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13.sp,
+                                    SizedBox(width: 6.w),
+                                    Expanded(
+                                      child: Text(
+                                        'chat'.tr(),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13.sp,
+                                          color: const Color(0xFF6B7BAE),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(width: 6.w),
+                                    Transform.scale(
+                                      scaleX:
+                                          Directionality.of(context) ==
+                                              ui.TextDirection.rtl
+                                          ? -1
+                                          : 1,
+                                      child: Icon(
+                                        Symbols.arrow_forward,
+                                        size: 14.w,
                                         color: const Color(0xFF6B7BAE),
                                       ),
                                     ),
