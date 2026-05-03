@@ -25,6 +25,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/services/socket_service.dart';
+import '../../../core/map/app_map_tiles.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_popup_menu.dart';
 import '../providers/moderator_provider.dart';
@@ -1349,7 +1350,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     final ok = await ref
         .read(suggestedAreaProvider.notifier)
         .deleteArea(group.id, area.id);
-    if (!context.mounted) return;
+    if (!mounted) return;
     if (ok) {
       StandardSnackBar.showSuccess(context, 'area_deleted'.tr());
     }
@@ -1495,6 +1496,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     final locatedPilgrims = group.pilgrims.where((p) => p.hasLocation).toList();
     final filtered = _getFiltered(group);
     final areaState = ref.watch(suggestedAreaProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: Stack(
@@ -1510,10 +1512,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
               ),
             ),
             children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.munawwaracare.app',
-              ),
+              ...AppMapTiles.baseLayers(isDark: isDark),
               if (_myLocation != null)
                 MarkerLayer(
                   markers: [

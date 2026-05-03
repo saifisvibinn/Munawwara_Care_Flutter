@@ -9,6 +9,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:dio/dio.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../core/map/app_map_tiles.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../shared/providers/suggested_area_provider.dart';
@@ -39,7 +40,6 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
   final _mapController = MapController();
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
-  final _searchController = TextEditingController();
   final _sheetController = DraggableScrollableController();
 
 
@@ -48,17 +48,10 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
   DateTime? _meetpointTime;
   int _reminderMinutes = 15;
 
-  // Place search
-  List<Map<String, dynamic>> _searchResults = [];
-  bool _searching = false;
-  Timer? _debounce;
-
   // UX State
   bool _isFullScreenMap = false;
   bool _isSearchExpanded = false;
   LatLng? _mapCenter;
-  String? _tempAddress;
-  bool _isReverseGeocoding = false;
   bool _recenteringGps = false;
 
   @override
@@ -91,54 +84,7 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
     _mapController.dispose();
     _nameController.dispose();
     _descController.dispose();
-    _searchController.dispose();
-    _debounce?.cancel();
     super.dispose();
-  }
-
-  void _onSearchChanged(String query) {
-    _debounce?.cancel();
-    if (query.trim().length < 3) {
-      setState(() => _searchResults = []);
-      return;
-    }
-    _debounce = Timer(
-      const Duration(milliseconds: 500),
-      () => _searchPlaces(query.trim()),
-    );
-  }
-
-  Future<void> _searchPlaces(String query) async {
-    setState(() => _searching = true);
-    try {
-      final dio = Dio();
-      final resp = await dio.get(
-        'https://nominatim.openstreetmap.org/search',
-        queryParameters: {
-          'q': query,
-          'format': 'json',
-          'limit': '6',
-          'viewbox': '39.7,21.5,39.95,21.3',
-          'bounded': '0',
-        },
-        options: Options(headers: {'User-Agent': 'FlutterMunawwara/1.0'}),
-      );
-      if (!mounted) return;
-      final list = (resp.data as List)
-          .map<Map<String, dynamic>>(
-            (e) => {
-              'display_name': e['display_name'] as String,
-              'lat': double.parse(e['lat'] as String),
-              'lon': double.parse(e['lon'] as String),
-            },
-          )
-          .toList();
-      setState(() => _searchResults = list);
-    } catch (_) {
-      // ignore errors
-    } finally {
-      if (mounted) setState(() => _searching = false);
-    }
   }
 
   Future<String?> _reverseGeocode(LatLng point) async {
@@ -156,20 +102,6 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
       return resp.data['display_name'] as String?;
     } catch (_) {
       return null;
-    }
-  }
-
-  void _selectSearchResult(Map<String, dynamic> result) {
-    final point = LatLng(result['lat'] as double, result['lon'] as double);
-    setState(() {
-      _pickedPoint = point;
-      _searchResults = [];
-      _searchController.clear();
-    });
-    _mapController.move(point, 17);
-    if (_nameController.text.isEmpty) {
-      final parts = (result['display_name'] as String).split(',');
-      _nameController.text = parts.first.trim();
     }
   }
 
@@ -393,7 +325,7 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
           },
         ),
         children: [
-          TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+          ...AppMapTiles.baseLayers(isDark: isDark),
           MarkerLayer(
             markers: [
               ...ref.watch(suggestedAreaProvider).areas.map((a) => Marker(
@@ -483,12 +415,7 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
 
   void _showConfirmSelectionModal() async {
     final point = _mapCenter ?? _mapController.camera.center;
-    setState(() => _isReverseGeocoding = true);
     final address = await _reverseGeocode(point);
-    setState(() {
-      _isReverseGeocoding = false;
-      _tempAddress = address;
-    });
 
     if (!mounted) return;
 

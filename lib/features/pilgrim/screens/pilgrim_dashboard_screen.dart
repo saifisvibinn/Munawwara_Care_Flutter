@@ -20,7 +20,9 @@ import '../../shared/helpers/chat_notification_helper.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/services/socket_service.dart';
+import '../../../core/map/app_map_tiles.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
@@ -122,17 +124,17 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
 
     // Load data after first frame so the provider is ready
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      print('[PilgrimDashboard] Starting loadDashboard...');
+      AppLogger.d('[PilgrimDashboard] Starting loadDashboard...');
       try {
         await ref.read(pilgrimProvider.notifier).loadDashboard();
         final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
-        print('[PilgrimDashboard] Dashboard loaded. GroupId: $groupId');
-        
+        AppLogger.d('[PilgrimDashboard] Dashboard loaded. GroupId: $groupId');
+
         if (groupId != null) {
           ref.read(messageProvider.notifier).fetchUnreadCount(groupId);
         }
       } catch (e) {
-        print('[PilgrimDashboard] Error loading dashboard: $e');
+        AppLogger.e('[PilgrimDashboard] Error loading dashboard: $e');
       }
 
       // Connect socket with this pilgrim's identity
@@ -146,7 +148,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         );
         ref.read(callProvider.notifier).reRegisterListeners();
         
-        print('[PilgrimDashboard] Socket status: ${SocketService.isConnected ? 'Connected' : 'Connecting...'}');
+        AppLogger.d(
+          '[PilgrimDashboard] Socket status: ${SocketService.isConnected ? 'Connected' : 'Connecting...'}',
+        );
 
         // Check if there's a pending call accepted from native call screen.
         // Must run AFTER the socket handshake so the call-answer emit goes through.
@@ -165,10 +169,10 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         // Join group socket room so we receive group-scoped events
         final gId = ref.read(pilgrimProvider).groupInfo?.groupId;
         if (gId != null) {
-          print('[PilgrimDashboard] Emitting join_group for $gId');
+          AppLogger.d('[PilgrimDashboard] Emitting join_group for $gId');
           SocketService.emit('join_group', gId);
         } else {
-          print('[PilgrimDashboard] Warning: Cannot join room, groupId is null');
+          AppLogger.w('[PilgrimDashboard] Cannot join room, groupId is null');
         }
         // Re-join group room on every reconnect (so beacon state is re-synced)
         SocketService.onConnected(_onSocketConnected);
@@ -222,13 +226,15 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         // Listen for new group messages — append silently to avoid flicker
         SocketService.on('new_message', (data) {
           if (!mounted) return;
-          print('[PilgrimDashboard] Socket event: new_message | Data: $data');
+          AppLogger.d('[PilgrimDashboard] Socket event: new_message | Data: $data');
           try {
             final map = Map<String, dynamic>.from(data as Map);
-            print('[PilgrimDashboard] is_urgent value in map: ${map['is_urgent']} (type: ${map['is_urgent'].runtimeType})');
+            AppLogger.d(
+              '[PilgrimDashboard] is_urgent value in map: ${map['is_urgent']} (type: ${map['is_urgent'].runtimeType})',
+            );
             final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
             if (groupId == null) {
-              print('[PilgrimDashboard] Error: groupInfo.groupId is null');
+              AppLogger.w('[PilgrimDashboard] groupInfo.groupId is null');
               return;
             }
             // Append the single message without a full reload (no spinner)
@@ -236,13 +242,13 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
 
             // Don't show popup or play sound when app is not in foreground
             if (_lifecycleState != AppLifecycleState.resumed) {
-              print('[PilgrimDashboard] App not resumed, skipping popup');
+              AppLogger.d('[PilgrimDashboard] App not resumed, skipping popup');
               return;
             }
 
             // Don't show popup if user is actively reading this chat
             if (ref.read(messageProvider).activeGroupId == groupId) {
-              print('[PilgrimDashboard] User is reading chat, skipping popup');
+              AppLogger.d('[PilgrimDashboard] User is reading chat, skipping popup');
               return;
             }
 
@@ -2266,10 +2272,7 @@ class _PilgrimMapTab extends StatelessWidget {
             ),
           ),
           children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.munawwaracare.app',
-            ),
+            ...AppMapTiles.baseLayers(isDark: isDark),
             // Suggested areas & meetpoints
             if (areas.isNotEmpty)
               MarkerLayer(

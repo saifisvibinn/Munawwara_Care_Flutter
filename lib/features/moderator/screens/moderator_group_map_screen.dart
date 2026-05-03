@@ -11,6 +11,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/map/app_map_tiles.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../providers/moderator_provider.dart';
@@ -233,10 +234,7 @@ class _ModeratorGroupMapScreenState
               ),
             ),
             children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.munawwaracare.app',
-              ),
+              ...AppMapTiles.baseLayers(isDark: isDark),
               // My location
               if (_myLocation != null)
                 MarkerLayer(
