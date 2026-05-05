@@ -41,7 +41,9 @@ class SuggestedAreaState {
         .where(
           (a) =>
               a.meetpointTime != null &&
-              now.isAfter(a.meetpointTime!.add(const Duration(minutes: 45))),
+              now.isAfter(
+                a.meetpointTime!.add(SuggestedArea.meetpointExpiryWindow),
+              ),
         )
         .toList();
   }
@@ -52,7 +54,9 @@ class SuggestedAreaState {
         .where(
           (a) =>
               a.meetpointTime == null ||
-              now.isBefore(a.meetpointTime!.add(const Duration(minutes: 45))),
+              now.isBefore(
+                a.meetpointTime!.add(SuggestedArea.meetpointExpiryWindow),
+              ),
         )
         .toList();
     return mps.isEmpty ? null : mps.first;
@@ -163,8 +167,8 @@ class SuggestedAreaNotifier extends Notifier<SuggestedAreaState> {
           'reminder_minutes': ?reminderMinutes,
         },
       );
-      // We don't update state manually here as the socket event 'area_updated'
-      // will trigger the refresh for all clients.
+      // The backend no longer emits `area_updated`; refresh from source of truth.
+      await load(groupId);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));

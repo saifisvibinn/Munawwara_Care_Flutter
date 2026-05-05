@@ -3,6 +3,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 class SuggestedArea {
+  /// Meetpoints are considered expired after this window past [meetpointTime].
+  static const Duration meetpointExpiryWindow = Duration(minutes: 10);
+
   final String id;
   final String groupId;
   final String? createdByName;

@@ -24,7 +24,7 @@ class ActiveMeetpointCard extends StatelessWidget {
     final isExpired =
         activeMp.meetpointTime != null &&
         DateTime.now().isAfter(
-          activeMp.meetpointTime!.add(const Duration(minutes: 45)),
+          activeMp.meetpointTime!.add(SuggestedArea.meetpointExpiryWindow),
         );
     return GestureDetector(
       onTap: onTap,

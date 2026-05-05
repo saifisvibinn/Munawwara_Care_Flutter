@@ -201,10 +201,6 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
           .read(suggestedAreaProvider.notifier)
           .deleteArea(widget.groupId, target.id);
       if (ok) {
-        SocketService.emit('area_deleted', {
-          'group_id': widget.groupId,
-          'area_id': target.id,
-        });
         if (mounted) {
           StandardSnackBar.showSuccess(context, 'area_deleted'.tr());
         }
