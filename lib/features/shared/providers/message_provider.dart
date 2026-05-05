@@ -32,15 +32,18 @@ class MessageState {
     bool? isSending,
     String? error,
     int? unreadCount,
+    bool updateActiveGroup = false,
     String? activeGroupId,
-  }) => MessageState(
-    messages: messages ?? this.messages,
-    isLoading: isLoading ?? this.isLoading,
-    isSending: isSending ?? this.isSending,
-    error: error,
-    unreadCount: unreadCount ?? this.unreadCount,
-    activeGroupId: activeGroupId ?? this.activeGroupId,
-  );
+  }) =>
+      MessageState(
+        messages: messages ?? this.messages,
+        isLoading: isLoading ?? this.isLoading,
+        isSending: isSending ?? this.isSending,
+        error: error,
+        unreadCount: unreadCount ?? this.unreadCount,
+        activeGroupId:
+            updateActiveGroup ? activeGroupId : this.activeGroupId,
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -94,7 +97,7 @@ class MessageNotifier extends Notifier<MessageState> {
   }
 
   void setActiveGroup(String? groupId) {
-    state = state.copyWith(activeGroupId: groupId);
+    state = state.copyWith(updateActiveGroup: true, activeGroupId: groupId);
   }
 
   /// Silently appends a single message received from a socket event.

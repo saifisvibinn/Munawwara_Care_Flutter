@@ -15,6 +15,7 @@ import '../../../core/services/callkit_service.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../shared/models/message_model.dart';
 import '../../shared/providers/message_provider.dart';
+import '../../shared/widgets/group_chat_theme.dart';
 import '../../shared/widgets/message_widgets.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -273,13 +274,18 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     });
 
     return Scaffold(
-      backgroundColor: isDark
-          ? AppColors.backgroundDark
-          : const Color(0xFFF1F5F6),
+      backgroundColor: GroupChatTheme.scaffoldBackground(isDark),
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(isDark),
+            GroupChatHeader(
+              isDark: isDark,
+              title: 'call_support_display_name'.tr(),
+              subtitle: 'inbox_title'.tr(),
+              onRefresh: _load,
+              onBack: () => Navigator.of(context).maybePop(),
+              showBrandAvatar: true,
+            ),
             _buildFilterRow(isDark),
             Expanded(
               child: msgState.isLoading
@@ -313,114 +319,12 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     );
   }
 
-  // ── Header ────────────────────────────────────────────────────────────────
-
-  Widget _buildHeader(bool isDark) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(4.w, 6.h, 12.w, 6.h),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(
-              Symbols.arrow_back,
-              color: isDark ? Colors.white : AppColors.textDark,
-            ),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-          SizedBox(width: 4.w),
-          Container(
-            width: 42.w,
-            height: 42.w,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isDark ? Colors.white10 : Colors.white,
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.25),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: Padding(
-                padding: EdgeInsets.all(7.w),
-                child: Image.asset(
-                  kCallKitSupportAvatarAsset,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'call_support_display_name'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16.sp,
-                    color: isDark ? Colors.white : AppColors.textDark,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  'inbox_title'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 11.sp,
-                    color: isDark ? Colors.white60 : AppColors.textMutedLight,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: _load,
-            child: Container(
-              width: 36.w,
-              height: 36.w,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10.r),
-              ),
-              child: Icon(
-                Symbols.refresh,
-                size: 18.w,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ── Filter chips ──────────────────────────────────────────────────────────
 
   Widget _buildFilterRow(bool isDark) {
     return Container(
       height: 46.h,
-      color: isDark ? AppColors.surfaceDark : const Color(0xFFF8FAFC),
+      color: GroupChatTheme.filterStripBackground(isDark),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 7.h),
@@ -497,21 +401,20 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     final isUrgent = msg.isUrgent;
     final isNew = _newMessageIds.contains(msg.id);
 
-    const urgentRed = Color(0xFFDC2626);
-    Color cardBg = isDark ? AppColors.surfaceDark : Colors.white;
-    Color borderColor =
-        isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFE8EEF2);
-    var borderWidth = 1.0;
-    if (isUrgent) {
-      // Outlined red: keep fill neutral so the border reads clearly.
-      cardBg = isDark ? const Color(0xFF221A1A) : const Color(0xFFFFFBFB);
-      borderColor = urgentRed;
-      borderWidth = 1.5;
-    } else if (isNew) {
-      cardBg = isDark ? const Color(0xFF1A2A1A) : const Color(0xFFECFDF5);
-      borderColor = AppColors.primary.withValues(alpha: 0.5);
-      borderWidth = 1.2;
-    }
+    final cardBg = GroupChatTheme.cardBackground(
+      isDark,
+      urgent: isUrgent,
+      highlightNew: isNew && !isUrgent,
+    );
+    final borderColor = GroupChatTheme.cardBorderColor(
+      isDark,
+      urgent: isUrgent,
+      highlightNew: isNew && !isUrgent,
+    );
+    final borderWidth = GroupChatTheme.cardBorderWidth(
+      urgent: isUrgent,
+      highlightNew: isNew && !isUrgent,
+    );
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 400),
@@ -787,6 +690,10 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
       positionSeconds: isPlaying ? _position.inSeconds : null,
       onToggle: () => _toggleVoice(msg),
       isDark: isDark,
+      playCircleColor: isDark
+          ? AppColors.info.withValues(alpha: 0.22)
+          : AppColors.info.withValues(alpha: 0.12),
+      playIconColor: AppColors.info,
     );
   }
 
@@ -813,29 +720,11 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         SizedBox(height: 12.h),
         _buildTranslateButton(msg, originalText, dense: true),
         SizedBox(height: 10.h),
-        FilledButton.tonalIcon(
+        TtsPlayAloudButton(
+          isSpeaking: isSpeaking,
           onPressed: () => _toggleTts(msg),
-          icon: Icon(
-            isSpeaking ? Symbols.stop : Symbols.volume_up,
-            size: 20.w,
-          ),
-          label: Text(
-            isSpeaking ? 'msg_playing'.tr() : 'msg_play_aloud'.tr(),
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontWeight: FontWeight.w600,
-              fontSize: 14.sp,
-            ),
-          ),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primary.withValues(alpha: 0.14),
-            foregroundColor: AppColors.primary,
-            padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 12.h),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            elevation: 0,
-          ),
+          idleLabel: 'msg_play_aloud'.tr(),
+          playingLabel: 'msg_playing'.tr(),
         ),
       ],
     );

@@ -17,6 +17,10 @@ class WaveformPlayer extends StatelessWidget {
   final int? positionSeconds;
   final VoidCallback onToggle;
   final bool isDark;
+  /// When set, overrides the default icon circle fill (pilgrim voice accent).
+  final Color? playCircleColor;
+  /// When set, overrides [AppColors.primary] for the play/pause icon.
+  final Color? playIconColor;
 
   const WaveformPlayer({
     super.key,
@@ -27,6 +31,8 @@ class WaveformPlayer extends StatelessWidget {
     required this.positionSeconds,
     required this.onToggle,
     required this.isDark,
+    this.playCircleColor,
+    this.playIconColor,
   });
 
   List<double> _bars() {
@@ -48,6 +54,9 @@ class WaveformPlayer extends StatelessWidget {
     final displaySecs = isPlaying && positionSeconds != null
         ? positionSeconds!
         : durationSeconds;
+    final circleFill = playCircleColor ??
+        (isDark ? AppColors.iconBgDark : AppColors.iconBgLight);
+    final iconTint = playIconColor ?? AppColors.primary;
 
     return Row(
       children: [
@@ -57,13 +66,13 @@ class WaveformPlayer extends StatelessWidget {
             width: 40.w,
             height: 40.w,
             decoration: BoxDecoration(
-              color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
+              color: circleFill,
               shape: BoxShape.circle,
             ),
             child: Icon(
               isPlaying ? Symbols.pause : Symbols.play_arrow,
               size: 20.w,
-              color: AppColors.primary,
+              color: iconTint,
             ),
           ),
         ),
@@ -82,7 +91,7 @@ class WaveformPlayer extends StatelessWidget {
                     margin: EdgeInsets.only(right: 2.w),
                     decoration: BoxDecoration(
                       color: filled
-                          ? AppColors.primary
+                          ? iconTint
                           : (isDark ? Colors.white24 : Colors.black12),
                       borderRadius: BorderRadius.circular(2.r),
                     ),

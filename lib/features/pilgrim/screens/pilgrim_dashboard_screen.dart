@@ -42,6 +42,9 @@ import 'mecca_hotspots_screen.dart';
 import 'pilgrim_profile_screen.dart';
 import 'qibla_compass_screen.dart';
 
+/// Which surface replaces the SOS control on the home tab.
+enum _SosHomePhase { idle, helpSession, postCall }
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Pilgrim Dashboard Screen
 // ─────────────────────────────────────────────────────────────────────────────
@@ -71,6 +74,19 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   bool _isSosHolding = false;
   int _sosCountdown = 3;
   Timer? _weatherRefreshTimer;
+
+  /// Post-SOS help session: status line + 20s auto-call to Munawwara Care (group ring).
+  Timer? _sosHelpPhaseTimer;
+  Timer? _sosAutoCallTimer;
+  String _sosHelpStatusKey = 'sos_status_notifying';
+
+  /// Drives SOS block: idle disc, help session panel, or post–voice-call closure.
+  _SosHomePhase _sosHomePhase = _SosHomePhase.idle;
+  /// True after SOS auto group ring starts successfully until call teardown or cancel.
+  bool _sosVoiceFollowup = false;
+  Timer? _sosPostCallAutoIdleTimer;
+
+  static const Duration _sosPostCallAutoIdleDuration = Duration(minutes: 10);
 
   // Location
   StreamSubscription<Position>? _locationSub;
@@ -208,6 +224,13 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               SocketService.emit('leave_group', groupId);
             }
 
+            _stopSosHelpTimers();
+            _sosPostCallAutoIdleTimer?.cancel();
+            _sosPostCallAutoIdleTimer = null;
+            _sosVoiceFollowup = false;
+            if (mounted) {
+              setState(() => _sosHomePhase = _SosHomePhase.idle);
+            }
             // Clear all group-related state immediately
             ref.read(pilgrimProvider.notifier).clearGroupState();
             // Clear suggested areas
@@ -363,7 +386,20 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           });
         });
 
-
+        // Moderator acknowledged SOS — update pilgrim help session copy (no names).
+        SocketService.on('sos-handling', (data) {
+          if (!mounted) return;
+          try {
+            final map = Map<String, dynamic>.from(data as Map);
+            final sid = map['sos_id']?.toString();
+            final active = ref.read(pilgrimProvider).activeSosId;
+            if (!ref.read(pilgrimProvider).sosActive) return;
+            if (sid != null && active != null && sid != active) return;
+            setState(() => _sosHelpStatusKey = 'sos_status_reviewing');
+          } catch (e) {
+            debugPrint('[PilgrimDashboard] sos-handling handler error: $e');
+          }
+        });
       }
       // Fetch notification badge count
       ref.read(notificationProvider.notifier).fetchUnreadCount();
@@ -397,6 +433,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _mapController.dispose();
     _sosTimer?.cancel();
     _sosCountdownTimer?.cancel();
+    _stopSosHelpTimers();
+    _sosPostCallAutoIdleTimer?.cancel();
+    _sosVoiceFollowup = false;
     _weatherRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _locationSub?.cancel();
@@ -414,8 +453,78 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     SocketService.off('group_deleted');
     SocketService.off('added-to-group');
     SocketService.off('force_logout');
+    SocketService.off('sos-handling');
     SocketService.offConnected(_onSocketConnected);
     super.dispose();
+  }
+
+  void _stopSosHelpTimers() {
+    _sosHelpPhaseTimer?.cancel();
+    _sosHelpPhaseTimer = null;
+    _sosAutoCallTimer?.cancel();
+    _sosAutoCallTimer = null;
+  }
+
+  void _finishSosPostCall() {
+    _sosPostCallAutoIdleTimer?.cancel();
+    _sosPostCallAutoIdleTimer = null;
+    if (!mounted) return;
+    setState(() {
+      _sosHomePhase = _SosHomePhase.idle;
+      _sosHelpStatusKey = 'sos_status_notifying';
+    });
+  }
+
+  void _startSosHelpSessionTimers() {
+    _stopSosHelpTimers();
+    if (!mounted) return;
+    setState(() => _sosHelpStatusKey = 'sos_status_notifying');
+    _sosHelpPhaseTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      if (!ref.read(pilgrimProvider).sosActive) return;
+      setState(() => _sosHelpStatusKey = 'sos_status_waiting');
+    });
+    _sosAutoCallTimer = Timer(
+      const Duration(seconds: 20),
+      () {
+        _onSosAutoCallElapsed();
+      },
+    );
+  }
+
+  Future<void> _onSosAutoCallElapsed() async {
+    if (!mounted) return;
+    if (!ref.read(pilgrimProvider).sosActive) return;
+    if (ref.read(callProvider).isInCall) return;
+
+    setState(() => _sosHelpStatusKey = 'sos_status_connecting');
+
+    final mods = ref.read(pilgrimProvider).groupInfo?.moderators ?? [];
+    if (mods.isEmpty) {
+      if (mounted) {
+        setState(() => _sosHelpStatusKey = 'sos_status_waiting');
+      }
+      StandardSnackBar.showWarning(context, 'dash_no_moderator_call'.tr());
+      return;
+    }
+    final modMaps =
+        mods.map((m) => {'id': m.id, 'name': m.fullName}).toList();
+    try {
+      await ref.read(callProvider.notifier).startGroupModeratorCall(modMaps);
+    } catch (e, st) {
+      AppLogger.e('[PilgrimDashboard] startGroupModeratorCall failed: $e\n$st');
+      if (mounted) {
+        setState(() => _sosHelpStatusKey = 'sos_status_waiting');
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _sosVoiceFollowup = true);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const VoiceCallScreen(),
+      ),
+    );
   }
 
   // ── In-app popup for incoming messages ───────────────────────────────────
@@ -699,110 +808,13 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     if (!mounted) return;
 
     if (ok) {
-      // Show call options dialog
-      await showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) => _SosCallOptionsSheet(
-          onCancel: () {
-            Navigator.pop(ctx);
-            _cancelSOS();
-          },
-          onInternetCall: () {
-            final mods = ref.read(pilgrimProvider).groupInfo?.moderators ?? [];
-            if (mods.isNotEmpty) {
-              final modMaps = mods
-                  .map((m) => {'id': m.id, 'name': m.fullName})
-                  .toList();
-
-              Navigator.pop(ctx);
-
-              ref.read(callProvider.notifier).startGroupModeratorCall(modMaps);
-
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const VoiceCallScreen(),
-                ),
-              );
-            } else {
-              StandardSnackBar.showWarning(context, 'dash_no_moderator_call');
-            }
-          },
-          onNormalCall: () async {
-            final mods = ref.read(pilgrimProvider).groupInfo?.moderators ?? [];
-            if (mods.isEmpty) {
-              if (mounted) {
-                StandardSnackBar.showWarning(context, 'dash_no_mod_phone');
-              }
-              return;
-            }
-            
-            Navigator.pop(ctx); // Close SOS Options Sheet
-            final isDark = Theme.of(context).brightness == Brightness.dark;
-            
-            showModalBottomSheet(
-              context: context,
-              backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-              ),
-              builder: (ctx2) {
-                return SafeArea(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 16.w),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'select_moderator_to_call'.tr(),
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontSize: 18.sp,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 16.h),
-                        ...mods.map((mod) {
-                          final hasPhone = mod.phoneNumber != null && mod.phoneNumber!.isNotEmpty;
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: AppColors.primary,
-                              child: Text(
-                                mod.fullName.isNotEmpty ? mod.fullName[0].toUpperCase() : 'M',
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            title: Text(
-                              mod.fullName,
-                              style: TextStyle(fontFamily: 'Lexend', fontSize: 16.sp),
-                            ),
-                            subtitle: hasPhone 
-                              ? Text(mod.phoneNumber!, style: const TextStyle(fontFamily: 'Lexend', color: Colors.grey))
-                              : Text('dash_no_mod_phone'.tr(), style: TextStyle(fontFamily: 'Lexend', color: Colors.red.shade300)),
-                            trailing: Icon(Icons.call, color: hasPhone ? Colors.green : Colors.grey),
-                            onTap: hasPhone ? () async {
-                              Navigator.pop(ctx2);
-                              final cleanPhone = mod.phoneNumber!.replaceAll(RegExp(r'[^\d+]'), '');
-                              final uri = Uri.parse('tel:$cleanPhone');
-                              if (await canLaunchUrl(uri)) {
-                                await launchUrl(uri);
-                              } else if (mounted) {
-                                StandardSnackBar.showError(context, 'dash_error_dialer');
-                              }
-                            } : null,
-                          );
-                        }),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        ),
-      );
+      _sosPostCallAutoIdleTimer?.cancel();
+      if (mounted) {
+        setState(() {
+          _sosHomePhase = _SosHomePhase.helpSession;
+        });
+      }
+      _startSosHelpSessionTimers();
     } else {
       // Get the actual error message from the provider
       final errorMsg = ref.read(pilgrimProvider).error ?? 'sos_failed'.tr();
@@ -812,18 +824,34 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   }
 
   void _cancelSOS() {
+    _sosVoiceFollowup = false;
+    _sosPostCallAutoIdleTimer?.cancel();
+    _sosPostCallAutoIdleTimer = null;
+    _stopSosHelpTimers();
+    final call = ref.read(callProvider);
+    if (call.status == CallStatus.calling ||
+        call.status == CallStatus.ringing) {
+      ref.read(callProvider.notifier).cancelOutgoingRing();
+    }
+    if (mounted) {
+      setState(() {
+        _sosHelpStatusKey = 'sos_status_notifying';
+        _sosHomePhase = _SosHomePhase.idle;
+      });
+    }
     final pilgrimState = ref.read(pilgrimProvider);
     final groupId = pilgrimState.groupInfo?.groupId;
     final sosId = pilgrimState.activeSosId;
-    
+
     ref.read(pilgrimProvider.notifier).cancelSOS();
     
     if (groupId != null) {
-      SocketService.emit('sos_cancel', {
+      final payload = <String, dynamic>{
         'groupId': groupId,
         'pilgrimId': ref.read(authProvider).userId,
-        'sos_id': ?sosId,
-      });
+      };
+      if (sosId != null) payload['sos_id'] = sosId;
+      SocketService.emit('sos_cancel', payload);
     }
     if (!mounted) return;
     StandardSnackBar.showSuccess(context, 'sos_cancelled'.tr());
@@ -866,6 +894,23 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           context,
         ).push(MaterialPageRoute(builder: (_) => const VoiceCallScreen()));
       }
+      if (next.status == CallStatus.ended && prev != null) {
+        final wasInVoice = prev.status == CallStatus.calling ||
+            prev.status == CallStatus.ringing ||
+            prev.status == CallStatus.connected;
+        if (wasInVoice && _sosVoiceFollowup) {
+          _sosVoiceFollowup = false;
+          _stopSosHelpTimers();
+          ref.read(pilgrimProvider.notifier).cancelSOS();
+          if (!mounted) return;
+          setState(() => _sosHomePhase = _SosHomePhase.postCall);
+          _sosPostCallAutoIdleTimer?.cancel();
+          _sosPostCallAutoIdleTimer = Timer(
+            _sosPostCallAutoIdleDuration,
+            _finishSosPostCall,
+          );
+        }
+      }
     });
 
     ref.listen(authProvider, (prev, next) {
@@ -873,6 +918,14 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     });
 
     ref.listen(pilgrimProvider, (prev, next) {
+      if (prev?.sosActive == true &&
+          next.sosActive == false &&
+          _sosHomePhase != _SosHomePhase.postCall) {
+        _stopSosHelpTimers();
+        if (mounted) {
+          setState(() => _sosHelpStatusKey = 'sos_status_notifying');
+        }
+      }
       final prevGroupId = prev?.groupInfo?.groupId;
       final nextGroupId = next.groupInfo?.groupId;
       if (prevGroupId != nextGroupId) {
@@ -882,6 +935,15 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         if (nextGroupId != null) {
           SocketService.emit('join_group', nextGroupId);
         }
+      }
+      final chatGid = next.groupInfo?.groupId;
+      final chatMsgState = ref.read(messageProvider);
+      if (_currentTab == 3 && chatGid != null) {
+        if (chatMsgState.activeGroupId != chatGid) {
+          ref.read(messageProvider.notifier).setActiveGroup(chatGid);
+        }
+      } else if (chatMsgState.activeGroupId != null) {
+        ref.read(messageProvider.notifier).setActiveGroup(null);
       }
     });
 
@@ -905,6 +967,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         },
         sosCountdown: _sosCountdown,
         onCancelSos: _cancelSOS,
+        sosHelpStatusKey: _sosHelpStatusKey,
+        sosHomePhase: _sosHomePhase,
+        onSosPostCallDismiss: _finishSosPostCall,
         navBeacons: pilgrimState.navBeacons,
         myLocation: _myLatLng,
         onNavigateToModerator: _navigateToModerator,
@@ -993,6 +1058,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
           setState(() => _currentTab = 0);
+          ref.read(messageProvider.notifier).setActiveGroup(null);
         }
       },
       child: Scaffold(
@@ -1004,6 +1070,12 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           currentIndex: _currentTab,
           onTap: (i) {
             setState(() => _currentTab = i);
+            final chatGid = ref.read(pilgrimProvider).groupInfo?.groupId;
+            if (i == 3 && chatGid != null) {
+              ref.read(messageProvider.notifier).setActiveGroup(chatGid);
+            } else {
+              ref.read(messageProvider.notifier).setActiveGroup(null);
+            }
             // Refresh weather when switching to Home tab
             if (i == 0) {
               _loadWeatherAlert(force: true);
@@ -1037,6 +1109,9 @@ class _HomeTab extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final int sosCountdown;
   final VoidCallback onCancelSos;
+  final String sosHelpStatusKey;
+  final _SosHomePhase sosHomePhase;
+  final VoidCallback onSosPostCallDismiss;
   final Map<String, ModeratorBeacon> navBeacons;
   final LatLng? myLocation;
   final void Function(ModeratorBeacon) onNavigateToModerator;
@@ -1060,6 +1135,9 @@ class _HomeTab extends StatelessWidget {
     required this.onRefresh,
     required this.sosCountdown,
     required this.onCancelSos,
+    required this.sosHelpStatusKey,
+    required this.sosHomePhase,
+    required this.onSosPostCallDismiss,
     required this.navBeacons,
     this.myLocation,
     required this.onNavigateToModerator,
@@ -1308,6 +1386,9 @@ class _HomeTab extends StatelessWidget {
                     onSosHoldStart: onSosHoldStart,
                     onSosHoldEnd: onSosHoldEnd,
                     onCancelSos: onCancelSos,
+                    sosHelpStatusKey: sosHelpStatusKey,
+                    sosHomePhase: sosHomePhase,
+                    onSosPostCallDismiss: onSosPostCallDismiss,
                     onGroupCardTap: onGroupCardTap,
                     onHotspotsTap: onHotspotsTap,
                     navBeacons: navBeacons,
@@ -1329,6 +1410,9 @@ class _HomeTab extends StatelessWidget {
                     onSosHoldStart: onSosHoldStart,
                     onSosHoldEnd: onSosHoldEnd,
                     onCancelSos: onCancelSos,
+                    sosHelpStatusKey: sosHelpStatusKey,
+                    sosHomePhase: sosHomePhase,
+                    onSosPostCallDismiss: onSosPostCallDismiss,
                     onGroupCardTap: onGroupCardTap,
                     onHotspotsTap: onHotspotsTap,
                     navBeacons: navBeacons,
@@ -1362,6 +1446,9 @@ class _HomeBody extends StatelessWidget {
   final VoidCallback onSosHoldStart;
   final VoidCallback onSosHoldEnd;
   final VoidCallback onCancelSos;
+  final String sosHelpStatusKey;
+  final _SosHomePhase sosHomePhase;
+  final VoidCallback onSosPostCallDismiss;
   final VoidCallback onGroupCardTap;
   final VoidCallback onHotspotsTap;
   final Map<String, ModeratorBeacon> navBeacons;
@@ -1380,6 +1467,9 @@ class _HomeBody extends StatelessWidget {
     required this.onSosHoldStart,
     required this.onSosHoldEnd,
     required this.onCancelSos,
+    required this.sosHelpStatusKey,
+    required this.sosHomePhase,
+    required this.onSosPostCallDismiss,
     required this.onGroupCardTap,
     required this.onHotspotsTap,
     required this.navBeacons,
@@ -1389,6 +1479,9 @@ class _HomeBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final muted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final showPostCall = sosHomePhase == _SosHomePhase.postCall;
+    final showHelp = !showPostCall && pilgrimState.sosActive;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -1431,50 +1524,46 @@ class _HomeBody extends StatelessWidget {
             ),
             SizedBox(height: 32.h),
 
-            // ── SOS ────────────────────────────────────────────────────────
+            // ── SOS / help session / post-call ─────────────────────────────
             Center(
-              child: Column(
-                children: [
-                  _SosButton(
-                    pulseController: sosPulseController,
-                    holdController: sosHoldController,
-                    isHolding: isSosHolding,
-                    isLoading: pilgrimState.isSosLoading,
-                    sosActive: pilgrimState.sosActive,
-                    countdown: sosCountdown,
-                    onHoldStart: onSosHoldStart,
-                    onHoldEnd: onSosHoldEnd,
-                  ),
-                  if (pilgrimState.sosActive) ...[
-                    SizedBox(height: 16.h),
-                    GestureDetector(
-                      onTap: onCancelSos,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 28.w,
-                          vertical: 10.h,
+              child: showPostCall
+                  ? _SosPostCallPanel(
+                      isDark: isDark,
+                      onDone: onSosPostCallDismiss,
+                      onRequestAgain: onSosPostCallDismiss,
+                    )
+                  : showHelp
+                  ? _SosHelpSessionPanel(
+                      isDark: isDark,
+                      statusKey: sosHelpStatusKey,
+                      onCancelRequest: onCancelSos,
+                    )
+                  : Column(
+                      children: [
+                        _SosButton(
+                          pulseController: sosPulseController,
+                          holdController: sosHoldController,
+                          isHolding: isSosHolding,
+                          isLoading: pilgrimState.isSosLoading,
+                          sosActive: pilgrimState.sosActive,
+                          countdown: sosCountdown,
+                          onHoldStart: onSosHoldStart,
+                          onHoldEnd: onSosHoldEnd,
                         ),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: Colors.red.shade400,
-                            width: 1.5,
-                          ),
-                          borderRadius: BorderRadius.circular(20.r),
-                        ),
-                        child: Text(
-                          'sos_cancel'.tr(),
+                        SizedBox(height: 14.h),
+                        Text(
+                          'sos_idle_subtext'.tr(),
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14.sp,
-                            color: Colors.red.shade500,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w500,
+                            color: muted,
+                            height: 1.35,
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ],
-              ),
             ),
             SizedBox(height: 32.h),
 
@@ -1868,6 +1957,249 @@ class _ExploreCardNew extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// After SOS voice call ends (closure before returning to idle SOS)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SosPostCallPanel extends StatelessWidget {
+  final bool isDark;
+  final VoidCallback onDone;
+  final VoidCallback onRequestAgain;
+
+  const _SosPostCallPanel({
+    required this.isDark,
+    required this.onDone,
+    required this.onRequestAgain,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final surface = isDark ? AppColors.surfaceDark : Colors.white;
+    final border = AppColors.primary.withValues(alpha: 0.22);
+    final titleColor = isDark ? Colors.white : AppColors.textDark;
+    final muted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: 400.w),
+      child: Container(
+        padding: EdgeInsets.fromLTRB(22.w, 24.h, 22.w, 20.h),
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(22.r),
+          border: Border.all(color: border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.call_end_rounded,
+              color: AppColors.primary,
+              size: 40.w,
+            ),
+            SizedBox(height: 14.h),
+            Text(
+              'sos_call_ended_title'.tr(),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w800,
+                color: titleColor,
+                height: 1.25,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              'sos_call_ended_subtitle'.tr(),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w500,
+                color: muted,
+                height: 1.45,
+              ),
+            ),
+            SizedBox(height: 22.h),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: onDone,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 14.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14.r),
+                  ),
+                ),
+                child: Text(
+                  'sos_back_to_home'.tr(),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: 10.h),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: onRequestAgain,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: muted,
+                  side: BorderSide(
+                    color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: 14.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14.r),
+                  ),
+                ),
+                child: Text(
+                  'sos_request_help_again'.tr(),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Post-SOS help session (calm surface; no moderator names)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SosHelpSessionPanel extends StatelessWidget {
+  final bool isDark;
+  final String statusKey;
+  final VoidCallback onCancelRequest;
+
+  const _SosHelpSessionPanel({
+    required this.isDark,
+    required this.statusKey,
+    required this.onCancelRequest,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final brand = 'call_support_display_name'.tr();
+    final surface = isDark ? AppColors.surfaceDark : Colors.white;
+    final border = AppColors.primary.withValues(alpha: 0.22);
+    final titleColor = isDark ? Colors.white : AppColors.textDark;
+    final muted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final statusText = statusKey == 'sos_status_connecting'
+        ? 'sos_status_connecting'.tr(namedArgs: {'name': brand})
+        : statusKey.tr();
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: 400.w),
+      child: Container(
+        padding: EdgeInsets.fromLTRB(22.w, 24.h, 22.w, 20.h),
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(22.r),
+          border: Border.all(color: border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.mark_email_read_outlined,
+              color: AppColors.primary,
+              size: 40.w,
+            ),
+            SizedBox(height: 14.h),
+            Text(
+              'sos_help_title'.tr(),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w800,
+                color: titleColor,
+                height: 1.25,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              'sos_help_subtitle'.tr(namedArgs: {'name': brand}),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w500,
+                color: muted,
+                height: 1.45,
+              ),
+            ),
+            SizedBox(height: 18.h),
+            Text(
+              statusText,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+                height: 1.35,
+              ),
+            ),
+            SizedBox(height: 22.h),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: onCancelRequest,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: muted,
+                  side: BorderSide(
+                    color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: 14.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14.r),
+                  ),
+                ),
+                child: Text(
+                  'sos_cancel_request'.tr(),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SOS Button Widget
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2080,22 +2412,24 @@ class _SosHoldingContent extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          '$countdown',
+          'sos_keep_holding'.tr(),
+          textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: 'Lexend',
-            fontSize: 68.sp,
-            fontWeight: FontWeight.w900,
+            fontSize: 15.sp,
+            fontWeight: FontWeight.w800,
             color: Colors.white,
+            height: 1.2,
           ),
         ),
+        SizedBox(height: 8.h),
         Text(
-          'SECONDS',
+          'sos_hold_seconds'.tr(namedArgs: {'n': '$countdown'}),
           style: TextStyle(
             fontFamily: 'Lexend',
-            fontSize: 12.sp,
-            fontWeight: FontWeight.w800,
-            color: Colors.white.withValues(alpha: 0.7),
-            letterSpacing: 2,
+            fontSize: 13.sp,
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withValues(alpha: 0.75),
           ),
         ),
       ],
@@ -3314,160 +3648,4 @@ class _AreaTailPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_AreaTailPainter old) => old.color != color;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SOS Call Options Sheet
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SosCallOptionsSheet extends StatelessWidget {
-  final VoidCallback onCancel;
-  final VoidCallback onInternetCall;
-  final VoidCallback onNormalCall;
-
-  const _SosCallOptionsSheet({
-    required this.onCancel,
-    required this.onInternetCall,
-    required this.onNormalCall,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(28.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 32.h),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Grab handle
-            Container(
-              width: 40.w,
-              height: 4.h,
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white24 : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2.r),
-              ),
-            ),
-            SizedBox(height: 20.h),
-
-            // SOS active indicator
-            Container(
-              width: 60.w,
-              height: 60.w,
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.red.shade600,
-                size: 32.w,
-              ),
-            ),
-            SizedBox(height: 12.h),
-
-            Text(
-              'sos_sent_title'.tr(),
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 20.sp,
-                fontWeight: FontWeight.w700,
-                color: Colors.red.shade600,
-              ),
-            ),
-            SizedBox(height: 6.h),
-            Text(
-              'sos_sent_body'.tr(),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 13.sp,
-                color: AppColors.textMutedLight,
-                height: 1.5,
-              ),
-            ),
-            SizedBox(height: 24.h),
-
-            // Internet Call Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: onInternetCall,
-                icon: Icon(Icons.wifi_calling_3_rounded, size: 20.w),
-                label: Text(
-                  'sos_call_internet'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 14.h),
-                ),
-              ),
-            ),
-            SizedBox(height: 10.h),
-
-            // Normal Call Button
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onNormalCall,
-                icon: Icon(Icons.phone_rounded, size: 20.w),
-                label: Text(
-                  'sos_call_normal'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 14.h),
-                ),
-              ),
-            ),
-            SizedBox(height: 10.h),
-
-            // Cancel SOS Button
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: onCancel,
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.red.shade400,
-                  padding: EdgeInsets.symmetric(vertical: 12.h),
-                ),
-                child: Text(
-                  'sos_cancel_btn'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

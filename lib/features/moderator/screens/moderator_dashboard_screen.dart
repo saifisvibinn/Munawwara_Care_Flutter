@@ -88,10 +88,23 @@ class _ModeratorDashboardScreenState
     // Auto-navigate to Alerts tab so the moderator sees it
     setState(() => _currentTab = 4);
 
-    final map = data is Map ? data : <String, dynamic>{};
+    String? socketStringId(dynamic v) {
+      if (v == null) return null;
+      if (v is String) return v;
+      if (v is Map) {
+        final id = v['_id'] ?? v['id'];
+        return id?.toString();
+      }
+      return v.toString();
+    }
+
+    final map = data is Map
+        ? Map<String, dynamic>.from(data)
+        : <String, dynamic>{};
     final name = map['pilgrim_name'] as String? ?? 'A pilgrim';
-    final pilgrimId = map['pilgrim_id'] as String?;
-    final groupId = map['group_id'] as String?;
+    final pilgrimId = socketStringId(map['pilgrim_id']);
+    final groupId = socketStringId(map['group_id']);
+    final sosIdStr = map['sos_id']?.toString();
 
     // Show a system notification
     NotificationService.instance.showUrgentNotification(
@@ -130,6 +143,17 @@ class _ModeratorDashboardScreenState
       duration: const Duration(seconds: 8),
       actionLabel: 'View',
       onAction: () {
+        final gid = groupId;
+        final pid = pilgrimId;
+        if (gid != null && pid != null) {
+          final handling = <String, dynamic>{
+            'groupId': gid,
+            'pilgrimId': pid,
+          };
+          final sid = sosIdStr;
+          if (sid != null) handling['sos_id'] = sid;
+          SocketService.emit('sos_handling', handling);
+        }
         if (targetPilgrim != null && groupId != null) {
           showPilgrimProfileSheet(
             context,

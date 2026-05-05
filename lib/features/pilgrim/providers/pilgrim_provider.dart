@@ -310,16 +310,10 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
       final activeSosId = response.data?['data']?['sos_id']?.toString();
       
       state = state.copyWith(
-        isSosLoading: false, 
+        isSosLoading: false,
         sosActive: true,
         activeSosId: activeSosId,
       );
-      // Auto clear SOS status after 10 s (locally)
-      Future.delayed(const Duration(seconds: 10), () {
-        if (state.sosActive) {
-          state = state.copyWith(sosActive: false, clearSosId: true);
-        }
-      });
       return true;
     } on DioException catch (e) {
       state = state.copyWith(
