@@ -11,6 +11,7 @@ import '../../../core/services/api_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/screens/call_history_screen.dart';
 import 'moderator_profile_edit_screen.dart';
+import '../../shared/widgets/moderator_avatar.dart';
 
 class ModeratorProfileScreen extends ConsumerStatefulWidget {
   const ModeratorProfileScreen({super.key});
@@ -526,29 +527,7 @@ class _ProfileCard extends StatelessWidget {
       child: Row(
         children: [
           // Avatar
-          Container(
-            width: 56.w,
-            height: 56.w,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [AppColors.primary, AppColors.primaryDark],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                initials,
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 20.sp,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
+          ModeratorAvatar(size: 56.w, initials: initials),
           SizedBox(width: 16.w),
           Expanded(
             child: Column(

@@ -7,6 +7,7 @@ import '../../../core/widgets/standard_snackbar.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../shared/widgets/moderator_avatar.dart';
 
 class ModeratorProfileEditScreen extends ConsumerStatefulWidget {
   const ModeratorProfileEditScreen({super.key});
@@ -129,32 +130,7 @@ class _ModeratorProfileEditScreenState
                       Center(
                         child: Stack(
                           children: [
-                            Container(
-                              width: 88.w,
-                              height: 88.w,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: [
-                                    AppColors.primary,
-                                    AppColors.primaryDark,
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  initials,
-                                  style: TextStyle(
-                                    fontFamily: 'Lexend',
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 30.sp,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
+                            ModeratorAvatar(size: 88.w, initials: initials),
                             // Camera badge removed per UI request
                           ],
                         ),

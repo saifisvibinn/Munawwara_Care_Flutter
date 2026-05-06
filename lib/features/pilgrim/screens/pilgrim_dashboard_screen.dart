@@ -36,6 +36,7 @@ import '../../notifications/screens/alerts_tab.dart';
 import '../../shared/providers/message_provider.dart';
 import '../../shared/providers/suggested_area_provider.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
+import '../../shared/widgets/moderator_avatar.dart';
 import '../../shared/models/suggested_area_model.dart';
 import '../providers/pilgrim_provider.dart';
 import 'group_details_screen.dart';
@@ -1942,17 +1943,11 @@ class _HomeBody extends StatelessWidget {
                               horizontal: 16.w, vertical: 10.h),
                           child: Row(
                             children: [
-                              Container(
-                                width: 40.w,
-                                height: 40.w,
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? AppColors.iconBgDark
-                                      : AppColors.iconBgLight,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(Symbols.person_pin_circle,
-                                    size: 22.w, color: AppColors.primary),
+                              ModeratorAvatar(
+                                size: 40.w,
+                                initials: beacon.name.isNotEmpty
+                                    ? beacon.name[0]
+                                    : '?',
                               ),
                               SizedBox(width: 12.w),
                               Expanded(
@@ -3014,6 +3009,7 @@ class _PilgrimMapTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final group = pilgrimState.groupInfo;
+    final beacons = pilgrimState.navBeacons.values.toList();
     final fabBottom = 14.h;
     final fabStride = 44.w + 10.h;
 
@@ -3108,6 +3104,78 @@ class _PilgrimMapTab extends StatelessWidget {
                       ],
                     ),
                   ),
+                ],
+              ),
+            // Moderator beacons (only when enabled)
+            if (beacons.isNotEmpty)
+              MarkerLayer(
+                markers: [
+                  for (final b in beacons)
+                    Marker(
+                      point: LatLng(b.lat, b.lng),
+                      width: 92.w,
+                      height: 90.h,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 46.w,
+                            height: 46.w,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppColors.surfaceDark
+                                  : Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppColors.primary,
+                                width: 2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.14),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.all(3.w),
+                              child: ModeratorAvatar(
+                                size: 40.w,
+                                initials: b.name.isNotEmpty ? b.name[0] : '?',
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 4.h),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 6.w,
+                              vertical: 2.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppColors.surfaceDark
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(8.r),
+                              border: Border.all(
+                                color: Colors.black.withValues(alpha: 0.06),
+                              ),
+                            ),
+                            child: Text(
+                              b.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10.sp,
+                                color: isDark ? Colors.white : AppColors.textDark,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
           ],
