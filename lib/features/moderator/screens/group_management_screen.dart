@@ -218,7 +218,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
   // ── Location ──────────────────────────────────────────────────────────────
 
   Future<void> _initLocation() async {
-    final ok = await requestLocationForBackgroundTracking();
+    final ok = await hasLocationAlwaysPermission();
     if (!ok || !mounted) return;
 
     try {

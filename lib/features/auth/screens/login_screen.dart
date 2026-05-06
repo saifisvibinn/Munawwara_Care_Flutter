@@ -27,11 +27,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    if (!kIsWeb) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(requestLocationForBackgroundTracking());
-      });
-    }
   }
 
   bool _isModeratorLogin = false;
@@ -68,12 +63,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         .login(identifier: identifier, password: password);
     if (!mounted) return;
     if (success) {
-      final role = ref.read(authProvider).role;
-      if (role == 'moderator') {
-        context.go('/moderator-dashboard');
-      } else {
-        context.go('/pilgrim-dashboard');
-      }
+      context.go('/location-onboarding');
     } else {
       setState(
         () => _loginError = ref.read(authProvider).error ?? 'Login failed',
@@ -100,12 +90,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
-      final role = ref.read(authProvider).role;
-      if (role == 'moderator') {
-        context.go('/moderator-dashboard');
-      } else {
-        context.go('/pilgrim-dashboard');
-      }
+      context.go('/location-onboarding');
     } else {
       setState(() {
         _loginError = ref.read(authProvider).error ?? 'login_invalid_code'.tr();

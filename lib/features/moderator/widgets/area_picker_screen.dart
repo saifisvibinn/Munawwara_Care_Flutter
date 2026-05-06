@@ -206,7 +206,7 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
 
     Position? lastKnown;
     try {
-      final ok = await requestLocationForBackgroundTracking();
+      final ok = await hasLocationAlwaysPermission();
       if (!ok) {
         if (mounted) {
           StandardSnackBar.showError(context, 'Could not get current location');

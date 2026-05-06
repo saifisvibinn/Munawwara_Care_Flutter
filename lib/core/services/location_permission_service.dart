@@ -2,10 +2,18 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+/// Checks if both when-in-use and always-on permissions are granted.
+Future<bool> hasLocationAlwaysPermission() async {
+  if (kIsWeb) return false;
+  final whenInUse = await Permission.locationWhenInUse.isGranted;
+  final always = await Permission.locationAlways.isGranted;
+  return whenInUse && always;
+}
+
 /// Requests location **while in use**, then **always / background** on mobile so
 /// updates can continue when the app is not in the foreground (within OS limits;
 /// Android may still require a foreground service for uninterrupted tracking).
-Future<bool> requestLocationForBackgroundTracking() async {
+Future<bool> requestLocationPermissionsFlow() async {
   if (kIsWeb) return false;
 
   final whenInUse = await Permission.locationWhenInUse.request();
@@ -27,5 +35,5 @@ Future<bool> requestLocationForBackgroundTracking() async {
     await Permission.locationAlways.request();
   }
 
-  return Permission.locationWhenInUse.isGranted;
+  return await hasLocationAlwaysPermission();
 }

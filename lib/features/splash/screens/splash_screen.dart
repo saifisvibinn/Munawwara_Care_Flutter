@@ -24,11 +24,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   void initState() {
     super.initState();
     AppLogger.d('SplashScreen initState');
-    if (!kIsWeb) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(requestLocationForBackgroundTracking());
-      });
-    }
     _navigate();
   }
 
@@ -54,20 +49,26 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (!mounted) return;
     final auth = ref.read(authProvider);
     if (auth.isAuthenticated) {
-      final route = auth.role == 'moderator'
-          ? '/moderator-dashboard'
-          : '/pilgrim-dashboard';
-      AppLogger.i('SplashScreen nav to authenticated $route');
-      context.go(route);
+      final hasLoc = await hasLocationAlwaysPermission();
+      if (!hasLoc) {
+        AppLogger.i('SplashScreen nav to location onboarding');
+        context.go('/location-onboarding');
+      } else {
+        final route = auth.role == 'moderator'
+            ? '/moderator-dashboard'
+            : '/pilgrim-dashboard';
+        AppLogger.i('SplashScreen nav to authenticated $route');
+        context.go(route);
 
-      // Check for pending notification deep-link (cold-start scenario)
-      final pending = NotificationService.consumePendingNotificationData();
-      if (pending != null && pending.isNotEmpty) {
-        AppLogger.i('SplashScreen: processing pending notification deep-link');
-        // Small delay so the dashboard is mounted before we push the chat
-        Future.delayed(const Duration(milliseconds: 600), () {
-          NotificationService.navigateFromNotificationData(pending);
-        });
+        // Check for pending notification deep-link (cold-start scenario)
+        final pending = NotificationService.consumePendingNotificationData();
+        if (pending != null && pending.isNotEmpty) {
+          AppLogger.i('SplashScreen: processing pending notification deep-link');
+          // Small delay so the dashboard is mounted before we push the chat
+          Future.delayed(const Duration(milliseconds: 600), () {
+            NotificationService.navigateFromNotificationData(pending);
+          });
+        }
       }
     } else {
       AppLogger.i('SplashScreen nav to login');

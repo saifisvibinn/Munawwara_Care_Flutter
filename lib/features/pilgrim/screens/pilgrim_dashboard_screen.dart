@@ -23,7 +23,6 @@ import '../../../core/services/socket_service.dart';
 import '../../../core/map/app_map_tiles.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_logger.dart';
-import '../../../core/widgets/location_always_onboarding_sheet.dart';
 import '../../../core/widgets/map_circle_fab.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -131,14 +130,19 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _lifecycleState = state;
     if (state == AppLifecycleState.resumed) {
+      unawaited(_checkLocationPermission());
       _loadWeatherAlert(force: true);
       ref.read(missedCallsUnreadProvider.notifier).refresh();
       if (_locationSub == null) {
         unawaited(_initLocation());
       }
-      if (mounted) {
-        unawaited(showLocationAlwaysOnboardingIfNeeded(context));
-      }
+    }
+  }
+
+  Future<void> _checkLocationPermission() async {
+    final hasLoc = await hasLocationAlwaysPermission();
+    if (!hasLoc && mounted) {
+      context.go('/location-onboarding');
     }
   }
 
@@ -446,9 +450,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         if (!mounted) return;
         _loadWeatherAlert(force: true);
       });
-      if (mounted) {
-        unawaited(showLocationAlwaysOnboardingIfNeeded(context));
-      }
     });
   }
 
@@ -644,7 +645,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     await _locationSub?.cancel();
     _locationSub = null;
 
-    final ok = await requestLocationForBackgroundTracking();
+    final ok = await hasLocationAlwaysPermission();
     if (!ok) return;
     if (!mounted) return;
 

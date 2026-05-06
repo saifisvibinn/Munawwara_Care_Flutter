@@ -90,7 +90,7 @@ class _ModeratorGroupMapScreenState
       }
     }
 
-    final ok = await requestLocationForBackgroundTracking();
+    final ok = await hasLocationAlwaysPermission();
     if (!ok || !mounted) return;
 
     bool usableLast(Position p) {

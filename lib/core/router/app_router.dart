@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/splash/screens/splash_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
+import '../../features/auth/screens/location_onboarding_screen.dart';
 
 import '../../features/pilgrim/screens/pilgrim_dashboard_screen.dart';
 import '../../features/moderator/screens/moderator_dashboard_screen.dart';
@@ -35,6 +36,11 @@ class AppRouter {
         path: '/forgot-password',
         name: 'forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/location-onboarding',
+        name: 'location-onboarding',
+        builder: (context, state) => const LocationOnboardingScreen(),
       ),
       GoRoute(
         path: '/pilgrim-dashboard',

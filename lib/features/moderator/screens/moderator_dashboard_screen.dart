@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'dart:ui' as ui;
+import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/services/api_service.dart';
@@ -14,7 +15,6 @@ import '../../../core/services/location_permission_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/location_always_onboarding_sheet.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
@@ -105,7 +105,14 @@ class _ModeratorDashboardScreenState
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted && !kIsWeb) {
-      unawaited(showLocationAlwaysOnboardingIfNeeded(context));
+      unawaited(_checkLocationPermission());
+    }
+  }
+
+  Future<void> _checkLocationPermission() async {
+    final hasLoc = await hasLocationAlwaysPermission();
+    if (!hasLoc && mounted) {
+      context.go('/location-onboarding');
     }
   }
 
@@ -114,9 +121,6 @@ class _ModeratorDashboardScreenState
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!kIsWeb) {
-        unawaited(requestLocationForBackgroundTracking());
-      }
       // Subscribe for RouteAware callbacks
       final route = ModalRoute.of(context);
       if (route != null) {
@@ -247,9 +251,6 @@ class _ModeratorDashboardScreenState
             debugPrint('[ModeratorDashboard] new_message handler error: $e');
           }
         });
-      }
-      if (!kIsWeb && mounted) {
-        unawaited(showLocationAlwaysOnboardingIfNeeded(context));
       }
     });
   }
