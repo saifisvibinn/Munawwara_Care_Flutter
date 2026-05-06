@@ -10,9 +10,12 @@ import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/calling_scope.dart';
+import '../models/sos_moderator_payload.dart';
 import '../providers/moderator_provider.dart';
+import '../providers/moderator_sos_engagement_provider.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
 import '../widgets/sos_alert_dialog.dart';
+import 'moderator_sos_engagement_store.dart';
 
 /// Dedupes and shows one in-app SOS dialog per [sosId] (or per burst if id missing).
 class SosAlertCoordinator {
@@ -36,6 +39,11 @@ class SosAlertCoordinator {
     );
   }
 
+  static Future<void> _refreshEngagementUi() async {
+    final c = CallingScope.riverpod;
+    await c?.read(moderatorSosEngagementProvider.notifier).refresh();
+  }
+
   /// Unified entry for socket payload, FCM `data`, or pending deep-link map.
   static Future<void> showOnceFromMap(Map<String, dynamic> raw) async {
     final until = _suppressDialogsUntil;
@@ -46,7 +54,20 @@ class SosAlertCoordinator {
       return;
     }
 
-    final payload = _SosPayload.fromMap(raw);
+    final payload = SosModeratorPayload.fromMap(raw);
+    await ModeratorSosEngagementStore.upsertActiveFromPayload(payload);
+    await _refreshEngagementUi();
+
+    final storageKey = payload.storageKey;
+    final showModal =
+        await ModeratorSosEngagementStore.shouldShowBlockingModal(storageKey);
+    if (!showModal) {
+      AppLogger.i(
+        '[SosAlertCoordinator] Blocking modal suppressed for $storageKey',
+      );
+      return;
+    }
+
     final sid = payload.sosId;
     if (sid != null && sid.isNotEmpty) {
       if (_lastShownSosId == sid &&
@@ -58,7 +79,6 @@ class SosAlertCoordinator {
       _lastShownSosId = sid;
       _lastShownAt = DateTime.now();
     } else {
-      // No id: still avoid stacking identical dialogs within the window
       final composite =
           '${payload.pilgrimId ?? ""}|${payload.groupId ?? ""}|${payload.pilgrimName}';
       if (_lastShownSosId == composite &&
@@ -73,19 +93,13 @@ class SosAlertCoordinator {
     final nav = AppRouter.navigatorKey.currentState;
     final ctx = AppRouter.navigatorKey.currentContext;
     if (nav == null || ctx == null || !ctx.mounted) {
-      AppLogger.w('[SosAlertCoordinator] No navigator — caller should use pending SOS');
+      AppLogger.w(
+        '[SosAlertCoordinator] No navigator — caller should use pending SOS',
+      );
       return;
     }
 
     final groupLabel = payload.groupName.isEmpty ? '—' : payload.groupName;
-    final locationLine = payload.hasCoords
-        ? 'sos_mod_dialog_location_coords'.tr(
-            namedArgs: {
-              'lat': payload.lat!.toStringAsFixed(5),
-              'lng': payload.lng!.toStringAsFixed(5),
-            },
-          )
-        : 'sos_mod_dialog_location_unknown'.tr();
 
     await showDialog<void>(
       context: ctx,
@@ -94,18 +108,42 @@ class SosAlertCoordinator {
         return SosAlertDialog(
           pilgrimName: payload.pilgrimName,
           groupName: groupLabel,
-          locationLine: locationLine,
-          onLater: () => Navigator.of(dialogCtx).pop(),
-          onReview: () {
+          pilgrimGender: payload.pilgrimGender,
+          navigateLat: payload.lat,
+          navigateLng: payload.lng,
+          onDismiss: () async {
             Navigator.of(dialogCtx).pop();
+            await ModeratorSosEngagementStore.markUserDismissed(storageKey);
+            await _refreshEngagementUi();
+          },
+          onReview: () async {
+            Navigator.of(dialogCtx).pop();
+            await ModeratorSosEngagementStore.markReviewSuppressed(storageKey);
+            await _refreshEngagementUi();
             unawaited(_openReviewFlow(payload));
+          },
+          onNavigateSuccess: () async {
+            final next = await ModeratorSosEngagementStore.markNavigatedSuccess(
+              storageKey,
+            );
+            await _refreshEngagementUi();
+            if (next?.fullyHandled == true) {
+              AppRouter.navigatorKey.currentState?.pop();
+            }
           },
         );
       },
     );
   }
 
-  static Future<void> _openReviewFlow(_SosPayload payload) async {
+  /// After moderator starts an internet call, refresh banner engagement.
+  /// (Do not [Navigator.pop] here — [VoiceCallScreen] may be on top.)
+  static Future<void> afterModeratorPlacedCall(String pilgrimId) async {
+    await ModeratorSosEngagementStore.markCalledForPilgrim(pilgrimId);
+    await _refreshEngagementUi();
+  }
+
+  static Future<void> _openReviewFlow(SosModeratorPayload payload) async {
     final c = CallingScope.riverpod;
     if (c == null) {
       AppLogger.e('[SosAlertCoordinator] CallingScope.riverpod is null');
@@ -171,72 +209,5 @@ class SosAlertCoordinator {
         );
       }
     }
-  }
-}
-
-class _SosPayload {
-  final String? sosId;
-  final String pilgrimName;
-  final String? pilgrimId;
-  final String? groupId;
-  final String groupName;
-  final double? lat;
-  final double? lng;
-
-  _SosPayload({
-    required this.sosId,
-    required this.pilgrimName,
-    required this.pilgrimId,
-    required this.groupId,
-    required this.groupName,
-    required this.lat,
-    required this.lng,
-  });
-
-  bool get hasCoords => lat != null && lng != null;
-
-  static _SosPayload fromMap(Map<String, dynamic> raw) {
-    String? socketStringId(dynamic v) {
-      if (v == null) return null;
-      if (v is String) return v;
-      if (v is Map) {
-        final id = v['_id'] ?? v['id'];
-        return id?.toString();
-      }
-      return v.toString();
-    }
-
-    final name =
-        raw['pilgrim_name']?.toString() ?? raw['pilgrimName']?.toString() ?? 'A pilgrim';
-    final pid = socketStringId(raw['pilgrim_id']);
-    final gid = socketStringId(raw['group_id']);
-    final gname = raw['group_name']?.toString() ?? '';
-    final sid = raw['sos_id']?.toString();
-
-    double? lat;
-    double? lng;
-    final loc = raw['location'];
-    if (loc is Map) {
-      lat = _readCoord(loc['lat']) ?? _readCoord(loc['latitude']);
-      lng = _readCoord(loc['lng']) ?? _readCoord(loc['longitude']);
-    }
-    lat ??= _readCoord(raw['lat']);
-    lng ??= _readCoord(raw['lng']);
-
-    return _SosPayload(
-      sosId: sid,
-      pilgrimName: name,
-      pilgrimId: pid,
-      groupId: gid,
-      groupName: gname,
-      lat: lat,
-      lng: lng,
-    );
-  }
-
-  static double? _readCoord(dynamic v) {
-    if (v == null) return null;
-    if (v is num) return v.toDouble();
-    return double.tryParse(v.toString());
   }
 }

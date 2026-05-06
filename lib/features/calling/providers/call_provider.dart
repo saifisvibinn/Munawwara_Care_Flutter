@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../moderator/services/sos_alert_coordinator.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/services/callkit_service.dart';
@@ -44,6 +45,8 @@ class CallState {
   final bool isGroupRingingOut;
   /// Pilgrim receiving a moderator call: show support name + app logo in-app (not peer personal name).
   final bool displayPeerAsSupportBranding;
+  /// Moderator → pilgrim outbound: [PilgrimGenderAvatar] uses this (null = male default asset).
+  final String? remotePeerGender;
   final bool isMuted;
   final bool isSpeakerOn;
   final int durationSeconds;
@@ -57,6 +60,7 @@ class CallState {
     this.incomingDisplayName,
     this.isGroupRingingOut = false,
     this.displayPeerAsSupportBranding = false,
+    this.remotePeerGender,
     this.isMuted = false,
     this.isSpeakerOn = false,
     this.durationSeconds = 0,
@@ -82,6 +86,7 @@ class CallState {
     bool? clearIncomingDisplayName,
     bool? isGroupRingingOut,
     bool? displayPeerAsSupportBranding,
+    String? remotePeerGender,
     bool? isMuted,
     bool? isSpeakerOn,
     int? durationSeconds,
@@ -97,6 +102,7 @@ class CallState {
       isGroupRingingOut: isGroupRingingOut ?? this.isGroupRingingOut,
       displayPeerAsSupportBranding:
           displayPeerAsSupportBranding ?? this.displayPeerAsSupportBranding,
+      remotePeerGender: remotePeerGender ?? this.remotePeerGender,
       isMuted: isMuted ?? this.isMuted,
       isSpeakerOn: isSpeakerOn ?? this.isSpeakerOn,
       durationSeconds: durationSeconds ?? this.durationSeconds,
@@ -202,6 +208,7 @@ class CallNotifier extends Notifier<CallState> {
   Future<void> startCall({
     required String remoteUserId,
     required String remoteUserName,
+    String? remotePeerGender,
   }) async {
     if (state.isInCall) return;
     final isPilgrimCaller =
@@ -214,6 +221,7 @@ class CallNotifier extends Notifier<CallState> {
       remoteUserName: displayName,
       isGroupRingingOut: false,
       displayPeerAsSupportBranding: isPilgrimCaller,
+      remotePeerGender: isPilgrimCaller ? null : remotePeerGender,
     );
 
     try {
@@ -238,6 +246,9 @@ class CallNotifier extends Notifier<CallState> {
         'to': remoteUserId,
         'channelName': channelName,
       });
+      if (!isPilgrimCaller) {
+        unawaited(SosAlertCoordinator.afterModeratorPlacedCall(remoteUserId));
+      }
       // Start polling so we detect decline even when the pilgrim's app is killed
       // and the HTTP decline from the background isolate fails for any reason.
       _startRingPoll(remoteUserId);
@@ -721,9 +732,11 @@ class CallNotifier extends Notifier<CallState> {
     CallKitService.instance.endCurrentCall();
     final snapshot = state;
     _cleanup();
+    final wasLive = snapshot.status == CallStatus.connected ||
+        snapshot.durationSeconds > 0;
     state = snapshot.copyWith(
       status: CallStatus.ended,
-      endReason: 'declined',
+      endReason: wasLive ? 'ended' : 'declined',
       isGroupRingingOut: false,
     );
     _scheduleReset();

@@ -229,6 +229,7 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                           ref.read(callProvider.notifier).startCall(
                                 remoteUserId: pilgrim.id,
                                 remoteUserName: pilgrim.fullName,
+                                remotePeerGender: pilgrim.gender,
                               );
                           Navigator.push(
                             context,

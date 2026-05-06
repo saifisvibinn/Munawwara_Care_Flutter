@@ -559,6 +559,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                           .startCall(
                             remoteUserId: pilgrim.id,
                             remoteUserName: pilgrim.fullName,
+                            remotePeerGender: pilgrim.gender,
                           );
                       Navigator.push(
                         context,

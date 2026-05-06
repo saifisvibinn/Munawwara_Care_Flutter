@@ -15,6 +15,7 @@ import '../../../core/services/location_permission_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/open_maps_navigation.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
@@ -35,7 +36,9 @@ import 'system_reminders_screen.dart';
 import '../widgets/moderator_groups_speed_dial.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
 import '../services/moderator_global_nav_beacon_controller.dart';
+import '../services/moderator_sos_engagement_store.dart';
 import '../services/sos_alert_coordinator.dart';
+import '../providers/moderator_sos_engagement_provider.dart';
 import '../../shared/providers/message_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -67,9 +70,7 @@ class _ModeratorDashboardScreenState
     // returning focus to this screen. Re-join all rooms in case a sub-screen
     // (e.g. GroupManagementScreen) cleared our socket room memberships.
     _joinAllGroupRooms();
-    unawaited(
-      _globalNavBeacon?.sync(emitImmediateFix: true) ?? Future.value(),
-    );
+    unawaited(_globalNavBeacon?.sync(emitImmediateFix: true) ?? Future.value());
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -98,8 +99,14 @@ class _ModeratorDashboardScreenState
     if (!mounted) return;
     ref.read(notificationProvider.notifier).fetch();
 
-    final map = data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
+    final map = data is Map
+        ? Map<String, dynamic>.from(data)
+        : <String, dynamic>{};
     final name = map['pilgrim_name'] as String? ?? 'A pilgrim';
+    final pid = map['pilgrim_id']?.toString();
+    if (pid != null && pid.isNotEmpty) {
+      ref.read(moderatorProvider.notifier).markPilgrimSOS(pid, active: true);
+    }
 
     // In-app dialog (deduped). Do not show a second local notification — FCM
     // already surfaces one tray notification when applicable.
@@ -196,6 +203,12 @@ class _ModeratorDashboardScreenState
               ref
                   .read(moderatorProvider.notifier)
                   .markPilgrimSOS(pilgrimId, active: false);
+              unawaited(
+                ModeratorSosEngagementStore.deactivateForPilgrim(pilgrimId),
+              );
+              unawaited(
+                ref.read(moderatorSosEngagementProvider.notifier).refresh(),
+              );
             }
           }
 
@@ -226,7 +239,9 @@ class _ModeratorDashboardScreenState
         // Listen for new group messages globally
         SocketService.on('new_message', (data) {
           if (!mounted) return;
-          AppLogger.d('[ModeratorDashboard] Socket event: new_message | Data: $data');
+          AppLogger.d(
+            '[ModeratorDashboard] Socket event: new_message | Data: $data',
+          );
           try {
             // socket.io can deliver data as Map<dynamic,dynamic> — cast safely
             final map = Map<String, dynamic>.from(data as Map);
@@ -235,7 +250,9 @@ class _ModeratorDashboardScreenState
             );
             final groupId = map['group_id']?.toString();
             if (groupId == null) {
-              AppLogger.w('[ModeratorDashboard] Error: group_id is null in payload');
+              AppLogger.w(
+                '[ModeratorDashboard] Error: group_id is null in payload',
+              );
               return;
             }
 
@@ -250,14 +267,18 @@ class _ModeratorDashboardScreenState
                 : senderRaw?.toString();
 
             if (senderId == currentUserId) {
-              AppLogger.d('[ModeratorDashboard] Message from self, skipping badge');
+              AppLogger.d(
+                '[ModeratorDashboard] Message from self, skipping badge',
+              );
               return;
             }
 
             // If the user is actively reading this chat, clear count
             if (ref.read(messageProvider).activeGroupId == groupId) {
               ref.read(moderatorProvider.notifier).clearUnreadCount(groupId);
-              AppLogger.d('[ModeratorDashboard] User reading chat, skipping badge');
+              AppLogger.d(
+                '[ModeratorDashboard] User reading chat, skipping badge',
+              );
               return;
             }
 
@@ -302,8 +323,9 @@ class _ModeratorDashboardScreenState
 
     if (_isInitializingDashboard) {
       return Scaffold(
-        backgroundColor:
-            isDark ? AppColors.backgroundDark : const Color(0xfff1f5f3),
+        backgroundColor: isDark
+            ? AppColors.backgroundDark
+            : const Color(0xfff1f5f3),
         body: SafeArea(
           child: Center(
             child: Column(
@@ -830,7 +852,9 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
     final groups = _filteredAndSorted(state.groups);
     final showEmptyState =
         !state.isLoading && state.error == null && groups.isEmpty;
-    final anySOS = state.groups.any((g) => g.sosCount > 0);
+    final engagementAsync = ref.watch(moderatorSosEngagementProvider);
+    final engagements = engagementAsync.value ?? [];
+    final anySOS = _moderatorDashboardShowSosBanner(state.groups, engagements);
 
     return SafeArea(
       child: RefreshIndicator(
@@ -1267,21 +1291,217 @@ class _GroupsEmptyState extends StatelessWidget {
 // SOS Alert Banner
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _SosAlertBanner extends ConsumerWidget {
+bool _moderatorDashboardShowSosBanner(
+  List<ModeratorGroup> groups,
+  List<ModeratorSosEngagementRecord> engagements,
+) {
+  for (final g in groups) {
+    for (final p in g.pilgrims) {
+      if (!p.hasSOS) continue;
+      final rec = _latestSosEngagementFor(engagements, p.id, g.id);
+      if (rec != null && rec.fullyHandled) continue;
+      return true;
+    }
+  }
+  for (final r in engagements) {
+    if (r.active && !r.fullyHandled && r.blockingSuppressed) {
+      return true;
+    }
+  }
+  return false;
+}
+
+ModeratorSosEngagementRecord? _latestSosEngagementFor(
+  List<ModeratorSosEngagementRecord> list,
+  String pilgrimId,
+  String groupId,
+) {
+  ModeratorSosEngagementRecord? best;
+  for (final r in list) {
+    if (!r.active) continue;
+    if (r.pilgrimId != pilgrimId) continue;
+    if (r.groupId != groupId) continue;
+    if (best == null || r.updatedAtMs > best.updatedAtMs) best = r;
+  }
+  return best;
+}
+
+class _SosBannerRow {
+  _SosBannerRow({required this.group, required this.pilgrim, this.record});
+
+  final ModeratorGroup? group;
+  final PilgrimInGroup? pilgrim;
+  final ModeratorSosEngagementRecord? record;
+
+  String get displayName => pilgrim?.fullName ?? record?.pilgrimName ?? '';
+
+  String get groupLabel => group?.groupName ?? record?.groupName ?? '';
+
+  double? get lat => record?.lat ?? pilgrim?.lat;
+
+  double? get lng => record?.lng ?? pilgrim?.lng;
+
+  String? get storageKey => record?.storageKey;
+
+  /// Newest first when multiple SOS are shown.
+  int get sortMs =>
+      record?.updatedAtMs ?? pilgrim?.lastUpdated?.millisecondsSinceEpoch ?? 0;
+}
+
+List<_SosBannerRow> _buildSosBannerRows(
+  List<ModeratorGroup> groups,
+  List<ModeratorSosEngagementRecord> engagements,
+) {
+  final rows = <_SosBannerRow>[];
+  final seen = <String>{};
+
+  for (final g in groups) {
+    for (final p in g.pilgrims) {
+      if (!p.hasSOS) continue;
+      final rec = _latestSosEngagementFor(engagements, p.id, g.id);
+      if (rec != null && rec.fullyHandled) continue;
+      final key = rec?.storageKey ?? 'g_${p.id}_${g.id}';
+      if (seen.contains(key)) continue;
+      seen.add(key);
+      rows.add(_SosBannerRow(group: g, pilgrim: p, record: rec));
+    }
+  }
+
+  for (final r in engagements) {
+    if (!r.active || r.fullyHandled || !r.blockingSuppressed) continue;
+    if (seen.contains(r.storageKey)) continue;
+    seen.add(r.storageKey);
+    ModeratorGroup? g;
+    PilgrimInGroup? p;
+    for (final gg in groups) {
+      if (gg.id != r.groupId) continue;
+      g = gg;
+      try {
+        p = gg.pilgrims.firstWhere((x) => x.id == r.pilgrimId);
+      } catch (_) {}
+      break;
+    }
+    rows.add(_SosBannerRow(group: g, pilgrim: p, record: r));
+  }
+
+  rows.sort((a, b) => b.sortMs.compareTo(a.sortMs));
+  return rows;
+}
+
+class _SosAlertBanner extends ConsumerStatefulWidget {
   final List<ModeratorGroup> groups;
   const _SosAlertBanner({required this.groups});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final sosGroups = groups.where((g) => g.sosCount > 0).toList();
-    if (sosGroups.isEmpty) return const SizedBox.shrink();
+  ConsumerState<_SosAlertBanner> createState() => _SosAlertBannerState();
+}
 
-    final first = sosGroups.first;
-    final targetPilgrim = first.pilgrims.firstWhere(
-      (p) => p.hasSOS,
-      orElse: () => first.pilgrims.first,
+class _SosAlertBannerState extends ConsumerState<_SosAlertBanner> {
+  static const _carouselViewportFraction = 0.88;
+
+  PageController? _pageController;
+  int _currentPage = 0;
+
+  PageController _carouselController() => _pageController ??= PageController(
+    viewportFraction: _carouselViewportFraction,
+  );
+
+  @override
+  void dispose() {
+    _pageController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final engagementAsync = ref.watch(moderatorSosEngagementProvider);
+    final engagements = engagementAsync.value ?? [];
+    final rows = _buildSosBannerRows(widget.groups, engagements);
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    if (rows.length == 1) {
+      return _SosBannerCard(row: rows.first);
+    }
+
+    final pc = _carouselController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !pc.hasClients) return;
+      final maxIdx = rows.length - 1;
+      if (_currentPage > maxIdx) {
+        setState(() => _currentPage = maxIdx);
+        pc.jumpToPage(maxIdx);
+      }
+    });
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 232.h,
+          child: PageView.builder(
+            controller: pc,
+            itemCount: rows.length,
+            padEnds: true,
+            physics: const BouncingScrollPhysics(),
+            onPageChanged: (i) => setState(() => _currentPage = i),
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4.w),
+                child: _SosBannerCard(row: rows[index]),
+              );
+            },
+          ),
+        ),
+        SizedBox(height: 8.h),
+        Text(
+          'dashboard_sos_swipe_hint'.tr(
+            namedArgs: {
+              'current': '${_currentPage + 1}',
+              'total': '${rows.length}',
+            },
+          ),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontSize: 11.sp,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppColors.textMutedLight
+                : AppColors.textMutedDark,
+          ),
+        ),
+        SizedBox(height: 6.h),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(rows.length, (i) {
+            final active = i == _currentPage;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              margin: EdgeInsets.symmetric(horizontal: 3.w),
+              width: active ? 20.w : 7.w,
+              height: 7.w,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4.r),
+                color: active
+                    ? const Color(0xFFDC2626)
+                    : const Color(0xFFDC2626).withValues(alpha: 0.28),
+              ),
+            );
+          }),
+        ),
+      ],
     );
-    final pilgrimName = targetPilgrim.fullName;
+  }
+}
+
+class _SosBannerCard extends ConsumerWidget {
+  final _SosBannerRow row;
+  const _SosBannerCard({required this.row});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasNav = row.lat != null && row.lng != null;
 
     return Container(
       padding: EdgeInsets.all(14.w),
@@ -1297,78 +1517,133 @@ class _SosAlertBanner extends ConsumerWidget {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.all(8.w),
-            decoration: const BoxDecoration(
-              color: Color(0xFFFFE4E6),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Symbols.warning,
-              color: Color(0xFFDC2626),
-              size: 20.w,
-              fill: 1,
-            ),
-          ),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Column(
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'dashboard_sos_active'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13.sp,
-                    color: AppColors.textDark,
+                Container(
+                  padding: EdgeInsets.all(8.w),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFE4E6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Symbols.warning,
+                    color: Color(0xFFDC2626),
+                    size: 20.w,
+                    fill: 1,
                   ),
                 ),
-                SizedBox(height: 2.h),
-                Text(
-                  'Pilgrim $pilgrimName triggered an SOS in ${first.groupName}.',
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 11.sp,
-                    color: const Color(0xFF475569),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'dashboard_sos_active'.tr(),
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.sp,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        'dashboard_sos_banner_subtitle'.tr(
+                          namedArgs: {
+                            'name': row.displayName,
+                            'group': row.groupLabel.isEmpty
+                                ? '—'
+                                : row.groupLabel,
+                          },
+                        ),
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 11.sp,
+                          color: const Color(0xFF475569),
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
-          ),
-          SizedBox(width: 8.w),
-          GestureDetector(
-            onTap: () {
-              final currentUserId = ref.read(authProvider).userId ?? '';
-              showPilgrimProfileSheet(
-                context,
-                targetPilgrim,
-                first.id,
-                currentUserId,
-              );
-            },
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 7.h),
-              decoration: BoxDecoration(
-                color: const Color(0xFFDC2626),
-                borderRadius: BorderRadius.circular(8.r),
-              ),
-              child: Text(
-                'dashboard_view'.tr(),
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12.sp,
-                  color: Colors.white,
+            SizedBox(height: 10.h),
+            Wrap(
+              spacing: 8.w,
+              runSpacing: 8.h,
+              alignment: WrapAlignment.end,
+              children: [
+                if (hasNav)
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final ok = await OpenMapsNavigation.confirmAndLaunch(
+                        context,
+                        row.lat!,
+                        row.lng!,
+                      );
+                      if (!ok || !context.mounted) return;
+                      final sk = row.storageKey;
+                      if (sk != null) {
+                        final next =
+                            await ModeratorSosEngagementStore.markNavigatedSuccess(
+                              sk,
+                            );
+                        await ref
+                            .read(moderatorSosEngagementProvider.notifier)
+                            .refresh();
+                        if (next?.fullyHandled == true && context.mounted) {
+                          StandardSnackBar.showInfo(
+                            context,
+                            'sos_mod_handling_complete_hint'.tr(),
+                          );
+                        }
+                      }
+                    },
+                    icon: Icon(Symbols.navigation, size: 18.w),
+                    label: Text(
+                      'explore_navigate'.tr(),
+                      style: const TextStyle(fontFamily: 'Lexend'),
+                    ),
+                  ),
+                FilledButton(
+                  onPressed: () {
+                    final g = row.group;
+                    final p = row.pilgrim;
+                    if (g == null || p == null) {
+                      StandardSnackBar.showWarning(
+                        context,
+                        'sos_mod_pilgrim_not_loaded'.tr(),
+                      );
+                      return;
+                    }
+                    final uid = ref.read(authProvider).userId ?? '';
+                    showPilgrimProfileSheet(context, p, g.id, uid);
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFDC2626),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(
+                    'dashboard_view'.tr(),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.sp,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1589,193 +1864,196 @@ class _GroupCard extends ConsumerWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                      // View on Map
-                      Expanded(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {
-                            final userId = ref.read(authProvider).userId ?? '';
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => GroupManagementScreen(
-                                  groupId: group.id,
-                                  currentUserId: userId,
+                        // View on Map
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              final userId =
+                                  ref.read(authProvider).userId ?? '';
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => GroupManagementScreen(
+                                    groupId: group.id,
+                                    currentUserId: userId,
+                                  ),
                                 ),
+                              );
+                            },
+                            child: Container(
+                              alignment: Alignment.center,
+                              padding: EdgeInsets.symmetric(
+                                vertical: 11.h,
+                                horizontal: 12.w,
                               ),
-                            );
-                          },
-                          child: Container(
-                            alignment: Alignment.center,
-                            padding: EdgeInsets.symmetric(
-                              vertical: 11.h,
-                              horizontal: 12.w,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? const Color(
-                                      0xFF6B7BAE,
-                                    ).withValues(alpha: 0.1)
-                                  : const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(12.r),
-                              border: Border.all(
+                              decoration: BoxDecoration(
                                 color: isDark
                                     ? const Color(
                                         0xFF6B7BAE,
-                                      ).withValues(alpha: 0.2)
-                                    : const Color(0xFFE2E8F0),
+                                      ).withValues(alpha: 0.1)
+                                    : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(12.r),
+                                border: Border.all(
+                                  color: isDark
+                                      ? const Color(
+                                          0xFF6B7BAE,
+                                        ).withValues(alpha: 0.2)
+                                      : const Color(0xFFE2E8F0),
+                                ),
                               ),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Symbols.map,
-                                  size: 16.w,
-                                  color: const Color(0xFF6B7BAE),
-                                ),
-                                SizedBox(width: 6.w),
-                                Expanded(
-                                  child: Text(
-                                    'dashboard_view_on_map'.tr(),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13.sp,
-                                      height: 1.2,
-                                      color: const Color(0xFF6B7BAE),
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: 6.w),
-                                Transform.scale(
-                                  scaleX:
-                                      Directionality.of(context) ==
-                                          ui.TextDirection.rtl
-                                      ? -1
-                                      : 1,
-                                  child: Icon(
-                                    Symbols.arrow_forward,
-                                    size: 14.w,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Symbols.map,
+                                    size: 16.w,
                                     color: const Color(0xFF6B7BAE),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      SizedBox(width: 12.w),
-
-                      // Chat Button
-                      Expanded(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {
-                            final userId = ref.read(authProvider).userId ?? '';
-                            // Clear unread count when opening
-                            ref
-                                .read(moderatorProvider.notifier)
-                                .clearUnreadCount(group.id);
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => GroupMessagesScreen(
-                                  groupId: group.id,
-                                  groupName: group.groupName,
-                                  currentUserId: userId,
-                                ),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            alignment: Alignment.center,
-                            padding: EdgeInsets.symmetric(
-                              vertical: 11.h,
-                              horizontal: 12.w,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? const Color(
-                                      0xFF6B7BAE,
-                                    ).withValues(alpha: 0.1)
-                                  : const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(12.r),
-                              border: Border.all(
-                                color: isDark
-                                    ? const Color(
-                                        0xFF6B7BAE,
-                                      ).withValues(alpha: 0.2)
-                                    : const Color(0xFFE2E8F0),
-                              ),
-                            ),
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              alignment: Alignment.center,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Symbols.chat_bubble,
-                                      size: 16.w,
-                                      color: const Color(0xFF6B7BAE),
-                                    ),
-                                    SizedBox(width: 6.w),
-                                    Expanded(
-                                      child: Text(
-                                        'chat'.tr(),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontFamily: 'Lexend',
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13.sp,
-                                          color: const Color(0xFF6B7BAE),
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(width: 6.w),
-                                    Transform.scale(
-                                      scaleX:
-                                          Directionality.of(context) ==
-                                              ui.TextDirection.rtl
-                                          ? -1
-                                          : 1,
-                                      child: Icon(
-                                        Symbols.arrow_forward,
-                                        size: 14.w,
+                                  SizedBox(width: 6.w),
+                                  Expanded(
+                                    child: Text(
+                                      'dashboard_view_on_map'.tr(),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13.sp,
+                                        height: 1.2,
                                         color: const Color(0xFF6B7BAE),
                                       ),
                                     ),
-                                  ],
-                                ),
-                                if (group.unreadCount > 0)
-                                  Positioned(
-                                    top: 4.h,
-                                    right: 4.w,
-                                    child: Container(
-                                      width: 10.w,
-                                      height: 10.w,
-                                      decoration: BoxDecoration(
-                                        color: Colors.red,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: isDark
-                                              ? AppColors.surfaceDark
-                                              : Colors.white,
-                                          width: 1.5,
-                                        ),
-                                      ),
+                                  ),
+                                  SizedBox(width: 6.w),
+                                  Transform.scale(
+                                    scaleX:
+                                        Directionality.of(context) ==
+                                            ui.TextDirection.rtl
+                                        ? -1
+                                        : 1,
+                                    child: Icon(
+                                      Symbols.arrow_forward,
+                                      size: 14.w,
+                                      color: const Color(0xFF6B7BAE),
                                     ),
                                   ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+
+                        SizedBox(width: 12.w),
+
+                        // Chat Button
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              final userId =
+                                  ref.read(authProvider).userId ?? '';
+                              // Clear unread count when opening
+                              ref
+                                  .read(moderatorProvider.notifier)
+                                  .clearUnreadCount(group.id);
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => GroupMessagesScreen(
+                                    groupId: group.id,
+                                    groupName: group.groupName,
+                                    currentUserId: userId,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              alignment: Alignment.center,
+                              padding: EdgeInsets.symmetric(
+                                vertical: 11.h,
+                                horizontal: 12.w,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? const Color(
+                                        0xFF6B7BAE,
+                                      ).withValues(alpha: 0.1)
+                                    : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(12.r),
+                                border: Border.all(
+                                  color: isDark
+                                      ? const Color(
+                                          0xFF6B7BAE,
+                                        ).withValues(alpha: 0.2)
+                                      : const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                alignment: Alignment.center,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Symbols.chat_bubble,
+                                        size: 16.w,
+                                        color: const Color(0xFF6B7BAE),
+                                      ),
+                                      SizedBox(width: 6.w),
+                                      Expanded(
+                                        child: Text(
+                                          'chat'.tr(),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontFamily: 'Lexend',
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13.sp,
+                                            color: const Color(0xFF6B7BAE),
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(width: 6.w),
+                                      Transform.scale(
+                                        scaleX:
+                                            Directionality.of(context) ==
+                                                ui.TextDirection.rtl
+                                            ? -1
+                                            : 1,
+                                        child: Icon(
+                                          Symbols.arrow_forward,
+                                          size: 14.w,
+                                          color: const Color(0xFF6B7BAE),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (group.unreadCount > 0)
+                                    Positioned(
+                                      top: 4.h,
+                                      right: 4.w,
+                                      child: Container(
+                                        width: 10.w,
+                                        height: 10.w,
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: isDark
+                                                ? AppColors.surfaceDark
+                                                : Colors.white,
+                                            width: 1.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

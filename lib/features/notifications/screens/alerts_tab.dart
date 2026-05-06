@@ -6,6 +6,9 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/open_maps_navigation.dart';
+import '../../moderator/providers/moderator_sos_engagement_provider.dart';
+import '../../moderator/services/moderator_sos_engagement_store.dart';
 import '../models/notification_model.dart';
 import '../providers/notification_provider.dart';
 import '../../moderator/providers/moderator_provider.dart';
@@ -20,6 +23,24 @@ import '../../pilgrim/providers/pilgrim_provider.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 // Alerts Tab — shown when the user taps "Alerts" in the bottom nav
 // ─────────────────────────────────────────────────────────────────────────────
+
+(double, double)? _sosAlertNotificationLatLng(Map<String, dynamic>? data) {
+  if (data == null) return null;
+  double? lat;
+  double? lng;
+  final loc = data['location'];
+  if (loc is Map) {
+    final m = Map<String, dynamic>.from(loc);
+    lat = (m['lat'] as num?)?.toDouble() ??
+        double.tryParse(m['lat']?.toString() ?? '');
+    lng = (m['lng'] as num?)?.toDouble() ??
+        double.tryParse(m['lng']?.toString() ?? '');
+  }
+  lat ??= double.tryParse(data['lat']?.toString() ?? '');
+  lng ??= double.tryParse(data['lng']?.toString() ?? '');
+  if (lat == null || lng == null) return null;
+  return (lat, lng);
+}
 
 class AlertsTab extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -346,66 +367,137 @@ class _NotificationTile extends ConsumerWidget {
                           ),
                         ),
                         const Spacer(),
-                        // View Profile button inline for SOS alerts
                         if (n.type == 'sos_alert' &&
                             n.data?['pilgrim_id'] != null)
-                          GestureDetector(
-                            onTap: () {
-                              final pId = n.data!['pilgrim_id'] as String;
-                              final gId = n.data!['group_id'] as String?;
-                              final modState = ref.read(moderatorProvider);
-                              PilgrimInGroup? pilgrim;
-                              for (final g in modState.groups) {
-                                try {
-                                  pilgrim = g.pilgrims.firstWhere(
-                                    (p) => p.id == pId,
-                                  );
-                                  break;
-                                } catch (_) {}
-                              }
-                              if (pilgrim != null && gId != null) {
-                                final uid = ref.read(authProvider).userId ?? '';
-                                showPilgrimProfileSheet(
-                                  context,
-                                  pilgrim,
-                                  gId,
-                                  uid,
-                                );
-                              } else {
-                                StandardSnackBar.showWarning(context, 'Pilgrim not found in your groups');
-                              }
-                            },
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 10.w,
-                                vertical: 4.h,
-                              ),
-                              decoration: BoxDecoration(
-                                color: n.iconColor,
-                                borderRadius: BorderRadius.circular(8.r),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Symbols.person,
-                                    size: 12.w,
-                                    color: Colors.white,
-                                    fill: 1,
-                                  ),
-                                  SizedBox(width: 4.w),
-                                  Text(
-                                    'View Profile',
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 10.sp,
-                                      color: Colors.white,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_sosAlertNotificationLatLng(n.data) !=
+                                  null) ...[
+                                GestureDetector(
+                                  onTap: () async {
+                                    final ll =
+                                        _sosAlertNotificationLatLng(n.data)!;
+                                    final ok =
+                                        await OpenMapsNavigation.confirmAndLaunch(
+                                      context,
+                                      ll.$1,
+                                      ll.$2,
+                                    );
+                                    if (!ok || !context.mounted) return;
+                                    final sid =
+                                        n.data!['sos_id']?.toString() ?? '';
+                                    if (sid.isNotEmpty) {
+                                      await ModeratorSosEngagementStore
+                                          .markNavigatedSuccess(sid);
+                                      await ref
+                                          .read(
+                                            moderatorSosEngagementProvider
+                                                .notifier,
+                                          )
+                                          .refresh();
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 10.w,
+                                      vertical: 4.h,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary,
+                                      borderRadius: BorderRadius.circular(8.r),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Symbols.navigation,
+                                          size: 12.w,
+                                          color: Colors.white,
+                                          fill: 1,
+                                        ),
+                                        SizedBox(width: 4.w),
+                                        Text(
+                                          'explore_navigate'.tr(),
+                                          style: TextStyle(
+                                            fontFamily: 'Lexend',
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 10.sp,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ],
+                                ),
+                                SizedBox(width: 6.w),
+                              ],
+                              GestureDetector(
+                                onTap: () {
+                                  final pId =
+                                      n.data!['pilgrim_id'] as String;
+                                  final gId =
+                                      n.data!['group_id'] as String?;
+                                  final modState =
+                                      ref.read(moderatorProvider);
+                                  PilgrimInGroup? pilgrim;
+                                  for (final g in modState.groups) {
+                                    try {
+                                      pilgrim = g.pilgrims.firstWhere(
+                                        (p) => p.id == pId,
+                                      );
+                                      break;
+                                    } catch (_) {}
+                                  }
+                                  if (pilgrim != null && gId != null) {
+                                    final uid =
+                                        ref.read(authProvider).userId ?? '';
+                                    showPilgrimProfileSheet(
+                                      context,
+                                      pilgrim,
+                                      gId,
+                                      uid,
+                                    );
+                                  } else {
+                                    StandardSnackBar.showWarning(
+                                      context,
+                                      'Pilgrim not found in your groups',
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 10.w,
+                                    vertical: 4.h,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: n.iconColor,
+                                    borderRadius: BorderRadius.circular(8.r),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Symbols.person,
+                                        size: 12.w,
+                                        color: Colors.white,
+                                        fill: 1,
+                                      ),
+                                      SizedBox(width: 4.w),
+                                      Text(
+                                        'View Profile',
+                                        style: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 10.sp,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                       ],
                     ),

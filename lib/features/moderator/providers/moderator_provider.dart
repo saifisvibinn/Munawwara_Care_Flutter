@@ -75,6 +75,9 @@ class PilgrimInGroup {
       visaStatus: j['visa']?['status']?.toString(),
       language: j['language']?.toString() ?? 'en',
       ethnicity: j['ethnicity']?.toString() ?? 'Other',
+      hasSOS: j['has_sos'] == true ||
+          j['sos_active'] == true ||
+          j['sos'] == true,
     );
   }
 

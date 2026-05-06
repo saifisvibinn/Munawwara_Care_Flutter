@@ -9,6 +9,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/services/callkit_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../providers/call_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,6 +92,7 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
             ref.read(callProvider.notifier).startCall(
                   remoteUserId: nextMod['id']!,
                   remoteUserName: nextMod['name'] ?? '',
+                  remotePeerGender: nextMod['gender'],
                 );
           });
         } else {
@@ -176,8 +178,13 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
                         const Spacer(flex: 2),
                         if (call.displayPeerAsSupportBranding)
                           _SupportBrandingAvatar(palette: c)
+                        else if (call.isGroupRingingOut)
+                          _AvatarRing(initials: initials, palette: c)
                         else
-                          _AvatarRing(initials: initials, palette: c),
+                          _PilgrimPeerAvatar(
+                            gender: call.remotePeerGender,
+                            palette: c,
+                          ),
                         SizedBox(height: 22.h),
                         Text(
                           name,
@@ -374,6 +381,39 @@ class _BlurOrb extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(shape: BoxShape.circle, color: color),
       ),
+    );
+  }
+}
+
+class _PilgrimPeerAvatar extends StatelessWidget {
+  const _PilgrimPeerAvatar({
+    required this.gender,
+    required this.palette,
+  });
+
+  final String? gender;
+  final _CallPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final inner = 124.w - 8.w;
+    return Container(
+      width: 124.w,
+      height: 124.w,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: palette.avatarRing, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.22),
+            blurRadius: 28,
+            spreadRadius: 0,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.all(4.w),
+      child: PilgrimGenderAvatar(gender: gender, size: inner),
     );
   }
 }
