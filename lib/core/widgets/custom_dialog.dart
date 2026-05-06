@@ -13,6 +13,7 @@ class StandardDialog {
     required String title,
     String? content,
     List<String>? contentArgs,
+    Map<String, String>? contentNamedArgs,
     Widget? contentWidget,
     String? confirmText,
     String? cancelText,
@@ -47,7 +48,11 @@ class StandardDialog {
           ),
         ),
         content: contentWidget ?? (content != null ? Text(
-          content.tr(args: contentArgs),
+          contentNamedArgs != null
+              ? content.tr(namedArgs: contentNamedArgs)
+              : (contentArgs != null
+                  ? content.tr(args: contentArgs)
+                  : content.tr()),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: 'Lexend',

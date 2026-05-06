@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -13,8 +12,12 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/map/app_map_tiles.dart';
 import '../../../core/services/location_permission_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/map_circle_fab.dart';
 import '../../../core/widgets/standard_snackbar.dart';
+import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../providers/moderator_provider.dart';
+import '../widgets/moderator_map_widgets.dart';
+import '../widgets/pilgrim_marker_layout.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Moderator Group Map Screen
@@ -150,7 +153,7 @@ class _ModeratorGroupMapScreenState
   }
 
   void _centerOnMe() {
-    final target = _myLocation ?? const LatLng(21.3891, 39.8579);
+    final target = _myLocation ?? AppMapTiles.fallbackMapCenter;
     _mapController.move(target, AppMapTiles.clampMapZoom(15));
   }
 
@@ -262,7 +265,7 @@ class _ModeratorGroupMapScreenState
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _myLocation ?? const LatLng(21.3891, 39.8579),
+              initialCenter: _myLocation ?? AppMapTiles.fallbackMapCenter,
               initialZoom: AppMapTiles.clampMapZoom(14),
               minZoom: AppMapTiles.mapMinZoom,
               maxZoom: AppMapTiles.mapMaxZoom,
@@ -299,15 +302,29 @@ class _ModeratorGroupMapScreenState
                 ),
               // Pilgrim markers
               MarkerLayer(
-                markers: [
-                  for (final p in locatedPilgrims)
-                    Marker(
-                      point: LatLng(p.lat!, p.lng!),
-                      width: 64.w,
-                      height: 72.h,
-                      child: _PilgrimMapMarker(pilgrim: p),
+                markers: PilgrimMarkerLayout.pointsForMarkers(locatedPilgrims)
+                    .map((item) {
+                  final selected =
+                      widget.focusPilgrimId == item.pilgrim.id;
+                  final sz = PilgrimMapMarker.mapMarkerSize(
+                    context,
+                    isSelected: selected,
+                  );
+                  return Marker(
+                    point: item.point,
+                    width: sz.width,
+                    height: sz.height,
+                    alignment: Alignment.topCenter,
+                    child: Padding(
+                      padding: PilgrimMapMarker.mapMarkerPadding(),
+                      child: PilgrimMapMarker(
+                        pilgrim: item.pilgrim,
+                        isSelected: selected,
+                        isSOS: item.pilgrim.hasSOS,
+                      ),
                     ),
-                ],
+                  );
+                }).toList(),
               ),
             ],
           ),
@@ -479,9 +496,9 @@ class _ModeratorGroupMapScreenState
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _MapFab(icon: Symbols.my_location, onTap: _centerOnMe),
+                MapCircleFab(icon: Symbols.my_location, onTap: _centerOnMe),
                 SizedBox(height: 10.h),
-                _MapFab(icon: Symbols.group, onTap: _centerOnGroup),
+                MapCircleFab(icon: Symbols.group, onTap: _centerOnGroup),
               ],
             ),
           ),
@@ -636,116 +653,6 @@ class _ModeratorGroupMapScreenState
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Pilgrim Map Marker
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _PilgrimMapMarker extends StatelessWidget {
-  final PilgrimInGroup pilgrim;
-  const _PilgrimMapMarker({required this.pilgrim});
-
-  @override
-  Widget build(BuildContext context) {
-    final isSOS = pilgrim.hasSOS;
-    final color = isSOS ? const Color(0xFFDC2626) : AppColors.primaryDark;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 36.w,
-          height: 36.w,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2.5),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.45),
-                blurRadius: 8,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: isSOS
-              ? Icon(Symbols.warning, color: Colors.white, size: 18.w, fill: 1)
-              : Center(
-                  child: Text(
-                    pilgrim.initials,
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-        ),
-        CustomPaint(
-          size: Size(10.w, 6.h),
-          painter: _MarkerTailPainter(color: color),
-        ),
-      ],
-    );
-  }
-}
-
-class _MarkerTailPainter extends CustomPainter {
-  final Color color;
-  const _MarkerTailPainter({required this.color});
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final path = ui.Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..lineTo(size.width, 0)
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_MarkerTailPainter old) => old.color != color;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Map FAB
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _MapFab extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  const _MapFab({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 44.w,
-        height: 44.w,
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : Colors.white,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Icon(
-          icon,
-          size: 20.w,
-          color: isDark ? Colors.white : AppColors.textDark,
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Pilgrim List Tile
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -786,30 +693,29 @@ class _PilgrimListTile extends StatelessWidget {
             Container(
               width: 40.w,
               height: 40.w,
+              padding: pilgrim.hasSOS
+                  ? EdgeInsets.zero
+                  : EdgeInsets.all(1.5.w),
               decoration: BoxDecoration(
                 color: pilgrim.hasSOS
                     ? const Color(0xFFDC2626)
-                    : AppColors.primary.withValues(alpha: 0.15),
+                    : AppColors.primary.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: Center(
-                child: pilgrim.hasSOS
-                    ? Icon(
+              clipBehavior: Clip.antiAlias,
+              child: pilgrim.hasSOS
+                  ? Center(
+                      child: Icon(
                         Symbols.warning,
                         color: Colors.white,
                         size: 18.w,
                         fill: 1,
-                      )
-                    : Text(
-                        pilgrim.initials,
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13.sp,
-                          color: AppColors.primaryDark,
-                        ),
                       ),
-              ),
+                    )
+                  : PilgrimGenderAvatar(
+                      gender: pilgrim.gender,
+                      size: 37.w,
+                    ),
             ),
             SizedBox(width: 10.w),
             // Name + last seen

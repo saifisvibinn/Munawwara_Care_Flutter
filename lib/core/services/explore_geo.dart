@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-/// Bounding boxes around a map point for Explore (Overpass, Mapbox, Nominatim).
+/// Bounding boxes around a map point for Explore (Overpass, Nominatim).
 class ExploreGeo {
   ExploreGeo._();
 
@@ -25,16 +25,6 @@ class ExploreGeo {
     final west = (lon - dLon).clamp(-180.0, 180.0);
     final east = (lon + dLon).clamp(-180.0, 180.0);
     return [south, west, north, east];
-  }
-
-  /// Mapbox Geocoding `bbox`: minLon, minLat, maxLon, maxLat.
-  static String mapboxBbox(double lat, double lon, double radiusKm) {
-    final b = bboxSwne(lat, lon, radiusKm);
-    final south = b[0];
-    final west = b[1];
-    final north = b[2];
-    final east = b[3];
-    return '$west,$south,$east,$north';
   }
 
   /// Nominatim `viewbox`: west, north, east, south.

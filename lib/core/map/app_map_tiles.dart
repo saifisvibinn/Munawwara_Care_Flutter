@@ -1,13 +1,12 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Mapbox raster tiles for [flutter_map] (set `MAPBOX_ACCESS_TOKEN` in `.env`).
-/// Falls back to OpenStreetMap if the token is missing.
+/// OpenStreetMap raster tiles for [flutter_map]. Turn-by-turn stays in Google
+/// Maps.
 ///
-/// Uses Mapbox Light/Dark v11 for a minimal in-app look; turn-by-turn stays in Google Maps.
-/// https://docs.mapbox.com/api/maps/raster-tiles/
+/// https://wiki.openstreetmap.org/wiki/Tile_usage_policy
 class AppMapTiles {
   AppMapTiles._();
 
@@ -18,36 +17,24 @@ class AppMapTiles {
   /// Use with [MapController.move] so zoom stays within [mapMinZoom]–[mapMaxZoom].
   static double clampMapZoom(double zoom) => zoom.clamp(mapMinZoom, mapMaxZoom);
 
+  /// Kaaba / central Mecca — default when GPS is unavailable.
+  static const LatLng fallbackMapCenter = LatLng(21.3891, 39.8579);
+
   static const userAgentPackageName = 'com.munawwaracare.app';
 
   static const _osmUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
-  static String? get _accessToken {
-    final t = dotenv.env['MAPBOX_ACCESS_TOKEN']?.trim();
-    if (t == null || t.isEmpty) return null;
-    return t;
-  }
-
-  static bool get usingMapbox => _accessToken != null;
-
-  static String urlTemplate(bool isDark) {
-    final token = _accessToken;
-    if (token == null) return _osmUrl;
-    final style = isDark ? 'dark-v11' : 'light-v11';
-    return 'https://api.mapbox.com/styles/v1/mapbox/$style/tiles/256/{z}/{x}/{y}'
-        '?access_token=$token';
-  }
-
+  /// [isDark] is kept for API stability; OSM’s public tile server serves one
+  /// cartographic style for both themes.
   static TileLayer tileLayer({required bool isDark}) {
     return TileLayer(
-      urlTemplate: urlTemplate(isDark),
+      urlTemplate: _osmUrl,
       userAgentPackageName: userAgentPackageName,
     );
   }
 
-  /// Tiles plus attribution (Mapbox + OSM when using Mapbox).
+  /// Tiles plus OpenStreetMap attribution.
   static List<Widget> baseLayers({required bool isDark}) {
-    final mapbox = usingMapbox;
     return [
       tileLayer(isDark: isDark),
       RichAttributionWidget(
@@ -55,20 +42,12 @@ class AppMapTiles {
         animationConfig: const ScaleRAWA(),
         showFlutterMapAttribution: false,
         attributions: [
-          if (mapbox)
-            TextSourceAttribution(
-              '© Mapbox',
-              onTap: () async {
-                final uri = Uri.parse('https://www.mapbox.com/about/maps/');
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-              },
-            ),
           TextSourceAttribution(
             '© OpenStreetMap',
             onTap: () async {
-              final uri = Uri.parse('https://www.openstreetmap.org/copyright');
+              final uri = Uri.parse(
+                'https://www.openstreetmap.org/copyright',
+              );
               if (await canLaunchUrl(uri)) {
                 await launchUrl(uri, mode: LaunchMode.externalApplication);
               }

@@ -266,8 +266,54 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
           Navigator.pop(context);
           _showProfileSheet(pilgrim, isDark);
         },
+        onDeleteCompletely: () {
+          Navigator.pop(context);
+          _confirmDeletePilgrim(pilgrim);
+        },
       ),
     );
+  }
+
+  Future<void> _confirmDeletePilgrim(_PilgrimItem pilgrim) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bodyColor =
+        isDark ? Colors.white70 : AppColors.textMutedLight;
+
+    final confirmed = await StandardDialog.show<bool>(
+      context: context,
+      title: 'group_delete_pilgrim_title',
+      confirmText: 'group_delete',
+      cancelText: 'area_cancel',
+      isDestructive: true,
+      contentWidget: Text(
+        'group_delete_pilgrim_body'.tr(args: [pilgrim.fullName]),
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontFamily: 'Lexend',
+          fontSize: 14.sp,
+          color: bodyColor,
+          height: 1.5,
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final (ok, err) = await ref
+        .read(moderatorProvider.notifier)
+        .deleteManagedPilgrim(pilgrim.id);
+    if (!mounted) return;
+    if (ok) {
+      StandardSnackBar.showSuccess(
+        context,
+        'provisioning_pilgrim_removed'.tr(),
+      );
+      await _load();
+    } else {
+      StandardSnackBar.showError(
+        context,
+        err ?? 'edit_profile_error_generic'.tr(),
+      );
+    }
   }
 
   void _showAssignGroupDialog(_PilgrimItem pilgrim) {
@@ -276,9 +322,9 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
     if (available.isEmpty) {
       StandardDialog.show(
         context: context,
-        title: 'assign_to_group_title'.tr(),
-        content: 'assign_to_group_no_available'.tr(),
-        confirmText: 'confirm'.tr(),
+        title: 'assign_to_group_title',
+        content: 'assign_to_group_no_available',
+        confirmText: 'confirm',
       );
       return;
     }
@@ -287,7 +333,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
     
     StandardDialog.show(
       context: context,
-      title: 'assign_to_group_title'.tr(),
+      title: 'assign_to_group_title',
       showActions: false, // Custom actions for better control
       contentWidget: SizedBox(
         width: double.maxFinite,
@@ -389,7 +435,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
       context: context,
       barrierDismissible: false,
       showActions: false,
-      title: 'manage_edit_logistics_title'.tr(),
+      title: 'manage_edit_logistics_title',
       contentWidget: _EditLogisticsContent(
         pilgrim: pilgrim,
         onSaved: _load,
@@ -877,6 +923,7 @@ class _ActionsSheet extends StatelessWidget {
   final VoidCallback onRemove;
   final VoidCallback onEdit;
   final VoidCallback onViewProfile;
+  final VoidCallback onDeleteCompletely;
 
   const _ActionsSheet({
     required this.pilgrim,
@@ -886,6 +933,7 @@ class _ActionsSheet extends StatelessWidget {
     required this.onRemove,
     required this.onEdit,
     required this.onViewProfile,
+    required this.onDeleteCompletely,
   });
 
   @override
@@ -978,6 +1026,14 @@ class _ActionsSheet extends StatelessWidget {
               color: Colors.red.shade600,
               onTap: onRemove,
             ),
+          const Divider(),
+          _ActionTile(
+            icon: Symbols.delete_forever,
+            label: 'manage_delete_pilgrim_account'.tr(),
+            isDark: isDark,
+            color: Colors.red.shade700,
+            onTap: onDeleteCompletely,
+          ),
           SizedBox(height: 20.h),
         ],
       ),

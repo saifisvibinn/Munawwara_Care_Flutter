@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -7,9 +10,11 @@ import 'dart:ui' as ui;
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/services/api_service.dart';
+import '../../../core/services/location_permission_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/location_always_onboarding_sheet.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
@@ -46,7 +51,7 @@ class ModeratorDashboardScreen extends ConsumerStatefulWidget {
 
 class _ModeratorDashboardScreenState
     extends ConsumerState<ModeratorDashboardScreen>
-    with RouteAware {
+    with RouteAware, WidgetsBindingObserver {
   int _currentTab =
       0; // 0=Groups, 1=Provisioning, 2=Reminders, 3=Profile, 4=Alerts
   final _searchController = TextEditingController();
@@ -98,9 +103,20 @@ class _ModeratorDashboardScreenState
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted && !kIsWeb) {
+      unawaited(showLocationAlwaysOnboardingIfNeeded(context));
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!kIsWeb) {
+        unawaited(requestLocationForBackgroundTracking());
+      }
       // Subscribe for RouteAware callbacks
       final route = ModalRoute.of(context);
       if (route != null) {
@@ -230,11 +246,15 @@ class _ModeratorDashboardScreenState
           }
         });
       }
+      if (!kIsWeb && mounted) {
+        unawaited(showLocationAlwaysOnboardingIfNeeded(context));
+      }
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     _alertTts.stop();
     AppRouter.moderatorRouteObserver.unsubscribe(this);

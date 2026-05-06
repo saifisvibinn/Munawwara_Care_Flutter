@@ -118,6 +118,8 @@ flutter:
     - assets/static/splash-screen.png
     - assets/static/empty_groups_light.png
     - assets/static/empty_groups_dark.png
+    - assets/static/pilgrim_male.png
+    - assets/static/pilgrim_female.png
     - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see

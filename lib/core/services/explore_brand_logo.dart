@@ -1,5 +1,5 @@
-/// Resolves a **chain favicon** from OSM/Mapbox `brand` / `operator` and from
-/// substrings in the **venue name** (Mapbox often omits `brand` for POIs).
+/// Resolves a **chain favicon** from OSM `brand` / `operator` and from
+/// substrings in the **venue name** when tags are missing.
 ///
 /// Uses Google’s favicon service (reliable in `Image.network` on mobile).
 /// Extend [_brandToDomain] for more chains.

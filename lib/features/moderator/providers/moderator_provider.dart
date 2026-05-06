@@ -467,6 +467,19 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
     }
   }
 
+  /// Permanently deletes a pilgrim from Manage Pilgrims (assigned or unassigned).
+  Future<(bool, String?)> deleteManagedPilgrim(String pilgrimId) async {
+    try {
+      await ApiService.dio.delete('/auth/pilgrims/$pilgrimId');
+      await loadDashboard();
+      return (true, null);
+    } on DioException catch (e) {
+      return (false, ApiService.parseError(e));
+    } catch (e) {
+      return (false, e.toString());
+    }
+  }
+
   // Update a pilgrim's details (hotel, room, etc.)
   Future<(bool, String?)> updatePilgrimDetails(
     String pilgrimId,

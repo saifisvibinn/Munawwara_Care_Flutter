@@ -37,8 +37,10 @@ import 'group_messages_screen.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
 import '../widgets/area_picker_screen.dart';
 import '../widgets/moderator_map_widgets.dart';
+import '../widgets/pilgrim_marker_layout.dart';
 import '../widgets/active_meetpoint_card.dart';
 import '../../shared/models/suggested_area_model.dart';
+import '../../shared/widgets/pilgrim_gender_avatar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Beacon state: static map survives hot-reload (widget recreation).
@@ -119,11 +121,14 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     // Real-time pilgrim updates
     SocketService.on('location_update', (data) {
       if (!mounted) return;
-      final map = data as Map<String, dynamic>;
-      final pilgrimId = map['pilgrimId'] as String?;
-      final lat = map['latitude'] as double?;
-      final lng = map['longitude'] as double?;
-      final battery = map['battery_percent'] as int?;
+      final map = Map<String, dynamic>.from(data as Map);
+      final pilgrimId = map['pilgrimId']?.toString();
+      final lat = (map['latitude'] as num?)?.toDouble();
+      final lng = (map['longitude'] as num?)?.toDouble();
+      final batteryRaw = map['battery_percent'];
+      final battery = batteryRaw is int
+          ? batteryRaw
+          : (batteryRaw as num?)?.toInt();
       if (pilgrimId != null && lat != null && lng != null) {
         ref
             .read(moderatorProvider.notifier)
@@ -409,12 +414,11 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
   ) async {
     final confirmed = await StandardDialog.show<bool>(
       context: context,
-      title: 'group_remove_title'.tr(),
-      content: 'group_remove_confirm_body'.tr(
-        namedArgs: {'name': pilgrim.fullName},
-      ),
-      confirmText: 'group_remove_confirm'.tr(),
-      cancelText: 'group_remove_cancel'.tr(),
+      title: 'group_remove_title',
+      content: 'group_remove_confirm_body',
+      contentNamedArgs: {'name': pilgrim.fullName},
+      confirmText: 'group_remove_confirm',
+      cancelText: 'group_remove_cancel',
       isDestructive: true,
     );
     if (confirmed == true && mounted) {
@@ -1515,7 +1519,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _myLocation ?? const LatLng(21.3891, 39.8579),
+              initialCenter: _myLocation ?? AppMapTiles.fallbackMapCenter,
               initialZoom: AppMapTiles.clampMapZoom(14),
               minZoom: AppMapTiles.mapMinZoom,
               maxZoom: AppMapTiles.mapMaxZoom,
@@ -1550,22 +1554,31 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                   ],
                 ),
               MarkerLayer(
-                markers: [
-                  for (var p in locatedPilgrims)
-                    Marker(
-                      point: LatLng(p.lat!, p.lng!),
-                      width: 64.w,
-                      height: 72.h,
-                      child: GestureDetector(
-                        onTap: () => _focusPilgrim(p),
+                markers: PilgrimMarkerLayout.pointsForMarkers(locatedPilgrims)
+                    .map((item) {
+                  final selected = _focusedPilgrimId == item.pilgrim.id;
+                  final sz = PilgrimMapMarker.mapMarkerSize(
+                    context,
+                    isSelected: selected,
+                  );
+                  return Marker(
+                    point: item.point,
+                    width: sz.width,
+                    height: sz.height,
+                    alignment: Alignment.topCenter,
+                    child: GestureDetector(
+                      onTap: () => _focusPilgrim(item.pilgrim),
+                      child: Padding(
+                        padding: PilgrimMapMarker.mapMarkerPadding(),
                         child: PilgrimMapMarker(
-                          pilgrim: p,
-                          isSelected: _focusedPilgrimId == p.id,
-                          isSOS: p.hasSOS,
+                          pilgrim: item.pilgrim,
+                          isSelected: selected,
+                          isSOS: item.pilgrim.hasSOS,
                         ),
                       ),
                     ),
-                ],
+                  );
+                }).toList(),
               ),
               // Suggested area & meetpoint markers
               MarkerLayer(
@@ -1575,6 +1588,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                       point: LatLng(area.latitude, area.longitude),
                       width: 100.w,
                       height: 82.h,
+                      alignment: Alignment.topCenter,
                       child: GestureDetector(
                         onTap: () => _showAreaList(group, areaState),
                         child: AreaMapMarker(area: area),
@@ -3107,30 +3121,29 @@ class _PilgrimManageTile extends StatelessWidget {
                   Container(
                     width: 40.w,
                     height: 40.w,
+                    padding: pilgrim.hasSOS
+                        ? EdgeInsets.zero
+                        : EdgeInsets.all(1.5.w),
                     decoration: BoxDecoration(
                       color: pilgrim.hasSOS
                           ? const Color(0xFFDC2626)
-                          : AppColors.primary.withValues(alpha: 0.15),
+                          : AppColors.primary.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: Center(
-                      child: pilgrim.hasSOS
-                          ? Icon(
+                    clipBehavior: Clip.antiAlias,
+                    child: pilgrim.hasSOS
+                        ? Center(
+                            child: Icon(
                               Symbols.warning,
                               color: Colors.white,
                               size: 18.w,
                               fill: 1,
-                            )
-                          : Text(
-                              pilgrim.initials,
-                              style: TextStyle(
-                                fontFamily: 'Lexend',
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13.sp,
-                                color: AppColors.primaryDark,
-                              ),
                             ),
-                    ),
+                          )
+                        : PilgrimGenderAvatar(
+                            gender: pilgrim.gender,
+                            size: 37.w,
+                          ),
                   ),
                   Positioned(
                     bottom: 0,

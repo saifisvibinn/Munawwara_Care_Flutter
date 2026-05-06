@@ -1,23 +1,18 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../features/pilgrim/models/explore_place.dart';
 import '../utils/app_logger.dart';
 import 'explore_brand_logo.dart';
 import 'explore_geo.dart';
-import 'mapbox_explore_service.dart';
 
-/// Explore POIs near a map center: **Mapbox** when `MAPBOX_ACCESS_TOKEN` is set,
-/// else **OSM** (Overpass + Nominatim). [centerLat]/[centerLng] should be the
-/// pilgrim’s position (or a chosen fallback such as the Kaaba).
+/// Explore POIs near a map center via **OSM** (Overpass + Nominatim).
+/// [centerLat]/[centerLng] should be the pilgrim’s position (or a chosen
+/// fallback such as the Kaaba).
 class ExplorePlacesService {
   ExplorePlacesService._();
-
-  static bool get usesMapbox =>
-      (dotenv.env['MAPBOX_ACCESS_TOKEN']?.trim().isNotEmpty ?? false);
 
   static const _userAgent = 'MunawwaraCare/1.0 (pilgrim explore; Flutter)';
 
@@ -104,7 +99,7 @@ class ExplorePlacesService {
     final brandName = (brand != null && brand.isNotEmpty) ? brand : operator;
     final bn = (brandName != null && brandName.isNotEmpty) ? brandName : null;
     final String? cardUrl = cat == 'landmarks'
-        ? MapboxExploreService.satelliteThumbnailUrl(lon, lat)
+        ? null
         : ExploreBrandLogo.chainLogoUrl(brand: bn, venueName: name.trim());
     return ExplorePlace(
       sourceRef: '$type/$id',
@@ -147,24 +142,11 @@ class ExplorePlacesService {
     return first.isEmpty ? raw.trim() : first;
   }
 
-  /// POIs near [centerLat],[centerLng] (Mapbox when configured, else Overpass).
+  /// POIs near [centerLat],[centerLng] (Overpass).
   static Future<List<ExplorePlace>> fetchNearbyPlaces({
     required double centerLat,
     required double centerLng,
   }) async {
-    if (usesMapbox && MapboxExploreService.isConfigured) {
-      try {
-        final list = await MapboxExploreService.fetchNearbyPlaces(
-          centerLat: centerLat,
-          centerLng: centerLng,
-        );
-        final filtered = _withinMaxDistance(list, centerLat, centerLng);
-        if (filtered.isNotEmpty) return filtered;
-      } catch (e, st) {
-        AppLogger.w('ExplorePlacesService: Mapbox fetch failed, using OSM: $e');
-        AppLogger.d('$st');
-      }
-    }
     final osm = await _fetchNearbyOsm(centerLat, centerLng);
     return _withinMaxDistance(osm, centerLat, centerLng);
   }
@@ -200,7 +182,10 @@ out center 90;
       final resp = await _dio.post<String>(
         'https://overpass-api.de/api/interpreter',
         data: query,
-        options: Options(contentType: 'text/plain', responseType: ResponseType.plain),
+        options: Options(
+          contentType: 'text/plain',
+          responseType: ResponseType.plain,
+        ),
       );
       final body = resp.data;
       if (body == null || body.isEmpty) return [];
@@ -224,7 +209,7 @@ out center 90;
     }
   }
 
-  /// Search near [centerLat],[centerLng] (Mapbox when configured, else Nominatim).
+  /// Search near [centerLat],[centerLng] (Nominatim).
   static Future<List<ExplorePlace>> searchNearby(
     String q, {
     required double centerLat,
@@ -233,19 +218,6 @@ out center 90;
     final query = q.trim();
     if (query.length < 2) return [];
 
-    if (usesMapbox && MapboxExploreService.isConfigured) {
-      try {
-        final list = await MapboxExploreService.searchNearby(
-          query,
-          centerLat: centerLat,
-          centerLng: centerLng,
-        );
-        return _withinMaxDistance(list, centerLat, centerLng);
-      } catch (e, st) {
-        AppLogger.w('ExplorePlacesService: Mapbox search failed, using OSM: $e');
-        AppLogger.d('$st');
-      }
-    }
     final osm = await _searchNearbyOsm(query, centerLat, centerLng);
     return _withinMaxDistance(osm, centerLat, centerLng);
   }
@@ -292,9 +264,6 @@ out center 90;
         final osmId = m['osm_id'];
         final ref = '$osmType/$osmId';
         if (!seen.add(ref)) continue;
-        final String? cardUrl = cat == 'landmarks'
-            ? MapboxExploreService.satelliteThumbnailUrl(lon, lat)
-            : null;
         out.add(ExplorePlace(
           sourceRef: ref,
           name: name,
@@ -302,7 +271,7 @@ out center 90;
           latitude: lat,
           longitude: lon,
           brandName: null,
-          cardImageUrl: cardUrl,
+          cardImageUrl: null,
         ));
       }
       return out;

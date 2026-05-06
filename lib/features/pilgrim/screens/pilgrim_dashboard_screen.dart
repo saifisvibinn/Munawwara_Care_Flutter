@@ -23,6 +23,8 @@ import '../../../core/services/socket_service.dart';
 import '../../../core/map/app_map_tiles.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/widgets/location_always_onboarding_sheet.dart';
+import '../../../core/widgets/map_circle_fab.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
@@ -34,6 +36,7 @@ import '../../notifications/providers/notification_provider.dart';
 import '../../notifications/screens/alerts_tab.dart';
 import '../../shared/providers/message_provider.dart';
 import '../../shared/providers/suggested_area_provider.dart';
+import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../../shared/models/suggested_area_model.dart';
 import '../providers/pilgrim_provider.dart';
 import 'group_details_screen.dart';
@@ -100,6 +103,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   final Battery _battery = Battery();
   final MapController _mapController = MapController();
   LatLng? _myLatLng;
+  /// True after opening the map tab before the first GPS fix (recenter then).
+  bool _pilgrimMapAwaitingFirstFix = false;
   _WeatherAlert _weatherAlert = const _WeatherAlert.loading();
   DateTime? _lastWeatherFetchAt;
 
@@ -128,6 +133,12 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     if (state == AppLifecycleState.resumed) {
       _loadWeatherAlert(force: true);
       ref.read(missedCallsUnreadProvider.notifier).refresh();
+      if (_locationSub == null) {
+        unawaited(_initLocation());
+      }
+      if (mounted) {
+        unawaited(showLocationAlwaysOnboardingIfNeeded(context));
+      }
     }
   }
 
@@ -147,6 +158,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
+
+    // GPS + permission: start immediately (do not wait for map tab or dashboard).
+    unawaited(_initLocation());
 
     // Load data after first frame so the provider is ready
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -415,7 +429,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       ref.read(missedCallsUnreadProvider.notifier).refresh();
       // Fire weather load immediately (don't await — let it run in parallel)
       _loadWeatherAlert(force: true);
-      _initLocation();
       final profileOk = await ref.read(authProvider.notifier).fetchProfile();
       if (!mounted) return;
       if (!profileOk) {
@@ -431,6 +444,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         if (!mounted) return;
         _loadWeatherAlert(force: true);
       });
+      if (mounted) {
+        unawaited(showLocationAlwaysOnboardingIfNeeded(context));
+      }
     });
   }
 
@@ -597,14 +613,35 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       battery = lvl;
       ref.read(pilgrimProvider.notifier).setBattery(lvl);
     } catch (_) {}
+    if (!mounted) return;
     ref.read(pilgrimProvider.notifier).updateLocation(
           latitude: pos.latitude,
           longitude: pos.longitude,
           batteryPercent: battery,
         );
+    if (_pilgrimMapAwaitingFirstFix && _currentTab == 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _currentTab != 1) return;
+        final target = _myLatLng ?? AppMapTiles.fallbackMapCenter;
+        _mapController.move(target, AppMapTiles.clampMapZoom(15));
+        setState(() => _pilgrimMapAwaitingFirstFix = false);
+      });
+    }
+  }
+
+  void _recenterPilgrimMapOnMe() {
+    if (!mounted) return;
+    final target = _myLatLng ?? AppMapTiles.fallbackMapCenter;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mapController.move(target, AppMapTiles.clampMapZoom(15));
+    });
   }
 
   Future<void> _initLocation() async {
+    await _locationSub?.cancel();
+    _locationSub = null;
+
     final ok = await requestLocationForBackgroundTracking();
     if (!ok) return;
     if (!mounted) return;
@@ -673,8 +710,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         _myLatLng = LatLng(lat, lng);
       } catch (_) {
         // GPS unavailable — fall back to Mecca
-        lat = 21.3891;
-        lng = 39.8579;
+        lat = AppMapTiles.fallbackMapCenter.latitude;
+        lng = AppMapTiles.fallbackMapCenter.longitude;
       }
     }
 
@@ -1150,6 +1187,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         myLocation: _myLatLng,
         mapController: _mapController,
         pilgrimState: pilgrimState,
+        profileGender: pilgrimState.profile?.gender,
         areas: ref.watch(suggestedAreaProvider).areas,
       ),
       const QiblaCompassScreen(),
@@ -1182,7 +1220,16 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         bottomNavigationBar: _BottomNav(
           currentIndex: _currentTab,
           onTap: (i) {
-            setState(() => _currentTab = i);
+            final leavingMap = _currentTab == 1 && i != 1;
+            setState(() {
+              if (leavingMap) {
+                _pilgrimMapAwaitingFirstFix = false;
+              }
+              _currentTab = i;
+              if (i == 1 && _myLatLng == null) {
+                _pilgrimMapAwaitingFirstFix = true;
+              }
+            });
             final chatGid = ref.read(pilgrimProvider).groupInfo?.groupId;
             if (i == 3 && chatGid != null) {
               ref.read(messageProvider.notifier).setActiveGroup(chatGid);
@@ -1196,6 +1243,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             // Reload + mark read + scroll when opening Chat tab
             if (i == 3) {
               _chatScrollNotifier.value++;
+            }
+            if (i == 1) {
+              _recenterPilgrimMapOnMe();
             }
           },
           unreadMessages: ref.watch(messageProvider).unreadCount,
@@ -2851,12 +2901,14 @@ class _PilgrimMapTab extends StatelessWidget {
   final LatLng? myLocation;
   final MapController mapController;
   final PilgrimState pilgrimState;
+  final String? profileGender;
   final List<SuggestedArea> areas;
 
   const _PilgrimMapTab({
     required this.myLocation,
     required this.mapController,
     required this.pilgrimState,
+    required this.profileGender,
     required this.areas,
   });
 
@@ -2864,6 +2916,13 @@ class _PilgrimMapTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final group = pilgrimState.groupInfo;
+    final fabBottom = 14.h;
+    final fabStride = 44.w + 10.h;
+
+    void centerOnMe() {
+      final target = myLocation ?? AppMapTiles.fallbackMapCenter;
+      mapController.move(target, AppMapTiles.clampMapZoom(15));
+    }
 
     return Stack(
       children: [
@@ -2871,7 +2930,7 @@ class _PilgrimMapTab extends StatelessWidget {
         FlutterMap(
           mapController: mapController,
           options: MapOptions(
-            initialCenter: myLocation ?? const LatLng(21.3891, 39.8579),
+            initialCenter: myLocation ?? AppMapTiles.fallbackMapCenter,
             initialZoom: AppMapTiles.clampMapZoom(15),
             minZoom: AppMapTiles.mapMinZoom,
             maxZoom: AppMapTiles.mapMaxZoom,
@@ -2923,10 +2982,9 @@ class _PilgrimMapTab extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: Icon(
-                            Symbols.person,
-                            color: Colors.white,
-                            size: 22.w,
+                          child: PilgrimGenderAvatar(
+                            gender: profileGender,
+                            size: 38.w,
                           ),
                         ),
                         Container(
@@ -3005,39 +3063,12 @@ class _PilgrimMapTab extends StatelessWidget {
             ),
           ),
 
-        // Center FAB (my location)
         Positioned(
           right: 14.w,
-          bottom: 14.h,
-          child: GestureDetector(
-            onTap: () {
-              if (myLocation != null) {
-                mapController.move(
-                  myLocation!,
-                  AppMapTiles.clampMapZoom(15),
-                );
-              }
-            },
-            child: Container(
-              width: 48.w,
-              height: 48.w,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                Symbols.my_location,
-                color: isDark ? Colors.white : AppColors.textDark,
-                size: 22.w,
-              ),
-            ),
+          bottom: fabBottom,
+          child: MapCircleFab(
+            icon: Symbols.my_location,
+            onTap: centerOnMe,
           ),
         ),
 
@@ -3045,7 +3076,7 @@ class _PilgrimMapTab extends StatelessWidget {
         if (areas.any((a) => a.isMeetpoint))
           Positioned(
             right: 14.w,
-            bottom: 74.h,
+            bottom: fabBottom + fabStride,
             child: GestureDetector(
               onTap: () {
                 final mp = areas.firstWhere((a) => a.isMeetpoint);
@@ -3082,7 +3113,9 @@ class _PilgrimMapTab extends StatelessWidget {
         if (areas.any((a) => !a.isMeetpoint))
           Positioned(
             right: 14.w,
-            bottom: areas.any((a) => a.isMeetpoint) ? 134.h : 74.h,
+            bottom: fabBottom +
+                fabStride *
+                    (areas.any((a) => a.isMeetpoint) ? 2 : 1),
             child: _SuggestionsCycleButton(
               areas: areas.where((a) => !a.isMeetpoint).toList(),
               mapController: mapController,

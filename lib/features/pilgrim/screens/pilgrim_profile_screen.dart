@@ -10,6 +10,7 @@ import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/api_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../../calling/screens/call_history_screen.dart';
 
 class PilgrimProfileScreen extends ConsumerStatefulWidget {
@@ -67,7 +68,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
 
     final authState = ref.watch(authProvider);
     final fullName = authState.fullName ?? 'Pilgrim';
-    final initials = _initials(fullName);
 
     final bg = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
     final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
@@ -135,6 +135,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           Container(
                             width: 56.w,
                             height: 56.w,
+                            padding: EdgeInsets.all(2.5.w),
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: LinearGradient(
@@ -146,16 +147,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                                 end: Alignment.bottomRight,
                               ),
                             ),
-                            child: Center(
-                              child: Text(
-                                initials,
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 20.sp,
-                                  color: Colors.white,
-                                ),
-                              ),
+                            child: PilgrimGenderAvatar(
+                              gender: authState.gender,
+                              size: 51.w,
                             ),
                           ),
                           SizedBox(width: 16.w),
@@ -599,13 +593,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
         ),
       ),
     );
-  }
-
-  static String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return 'P';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 
   Color _getVisaColor(String? status) {

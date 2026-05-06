@@ -42,6 +42,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
   String? _selectedHotelId;
   String? _selectedRoomId;
   String? _selectedBusId;
+  Set<String> _genderSelection = {'male'};
   static const List<Map<String, String>> _ethnicityOptions = [
     {'value': 'Arab', 'labelKey': 'ethnic_arab'},
     {'value': 'South Asian', 'labelKey': 'ethnic_south_asian'},
@@ -112,6 +113,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
       'national_id': _nationalIdCtrl.text.trim(),
       'medical_history': _medicalHistoryCtrl.text.trim(),
       'age': int.tryParse(_ageCtrl.text.trim()),
+      'gender': _genderSelection.first,
       'language': _selectedLanguage,
       'ethnicity': _selectedEthnicity,
       'hotel_id': _selectedHotelId,
@@ -205,7 +207,39 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
               validator: (v) => (v == null || v.trim().isEmpty) ? 'provisioning_required'.tr() : null,
             ),
             SizedBox(height: 12.h),
-            
+
+            Text(
+              'reg_gender'.tr(),
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontWeight: FontWeight.w600,
+                fontSize: 13.sp,
+                color: textPrimary,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            SegmentedButton<String>(
+              segments: [
+                ButtonSegment<String>(
+                  value: 'male',
+                  label: Text('reg_male'.tr()),
+                  icon: Icon(Symbols.male, size: 18.w),
+                ),
+                ButtonSegment<String>(
+                  value: 'female',
+                  label: Text('reg_female'.tr()),
+                  icon: Icon(Symbols.female, size: 18.w),
+                ),
+              ],
+              selected: _genderSelection,
+              onSelectionChanged: (Set<String> next) {
+                setState(() => _genderSelection = next);
+              },
+              multiSelectionEnabled: false,
+              emptySelectionAllowed: false,
+            ),
+            SizedBox(height: 12.h),
+
             Row(
               children: [
                 Expanded(

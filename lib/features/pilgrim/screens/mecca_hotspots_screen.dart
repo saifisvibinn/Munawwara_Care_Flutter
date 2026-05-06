@@ -12,7 +12,7 @@ import '../../../core/services/explore_places_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/explore_place.dart';
 
-/// Some CDNs (e.g. favicons / Mapbox static) reject blank `User-Agent` from Dart.
+/// Some CDNs (e.g. favicons) reject blank `User-Agent` from Dart.
 const Map<String, String> _exploreImageHeaders = <String, String>{
   'User-Agent': 'MunawwaraCare/1.2 (Flutter; explore cards)',
 };
@@ -255,9 +255,7 @@ class _MeccaHotspotsScreenState extends State<MeccaHotspotsScreen> {
               ),
               SizedBox(height: 8.h),
               Text(
-                ExplorePlacesService.usesMapbox
-                    ? 'explore_mapbox_note'.tr()
-                    : 'explore_osm_note'.tr(),
+                'explore_osm_note'.tr(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Lexend',

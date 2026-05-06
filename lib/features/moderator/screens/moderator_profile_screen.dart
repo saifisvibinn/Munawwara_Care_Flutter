@@ -63,10 +63,10 @@ class _ModeratorProfileScreenState
   Future<void> _signOut() async {
     final confirmed = await StandardDialog.show<bool>(
       context: context,
-      title: 'settings_sign_out_confirm_title'.tr(),
-      content: 'settings_sign_out_confirm_body'.tr(),
-      confirmText: 'settings_sign_out'.tr(),
-      cancelText: 'settings_cancel'.tr(),
+      title: 'settings_sign_out_confirm_title',
+      content: 'settings_sign_out_confirm_body',
+      confirmText: 'settings_sign_out',
+      cancelText: 'settings_cancel',
       isDestructive: true,
     );
     if (confirmed == true && mounted) {
