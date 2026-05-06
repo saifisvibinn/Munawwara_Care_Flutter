@@ -203,7 +203,9 @@ class _ModeratorDashboardScreenState
                   .read(moderatorProvider.notifier)
                   .markPilgrimSOS(pilgrimId, active: false);
               unawaited(
-                ModeratorSosEngagementStore.deactivateForPilgrim(pilgrimId),
+                ModeratorSosEngagementStore.removeAllEntriesForPilgrim(
+                  pilgrimId,
+                ),
               );
               unawaited(
                 ref.read(moderatorSosEngagementProvider.notifier).refresh(),

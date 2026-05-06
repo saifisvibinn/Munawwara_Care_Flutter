@@ -9,8 +9,11 @@ import '../../../core/utils/open_maps_navigation.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../notifications/providers/notification_provider.dart';
 import '../providers/moderator_provider.dart';
+import '../providers/moderator_resolved_sos_provider.dart';
 import '../providers/moderator_sos_engagement_provider.dart';
+import '../services/moderator_resolved_sos_store.dart';
 import '../services/moderator_sos_engagement_store.dart';
 import '../services/sos_alert_coordinator.dart';
 import 'pilgrim_profile_sheet.dart';
@@ -160,8 +163,14 @@ List<ModeratorSosBannerRow> _dedupeModeratorSosRows(
 /// Carousel + cards for open SOS incidents (moderator Alerts tab).
 class ModeratorActiveSosPanel extends ConsumerStatefulWidget {
   final List<ModeratorGroup> groups;
+  /// After marking resolved: refresh lists and optionally switch to All alerts.
+  final VoidCallback? onSosResolved;
 
-  const ModeratorActiveSosPanel({super.key, required this.groups});
+  const ModeratorActiveSosPanel({
+    super.key,
+    required this.groups,
+    this.onSosResolved,
+  });
 
   @override
   ConsumerState<ModeratorActiveSosPanel> createState() =>
@@ -193,7 +202,10 @@ class _ModeratorActiveSosPanelState
     if (rows.isEmpty) return const SizedBox.shrink();
 
     if (rows.length == 1) {
-      return ModeratorSosBannerCard(row: rows.first);
+      return ModeratorSosBannerCard(
+        row: rows.first,
+        onSosResolved: widget.onSosResolved,
+      );
     }
 
     final pc = _carouselController();
@@ -221,7 +233,10 @@ class _ModeratorActiveSosPanelState
             itemBuilder: (context, index) {
               return Padding(
                 padding: EdgeInsets.symmetric(horizontal: 4.w),
-                child: ModeratorSosBannerCard(row: rows[index]),
+                child: ModeratorSosBannerCard(
+                  row: rows[index],
+                  onSosResolved: widget.onSosResolved,
+                ),
               );
             },
           ),
@@ -270,8 +285,13 @@ class _ModeratorActiveSosPanelState
 
 class ModeratorSosBannerCard extends ConsumerWidget {
   final ModeratorSosBannerRow row;
+  final VoidCallback? onSosResolved;
 
-  const ModeratorSosBannerCard({super.key, required this.row});
+  const ModeratorSosBannerCard({
+    super.key,
+    required this.row,
+    this.onSosResolved,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -356,7 +376,7 @@ class ModeratorSosBannerCard extends ConsumerWidget {
               alignment: WrapAlignment.end,
               children: [
                 OutlinedButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
                     final gId = row.group?.id ?? row.record?.groupId;
                     final pId = row.pilgrim?.id ?? row.record?.pilgrimId;
                     final sosId = row.record?.sosId;
@@ -377,7 +397,37 @@ class ModeratorSosBannerCard extends ConsumerWidget {
                     if (sosId != null && sosId.isNotEmpty) {
                       payload['sos_id'] = sosId;
                     }
+                    final now = DateTime.now().millisecondsSinceEpoch;
+                    final resolved = ModeratorResolvedSosRecord(
+                      resolveKey: '${pId}_${gId}_$now',
+                      pilgrimId: pId,
+                      groupId: gId,
+                      pilgrimName: row.displayName,
+                      groupName: row.groupLabel.isEmpty ? '—' : row.groupLabel,
+                      sosId: sosId,
+                      lat: row.lat,
+                      lng: row.lng,
+                      resolvedAtMs: now,
+                    );
                     SocketService.emit('sos_resolve', payload);
+                    ref
+                        .read(moderatorProvider.notifier)
+                        .markPilgrimSOS(pId, active: false);
+                    await ModeratorSosEngagementStore.removeAllEntriesForPilgrim(
+                      pId,
+                    );
+                    await ref
+                        .read(moderatorResolvedSosProvider.notifier)
+                        .addResolved(resolved);
+                    await ref
+                        .read(moderatorSosEngagementProvider.notifier)
+                        .refresh();
+                    await ref
+                        .read(moderatorProvider.notifier)
+                        .loadDashboard(silently: true);
+                    await ref.read(notificationProvider.notifier).fetch();
+                    if (!context.mounted) return;
+                    onSosResolved?.call();
                     StandardSnackBar.showSuccess(
                       context,
                       'sos_moderator_resolve_sent'.tr(),

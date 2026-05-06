@@ -303,4 +303,12 @@ class ModeratorSosEngagementStore {
     }
     if (changed) await _saveMap(map);
   }
+
+  /// Removes all engagement rows for [pilgrimId] (e.g. SOS resolved).
+  static Future<void> removeAllEntriesForPilgrim(String pilgrimId) async {
+    if (pilgrimId.isEmpty) return;
+    final map = await _loadMap();
+    map.removeWhere((_, r) => r.pilgrimId == pilgrimId);
+    await _saveMap(map);
+  }
 }

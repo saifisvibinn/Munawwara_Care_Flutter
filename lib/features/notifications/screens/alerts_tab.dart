@@ -9,8 +9,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/open_maps_navigation.dart';
+import '../../moderator/providers/moderator_resolved_sos_provider.dart';
 import '../../moderator/providers/moderator_sos_engagement_provider.dart';
 import '../../moderator/services/moderator_sos_engagement_store.dart';
+import '../../moderator/widgets/moderator_resolved_sos_list.dart';
 import '../../moderator/services/sos_alert_coordinator.dart';
 import '../models/notification_model.dart';
 import '../providers/notification_provider.dart';
@@ -69,6 +71,9 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
         unawaited(
           ref.read(moderatorSosEngagementProvider.notifier).refresh(),
         );
+        unawaited(
+          ref.read(moderatorResolvedSosProvider.notifier).refresh(),
+        );
       }
     });
   }
@@ -82,7 +87,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
   void _ensureModeratorTabController() {
     if (_moderatorTabController != null) return;
     if (ref.read(authProvider).role != 'moderator') return;
-    _moderatorTabController = TabController(length: 2, vsync: this);
+    _moderatorTabController = TabController(length: 3, vsync: this);
   }
 
   Future<void> _acceptInvitation(String invId) async {
@@ -160,6 +165,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
     await ref.read(notificationProvider.notifier).fetch();
     if (ref.read(authProvider).role == 'moderator') {
       await ref.read(moderatorSosEngagementProvider.notifier).refresh();
+      await ref.read(moderatorResolvedSosProvider.notifier).refresh();
     }
   }
 
@@ -236,9 +242,22 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
         ),
         padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
         children: [
-          ModeratorActiveSosPanel(groups: modGroups),
+          ModeratorActiveSosPanel(
+            groups: modGroups,
+            onSosResolved: () {
+              _moderatorTabController?.animateTo(1);
+            },
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _moderatorResolvedSosTab({required bool isDark}) {
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _refreshAlerts,
+      child: ModeratorResolvedSosList(isDark: isDark),
     );
   }
 
@@ -327,21 +346,24 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
             SizedBox(height: 8.h),
             TabBar(
               controller: tc,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
               labelColor: AppColors.primary,
               unselectedLabelColor: AppColors.textMutedLight,
               indicatorColor: AppColors.primary,
               labelStyle: TextStyle(
                 fontFamily: 'Lexend',
                 fontWeight: FontWeight.w700,
-                fontSize: 13.sp,
+                fontSize: 12.sp,
               ),
               unselectedLabelStyle: TextStyle(
                 fontFamily: 'Lexend',
                 fontWeight: FontWeight.w600,
-                fontSize: 13.sp,
+                fontSize: 12.sp,
               ),
               tabs: [
                 Tab(text: 'moderator_alerts_tab_active_sos'.tr()),
+                Tab(text: 'moderator_alerts_tab_resolved'.tr()),
                 Tab(text: 'moderator_alerts_tab_all'.tr()),
               ],
             ),
@@ -353,6 +375,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
                     isDark: isDark,
                     modGroups: modGroups,
                   ),
+                  _moderatorResolvedSosTab(isDark: isDark),
                   _notificationsList(isDark: isDark, state: state),
                 ],
               ),

@@ -81,7 +81,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   int _sosCountdown = 3;
   Timer? _weatherRefreshTimer;
 
-  /// Post-SOS help session: status line + 20s auto-call to Munawwara Care (group ring).
+  /// Post-SOS help session: status line + 60s auto-call to support (group ring).
   Timer? _sosHelpPhaseTimer;
   Timer? _sosAutoCallTimer;
   String _sosHelpStatusKey = 'sos_status_notifying';
@@ -414,7 +414,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           });
         });
 
-        // Moderator acknowledged SOS — update status and cancel the 20s auto-call
+        // Moderator acknowledged SOS — update status and cancel the auto-call
         // so the pilgrim is not forced into a group ring once help is underway.
         SocketService.on('sos-handling', (data) {
           if (!mounted) return;
@@ -554,7 +554,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       setState(() => _sosHelpStatusKey = 'sos_status_waiting');
     });
     _sosAutoCallTimer = Timer(
-      const Duration(seconds: 20),
+      const Duration(seconds: 60),
       () {
         _onSosAutoCallElapsed();
       },
@@ -2273,6 +2273,20 @@ class _SosHelpSessionPanel extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                     color: muted,
                     height: 1.45,
+                  ),
+                ),
+                SizedBox(height: 12.h),
+                Text(
+                  'sos_help_auto_call_hint'.tr(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? AppColors.textMutedLight
+                        : AppColors.textMutedDark,
+                    height: 1.4,
                   ),
                 ),
                 SizedBox(height: 18.h),
