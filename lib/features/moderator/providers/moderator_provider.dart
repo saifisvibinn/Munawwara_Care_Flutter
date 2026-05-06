@@ -343,7 +343,6 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
     if (groups.isEmpty) return;
     state = state.copyWith(
       groups: groups,
-      usingOfflineSnapshot: true,
     );
   }
 
@@ -391,6 +390,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
           usingOfflineSnapshot: hasData,
         );
       } else if (hasData) {
+        // Only mark offline snapshot after a confirmed failed network attempt.
         state = state.copyWith(usingOfflineSnapshot: true);
       }
     } catch (e) {

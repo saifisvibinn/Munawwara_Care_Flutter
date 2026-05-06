@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -81,7 +80,7 @@ class GroupDetailsScreen extends StatelessWidget {
         title: Text(
           'group_details_title'.tr(),
           style: TextStyle(
-            fontFamily: GoogleFonts.poppins().fontFamily,
+            fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
             fontSize: 18.sp,
           ),
@@ -138,7 +137,7 @@ class GroupDetailsScreen extends StatelessWidget {
                       'group_view_on_map'.tr(),
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontFamily: GoogleFonts.poppins().fontFamily,
+                        fontFamily: 'Lexend',
                         fontSize: 16.sp,
                         fontWeight: FontWeight.w700,
                         color: Colors.white.withValues(alpha: 0.9),
@@ -252,7 +251,7 @@ class _SectionCard extends StatelessWidget {
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontFamily: GoogleFonts.poppins().fontFamily,
+                    fontFamily: 'Lexend',
                     fontSize: 18.sp,
                     fontWeight: FontWeight.w800,
                     color: isDark ? Colors.white : AppColors.textDark,
@@ -283,7 +282,7 @@ class _SectionLine extends StatelessWidget {
       child: RichText(
         text: TextSpan(
           style: TextStyle(
-            fontFamily: GoogleFonts.poppins().fontFamily,
+            fontFamily: 'Lexend',
             fontSize: 14.sp,
             color: isDark ? Colors.white : AppColors.textDark,
           ),
@@ -332,7 +331,7 @@ class _StayColumn extends StatelessWidget {
         Text(
           title,
           style: TextStyle(
-            fontFamily: GoogleFonts.poppins().fontFamily,
+            fontFamily: 'Lexend',
             fontSize: 11.sp,
             color: AppColors.textMutedLight,
             fontWeight: FontWeight.w600,
@@ -345,7 +344,7 @@ class _StayColumn extends StatelessWidget {
         Text(
           value,
           style: TextStyle(
-            fontFamily: GoogleFonts.poppins().fontFamily,
+            fontFamily: 'Lexend',
             fontSize: 15.sp,
             fontWeight: FontWeight.w800,
             color: isDark ? Colors.white : AppColors.textDark,

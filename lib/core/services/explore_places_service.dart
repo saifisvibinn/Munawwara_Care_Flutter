@@ -1,22 +1,20 @@
-import 'dart:convert';
-
 import 'package:dio/dio.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/pilgrim/models/explore_place.dart';
 import '../utils/app_logger.dart';
-import 'explore_brand_logo.dart';
+import 'api_service.dart';
+import 'app_data_cache.dart';
 import 'explore_geo.dart';
 
-/// Explore POIs near a map center via **OSM** (Overpass + Nominatim).
-/// [centerLat]/[centerLng] should be the pilgrim’s position (or a chosen
-/// fallback such as the Kaaba).
+/// Explore POIs near a map center via backend cache and Nominatim.
 class ExplorePlacesService {
   ExplorePlacesService._();
 
   static const _userAgent = 'MunawwaraCare/1.0 (pilgrim explore; Flutter)';
 
-  static final Dio _dio = Dio(
+  static final Dio _nominatimDio = Dio(
     BaseOptions(
       connectTimeout: const Duration(seconds: 12),
       receiveTimeout: const Duration(seconds: 28),
@@ -41,77 +39,6 @@ class ExplorePlacesService {
     }).toList();
   }
 
-  static String? _categoryFromTags(Map<String, String> t) {
-    final amenity = t['amenity'] ?? '';
-    if (amenity == 'pharmacy') return 'pharmacy';
-    if (amenity == 'restaurant' ||
-        amenity == 'fast_food' ||
-        amenity == 'cafe' ||
-        amenity == 'food_court') {
-      return 'food';
-    }
-    final shop = t['shop'] ?? '';
-    if (shop == 'mall' ||
-        shop == 'department_store' ||
-        shop == 'supermarket' ||
-        shop == 'convenience') {
-      return 'shopping';
-    }
-    if (t['tourism'] == 'attraction' ||
-        t.containsKey('historic') ||
-        amenity == 'place_of_worship') {
-      return 'landmarks';
-    }
-    return null;
-  }
-
-  static ExplorePlace? _fromOverpassElement(Map<String, dynamic> el) {
-    final tags = (el['tags'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ??
-        const <String, String>{};
-    final cat = _categoryFromTags(tags);
-    if (cat == null) return null;
-
-    double? lat;
-    double? lon;
-    if (el['type'] == 'node') {
-      lat = (el['lat'] as num?)?.toDouble();
-      lon = (el['lon'] as num?)?.toDouble();
-    } else {
-      final c = el['center'];
-      if (c is Map) {
-        lat = (c['lat'] as num?)?.toDouble();
-        lon = (c['lon'] as num?)?.toDouble();
-      }
-    }
-    if (lat == null || lon == null) return null;
-
-    final name = tags['name:en'] ??
-        tags['name'] ??
-        tags['name:ar'] ??
-        tags['name:latin'] ??
-        '';
-    if (name.trim().isEmpty) return null;
-
-    final type = el['type'] as String? ?? 'x';
-    final id = el['id'];
-    final brand = tags['brand']?.trim();
-    final operator = tags['operator']?.trim();
-    final brandName = (brand != null && brand.isNotEmpty) ? brand : operator;
-    final bn = (brandName != null && brandName.isNotEmpty) ? brandName : null;
-    final String? cardUrl = cat == 'landmarks'
-        ? null
-        : ExploreBrandLogo.chainLogoUrl(brand: bn, venueName: name.trim());
-    return ExplorePlace(
-      sourceRef: '$type/$id',
-      name: name.trim(),
-      categoryKey: cat,
-      latitude: lat,
-      longitude: lon,
-      brandName: bn,
-      cardImageUrl: cardUrl,
-    );
-  }
-
   static String _categoryFromNominatim(String? cls, String? typ) {
     if (cls == 'amenity') {
       if (typ == 'pharmacy') return 'pharmacy';
@@ -121,7 +48,10 @@ class ExplorePlacesService {
           typ == 'food_court') {
         return 'food';
       }
-      if (typ == 'place_of_worship') return 'landmarks';
+      if (typ == 'place_of_worship') return 'mosque';
+      if (typ == 'hospital' || typ == 'clinic') return 'hospital';
+      if (typ == 'toilets') return 'toilet';
+      if (typ == 'drinking_water') return 'drinking_water';
     }
     if (cls == 'shop') {
       if (typ == 'mall' ||
@@ -142,69 +72,112 @@ class ExplorePlacesService {
     return first.isEmpty ? raw.trim() : first;
   }
 
-  /// POIs near [centerLat],[centerLng] (Overpass).
+  /// POIs near [centerLat],[centerLng] (Backend API).
   static Future<List<ExplorePlace>> fetchNearbyPlaces({
     required double centerLat,
     required double centerLng,
   }) async {
-    final osm = await _fetchNearbyOsm(centerLat, centerLng);
-    return _withinMaxDistance(osm, centerLat, centerLng);
-  }
-
-  static Future<List<ExplorePlace>> _fetchNearbyOsm(
-    double centerLat,
-    double centerLng,
-  ) async {
-    final b = ExploreGeo.bboxSwne(
-      centerLat,
-      centerLng,
-      ExploreGeo.defaultRadiusKm,
-    );
-    final south = b[0];
-    final west = b[1];
-    final north = b[2];
-    final east = b[3];
-
-    final query = '''
-[out:json][timeout:25];
-(
-  node["amenity"~"restaurant|fast_food|cafe|food_court"]($south,$west,$north,$east);
-  node["amenity"="pharmacy"]($south,$west,$north,$east);
-  node["shop"~"mall|department_store|supermarket|convenience"]($south,$west,$north,$east);
-  node["tourism"="attraction"]($south,$west,$north,$east);
-  node["historic"]($south,$west,$north,$east);
-  node["amenity"="place_of_worship"]($south,$west,$north,$east);
-);
-out center 90;
-''';
+    Future<List<ExplorePlace>> fromCache() async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final uid = prefs.getString('user_id');
+        if (uid == null) return [];
+        final cached = AppDataCache.jsonMap(
+          await AppDataCache.readData(uid, AppDataCache.exploreNearbyPoisFile),
+        );
+        if (cached == null || cached['success'] != true) return [];
+        final list = cached['data'];
+        if (list is! List<dynamic>) return [];
+        final out = <ExplorePlace>[];
+        for (final e in list) {
+          if (e is! Map) continue;
+          final m = Map<String, dynamic>.from(e);
+          final loc = m['location'];
+          if (loc is! Map || loc['coordinates'] is! List) continue;
+          final coords = loc['coordinates'] as List;
+          if (coords.length < 2) continue;
+          final lon = double.tryParse('${coords[0]}');
+          final lat = double.tryParse('${coords[1]}');
+          if (lat == null || lon == null) continue;
+          out.add(ExplorePlace(
+            sourceRef: m['sourceRef']?.toString() ?? '',
+            name: m['name']?.toString() ?? '',
+            categoryKey: m['categoryKey']?.toString() ?? 'landmarks',
+            latitude: lat,
+            longitude: lon,
+            brandName: m['brandName']?.toString(),
+          ));
+        }
+        return out;
+      } catch (_) {
+        return [];
+      }
+    }
 
     try {
-      final resp = await _dio.post<String>(
-        'https://overpass-api.de/api/interpreter',
-        data: query,
-        options: Options(
-          contentType: 'text/plain',
-          responseType: ResponseType.plain,
-        ),
+      final radius = ExploreGeo.defaultRadiusKm * 1000; // in meters
+      final limit = 50;
+      
+      final resp = await ApiService.dio.get<Map<String, dynamic>>(
+        '/pois/nearby',
+        queryParameters: {
+          'lat': centerLat,
+          'lng': centerLng,
+          'radius': radius,
+          'limit': limit,
+        },
       );
-      final body = resp.data;
-      if (body == null || body.isEmpty) return [];
-      final map = jsonDecode(body) as Map<String, dynamic>;
-      final elements = map['elements'] as List<dynamic>? ?? [];
+
+      final data = resp.data;
+      if (data == null || data['success'] != true) return [];
+
+      // Cache last good result for offline Explore.
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final uid = prefs.getString('user_id');
+        if (uid != null) {
+          await AppDataCache.write(uid, AppDataCache.exploreNearbyPoisFile, data);
+        }
+      } catch (_) {}
+      
+      final poisData = data['data'] as List<dynamic>? ?? [];
       final out = <ExplorePlace>[];
-      final seen = <String>{};
-      for (final e in elements) {
+      
+      for (final e in poisData) {
         if (e is! Map) continue;
         final m = Map<String, dynamic>.from(e);
-        final p = _fromOverpassElement(m);
-        if (p == null) continue;
-        final key =
-            '${p.latitude.toStringAsFixed(4)}_${p.longitude.toStringAsFixed(4)}_${p.name}';
-        if (seen.add(key)) out.add(p);
+        
+        final loc = m['location'];
+        if (loc is! Map || loc['coordinates'] is! List) continue;
+        
+        final coords = loc['coordinates'] as List;
+        if (coords.length < 2) continue;
+        
+        final lon = double.tryParse('${coords[0]}');
+        final lat = double.tryParse('${coords[1]}');
+        
+        if (lat == null || lon == null) continue;
+
+        out.add(ExplorePlace(
+          sourceRef: m['sourceRef']?.toString() ?? '',
+          name: m['name']?.toString() ?? '',
+          categoryKey: m['categoryKey']?.toString() ?? 'landmarks',
+          latitude: lat,
+          longitude: lon,
+          brandName: m['brandName']?.toString(),
+        ));
       }
+      
       return out;
+    } on DioException catch (e, st) {
+      AppLogger.e('ExplorePlacesService.fetchNearbyPlaces', e, st);
+      if (ApiService.isOfflineFailure(e)) {
+        final cached = await fromCache();
+        if (cached.isNotEmpty) return cached;
+      }
+      rethrow;
     } catch (e, st) {
-      AppLogger.e('ExplorePlacesService._fetchNearbyOsm', e, st);
+      AppLogger.e('ExplorePlacesService.fetchNearbyPlaces', e, st);
       rethrow;
     }
   }
@@ -233,7 +206,7 @@ out center 90;
       ExploreGeo.searchRadiusKm,
     );
     try {
-      final resp = await _dio.get<dynamic>(
+      final resp = await _nominatimDio.get<dynamic>(
         'https://nominatim.openstreetmap.org/search',
         queryParameters: <String, dynamic>{
           'format': 'json',
@@ -271,7 +244,6 @@ out center 90;
           latitude: lat,
           longitude: lon,
           brandName: null,
-          cardImageUrl: null,
         ));
       }
       return out;

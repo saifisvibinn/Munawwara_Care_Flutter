@@ -61,6 +61,7 @@ class PilgrimDashboardScreen extends ConsumerStatefulWidget {
 
 class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
+  bool _isInitializingDashboard = true;
   AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
   // Bottom nav
   int _currentTab = 0;
@@ -189,6 +190,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         }
       } catch (e) {
         AppLogger.e('[PilgrimDashboard] Error loading dashboard: $e');
+      }
+      if (mounted) {
+        setState(() => _isInitializingDashboard = false);
       }
 
       // Connect socket with this pilgrim's identity
@@ -1039,6 +1043,37 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     final pilgrimState = ref.watch(pilgrimProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    if (_isInitializingDashboard) {
+      return Scaffold(
+        backgroundColor:
+            isDark ? AppColors.backgroundDark : const Color(0xfff1f5f3),
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 34.w,
+                  height: 34.w,
+                  child: const CircularProgressIndicator(strokeWidth: 3),
+                ),
+                SizedBox(height: 14.h),
+                Text(
+                  'app_loading'.tr(),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white70 : AppColors.textMutedDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final notifCount = ref.watch(notificationProvider).unreadCount;
     final missedCallUnread = ref.watch(missedCallsUnreadProvider);
 
@@ -1415,7 +1450,6 @@ class _HomeTab extends StatelessWidget {
     final group = pilgrimState.groupInfo;
     final headerBg = isDark ? AppColors.backgroundDark : const Color(0xFFFFF7ED);
     final headerText = isDark ? Colors.white : AppColors.textDark;
-    final headerMuted = isDark ? Colors.white70 : AppColors.textMutedDark;
     final iconContainerBg = isDark ? Colors.white.withValues(alpha: 0.1) : AppColors.primary.withValues(alpha: 0.1);
 
     return Container(

@@ -14,6 +14,7 @@ class AppDataCache {
   static const pilgrimMyGroupFile = 'pilgrim_my_group.json';
   static const moderatorDashboardFile = 'moderator_dashboard.json';
   static const notificationsFile = 'notifications.json';
+  static const exploreNearbyPoisFile = 'explore_nearby_pois.json';
 
   static String messagesFile(String groupId) => 'messages_$groupId.json';
 

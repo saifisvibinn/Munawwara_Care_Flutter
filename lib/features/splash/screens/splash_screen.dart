@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -50,6 +49,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final auth = ref.read(authProvider);
     if (auth.isAuthenticated) {
       final hasLoc = await hasLocationAlwaysPermission();
+      if (!mounted) return;
       if (!hasLoc) {
         AppLogger.i('SplashScreen nav to location onboarding');
         context.go('/location-onboarding');

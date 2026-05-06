@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -10,7 +9,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/services/location_permission_service.dart';
 import '../../../core/widgets/app_popup_menu.dart';
 import '../../../core/utils/qr_barcode_utils.dart';
 import '../../../core/widgets/qr_scanner_view.dart';

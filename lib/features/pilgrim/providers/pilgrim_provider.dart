@@ -280,7 +280,6 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
       groupInfo: clearGroup ? null : (groupInfo ?? state.groupInfo),
       clearGroup: clearGroup,
       navBeacons: clearGroup ? const {} : null,
-      usingOfflineSnapshot: true,
     );
   }
 
@@ -364,6 +363,7 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
       state = state.copyWith(
         isLoading: false,
         error: hasData ? null : ApiService.parseError(e),
+        // Only mark offline snapshot after a confirmed failed network attempt.
         usingOfflineSnapshot: hasData,
       );
     }

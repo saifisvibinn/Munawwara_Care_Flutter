@@ -52,6 +52,7 @@ class ModeratorDashboardScreen extends ConsumerStatefulWidget {
 class _ModeratorDashboardScreenState
     extends ConsumerState<ModeratorDashboardScreen>
     with RouteAware, WidgetsBindingObserver {
+  bool _isInitializingDashboard = true;
   int _currentTab =
       0; // 0=Groups, 1=Provisioning, 2=Reminders, 3=Profile, 4=Alerts
   final _searchController = TextEditingController();
@@ -129,6 +130,9 @@ class _ModeratorDashboardScreenState
       await ref.read(authProvider.notifier).hydrateFromCache();
       await ref.read(moderatorProvider.notifier).hydrateFromCache();
       await ref.read(moderatorProvider.notifier).loadDashboard();
+      if (mounted) {
+        setState(() => _isInitializingDashboard = false);
+      }
       // Connect socket with this moderator's identity
       final auth = ref.read(authProvider);
       if (auth.userId != null) {
@@ -278,6 +282,37 @@ class _ModeratorDashboardScreenState
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final moderatorState = ref.watch(moderatorProvider);
+
+    if (_isInitializingDashboard) {
+      return Scaffold(
+        backgroundColor:
+            isDark ? AppColors.backgroundDark : const Color(0xfff1f5f3),
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 34.w,
+                  height: 34.w,
+                  child: const CircularProgressIndicator(strokeWidth: 3),
+                ),
+                SizedBox(height: 14.h),
+                Text(
+                  'app_loading'.tr(),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white70 : AppColors.textMutedDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     // Fallback: if an incoming call was accepted and we're connected,
     // navigate to VoiceCallScreen from here.
