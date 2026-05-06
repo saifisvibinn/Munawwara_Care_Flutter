@@ -17,7 +17,8 @@ import '../widgets/pilgrim_profile_sheet.dart';
 import '../widgets/sos_alert_dialog.dart';
 import 'moderator_sos_engagement_store.dart';
 
-/// Dedupes and shows one in-app SOS dialog per [sosId] (or per burst if id missing).
+/// Dedupes and shows one in-app SOS dialog per [sosId] (or per burst if id
+/// missing).
 class SosAlertCoordinator {
   SosAlertCoordinator._();
 
@@ -65,7 +66,8 @@ class SosAlertCoordinator {
     final until = _suppressDialogsUntil;
     if (until != null && DateTime.now().isBefore(until)) {
       AppLogger.i(
-        '[SosAlertCoordinator] Skipped SOS dialog (post hot-reload quiet window)',
+        '[SosAlertCoordinator] Skipped SOS dialog (post hot-reload quiet '
+        'window)',
       );
       return;
     }
@@ -96,7 +98,8 @@ class SosAlertCoordinator {
       _lastShownAt = DateTime.now();
     } else {
       final composite =
-          '${payload.pilgrimId ?? ""}|${payload.groupId ?? ""}|${payload.pilgrimName}';
+          '${payload.pilgrimId ?? ""}|${payload.groupId ?? ""}|'
+          '${payload.pilgrimName}';
       if (_lastShownSosId == composite &&
           _lastShownAt != null &&
           DateTime.now().difference(_lastShownAt!) < _dedupeWindow) {

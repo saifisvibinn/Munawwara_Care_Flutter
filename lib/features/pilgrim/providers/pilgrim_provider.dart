@@ -48,7 +48,6 @@ class PilgrimProfile {
     }
     return fullName;
   }
-
 }
 
 // ── Group Info Model ──────────────────────────────────────────────────────────
@@ -176,6 +175,7 @@ class PilgrimState {
   final String? activeSosId;
   // key = moderatorId, value = active beacon info
   final Map<String, ModeratorBeacon> navBeacons;
+
   /// True when dashboard data comes from disk (offline or pre-hydrate).
   final bool usingOfflineSnapshot;
 
@@ -289,7 +289,11 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
     Map<String, dynamic>? groupData,
   ) async {
     if (profileData != null) {
-      await AppDataCache.write(uid, AppDataCache.pilgrimProfileFile, profileData);
+      await AppDataCache.write(
+        uid,
+        AppDataCache.pilgrimProfileFile,
+        profileData,
+      );
     }
     if (groupData != null &&
         (groupData['group_id']?.toString() ?? '').isNotEmpty) {
@@ -305,7 +309,9 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
 
   Future<void> loadDashboard({bool force = false}) async {
     final now = DateTime.now();
-    if (!force && _lastDashboardLoad != null && now.difference(_lastDashboardLoad!).inSeconds < 10) {
+    if (!force &&
+        _lastDashboardLoad != null &&
+        now.difference(_lastDashboardLoad!).inSeconds < 10) {
       return; // Throttle to prevent 429 errors
     }
     _lastDashboardLoad = now;
@@ -334,6 +340,13 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
         await _writePilgrimCache(uid, profileData, groupData);
       }
 
+      final activeSosRaw = profileData?['active_sos_id'];
+      final activeSosStr = activeSosRaw != null &&
+              activeSosRaw.toString().trim().isNotEmpty
+          ? activeSosRaw.toString()
+          : null;
+      final hasActiveSos = activeSosStr != null;
+
       state = state.copyWith(
         isLoading: false,
         profile: profileData != null
@@ -347,6 +360,9 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
             ? const {}
             : null,
         clearOfflineSnapshot: true,
+        sosActive: hasActiveSos,
+        activeSosId: activeSosStr,
+        clearSosId: !hasActiveSos,
       );
     } on DioException catch (e) {
       final code = e.response?.statusCode;
@@ -375,14 +391,15 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
     int? batteryPercent,
   }) async {
     if (!state.isSharingLocation) return;
-    
+
     final now = DateTime.now();
     // Update battery locally immediately, but throttle network calls
     if (batteryPercent != null) {
       state = state.copyWith(batteryLevel: batteryPercent);
     }
 
-    if (_lastLocationUpdate != null && now.difference(_lastLocationUpdate!).inSeconds < 15) {
+    if (_lastLocationUpdate != null &&
+        now.difference(_lastLocationUpdate!).inSeconds < 15) {
       return; // Throttle location updates to at most once every 15 seconds
     }
     _lastLocationUpdate = now;
@@ -402,11 +419,13 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
   }
 
   Future<bool> triggerSOS() async {
-    state = state.copyWith(isSosLoading: true);
+    state = state.copyWith(isSosLoading: true, clearError: true);
     try {
       final response = await ApiService.dio.post('/pilgrim/sos');
-      final activeSosId = response.data?['data']?['sos_id']?.toString();
-      
+      final body = response.data as Map<String, dynamic>?;
+      final activeSosId = body?['sos_id']?.toString() ??
+          body?['data']?['sos_id']?.toString();
+
       state = state.copyWith(
         isSosLoading: false,
         sosActive: true,
@@ -450,7 +469,7 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
     }
     // If enabled but lat/lng is null, we just keep the previous beacon if it exists
     // rather than removing it, to avoid flicker while moderator is getting GPS fix.
-    
+
     state = state.copyWith(navBeacons: updated);
   }
 
@@ -467,7 +486,6 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
       clearSosId: true,
     );
   }
-
 }
 
 // ── Provider ──────────────────────────────────────────────────────────────────

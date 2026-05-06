@@ -75,9 +75,8 @@ class PilgrimInGroup {
       visaStatus: j['visa']?['status']?.toString(),
       language: j['language']?.toString() ?? 'en',
       ethnicity: j['ethnicity']?.toString() ?? 'Other',
-      hasSOS: j['has_sos'] == true ||
-          j['sos_active'] == true ||
-          j['sos'] == true,
+      hasSOS:
+          j['has_sos'] == true || j['sos_active'] == true || j['sos'] == true,
     );
   }
 
@@ -344,9 +343,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
       } catch (_) {}
     }
     if (groups.isEmpty) return;
-    state = state.copyWith(
-      groups: groups,
-    );
+    state = state.copyWith(groups: groups);
   }
 
   // Load all groups + their pilgrims
@@ -360,7 +357,11 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
           : <String, dynamic>{'data': respBody is List ? respBody : []};
       final uid = await _userId();
       if (uid != null) {
-        await AppDataCache.write(uid, AppDataCache.moderatorDashboardFile, body);
+        await AppDataCache.write(
+          uid,
+          AppDataCache.moderatorDashboardFile,
+          body,
+        );
       }
       final data = body['data'] as List<dynamic>? ?? [];
       final groups = data
@@ -397,7 +398,8 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
         state = state.copyWith(usingOfflineSnapshot: true);
       }
     } catch (e) {
-      if (!silently) state = state.copyWith(isLoading: false, error: e.toString());
+      if (!silently)
+        state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
@@ -556,10 +558,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
     Map<String, dynamic> updates,
   ) async {
     try {
-      await ApiService.dio.put(
-        '/auth/pilgrims/$pilgrimId',
-        data: updates,
-      );
+      await ApiService.dio.put('/auth/pilgrims/$pilgrimId', data: updates);
       // Refresh groups to reflect changes
       await loadDashboard();
       return (true, null);
@@ -687,9 +686,14 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
   }
 
   // Leave a group — returns (success, errorMessage)
-  Future<(bool, String?)> leaveGroup(String groupId, {String? newCreatorId}) async {
+  Future<(bool, String?)> leaveGroup(
+    String groupId, {
+    String? newCreatorId,
+  }) async {
     try {
-      final body = newCreatorId != null ? {'new_creator_id': newCreatorId} : null;
+      final body = newCreatorId != null
+          ? {'new_creator_id': newCreatorId}
+          : null;
       await ApiService.dio.post('/groups/$groupId/leave', data: body);
       final updated = state.groups.where((g) => g.id != groupId).toList();
       state = state.copyWith(groups: updated, selectedGroupIndex: 0);

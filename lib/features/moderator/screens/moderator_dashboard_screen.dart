@@ -15,7 +15,6 @@ import '../../../core/services/location_permission_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/open_maps_navigation.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
@@ -34,7 +33,6 @@ import 'group_messages_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'system_reminders_screen.dart';
 import '../widgets/moderator_groups_speed_dial.dart';
-import '../widgets/pilgrim_profile_sheet.dart';
 import '../services/moderator_global_nav_beacon_controller.dart';
 import '../services/moderator_sos_engagement_store.dart';
 import '../services/sos_alert_coordinator.dart';
@@ -151,6 +149,7 @@ class _ModeratorDashboardScreenState
       await ref.read(authProvider.notifier).hydrateFromCache();
       await ref.read(moderatorProvider.notifier).hydrateFromCache();
       await ref.read(moderatorProvider.notifier).loadDashboard();
+      await ref.read(moderatorSosEngagementProvider.notifier).refresh();
       if (mounted) {
         setState(() => _isInitializingDashboard = false);
       }
@@ -852,9 +851,6 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
     final groups = _filteredAndSorted(state.groups);
     final showEmptyState =
         !state.isLoading && state.error == null && groups.isEmpty;
-    final engagementAsync = ref.watch(moderatorSosEngagementProvider);
-    final engagements = engagementAsync.value ?? [];
-    final anySOS = _moderatorDashboardShowSosBanner(state.groups, engagements);
 
     return SafeArea(
       child: RefreshIndicator(
@@ -1018,12 +1014,6 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                     ),
 
                     SizedBox(height: 20.h),
-
-                    // SOS Alert Banner
-                    if (anySOS) ...[
-                      _SosAlertBanner(groups: state.groups),
-                      SizedBox(height: 16.h),
-                    ],
 
                     // Search + Filter row
                     Row(
@@ -1282,382 +1272,6 @@ class _GroupsEmptyState extends StatelessWidget {
           ),
           SizedBox(height: 96.h),
         ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SOS Alert Banner
-// ─────────────────────────────────────────────────────────────────────────────
-
-bool _moderatorDashboardShowSosBanner(
-  List<ModeratorGroup> groups,
-  List<ModeratorSosEngagementRecord> engagements,
-) {
-  for (final g in groups) {
-    for (final p in g.pilgrims) {
-      if (!p.hasSOS) continue;
-      final rec = _latestSosEngagementFor(engagements, p.id, g.id);
-      if (rec != null && rec.fullyHandled) continue;
-      return true;
-    }
-  }
-  for (final r in engagements) {
-    if (r.active && !r.fullyHandled && r.blockingSuppressed) {
-      return true;
-    }
-  }
-  return false;
-}
-
-ModeratorSosEngagementRecord? _latestSosEngagementFor(
-  List<ModeratorSosEngagementRecord> list,
-  String pilgrimId,
-  String groupId,
-) {
-  ModeratorSosEngagementRecord? best;
-  for (final r in list) {
-    if (!r.active) continue;
-    if (r.pilgrimId != pilgrimId) continue;
-    if (r.groupId != groupId) continue;
-    if (best == null || r.updatedAtMs > best.updatedAtMs) best = r;
-  }
-  return best;
-}
-
-class _SosBannerRow {
-  _SosBannerRow({required this.group, required this.pilgrim, this.record});
-
-  final ModeratorGroup? group;
-  final PilgrimInGroup? pilgrim;
-  final ModeratorSosEngagementRecord? record;
-
-  String get displayName => pilgrim?.fullName ?? record?.pilgrimName ?? '';
-
-  String get groupLabel => group?.groupName ?? record?.groupName ?? '';
-
-  double? get lat => record?.lat ?? pilgrim?.lat;
-
-  double? get lng => record?.lng ?? pilgrim?.lng;
-
-  String? get storageKey => record?.storageKey;
-
-  /// Newest first when multiple SOS are shown.
-  int get sortMs =>
-      record?.updatedAtMs ?? pilgrim?.lastUpdated?.millisecondsSinceEpoch ?? 0;
-}
-
-List<_SosBannerRow> _buildSosBannerRows(
-  List<ModeratorGroup> groups,
-  List<ModeratorSosEngagementRecord> engagements,
-) {
-  final rows = <_SosBannerRow>[];
-  final seen = <String>{};
-
-  for (final g in groups) {
-    for (final p in g.pilgrims) {
-      if (!p.hasSOS) continue;
-      final rec = _latestSosEngagementFor(engagements, p.id, g.id);
-      if (rec != null && rec.fullyHandled) continue;
-      final key = rec?.storageKey ?? 'g_${p.id}_${g.id}';
-      if (seen.contains(key)) continue;
-      seen.add(key);
-      rows.add(_SosBannerRow(group: g, pilgrim: p, record: rec));
-    }
-  }
-
-  for (final r in engagements) {
-    if (!r.active || r.fullyHandled || !r.blockingSuppressed) continue;
-    if (seen.contains(r.storageKey)) continue;
-    seen.add(r.storageKey);
-    ModeratorGroup? g;
-    PilgrimInGroup? p;
-    for (final gg in groups) {
-      if (gg.id != r.groupId) continue;
-      g = gg;
-      try {
-        p = gg.pilgrims.firstWhere((x) => x.id == r.pilgrimId);
-      } catch (_) {}
-      break;
-    }
-    rows.add(_SosBannerRow(group: g, pilgrim: p, record: r));
-  }
-
-  rows.sort((a, b) => b.sortMs.compareTo(a.sortMs));
-  return rows;
-}
-
-class _SosAlertBanner extends ConsumerStatefulWidget {
-  final List<ModeratorGroup> groups;
-  const _SosAlertBanner({required this.groups});
-
-  @override
-  ConsumerState<_SosAlertBanner> createState() => _SosAlertBannerState();
-}
-
-class _SosAlertBannerState extends ConsumerState<_SosAlertBanner> {
-  static const _carouselViewportFraction = 0.88;
-
-  PageController? _pageController;
-  int _currentPage = 0;
-
-  PageController _carouselController() => _pageController ??= PageController(
-    viewportFraction: _carouselViewportFraction,
-  );
-
-  @override
-  void dispose() {
-    _pageController?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final engagementAsync = ref.watch(moderatorSosEngagementProvider);
-    final engagements = engagementAsync.value ?? [];
-    final rows = _buildSosBannerRows(widget.groups, engagements);
-    if (rows.isEmpty) return const SizedBox.shrink();
-
-    if (rows.length == 1) {
-      return _SosBannerCard(row: rows.first);
-    }
-
-    final pc = _carouselController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !pc.hasClients) return;
-      final maxIdx = rows.length - 1;
-      if (_currentPage > maxIdx) {
-        setState(() => _currentPage = maxIdx);
-        pc.jumpToPage(maxIdx);
-      }
-    });
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SizedBox(
-          height: 232.h,
-          child: PageView.builder(
-            controller: pc,
-            itemCount: rows.length,
-            padEnds: true,
-            physics: const BouncingScrollPhysics(),
-            onPageChanged: (i) => setState(() => _currentPage = i),
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4.w),
-                child: _SosBannerCard(row: rows[index]),
-              );
-            },
-          ),
-        ),
-        SizedBox(height: 8.h),
-        Text(
-          'dashboard_sos_swipe_hint'.tr(
-            namedArgs: {
-              'current': '${_currentPage + 1}',
-              'total': '${rows.length}',
-            },
-          ),
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontSize: 11.sp,
-            color: Theme.of(context).brightness == Brightness.dark
-                ? AppColors.textMutedLight
-                : AppColors.textMutedDark,
-          ),
-        ),
-        SizedBox(height: 6.h),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(rows.length, (i) {
-            final active = i == _currentPage;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              margin: EdgeInsets.symmetric(horizontal: 3.w),
-              width: active ? 20.w : 7.w,
-              height: 7.w,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4.r),
-                color: active
-                    ? const Color(0xFFDC2626)
-                    : const Color(0xFFDC2626).withValues(alpha: 0.28),
-              ),
-            );
-          }),
-        ),
-      ],
-    );
-  }
-}
-
-class _SosBannerCard extends ConsumerWidget {
-  final _SosBannerRow row;
-  const _SosBannerCard({required this.row});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final hasNav = row.lat != null && row.lng != null;
-
-    return Container(
-      padding: EdgeInsets.all(14.w),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF1F2),
-        border: Border.all(color: const Color(0xFFFFE4E6)),
-        borderRadius: BorderRadius.circular(16.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.red.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: EdgeInsets.all(8.w),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFFE4E6),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Symbols.warning,
-                    color: Color(0xFFDC2626),
-                    size: 20.w,
-                    fill: 1,
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'dashboard_sos_active'.tr(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13.sp,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        'dashboard_sos_banner_subtitle'.tr(
-                          namedArgs: {
-                            'name': row.displayName,
-                            'group': row.groupLabel.isEmpty
-                                ? '—'
-                                : row.groupLabel,
-                          },
-                        ),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 11.sp,
-                          color: const Color(0xFF475569),
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 10.h),
-            Wrap(
-              spacing: 8.w,
-              runSpacing: 8.h,
-              alignment: WrapAlignment.end,
-              children: [
-              if (hasNav)
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    final p = row.pilgrim;
-                    final g = row.group;
-                    if (p != null && g != null) {
-                      SosAlertCoordinator.emitModeratorHandling(
-                        pilgrimId: p.id,
-                        groupId: g.id,
-                        sosId: row.record?.sosId,
-                      );
-                    }
-                    final ok = await OpenMapsNavigation.confirmAndLaunch(
-                      context,
-                      row.lat!,
-                      row.lng!,
-                    );
-                      if (!ok || !context.mounted) return;
-                      final sk = row.storageKey;
-                      if (sk != null) {
-                        final next =
-                            await ModeratorSosEngagementStore.markNavigatedSuccess(
-                              sk,
-                            );
-                        await ref
-                            .read(moderatorSosEngagementProvider.notifier)
-                            .refresh();
-                        if (next?.fullyHandled == true && context.mounted) {
-                          StandardSnackBar.showInfo(
-                            context,
-                            'sos_mod_handling_complete_hint'.tr(),
-                          );
-                        }
-                      }
-                    },
-                    icon: Icon(Symbols.navigation, size: 18.w),
-                    label: Text(
-                      'explore_navigate'.tr(),
-                      style: const TextStyle(fontFamily: 'Lexend'),
-                    ),
-                  ),
-              FilledButton(
-                onPressed: () {
-                  final g = row.group;
-                  final p = row.pilgrim;
-                  if (g == null || p == null) {
-                    StandardSnackBar.showWarning(
-                      context,
-                      'sos_mod_pilgrim_not_loaded'.tr(),
-                    );
-                    return;
-                  }
-                  SosAlertCoordinator.emitModeratorHandling(
-                    pilgrimId: p.id,
-                    groupId: g.id,
-                    sosId: row.record?.sosId,
-                  );
-                  final uid = ref.read(authProvider).userId ?? '';
-                  showPilgrimProfileSheet(context, p, g.id, uid);
-                },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFDC2626),
-                    foregroundColor: Colors.white,
-                  ),
-                  child: Text(
-                    'dashboard_view'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12.sp,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

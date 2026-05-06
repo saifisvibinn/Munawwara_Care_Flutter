@@ -33,26 +33,24 @@ class SosAlertDialog extends StatelessWidget {
     this.navigateLng,
   });
 
-  bool get _canNavigate =>
-      navigateLat != null && navigateLng != null;
+  bool get _canNavigate => navigateLat != null && navigateLng != null;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final titleColor = isDark ? Colors.white : AppColors.textDark;
-    final bodyColor = isDark ? Colors.white.withValues(alpha: 0.88) : AppColors.textDark;
+    final bodyColor = isDark
+        ? Colors.white.withValues(alpha: 0.88)
+        : AppColors.textDark;
     final muted = isDark
         ? Colors.white.withValues(alpha: 0.55)
         : AppColors.textMutedDark;
 
     final screenW = MediaQuery.sizeOf(context).width;
-    final dialogW =
-        math.max(280.0, math.min(screenW - 40, 400.0));
+    final dialogW = math.max(280.0, math.min(screenW - 40, 400.0));
 
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22.r),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22.r)),
       insetPadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 24.h),
       child: SizedBox(
         width: dialogW,
@@ -70,12 +68,13 @@ class SosAlertDialog extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
+                          color: isDark
+                              ? AppColors.dividerDark
+                              : AppColors.dividerLight,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color:
-                                AppColors.primary.withValues(alpha: 0.12),
+                            color: AppColors.primary.withValues(alpha: 0.12),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -218,8 +217,9 @@ class SosAlertDialog extends StatelessWidget {
                             vertical: 12.h,
                             horizontal: 8.w,
                           ),
-                          foregroundColor:
-                              AppColors.primary.withValues(alpha: 0.9),
+                          foregroundColor: AppColors.primary.withValues(
+                            alpha: 0.9,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12.r),
                           ),

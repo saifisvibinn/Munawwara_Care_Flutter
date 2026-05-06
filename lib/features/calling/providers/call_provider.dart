@@ -39,12 +39,16 @@ class CallState {
   final CallStatus status;
   final String? remoteUserId;
   final String? remoteUserName;
+
   /// When non-null (pilgrim incoming), use for in-app ringing UI instead of [remoteUserName].
   final String? incomingDisplayName;
+
   /// Pilgrim SOS: parallel ring to all group moderators until one answers.
   final bool isGroupRingingOut;
+
   /// Pilgrim receiving a moderator call: show support name + app logo in-app (not peer personal name).
   final bool displayPeerAsSupportBranding;
+
   /// Moderator → pilgrim outbound: [PilgrimGenderAvatar] uses this (null = male default asset).
   final String? remotePeerGender;
   final bool isMuted;
@@ -213,8 +217,9 @@ class CallNotifier extends Notifier<CallState> {
     if (state.isInCall) return;
     final isPilgrimCaller =
         ref.read(authProvider).role?.toLowerCase() == 'pilgrim';
-    final displayName =
-        isPilgrimCaller ? 'call_support_display_name'.tr() : remoteUserName;
+    final displayName = isPilgrimCaller
+        ? 'call_support_display_name'.tr()
+        : remoteUserName;
     state = CallState(
       status: CallStatus.calling,
       remoteUserId: remoteUserId,
@@ -365,7 +370,8 @@ class CallNotifier extends Notifier<CallState> {
       _startTimer();
       // Android: mark call connected so native prefs use isAccepted=true; otherwise
       // endCall() routes to DECLINE and never stops CallkitNotificationService FGS.
-      final callKitId = await CallKitService.instance.peekCallKitNotificationId();
+      final callKitId = await CallKitService.instance
+          .peekCallKitNotificationId();
       if (callKitId != null && callKitId.isNotEmpty) {
         try {
           await FlutterCallkitIncoming.setCallConnected(callKitId);
@@ -390,10 +396,7 @@ class CallNotifier extends Notifier<CallState> {
     final remoteId = state.remoteUserId;
     if (remoteId != null) {
       CallSignaling.emitWhenConnected('call-declined', {'to': remoteId});
-      CallSignaling.notifyDeclineHttp(
-        remoteId,
-        SocketService.connectedUserId,
-      );
+      CallSignaling.notifyDeclineHttp(remoteId, SocketService.connectedUserId);
     }
     // Dismiss native call screen
     CallKitService.instance.endCurrentCall();
@@ -521,8 +524,9 @@ class CallNotifier extends Notifier<CallState> {
 
     final prefsEarly = await SharedPreferences.getInstance();
     final isPilgrimCallee = prefsEarly.getString('user_role') == 'pilgrim';
-    final calleeDisplayName =
-        isPilgrimCallee ? 'call_support_display_name'.tr() : callerName;
+    final calleeDisplayName = isPilgrimCallee
+        ? 'call_support_display_name'.tr()
+        : callerName;
 
     AppLogger.i(
       '[CallProvider] Accepting FCM call from $callerName on $channelName',
@@ -732,8 +736,8 @@ class CallNotifier extends Notifier<CallState> {
     CallKitService.instance.endCurrentCall();
     final snapshot = state;
     _cleanup();
-    final wasLive = snapshot.status == CallStatus.connected ||
-        snapshot.durationSeconds > 0;
+    final wasLive =
+        snapshot.status == CallStatus.connected || snapshot.durationSeconds > 0;
     state = snapshot.copyWith(
       status: CallStatus.ended,
       endReason: wasLive ? 'ended' : 'declined',
@@ -786,7 +790,7 @@ class CallNotifier extends Notifier<CallState> {
 
   Future<void> _setupEngine() async {
     if (_engine != null) return; // Reuse existing engine
-    
+
     _engine = createAgoraRtcEngine();
     await _engine!.initialize(RtcEngineContext(appId: _agoraAppId));
     await _engine!.enableAudio();

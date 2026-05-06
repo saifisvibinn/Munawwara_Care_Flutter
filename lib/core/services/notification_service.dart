@@ -273,7 +273,8 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       sendPort.send({
         'type': 'reminder_popup',
         'body': text,
-        'rawTime': message.data['scheduledAt']?.toString() ??
+        'rawTime':
+            message.data['scheduledAt']?.toString() ??
             message.data['scheduled_time']?.toString() ??
             '',
       });
@@ -607,7 +608,8 @@ class NotificationService {
       'messageType=$messageType, groupId=$groupId, groupName=$groupName',
     );
 
-    final isReminderTap = notificationType == 'reminder' ||
+    final isReminderTap =
+        notificationType == 'reminder' ||
         messageType == 'reminder_tts' ||
         (notificationType == 'urgent' && messageType == 'reminder_tts');
     if (isReminderTap) {

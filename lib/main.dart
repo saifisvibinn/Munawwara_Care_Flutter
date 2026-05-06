@@ -110,15 +110,15 @@ void main() async {
             if (rawTime.isNotEmpty) {
               try {
                 final parsed = DateTime.parse(rawTime).toLocal();
-                schedTime = 'reminder_popup_scheduled_for'.tr(namedArgs: {
-                  'time': DateFormat('HH:mm').format(parsed),
-                });
+                schedTime = 'reminder_popup_scheduled_for'.tr(
+                  namedArgs: {'time': DateFormat('HH:mm').format(parsed)},
+                );
               } catch (_) {}
             }
             if (schedTime.isEmpty) {
-              schedTime = 'reminder_popup_scheduled_for'.tr(namedArgs: {
-                'time': DateFormat('HH:mm').format(DateTime.now()),
-              });
+              schedTime = 'reminder_popup_scheduled_for'.tr(
+                namedArgs: {'time': DateFormat('HH:mm').format(DateTime.now())},
+              );
             }
             ReminderPopup.show(
               ctx,
@@ -159,7 +159,9 @@ void main() async {
         // SOS: one tray notification from FCM when backgrounded; in foreground
         // show the in-app dialog only — do not stack a second local notification.
         if (notifType == 'sos_alert') {
-          AppLogger.i('FCM onMessage: SOS — in-app dialog (no duplicate local notif)');
+          AppLogger.i(
+            'FCM onMessage: SOS — in-app dialog (no duplicate local notif)',
+          );
           await SosAlertCoordinator.showOnceFromMap(
             Map<String, dynamic>.from(msg.data),
           );
@@ -184,19 +186,23 @@ void main() async {
               if (rawTime.isNotEmpty) {
                 try {
                   final parsed = DateTime.parse(rawTime).toLocal();
-                  schedTime = 'reminder_popup_scheduled_for'.tr(namedArgs: {
-                    'time': DateFormat('HH:mm').format(parsed),
-                  });
+                  schedTime = 'reminder_popup_scheduled_for'.tr(
+                    namedArgs: {'time': DateFormat('HH:mm').format(parsed)},
+                  );
                 } catch (_) {}
               }
               if (schedTime.isEmpty) {
-                schedTime = 'reminder_popup_scheduled_for'.tr(namedArgs: {
-                  'time': DateFormat('HH:mm').format(DateTime.now()),
-                });
+                schedTime = 'reminder_popup_scheduled_for'.tr(
+                  namedArgs: {
+                    'time': DateFormat('HH:mm').format(DateTime.now()),
+                  },
+                );
               }
               ReminderPopup.show(ctx, body: text, scheduledTime: schedTime);
             } else {
-              AppLogger.w('⚠️ No navigator context — cannot show reminder popup');
+              AppLogger.w(
+                '⚠️ No navigator context — cannot show reminder popup',
+              );
             }
             if (isUrgentTts) {
               await NotificationService.speakTts('Incoming reminder. $text');
@@ -302,8 +308,12 @@ class MyApp extends ConsumerWidget {
       // 1. Fresh login (unauthenticated → authenticated)
       // 2. Session restore (isRestoringSession: true → authenticated)
       final wasRestoringOrUnauthenticated =
-          previous == null || previous.isRestoringSession || !previous.isAuthenticated;
-      if (next.isAuthenticated && wasRestoringOrUnauthenticated && _globalFcmToken != null) {
+          previous == null ||
+          previous.isRestoringSession ||
+          !previous.isAuthenticated;
+      if (next.isAuthenticated &&
+          wasRestoringOrUnauthenticated &&
+          _globalFcmToken != null) {
         ref.read(authProvider.notifier).updateFcmToken(_globalFcmToken!);
       }
     });
@@ -335,14 +345,17 @@ class MyApp extends ConsumerWidget {
             return AnnotatedRegion<SystemUiOverlayStyle>(
               value: SystemUiOverlayStyle(
                 statusBarColor: Colors.transparent,
-                statusBarIconBrightness:
-                    isDarkUi ? Brightness.light : Brightness.dark,
-                statusBarBrightness:
-                    isDarkUi ? Brightness.dark : Brightness.light,
+                statusBarIconBrightness: isDarkUi
+                    ? Brightness.light
+                    : Brightness.dark,
+                statusBarBrightness: isDarkUi
+                    ? Brightness.dark
+                    : Brightness.light,
                 systemNavigationBarColor: Colors.transparent,
                 systemNavigationBarDividerColor: Colors.transparent,
-                systemNavigationBarIconBrightness:
-                    isDarkUi ? Brightness.light : Brightness.dark,
+                systemNavigationBarIconBrightness: isDarkUi
+                    ? Brightness.light
+                    : Brightness.dark,
                 systemNavigationBarContrastEnforced: false,
               ),
               child: GestureDetector(
@@ -371,7 +384,8 @@ class _HotReloadSosAlertSuppressor extends StatefulWidget {
       _HotReloadSosAlertSuppressorState();
 }
 
-class _HotReloadSosAlertSuppressorState extends State<_HotReloadSosAlertSuppressor> {
+class _HotReloadSosAlertSuppressorState
+    extends State<_HotReloadSosAlertSuppressor> {
   @override
   void reassemble() {
     super.reassemble();

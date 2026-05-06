@@ -48,7 +48,7 @@ import 'pilgrim_profile_screen.dart';
 import 'qibla_compass_screen.dart';
 
 /// Which surface replaces the SOS control on the home tab.
-enum _SosHomePhase { idle, helpSession, completed }
+enum _SosHomePhase { idle, helpSession }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pilgrim Dashboard Screen
@@ -90,16 +90,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   _SosHomePhase _sosHomePhase = _SosHomePhase.idle;
   /// True after SOS auto group ring starts successfully until call teardown or cancel.
   bool _sosVoiceFollowup = false;
-  Timer? _sosCompletedAutoDismissTimer;
-
-  static const Duration _sosCompletedAutoDismiss = Duration(seconds: 30);
-
-  /// Grey out hold-to-SOS on the home idle card for this long after a session ends.
-  static const Duration _sosPostSessionButtonCooldown = Duration(minutes: 5);
-
-  /// Throttle repeat SOS holds after a session ended (completed or cancelled).
-  DateTime? _lastSosSessionEndedAt;
-  Timer? _sosPostSessionCooldownUiTimer;
 
   // Location
   StreamSubscription<Position>? _locationSub;
@@ -265,8 +255,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             }
 
             _stopSosHelpTimers();
-            _sosCompletedAutoDismissTimer?.cancel();
-            _sosCompletedAutoDismissTimer = null;
             _sosVoiceFollowup = false;
             if (mounted) {
               setState(() => _sosHomePhase = _SosHomePhase.idle);
@@ -460,6 +448,37 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             debugPrint('[PilgrimDashboard] sos-handling handler error: $e');
           }
         });
+
+        SocketService.on('sos-resolved', (data) {
+          if (!mounted) return;
+          try {
+            final map = Map<String, dynamic>.from(data as Map);
+            final sid = map['sos_id']?.toString().trim();
+            final active = ref.read(pilgrimProvider).activeSosId?.trim();
+            if (sid != null &&
+                sid.isNotEmpty &&
+                active != null &&
+                active.isNotEmpty &&
+                sid != active) {
+              return;
+            }
+
+            _stopSosHelpTimers();
+            _sosVoiceFollowup = false;
+            ref.read(pilgrimProvider.notifier).cancelSOS();
+            if (!mounted) return;
+            setState(() {
+              _sosHomePhase = _SosHomePhase.idle;
+              _sosHelpStatusKey = 'sos_status_notifying';
+            });
+            StandardSnackBar.showSuccess(
+              context,
+              'sos_resolved_by_moderator'.tr(),
+            );
+          } catch (e) {
+            debugPrint('[PilgrimDashboard] sos-resolved handler error: $e');
+          }
+        });
       }
       // Fetch notification badge count
       ref.read(notificationProvider.notifier).fetchUnreadCount();
@@ -493,8 +512,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _sosTimer?.cancel();
     _sosCountdownTimer?.cancel();
     _stopSosHelpTimers();
-    _sosCompletedAutoDismissTimer?.cancel();
-    _sosPostSessionCooldownUiTimer?.cancel();
     _sosVoiceFollowup = false;
     _weatherRefreshTimer?.cancel();
     _serviceStatusSub?.cancel();
@@ -515,6 +532,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     SocketService.off('added-to-group');
     SocketService.off('force_logout');
     SocketService.off('sos-handling');
+    SocketService.off('sos-resolved');
     SocketService.offConnected(_onSocketConnected);
     super.dispose();
   }
@@ -524,46 +542,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _sosHelpPhaseTimer = null;
     _sosAutoCallTimer?.cancel();
     _sosAutoCallTimer = null;
-  }
-
-  /// Seconds remaining for the post-session SOS button cooldown, or `null` if inactive.
-  int? _sosPostSessionCooldownSecondsRemaining() {
-    final last = _lastSosSessionEndedAt;
-    if (last == null) return null;
-    final end = last.add(_sosPostSessionButtonCooldown);
-    final rem = end.difference(DateTime.now()).inSeconds;
-    if (rem <= 0) return null;
-    return rem;
-  }
-
-  void _ensurePostSessionSosCooldownTicker() {
-    _sosPostSessionCooldownUiTimer?.cancel();
-    _sosPostSessionCooldownUiTimer = null;
-    if (_sosPostSessionCooldownSecondsRemaining() == null) return;
-    _sosPostSessionCooldownUiTimer =
-        Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      final rem = _sosPostSessionCooldownSecondsRemaining();
-      if (rem == null) {
-        _sosPostSessionCooldownUiTimer?.cancel();
-        _sosPostSessionCooldownUiTimer = null;
-      }
-      // Only tick the UI while the SOS control is visible (idle); avoids
-      // rebuilding the whole home tab every second on the completed card.
-      if (_sosHomePhase == _SosHomePhase.idle || rem == null) {
-        setState(() {});
-      }
-    });
-  }
-
-  void _exitSosCompletedToIdle() {
-    _sosCompletedAutoDismissTimer?.cancel();
-    _sosCompletedAutoDismissTimer = null;
-    if (!mounted) return;
-    setState(() {
-      _sosHomePhase = _SosHomePhase.idle;
-      _sosHelpStatusKey = 'sos_status_notifying';
-    });
   }
 
   void _startSosHelpSessionTimers() {
@@ -888,7 +866,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   // ── SOS Logic ───────────────────────────────────────────────────────────────
 
   void _onSosHoldStart() {
-    if (_sosPostSessionCooldownSecondsRemaining() != null) return;
     HapticFeedback.heavyImpact();
     SystemSound.play(SystemSoundType.alert);
     setState(() {
@@ -930,66 +907,10 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     });
     _sosHoldController.value = 0;
 
-    final last = _lastSosSessionEndedAt;
-    if (last != null &&
-        DateTime.now().difference(last) < const Duration(minutes: 30)) {
-      if (!mounted) return;
-      final isDark = Theme.of(context).brightness == Brightness.dark;
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (dialogCtx) => AlertDialog(
-          backgroundColor:
-              isDark ? AppColors.surfaceDark : Colors.white,
-          title: Text(
-            'sos_repeat_confirm_title'.tr(),
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              color: isDark ? Colors.white : AppColors.textDark,
-            ),
-          ),
-          content: Text(
-            'sos_repeat_confirm_body'.tr(),
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              color: isDark ? Colors.white70 : AppColors.textDark,
-              height: 1.45,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx, false),
-              child: Text(
-                'sos_repeat_confirm_back'.tr(),
-                style: const TextStyle(
-                  fontFamily: 'Lexend',
-                  color: AppColors.textMutedLight,
-                ),
-              ),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogCtx, true),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-              child: Text(
-                'sos_repeat_confirm_continue'.tr(),
-                style: const TextStyle(fontFamily: 'Lexend'),
-              ),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true) {
-        return;
-      }
-    }
-
     final ok = await ref.read(pilgrimProvider.notifier).triggerSOS();
     if (!mounted) return;
 
     if (ok) {
-      _sosCompletedAutoDismissTimer?.cancel();
       if (mounted) {
         setState(() {
           _sosHomePhase = _SosHomePhase.helpSession;
@@ -1004,10 +925,59 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     }
   }
 
-  void _cancelSOS() {
+  Future<void> _cancelSOS() async {
+    if (!mounted) return;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+        title: Text(
+          'sos_cancel_confirm_title'.tr(),
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            color: isDark ? Colors.white : AppColors.textDark,
+          ),
+        ),
+        content: Text(
+          'sos_cancel_confirm_body'.tr(),
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            color: isDark ? Colors.white70 : AppColors.textDark,
+            height: 1.45,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: Text(
+              'sos_cancel_confirm_keep'.tr(),
+              style: const TextStyle(
+                fontFamily: 'Lexend',
+                color: AppColors.textMutedLight,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'sos_cancel_confirm_yes'.tr(),
+              style: const TextStyle(fontFamily: 'Lexend'),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    _performCancelSOS();
+  }
+
+  void _performCancelSOS() {
     _sosVoiceFollowup = false;
-    _sosCompletedAutoDismissTimer?.cancel();
-    _sosCompletedAutoDismissTimer = null;
     _stopSosHelpTimers();
     final call = ref.read(callProvider);
     if (call.status == CallStatus.calling ||
@@ -1018,16 +988,14 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       setState(() {
         _sosHelpStatusKey = 'sos_status_notifying';
         _sosHomePhase = _SosHomePhase.idle;
-        _lastSosSessionEndedAt = DateTime.now();
       });
-      _ensurePostSessionSosCooldownTicker();
     }
     final pilgrimState = ref.read(pilgrimProvider);
     final groupId = pilgrimState.groupInfo?.groupId;
     final sosId = pilgrimState.activeSosId;
 
     ref.read(pilgrimProvider.notifier).cancelSOS();
-    
+
     if (groupId != null) {
       final payload = <String, dynamic>{
         'groupId': groupId,
@@ -1120,20 +1088,10 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         if (wasInVoice && endSosHelpAfterCall) {
           _sosVoiceFollowup = false;
           _stopSosHelpTimers();
-          ref.read(pilgrimProvider.notifier).cancelSOS();
           if (!mounted) return;
-          setState(() {
-            _sosHomePhase = _SosHomePhase.completed;
-            // 5-minute SOS button cooldown + 30-min repeat guard start at call end,
-            // not when the user leaves the completed card.
-            _lastSosSessionEndedAt = DateTime.now();
-          });
-          _ensurePostSessionSosCooldownTicker();
-          _sosCompletedAutoDismissTimer?.cancel();
-          _sosCompletedAutoDismissTimer = Timer(
-            _sosCompletedAutoDismiss,
-            _exitSosCompletedToIdle,
-          );
+          if (ref.read(pilgrimProvider).sosActive) {
+            setState(() => _sosHelpStatusKey = 'sos_status_waiting');
+          }
         }
       }
     });
@@ -1143,12 +1101,25 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     });
 
     ref.listen(pilgrimProvider, (prev, next) {
-      if (prev?.sosActive == true &&
-          next.sosActive == false &&
-          _sosHomePhase != _SosHomePhase.completed) {
+      if (prev?.sosActive != true && next.sosActive) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (!ref.read(pilgrimProvider).sosActive) return;
+          if (_sosHomePhase != _SosHomePhase.idle) return;
+          setState(() {
+            _sosHomePhase = _SosHomePhase.helpSession;
+            _sosHelpStatusKey = 'sos_status_waiting';
+          });
+        });
+      }
+      if (prev?.sosActive == true && next.sosActive == false) {
         _stopSosHelpTimers();
+        _sosVoiceFollowup = false;
         if (mounted) {
-          setState(() => _sosHelpStatusKey = 'sos_status_notifying');
+          setState(() {
+            _sosHelpStatusKey = 'sos_status_notifying';
+            _sosHomePhase = _SosHomePhase.idle;
+          });
         }
       }
       final prevGroupId = prev?.groupInfo?.groupId;
@@ -1171,8 +1142,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         ref.read(messageProvider.notifier).setActiveGroup(null);
       }
     });
-
-    final sosCooldownSec = _sosPostSessionCooldownSecondsRemaining();
 
     final tabs = [
       _HomeTab(
@@ -1197,8 +1166,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         onCancelSos: _cancelSOS,
         sosHelpStatusKey: _sosHelpStatusKey,
         sosHomePhase: _sosHomePhase,
-        sosCooldownSecondsRemaining: sosCooldownSec,
-        onSosCompletedExit: _exitSosCompletedToIdle,
         navBeacons: pilgrimState.navBeacons,
         isGpsEnabled: _isGpsEnabled,
         hasLocPermission: _hasLocPermission,
@@ -1400,11 +1367,9 @@ class _HomeTab extends StatelessWidget {
   final VoidCallback onSosHoldEnd;
   final Future<void> Function() onRefresh;
   final int sosCountdown;
-  final VoidCallback onCancelSos;
+  final Future<void> Function() onCancelSos;
   final String sosHelpStatusKey;
   final _SosHomePhase sosHomePhase;
-  final int? sosCooldownSecondsRemaining;
-  final VoidCallback onSosCompletedExit;
   final Map<String, ModeratorBeacon> navBeacons;
   final LatLng? myLocation;
   final void Function(ModeratorBeacon) onNavigateToModerator;
@@ -1436,8 +1401,6 @@ class _HomeTab extends StatelessWidget {
     required this.onCancelSos,
     required this.sosHelpStatusKey,
     required this.sosHomePhase,
-    required this.sosCooldownSecondsRemaining,
-    required this.onSosCompletedExit,
     required this.navBeacons,
     this.myLocation,
     required this.onNavigateToModerator,
@@ -1670,8 +1633,6 @@ class _HomeTab extends StatelessWidget {
                     onCancelSos: onCancelSos,
                     sosHelpStatusKey: sosHelpStatusKey,
                     sosHomePhase: sosHomePhase,
-                    sosCooldownSecondsRemaining: sosCooldownSecondsRemaining,
-                    onSosCompletedExit: onSosCompletedExit,
                     onGroupCardTap: onGroupCardTap,
                     onHotspotsTap: onHotspotsTap,
                     navBeacons: navBeacons,
@@ -1695,8 +1656,6 @@ class _HomeTab extends StatelessWidget {
                     onCancelSos: onCancelSos,
                     sosHelpStatusKey: sosHelpStatusKey,
                     sosHomePhase: sosHomePhase,
-                    sosCooldownSecondsRemaining: sosCooldownSecondsRemaining,
-                    onSosCompletedExit: onSosCompletedExit,
                     onGroupCardTap: onGroupCardTap,
                     onHotspotsTap: onHotspotsTap,
                     navBeacons: navBeacons,
@@ -1729,11 +1688,9 @@ class _HomeBody extends StatelessWidget {
   final int sosCountdown;
   final VoidCallback onSosHoldStart;
   final VoidCallback onSosHoldEnd;
-  final VoidCallback onCancelSos;
+  final Future<void> Function() onCancelSos;
   final String sosHelpStatusKey;
   final _SosHomePhase sosHomePhase;
-  final int? sosCooldownSecondsRemaining;
-  final VoidCallback onSosCompletedExit;
   final VoidCallback onGroupCardTap;
   final VoidCallback onHotspotsTap;
   final Map<String, ModeratorBeacon> navBeacons;
@@ -1754,8 +1711,6 @@ class _HomeBody extends StatelessWidget {
     required this.onCancelSos,
     required this.sosHelpStatusKey,
     required this.sosHomePhase,
-    required this.sosCooldownSecondsRemaining,
-    required this.onSosCompletedExit,
     required this.onGroupCardTap,
     required this.onHotspotsTap,
     required this.navBeacons,
@@ -1763,17 +1718,10 @@ class _HomeBody extends StatelessWidget {
     required this.onNavigateToModerator,
   });
 
-  String _formatSosCooldownMmSs(int totalSeconds) {
-    final m = totalSeconds ~/ 60;
-    final s = totalSeconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
     final muted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
-    final showCompleted = sosHomePhase == _SosHomePhase.completed;
-    final showHelp = !showCompleted && pilgrimState.sosActive;
+    final showHelp = pilgrimState.sosActive;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -1816,21 +1764,13 @@ class _HomeBody extends StatelessWidget {
             ),
             SizedBox(height: 32.h),
 
-            // ── SOS / help session / completed ─────────────────────────────
+            // ── SOS / help session ─────────────────────────────────────────
             Center(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 280),
                 switchInCurve: Curves.easeOut,
                 switchOutCurve: Curves.easeIn,
-                child: showCompleted
-                    ? KeyedSubtree(
-                        key: const ValueKey<String>('sos_ui_completed'),
-                        child: _SosCompletedPanel(
-                          isDark: isDark,
-                          onDone: onSosCompletedExit,
-                        ),
-                      )
-                    : showHelp
+                child: showHelp
                     ? KeyedSubtree(
                         key: const ValueKey<String>('sos_ui_help'),
                         child: _SosHelpSessionPanel(
@@ -1851,19 +1791,12 @@ class _HomeBody extends StatelessWidget {
                               isLoading: pilgrimState.isSosLoading,
                               sosActive: pilgrimState.sosActive,
                               countdown: sosCountdown,
-                              cooldownSecondsRemaining: sosCooldownSecondsRemaining,
                               onHoldStart: onSosHoldStart,
                               onHoldEnd: onSosHoldEnd,
                             ),
                             SizedBox(height: 14.h),
                             Text(
-                              sosCooldownSecondsRemaining != null
-                                  ? 'sos_cooldown_subtext'.tr(namedArgs: {
-                                      'time': _formatSosCooldownMmSs(
-                                        sosCooldownSecondsRemaining!,
-                                      ),
-                                    })
-                                  : 'sos_idle_subtext'.tr(),
+                              'sos_idle_subtext'.tr(),
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontFamily: 'Lexend',
@@ -2264,125 +2197,13 @@ class _ExploreCardNew extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SOS resolved — success closure before returning to idle SOS control
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SosCompletedPanel extends StatelessWidget {
-  final bool isDark;
-  final VoidCallback onDone;
-
-  const _SosCompletedPanel({
-    required this.isDark,
-    required this.onDone,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final brand = 'call_support_display_name'.tr();
-    final surface = isDark ? AppColors.surfaceDark : Colors.white;
-    final border = AppColors.success.withValues(alpha: 0.35);
-    final titleColor = isDark ? Colors.white : AppColors.textDark;
-    final muted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
-
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: 400.w),
-      child: Container(
-        padding: EdgeInsets.fromLTRB(22.w, 24.h, 22.w, 20.h),
-        decoration: BoxDecoration(
-          color: surface,
-          borderRadius: BorderRadius.circular(22.r),
-          border: Border.all(color: border, width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.success.withValues(alpha: isDark ? 0.12 : 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Symbols.check_circle,
-              color: AppColors.success,
-              size: 44.w,
-              fill: 1,
-            ),
-            SizedBox(height: 14.h),
-            Text(
-              'sos_completed_title'.tr(),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w800,
-                color: titleColor,
-                height: 1.25,
-              ),
-            ),
-            SizedBox(height: 8.h),
-            Text(
-              'sos_completed_subtitle'.tr(namedArgs: {'name': brand}),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w500,
-                color: muted,
-                height: 1.45,
-              ),
-            ),
-            SizedBox(height: 10.h),
-            Text(
-              'sos_completed_hint'.tr(),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w400,
-                color: muted,
-                height: 1.4,
-              ),
-            ),
-            SizedBox(height: 22.h),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: onDone,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.success,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 14.h),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14.r),
-                  ),
-                ),
-                child: Text(
-                  'sos_completed_done'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Post-SOS help session (calm surface; no moderator names)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SosHelpSessionPanel extends StatelessWidget {
   final bool isDark;
   final String statusKey;
-  final VoidCallback onCancelRequest;
+  final Future<void> Function() onCancelRequest;
 
   const _SosHelpSessionPanel({
     required this.isDark,
@@ -2470,7 +2291,7 @@ class _SosHelpSessionPanel extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
-                    onPressed: onCancelRequest,
+                    onPressed: () => onCancelRequest(),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: muted,
                       side: BorderSide(
@@ -2500,7 +2321,7 @@ class _SosHelpSessionPanel extends StatelessWidget {
             top: 4.h,
             right: 4.w,
             child: IconButton(
-              onPressed: onCancelRequest,
+              onPressed: () => onCancelRequest(),
               tooltip: 'popup_dismiss'.tr(),
               style: IconButton.styleFrom(
                 foregroundColor: muted,
@@ -2532,8 +2353,6 @@ class _SosButton extends StatefulWidget {
   final bool isLoading;
   final bool sosActive;
   final int countdown;
-  /// When set, hold-to-SOS is disabled and the disc shows a greyed countdown.
-  final int? cooldownSecondsRemaining;
   final VoidCallback onHoldStart;
   final VoidCallback onHoldEnd;
 
@@ -2544,7 +2363,6 @@ class _SosButton extends StatefulWidget {
     required this.isLoading,
     required this.sosActive,
     required this.countdown,
-    this.cooldownSecondsRemaining,
     required this.onHoldStart,
     required this.onHoldEnd,
   });
@@ -2589,8 +2407,6 @@ class _SosButtonState extends State<_SosButton>
   Widget build(BuildContext context) {
     const double size = 190;
     const double ringStroke = 8;
-    final cd = widget.cooldownSecondsRemaining;
-    final cooldownLocked = cd != null && cd > 0;
 
     Widget disc = GestureDetector(
       onLongPressDown: (_) => _onDown(),
@@ -2617,7 +2433,6 @@ class _SosButtonState extends State<_SosButton>
             alignment: Alignment.center,
             children: [
               // ── Layered Animated Glows ─────────────────────────────────────
-              if (!cooldownLocked)
               AnimatedBuilder(
                 animation: widget.pulseController,
                 builder: (_, _) {
@@ -2687,24 +2502,19 @@ class _SosButtonState extends State<_SosButton>
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: cooldownLocked
-                        ? [
-                            const Color(0xFF9CA3AF),
-                            const Color(0xFF6B7280),
-                          ]
-                        : widget.sosActive
-                            ? [Colors.red.shade400, Colors.red.shade700]
-                            : [const Color(0xFFFF4B4B), const Color(0xFFC41E3A)],
+                    colors: widget.sosActive
+                        ? [Colors.red.shade400, Colors.red.shade700]
+                        : [const Color(0xFFFF4B4B), const Color(0xFFC41E3A)],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: (cooldownLocked ? Colors.black : Colors.red)
-                          .withValues(alpha: cooldownLocked ? 0.12 : (widget.sosActive ? 0.3 : 0.5)),
+                      color: Colors.red.withValues(
+                        alpha: widget.sosActive ? 0.3 : 0.5,
+                      ),
                       blurRadius: 24,
                       spreadRadius: 2,
                       offset: const Offset(0, 8),
                     ),
-                    if (!cooldownLocked)
                     BoxShadow(
                       color: Colors.white.withValues(alpha: 0.2),
                       blurRadius: 0,
@@ -2726,9 +2536,7 @@ class _SosButtonState extends State<_SosButton>
                       )
                     : widget.isHolding
                         ? _SosHoldingContent(countdown: widget.countdown)
-                        : cooldownLocked
-                            ? _SosCooldownDiscContent(totalSeconds: cd)
-                            : _SosIdleContent(sosActive: widget.sosActive),
+                        : _SosIdleContent(sosActive: widget.sosActive),
               ),
             ],
           ),
@@ -2736,40 +2544,7 @@ class _SosButtonState extends State<_SosButton>
       ),
     );
 
-    if (cooldownLocked) {
-      return IgnorePointer(child: disc);
-    }
     return disc;
-  }
-}
-
-class _SosCooldownDiscContent extends StatelessWidget {
-  final int totalSeconds;
-
-  const _SosCooldownDiscContent({required this.totalSeconds});
-
-  @override
-  Widget build(BuildContext context) {
-    final m = totalSeconds ~/ 60;
-    final s = totalSeconds % 60;
-    final label = '$m:${s.toString().padLeft(2, '0')}';
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontSize: 40.sp,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-            height: 1.05,
-            letterSpacing: 1,
-          ),
-        ),
-      ],
-    );
   }
 }
 

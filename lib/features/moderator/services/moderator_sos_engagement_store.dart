@@ -54,41 +54,40 @@ class ModeratorSosEngagementRecord {
     bool? userDismissed,
     bool? active,
     int? updatedAtMs,
-  }) =>
-      ModeratorSosEngagementRecord(
-        storageKey: storageKey,
-        sosId: sosId,
-        pilgrimId: pilgrimId,
-        groupId: groupId,
-        groupName: groupName ?? this.groupName,
-        pilgrimName: pilgrimName ?? this.pilgrimName,
-        pilgrimGender: pilgrimGender ?? this.pilgrimGender,
-        lat: lat ?? this.lat,
-        lng: lng ?? this.lng,
-        called: called ?? this.called,
-        navigated: navigated ?? this.navigated,
-        blockingSuppressed: blockingSuppressed ?? this.blockingSuppressed,
-        userDismissed: userDismissed ?? this.userDismissed,
-        active: active ?? this.active,
-        updatedAtMs: updatedAtMs ?? this.updatedAtMs,
-      );
+  }) => ModeratorSosEngagementRecord(
+    storageKey: storageKey,
+    sosId: sosId,
+    pilgrimId: pilgrimId,
+    groupId: groupId,
+    groupName: groupName ?? this.groupName,
+    pilgrimName: pilgrimName ?? this.pilgrimName,
+    pilgrimGender: pilgrimGender ?? this.pilgrimGender,
+    lat: lat ?? this.lat,
+    lng: lng ?? this.lng,
+    called: called ?? this.called,
+    navigated: navigated ?? this.navigated,
+    blockingSuppressed: blockingSuppressed ?? this.blockingSuppressed,
+    userDismissed: userDismissed ?? this.userDismissed,
+    active: active ?? this.active,
+    updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+  );
 
   Map<String, dynamic> toJson() => {
-        'sos_id': sosId,
-        'pilgrim_id': pilgrimId,
-        'group_id': groupId,
-        'group_name': groupName,
-        'pilgrim_name': pilgrimName,
-        'pilgrim_gender': pilgrimGender,
-        'lat': lat,
-        'lng': lng,
-        'called': called,
-        'navigated': navigated,
-        'blocking_suppressed': blockingSuppressed,
-        'user_dismissed': userDismissed,
-        'active': active,
-        'updated_at_ms': updatedAtMs,
-      };
+    'sos_id': sosId,
+    'pilgrim_id': pilgrimId,
+    'group_id': groupId,
+    'group_name': groupName,
+    'pilgrim_name': pilgrimName,
+    'pilgrim_gender': pilgrimGender,
+    'lat': lat,
+    'lng': lng,
+    'called': called,
+    'navigated': navigated,
+    'blocking_suppressed': blockingSuppressed,
+    'user_dismissed': userDismissed,
+    'active': active,
+    'updated_at_ms': updatedAtMs,
+  };
 
   static ModeratorSosEngagementRecord fromJson(
     String key,
@@ -109,7 +108,8 @@ class ModeratorSosEngagementRecord {
       blockingSuppressed: j['blocking_suppressed'] == true,
       userDismissed: j['user_dismissed'] == true,
       active: j['active'] != false,
-      updatedAtMs: (j['updated_at_ms'] as num?)?.toInt() ??
+      updatedAtMs:
+          (j['updated_at_ms'] as num?)?.toInt() ??
           DateTime.now().millisecondsSinceEpoch,
     );
   }
@@ -159,8 +159,36 @@ class ModeratorSosEngagementStore {
   static Future<List<ModeratorSosEngagementRecord>> loadAll() async {
     final map = await _loadMap();
     await _prune(map);
+    _collapseDuplicateActiveIncidents(map);
     await _saveMap(map);
     return map.values.toList();
+  }
+
+  /// Keeps the newest active row per pilgrim+group; deactivates duplicate keys
+  /// (e.g. after hot restart / FCM replay created extra prefs entries).
+  static void _collapseDuplicateActiveIncidents(
+    Map<String, ModeratorSosEngagementRecord> map,
+  ) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final active = map.entries
+        .where((e) => e.value.active && !e.value.fullyHandled)
+        .toList();
+    final byPg =
+        <String, List<MapEntry<String, ModeratorSosEngagementRecord>>>{};
+    for (final e in active) {
+      final r = e.value;
+      if (r.pilgrimId.isEmpty || r.groupId.isEmpty) continue;
+      final k = '${r.pilgrimId}|${r.groupId}';
+      byPg.putIfAbsent(k, () => []).add(e);
+    }
+    for (final list in byPg.values) {
+      if (list.length <= 1) continue;
+      list.sort((a, b) => b.value.updatedAtMs.compareTo(a.value.updatedAtMs));
+      for (var i = 1; i < list.length; i++) {
+        final e = list[i];
+        map[e.key] = e.value.copyWith(active: false, updatedAtMs: now);
+      }
+    }
   }
 
   /// Merge payload into store; marks incident active and refreshes coords.
@@ -177,9 +205,12 @@ class ModeratorSosEngagementStore {
       sosId: p.sosId,
       pilgrimId: p.pilgrimId ?? existing?.pilgrimId ?? '',
       groupId: p.groupId ?? existing?.groupId ?? '',
-      groupName: p.groupName.isNotEmpty ? p.groupName : (existing?.groupName ?? ''),
-      pilgrimName:
-          p.pilgrimName.isNotEmpty ? p.pilgrimName : (existing?.pilgrimName ?? ''),
+      groupName: p.groupName.isNotEmpty
+          ? p.groupName
+          : (existing?.groupName ?? ''),
+      pilgrimName: p.pilgrimName.isNotEmpty
+          ? p.pilgrimName
+          : (existing?.pilgrimName ?? ''),
       pilgrimGender: p.pilgrimGender ?? existing?.pilgrimGender,
       lat: p.lat ?? existing?.lat,
       lng: p.lng ?? existing?.lng,
@@ -191,6 +222,7 @@ class ModeratorSosEngagementStore {
       updatedAtMs: now,
     );
     map[key] = merged;
+    _collapseDuplicateActiveIncidents(map);
     await _saveMap(map);
     return merged;
   }
@@ -222,10 +254,7 @@ class ModeratorSosEngagementStore {
     final r = map[storageKey];
     if (r == null) return;
     final now = DateTime.now().millisecondsSinceEpoch;
-    map[storageKey] = r.copyWith(
-      blockingSuppressed: true,
-      updatedAtMs: now,
-    );
+    map[storageKey] = r.copyWith(blockingSuppressed: true, updatedAtMs: now);
     await _saveMap(map);
   }
 
@@ -236,10 +265,7 @@ class ModeratorSosEngagementStore {
     final r = map[storageKey];
     if (r == null) return null;
     final now = DateTime.now().millisecondsSinceEpoch;
-    final next = r.copyWith(
-      navigated: true,
-      updatedAtMs: now,
-    );
+    final next = r.copyWith(navigated: true, updatedAtMs: now);
     map[storageKey] = next;
     await _saveMap(map);
     return next;
@@ -259,10 +285,7 @@ class ModeratorSosEngagementStore {
     }
     if (best == null) return null;
     final now = DateTime.now().millisecondsSinceEpoch;
-    final next = best.copyWith(
-      called: true,
-      updatedAtMs: now,
-    );
+    final next = best.copyWith(called: true, updatedAtMs: now);
     map[best.storageKey] = next;
     await _saveMap(map);
     return next;
@@ -280,5 +303,4 @@ class ModeratorSosEngagementStore {
     }
     if (changed) await _saveMap(map);
   }
-
 }
