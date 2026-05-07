@@ -240,7 +240,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                 .read(pilgrimProvider.notifier)
                 .updateModeratorBeacon(modId, modName, enabled, lat, lng);
           } catch (e) {
-            debugPrint('[PilgrimDashboard] mod_nav_beacon handler error: $e');
+            AppLogger.e('[PilgrimDashboard] mod_nav_beacon handler error: $e');
           }
         });
 
@@ -273,7 +273,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             // Reload from server to confirm state (force bypasses throttle)
             ref.read(pilgrimProvider.notifier).loadDashboard(force: true);
           } catch (e) {
-            debugPrint('[PilgrimDashboard] removed-from-group handler error: $e');
+            AppLogger.e('[PilgrimDashboard] removed-from-group handler error: $e');
           }
         });
 
@@ -318,7 +318,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               },
             );
           } catch (e) {
-            debugPrint('[PilgrimDashboard] new_message handler error: $e');
+            AppLogger.e('[PilgrimDashboard] new_message handler error: $e');
           }
         });
 
@@ -332,7 +332,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               ref.read(messageProvider.notifier).removeMessage(messageId);
             }
           } catch (e) {
-            debugPrint('[PilgrimDashboard] message_deleted handler error: $e');
+            AppLogger.e('[PilgrimDashboard] message_deleted handler error: $e');
           }
         });
 
@@ -343,7 +343,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             final map = Map<String, dynamic>.from(data as Map);
             ref.read(suggestedAreaProvider.notifier).appendArea(map);
           } catch (e) {
-            debugPrint('[PilgrimDashboard] area_added handler error: $e');
+            AppLogger.e('[PilgrimDashboard] area_added handler error: $e');
           }
         });
 
@@ -357,7 +357,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               ref.read(suggestedAreaProvider.notifier).removeArea(areaId);
             }
           } catch (e) {
-            debugPrint('[PilgrimDashboard] area_deleted handler error: $e');
+            AppLogger.e('[PilgrimDashboard] area_deleted handler error: $e');
           }
         });
 
@@ -445,7 +445,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             _stopSosHelpTimers();
             setState(() => _sosHelpStatusKey = 'sos_status_reviewing');
           } catch (e) {
-            debugPrint('[PilgrimDashboard] sos-handling handler error: $e');
+            AppLogger.e('[PilgrimDashboard] sos-handling handler error: $e');
           }
         });
 
@@ -476,7 +476,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               'sos_resolved_by_moderator'.tr(),
             );
           } catch (e) {
-            debugPrint('[PilgrimDashboard] sos-resolved handler error: $e');
+            AppLogger.e('[PilgrimDashboard] sos-resolved handler error: $e');
           }
         });
       }

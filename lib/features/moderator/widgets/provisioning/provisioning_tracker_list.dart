@@ -58,112 +58,108 @@ class ProvisioningTrackerList extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'provisioning_tracker_title'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16.sp,
-                      color: textPrimary,
-                    ),
-                  ),
-                  Text(
-                    'provisioning_tracker_subtitle'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 11.sp,
-                      color: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+              child: Text(
+                'provisioning_tracker_title'.tr(),
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16.sp,
+                  color: textPrimary,
+                ),
               ),
             ),
-            if (isSelectionMode) ...[
-              IconButton(
-                onPressed: onSelectAll,
-                icon: Icon(Symbols.checklist, size: 20.w, color: AppColors.primary),
-                tooltip: 'provisioning_select_all'.tr(),
-              ),
-              PopupMenuButton<String>(
-                tooltip: 'provisioning_bulk_share_selected'.tr(),
-                padding: EdgeInsets.zero,
-                offset: AppPopupMenu.offsetBelowChip,
-                shape: AppPopupMenu.panelShape(),
-                constraints: AppPopupMenu.panelConstraints(),
-                color: AppPopupMenu.panelColor(isDark),
-                onSelected: (val) {
-                  if (val == 'text') onShareSelectedText();
-                  if (val == 'images') onShareSelectedImages();
-                },
-                icon: Icon(Symbols.ios_share, size: 20.w, color: AppColors.primary),
-                itemBuilder: (context) => [
+            _buildFilterDropdown(),
+            SizedBox(width: 4.w),
+            PopupMenuButton<String>(
+              tooltip: 'group_actions'.tr(),
+              padding: EdgeInsets.zero,
+              offset: AppPopupMenu.offsetBelowChip,
+              shape: AppPopupMenu.panelShape(),
+              constraints: AppPopupMenu.panelConstraints(minWidth: 180),
+              color: AppPopupMenu.panelColor(isDark),
+              onSelected: (val) {
+                if (val == 'share_text') onShareSelectedText();
+                if (val == 'share_images') onShareSelectedImages();
+                if (val == 'toggle_selection') onToggleSelectionMode();
+                if (val == 'select_all') onSelectAll();
+                if (val == 'refresh') onRefresh();
+              },
+              icon: Icon(Symbols.more_vert, size: 24.w, color: AppColors.primary),
+              itemBuilder: (context) => [
+                if (isSelectionMode) ...[
                   PopupMenuItem(
-                    value: 'images',
+                    value: 'select_all',
+                    child: AppPopupMenu.actionRow(
+                      icon: Symbols.checklist,
+                      label: 'provisioning_select_all'.tr(),
+                      isDark: isDark,
+                      iconColor: AppColors.primary,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'share_images',
                     child: AppPopupMenu.actionRow(
                       icon: Symbols.image,
                       label: 'provisioning_share_selected_images'.tr(),
                       isDark: isDark,
-                      iconColor: AppColors.primary,
                     ),
                   ),
                   PopupMenuItem(
-                    value: 'text',
+                    value: 'share_text',
                     child: AppPopupMenu.actionRow(
                       icon: Symbols.description,
                       label: 'provisioning_share_selected_text'.tr(),
                       isDark: isDark,
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'toggle_selection',
+                    child: AppPopupMenu.actionRow(
+                      icon: Symbols.cancel,
+                      label: 'provisioning_cancel_selection'.tr(),
+                      isDark: isDark,
+                      destructive: true,
+                    ),
+                  ),
+                ] else ...[
+                  PopupMenuItem(
+                    value: 'toggle_selection',
+                    child: AppPopupMenu.actionRow(
+                      icon: Symbols.rule,
+                      label: 'provisioning_select_pilgrims'.tr(),
+                      isDark: isDark,
                       iconColor: AppColors.primary,
                     ),
                   ),
-                ],
-              ),
-            ] else ...[
-              PopupMenuButton<String>(
-                tooltip: 'provisioning_bulk_share_pending'.tr(),
-                padding: EdgeInsets.zero,
-                offset: AppPopupMenu.offsetBelowChip,
-                shape: AppPopupMenu.panelShape(),
-                constraints: AppPopupMenu.panelConstraints(),
-                color: AppPopupMenu.panelColor(isDark),
-                onSelected: (val) {
-                  if (val == 'text') onShareSelectedText();
-                  if (val == 'images') onShareSelectedImages();
-                },
-                icon: Icon(Symbols.ios_share, size: 20.w, color: AppColors.primary),
-                itemBuilder: (context) => [
                   PopupMenuItem(
-                    value: 'images',
+                    value: 'share_images',
                     child: AppPopupMenu.actionRow(
                       icon: Symbols.image,
                       label: 'provisioning_share_pending_images'.tr(),
                       isDark: isDark,
-                      iconColor: AppColors.primary,
                     ),
                   ),
                   PopupMenuItem(
-                    value: 'text',
+                    value: 'share_text',
                     child: AppPopupMenu.actionRow(
                       icon: Symbols.description,
                       label: 'provisioning_share_pending_text'.tr(),
                       isDark: isDark,
-                      iconColor: AppColors.primary,
                     ),
                   ),
                 ],
-              ),
-            ],
-            IconButton(
-              onPressed: onToggleSelectionMode,
-              icon: Icon(isSelectionMode ? Symbols.cancel : Symbols.rule, size: 20.w, color: isSelectionMode ? Colors.red : AppColors.primary),
-              tooltip: isSelectionMode ? 'provisioning_cancel_selection'.tr() : 'provisioning_select_pilgrims'.tr(),
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                  value: 'refresh',
+                  child: AppPopupMenu.actionRow(
+                    icon: Symbols.refresh,
+                    label: 'group_refresh_status'.tr(),
+                    isDark: isDark,
+                  ),
+                ),
+              ],
             ),
-            SizedBox(width: 4.w),
-            _buildFilterDropdown(),
           ],
         ),
         SizedBox(height: 16.h),
@@ -298,7 +294,6 @@ class _TrackerItemCard extends StatelessWidget {
     final textPrimary = isDark ? Colors.white : AppColors.textDark;
     final textMuted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
     final isActivated = item.status.toLowerCase() == 'activated';
-
     final isSelectable = !isActivated && item.token != null;
 
     Widget cardContent = Container(
@@ -313,21 +308,22 @@ class _TrackerItemCard extends StatelessWidget {
           width: isSelectionMode && isSelected ? 2 : 1,
         ),
       ),
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.all(12.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               if (isSelectionMode && isSelectable) ...[
                 Checkbox(
                   value: isSelected,
                   onChanged: onSelectionChanged,
                   activeColor: AppColors.primary,
+                  visualDensity: VisualDensity.compact,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4.r)),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 4.w),
               ],
               _Avatar(initials: _getInitials(item.fullName), isDark: isDark),
               SizedBox(width: 12.w),
@@ -339,7 +335,7 @@ class _TrackerItemCard extends StatelessWidget {
                       item.fullName,
                       style: TextStyle(
                         fontFamily: 'Lexend',
-                        fontSize: 15.sp,
+                        fontSize: 14.sp,
                         fontWeight: FontWeight.w700,
                         color: textPrimary,
                       ),
@@ -348,121 +344,121 @@ class _TrackerItemCard extends StatelessWidget {
                       item.phoneNumber,
                       style: TextStyle(
                         fontFamily: 'Lexend',
-                        fontSize: 12.sp,
+                        fontSize: 11.sp,
                         color: textMuted,
                       ),
                     ),
                   ],
                 ),
               ),
-              _StatusBadge(status: item.status),
-            ],
-          ),
-          
-          if (!isActivated && item.token != null) ...[
-            SizedBox(height: 16.h),
-            Container(
-              padding: EdgeInsets.all(12.w),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(16.r),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
-              ),
-              child: Column(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        '${'group_code'.tr().toUpperCase()}: ',
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 11.sp,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.primary,
-                          letterSpacing: 0.5,
+                  _StatusBadge(status: item.status),
+                  PopupMenuButton<String>(
+                    tooltip: 'group_actions'.tr(),
+                    padding: EdgeInsets.zero,
+                    offset: AppPopupMenu.offsetRowTrailingMore,
+                    shape: AppPopupMenu.panelShape(),
+                    constraints: AppPopupMenu.panelConstraints(minWidth: 150),
+                    color: AppPopupMenu.panelColor(isDark),
+                    onSelected: (val) {
+                      if (val == 'show_qr') onShowQr();
+                      if (val == 'share_qr') onShareQr();
+                      if (val == 'reissue') onReissue();
+                      if (val == 'delete') onDelete();
+                    },
+                    icon: Icon(Symbols.more_vert, size: 22.w, color: AppColors.primary),
+                    itemBuilder: (context) => [
+                      if (!isActivated && item.token != null) ...[
+                        PopupMenuItem(
+                          value: 'show_qr',
+                          child: AppPopupMenu.actionRow(
+                            icon: Symbols.qr_code_2,
+                            label: 'group_show_qr'.tr(),
+                            isDark: isDark,
+                            iconColor: AppColors.primary,
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'share_qr',
+                          child: AppPopupMenu.actionRow(
+                            icon: Symbols.share,
+                            label: 'group_share_invite'.tr(),
+                            isDark: isDark,
+                            iconColor: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                      PopupMenuItem(
+                        value: 'reissue',
+                        child: AppPopupMenu.actionRow(
+                          icon: Symbols.refresh,
+                          label: 'group_refresh_login_confirm'.tr(),
+                          isDark: isDark,
                         ),
                       ),
-                      Text(
-                        item.token!,
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w700,
-                          color: textPrimary,
-                          letterSpacing: 1.5,
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: AppPopupMenu.actionRow(
+                          icon: Symbols.delete,
+                          label: 'group_delete'.tr(),
+                          isDark: isDark,
+                          destructive: true,
                         ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 12.h),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      _ActionButton(
-                        icon: Symbols.qr_code_2,
-                        onPressed: onShowQr,
-                        color: AppColors.primary,
-                        isDark: isDark,
-                      ),
-                      SizedBox(width: 8.w),
-                      _ActionButton(
-                        icon: Symbols.share,
-                        onPressed: onShareQr,
-                        color: AppColors.primary,
-                        isDark: isDark,
-                      ),
-                      SizedBox(width: 8.w),
-                      _ActionButton(
-                        icon: Symbols.refresh,
-                        onPressed: onReissue,
-                        color: textPrimary,
-                        isDark: isDark,
-                      ),
-                      SizedBox(width: 8.w),
-                      _ActionButton(
-                        icon: Symbols.delete,
-                        onPressed: onDelete,
-                        color: Colors.red.shade400,
-                        isDark: isDark,
                       ),
                     ],
                   ),
                 ],
               ),
+            ],
+          ),
+          
+          if (!isActivated && item.token != null) ...[
+            SizedBox(height: 4.h),
+            Padding(
+              padding: EdgeInsets.only(left: 54.w),
+              child: Row(
+                children: [
+                  Text(
+                    '${'group_code'.tr().toUpperCase()}: ',
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 10.sp,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  Text(
+                    item.token!,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w700,
+                      color: textPrimary,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ] else if (isActivated) ...[
-             SizedBox(height: 12.h),
-             Row(
-               mainAxisAlignment: MainAxisAlignment.end,
-               children: [
-                 _ActionButton(
-                    icon: Symbols.refresh,
-                    onPressed: onReissue,
-                    color: textPrimary,
-                    isDark: isDark,
-                  ),
-                  SizedBox(width: 8.w),
-                  _ActionButton(
-                    icon: Symbols.delete,
-                    onPressed: onDelete,
-                    color: Colors.red.shade400,
-                    isDark: isDark,
-                  ),
-               ],
-             ),
           ],
           
           if (item.hotelName != null || item.busInfo != null) ...[
-            SizedBox(height: 12.h),
-            Wrap(
-              spacing: 8.w,
-              runSpacing: 4.h,
-              children: [
-                if (item.hotelName != null)
-                  _Tag(icon: Symbols.apartment, label: item.hotelName!, isDark: isDark),
-                if (item.busInfo != null)
-                  _Tag(icon: Symbols.directions_bus, label: item.busInfo!, isDark: isDark),
-              ],
+            SizedBox(height: 8.h),
+            Padding(
+              padding: EdgeInsets.only(left: 54.w),
+              child: Wrap(
+                spacing: 8.w,
+                runSpacing: 4.h,
+                children: [
+                  if (item.hotelName != null)
+                    _Tag(icon: Symbols.apartment, label: item.hotelName!, isDark: isDark),
+                  if (item.busInfo != null)
+                    _Tag(icon: Symbols.directions_bus, label: item.busInfo!, isDark: isDark),
+                ],
+              ),
             ),
           ],
         ],
@@ -555,40 +551,6 @@ class _StatusBadge extends StatelessWidget {
           fontWeight: FontWeight.w800,
           color: fg,
           letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onPressed;
-  final Color color;
-  final bool isDark;
-
-  const _ActionButton({
-    required this.icon,
-    required this.onPressed,
-    required this.color,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: isDark ? Colors.white10 : Colors.white,
-      borderRadius: BorderRadius.circular(10.r),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(10.r),
-        child: Container(
-          padding: EdgeInsets.all(8.w),
-          decoration: BoxDecoration(
-            border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
-            borderRadius: BorderRadius.circular(10.r),
-          ),
-          child: Icon(icon, size: 18.w, color: color),
         ),
       ),
     );

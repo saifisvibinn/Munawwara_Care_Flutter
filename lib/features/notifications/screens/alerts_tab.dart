@@ -24,6 +24,7 @@ import 'package:dio/dio.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import '../../../core/widgets/standard_snackbar.dart';
+import '../../calling/widgets/call_history_list_view.dart';
 import '../../pilgrim/providers/pilgrim_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,7 +88,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
   void _ensureModeratorTabController() {
     if (_moderatorTabController != null) return;
     if (ref.read(authProvider).role != 'moderator') return;
-    _moderatorTabController = TabController(length: 3, vsync: this);
+    _moderatorTabController = TabController(length: 5, vsync: this);
   }
 
   Future<void> _acceptInvitation(String invId) async {
@@ -364,6 +365,8 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
               tabs: [
                 Tab(text: 'moderator_alerts_tab_active_sos'.tr()),
                 Tab(text: 'moderator_alerts_tab_resolved'.tr()),
+                Tab(text: 'missed_calls_title'.tr()),
+                Tab(text: 'call_history_title'.tr()),
                 Tab(text: 'moderator_alerts_tab_all'.tr()),
               ],
             ),
@@ -376,6 +379,8 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
                     modGroups: modGroups,
                   ),
                   _moderatorResolvedSosTab(isDark: isDark),
+                  const CallHistoryListView(missedOnly: true),
+                  const CallHistoryListView(missedOnly: false),
                   _notificationsList(isDark: isDark, state: state),
                 ],
               ),

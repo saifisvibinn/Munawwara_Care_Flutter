@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:flutter_munawwara/core/utils/app_logger.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SocketService – static singleton wrapping the Socket.io connection.
@@ -43,7 +43,7 @@ class SocketService {
     required String role,
   }) {
     if (_socket != null && _socket!.connected && _connectedUserId == userId) {
-      debugPrint(
+      AppLogger.d(
         '[SocketService] Already connected as $userId – re-applying listeners',
       );
       _applyPendingListeners();
@@ -59,7 +59,7 @@ class SocketService {
         ? serverUrl.substring(0, serverUrl.length - 1) 
         : serverUrl;
 
-    debugPrint('[SocketService] Connecting to $cleanUrl as $userId ($role)');
+    AppLogger.d('[SocketService] Connecting to $cleanUrl as $userId ($role)');
 
     _socket = io.io(
       cleanUrl,
@@ -76,7 +76,7 @@ class SocketService {
     //    pending listeners so that off() in _apply never removes these). ──
 
     _socket!.onConnect((_) {
-      debugPrint(
+      AppLogger.d(
         '[SocketService] ✓ Connected (${_socket?.id}) – registering as $userId',
       );
       _socket!.emit('register-user', {'userId': userId, 'role': role});
@@ -86,21 +86,21 @@ class SocketService {
         try {
           cb();
         } catch (e) {
-          debugPrint('[SocketService] onConnected callback error: $e');
+          AppLogger.d('[SocketService] onConnected callback error: $e');
         }
       }
     });
 
     _socket!.onDisconnect((_) {
-      debugPrint('[SocketService] Disconnected');
+      AppLogger.d('[SocketService] Disconnected');
     });
 
     _socket!.onConnectError((err) {
-      debugPrint('[SocketService] Connection error: $err');
+      AppLogger.d('[SocketService] Connection error: $err');
     });
 
     _socket!.onError((err) {
-      debugPrint('[SocketService] Socket error: $err');
+      AppLogger.d('[SocketService] Socket error: $err');
     });
 
     // Apply custom-event listeners that were registered before connect().
@@ -116,7 +116,7 @@ class SocketService {
   /// Register a handler for a **custom** event (not connect/disconnect/etc.).
   static void on(String event, void Function(dynamic) handler) {
     if (_reserved.contains(event)) {
-      debugPrint(
+      AppLogger.d(
         '[SocketService] ⚠ "$event" is reserved – use onConnected() instead',
       );
       return; // silently ignore to avoid breaking the internal handshake
@@ -125,7 +125,7 @@ class SocketService {
     if (_socket != null) {
       _socket!.off(event);
       _socket!.on(event, handler);
-      debugPrint('[SocketService] Listener registered: $event');
+      AppLogger.d('[SocketService] Listener registered: $event');
     }
   }
 
@@ -166,7 +166,7 @@ class SocketService {
     for (final entry in _pendingListeners.entries) {
       _socket!.off(entry.key);
       _socket!.on(entry.key, entry.value);
-      debugPrint('[SocketService] Applied pending listener: ${entry.key}');
+      AppLogger.d('[SocketService] Applied pending listener: ${entry.key}');
     }
   }
 }

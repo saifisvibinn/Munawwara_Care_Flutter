@@ -5,6 +5,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/in_app_popup.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/message_model.dart';
@@ -118,7 +119,7 @@ class ChatNotificationHelper {
         );
       }
     } catch (e) {
-      debugPrint('[ChatNotificationHelper] Error showing popup: $e');
+      AppLogger.e('[ChatNotificationHelper] Error showing popup: $e');
     }
   }
 

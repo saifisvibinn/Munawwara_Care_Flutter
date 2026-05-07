@@ -289,7 +289,7 @@ class _ModeratorDashboardScreenState
             );
             ref.read(moderatorProvider.notifier).incrementUnreadCount(groupId);
           } catch (e) {
-            debugPrint('[ModeratorDashboard] new_message handler error: $e');
+            AppLogger.e('[ModeratorDashboard] new_message handler error: $e');
           }
         });
       }

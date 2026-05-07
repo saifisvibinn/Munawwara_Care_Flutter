@@ -9,7 +9,6 @@ import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/api_service.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../calling/screens/call_history_screen.dart';
 import 'moderator_profile_edit_screen.dart';
 import '../../shared/widgets/moderator_avatar.dart';
 
@@ -58,7 +57,7 @@ class _ModeratorProfileScreenState
 
   // Language is applied immediately on tap — this just closes the screen
   void _saveChanges() {
-    context.pop();
+    Navigator.of(context).maybePop();
   }
 
   Future<void> _signOut() async {
@@ -270,87 +269,6 @@ class _ModeratorProfileScreenState
                       ),
                     ),
 
-                    SizedBox(height: 28.h),
-
-                    // ── Call history ─────────────────────────────────────────
-                    _SectionLabel(
-                      label: 'call_history_title'.tr(),
-                      textMuted: textMuted,
-                    ),
-                    SizedBox(height: 8.h),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(16.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(
-                              alpha: isDark ? 0.3 : 0.06,
-                            ),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16.r),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const CallHistoryScreen(),
-                              ),
-                            );
-                          },
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 16.w,
-                              vertical: 16.h,
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 40.w,
-                                  height: 40.w,
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? AppColors.surfaceDark
-                                        : AppColors.primary.withValues(
-                                            alpha: 0.15,
-                                          ),
-                                    borderRadius: BorderRadius.circular(12.r),
-                                  ),
-                                  child: Icon(
-                                    Icons.history_rounded,
-                                    color: AppColors.primary,
-                                    size: 22.sp,
-                                  ),
-                                ),
-                                SizedBox(width: 14.w),
-                                Expanded(
-                                  child: Text(
-                                    'call_history_title'.tr(),
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 15.sp,
-                                      color: textPrimary,
-                                    ),
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: textMuted,
-                                  size: 24.sp,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-
                     SizedBox(height: 32.h),
 
                     // ── Save Changes button ───────────────────────────────────
@@ -442,7 +360,7 @@ class _Header extends StatelessWidget {
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => context.pop(),
+            onTap: () => Navigator.of(context).maybePop(),
             child: Container(
               width: 42.w,
               height: 42.w,

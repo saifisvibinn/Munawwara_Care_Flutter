@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_munawwara/core/utils/app_logger.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/services/app_data_cache.dart';
@@ -635,8 +636,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
       state = state.copyWith(groups: groups);
       return true;
     } catch (e) {
-      // ignore: avoid_print
-      print('[ModeratorProvider] refreshGroup($groupId) failed: $e');
+      AppLogger.e('[ModeratorProvider] refreshGroup($groupId) failed: $e');
       return false;
     }
   }
