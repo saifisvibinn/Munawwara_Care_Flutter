@@ -346,55 +346,6 @@ class AuthNotifier extends Notifier<AuthState> {
     return generated;
   }
 
-  // ── Register Pilgrim ────────────────────────────────────────────────────────
-  Future<bool> registerPilgrim({
-    required String fullName,
-    required String nationalId,
-    required String phoneNumber,
-    required String password,
-    String? medicalHistory,
-    int? age,
-    String? gender,
-  }) async {
-    state = state.copyWith(isLoading: true, clearError: true);
-
-    try {
-      final body = <String, dynamic>{
-        'full_name': fullName,
-        'national_id': nationalId,
-        'phone_number': phoneNumber,
-        'password': password,
-      };
-      if (medicalHistory != null && medicalHistory.isNotEmpty) {
-        body['medical_history'] = medicalHistory;
-      }
-      if (age != null) body['age'] = age;
-      if (gender != null) body['gender'] = gender;
-
-      final response = await ApiService.dio.post('/auth/register', data: body);
-      final data = response.data as Map<String, dynamic>;
-
-      await _persistSession(
-        data['token'] as String,
-        data['role'] as String,
-        data['user_id'] as String,
-        data['full_name'] as String,
-      );
-
-      state = state.copyWith(
-        isLoading: false,
-        token: data['token'] as String,
-        role: data['role'] as String,
-        userId: data['user_id'] as String,
-        fullName: data['full_name'] as String,
-      );
-      return true;
-    } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
-      return false;
-    }
-  }
-
   // ── Login ───────────────────────────────────────────────────────────────────
   Future<bool> login({
     required String identifier,
