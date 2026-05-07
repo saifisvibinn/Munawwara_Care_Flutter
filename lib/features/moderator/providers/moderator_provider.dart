@@ -398,8 +398,9 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
         state = state.copyWith(usingOfflineSnapshot: true);
       }
     } catch (e) {
-      if (!silently)
+      if (!silently) {
         state = state.copyWith(isLoading: false, error: e.toString());
+      }
     }
   }
 
