@@ -260,6 +260,8 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   Future<void> _playReceiveSfx(GroupMessage msg) async {
     try {
       if (msg.isUrgent) {
+        // Avoid “double alarm” when urgent TTS is also handled by notifications.
+        if (msg.type == 'tts') return;
         await _sfxPlayer.play(AssetSource('static/urgent_tts.wav'));
       } else {
         await _sfxPlayer.play(AssetSource('static/in_app.mp3'));

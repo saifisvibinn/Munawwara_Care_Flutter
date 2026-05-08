@@ -26,6 +26,8 @@ class SpeechService {
 
   // Shared dismiss flag key (written by UI, read by background loop).
   static const _dismissedKey = 'speech_service_tts_dismissed';
+  static const _lastSpokenIdKey = 'speech_service_last_spoken_id_v1';
+  static const _lastSpokenMsKey = 'speech_service_last_spoken_ms_v1';
 
   // Active player reference — allows stop() to interrupt cloud playback.
   static AudioPlayer? _activePlayer;
@@ -47,7 +49,23 @@ class SpeechService {
     required String backupText,
     String lang = 'en',
     bool isUrgent = false,
+    String? messageKey,
+    Duration dedupeWindow = const Duration(seconds: 20),
   }) async {
+    if (messageKey != null && messageKey.isNotEmpty) {
+      final shouldSpeak = await _claimMessageSpeakOnce(
+        messageKey,
+        window: dedupeWindow,
+      );
+      if (!shouldSpeak) {
+        AppLogger.i('[Speech] Deduped messageKey=$messageKey — skipping');
+        return;
+      }
+    }
+
+    // Avoid overlapping playback: always stop current speech/audio first.
+    await stop();
+
     await _configureAudioSession(isUrgent: isUrgent);
 
     if (audioUrl != null && audioUrl.isNotEmpty) {
@@ -162,10 +180,18 @@ class SpeechService {
       await player.setUrl(url).timeout(const Duration(seconds: 5));
       await player.play();
 
+      // Require playback to actually start promptly. Some devices/networks
+      // can hang after setUrl/play without ever emitting completed.
+      await player.playingStream
+          .firstWhere((isPlaying) => isPlaying == true)
+          .timeout(const Duration(seconds: 4));
+
       // Wait for playback to finish
-      await player.processingStateStream.firstWhere(
-        (s) => s == ProcessingState.completed || s == ProcessingState.idle,
-      );
+      await player.processingStateStream
+          .firstWhere(
+            (s) => s == ProcessingState.completed || s == ProcessingState.idle,
+          )
+          .timeout(const Duration(seconds: 60));
 
       AppLogger.i('[Speech] ✓ Cloud audio playback complete');
       return true;
@@ -292,6 +318,29 @@ class SpeechService {
       return prefs.getBool(_dismissedKey) ?? false;
     } catch (_) {
       return false;
+    }
+  }
+
+  static Future<bool> _claimMessageSpeakOnce(
+    String messageKey, {
+    required Duration window,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastId = prefs.getString(_lastSpokenIdKey);
+      final lastMs = prefs.getInt(_lastSpokenMsKey) ?? 0;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+
+      final isSameRecent =
+          lastId == messageKey && (nowMs - lastMs) <= window.inMilliseconds;
+      if (isSameRecent) return false;
+
+      await prefs.setString(_lastSpokenIdKey, messageKey);
+      await prefs.setInt(_lastSpokenMsKey, nowMs);
+      return true;
+    } catch (e) {
+      AppLogger.w('[Speech] Dedupe storage failed (non-fatal): $e');
+      return true; // fail-open: better to speak than to miss an urgent alert
     }
   }
 

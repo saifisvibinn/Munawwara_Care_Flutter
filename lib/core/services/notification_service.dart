@@ -257,6 +257,10 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     final isReminder = msgType == 'reminder_tts';
     final prefix = isReminder ? 'Incoming reminder.' : 'Urgent message.';
     final lang = message.data['lang']?.toString() ?? 'en';
+    final messageKey =
+        message.data['message_id']?.toString() ??
+        message.messageId ??
+        '';
     if (text.isEmpty &&
         isReminder &&
         (message.notification?.body ?? '').isNotEmpty) {
@@ -288,22 +292,14 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       // 2. Wait for the alert sound to finish before TTS begins.
       await Future.delayed(const Duration(milliseconds: 2200));
 
-      // 3. Play cloud audio (with local TTS fallback) and repeat 3× for
-      //    urgent broadcast messages. Reminders only play once.
-      if (isReminder) {
-        await SpeechService.playRobust(
-          audioUrl: audioUrl,
-          backupText: '$prefix $text',
-          lang: lang,
-          isUrgent: true,
-        );
-      } else {
-        await SpeechService.playUrgentLoop(
-          audioUrl: audioUrl,
-          backupText: '$prefix $text',
-          lang: lang,
-        );
-      }
+      // 3. Play cloud audio (with local TTS fallback) once.
+      await SpeechService.playRobust(
+        audioUrl: audioUrl,
+        backupText: '$prefix $text',
+        lang: lang,
+        isUrgent: true,
+        messageKey: messageKey.isEmpty ? null : messageKey,
+      );
     }
     return; // notification already shown above, skip the call below
   }
@@ -609,11 +605,13 @@ class NotificationService {
     String text, {
     String? audioUrl,
     String lang = 'en',
+    String? messageKey,
   }) =>
       SpeechService.playRobust(
         audioUrl: audioUrl,
         backupText: text,
         lang: lang,
+        messageKey: messageKey,
       );
 
   // ── Notification Tap Handler ──────────────────────────────────────────────

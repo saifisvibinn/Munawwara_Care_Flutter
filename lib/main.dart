@@ -141,6 +141,10 @@ void main() async {
         final isUrgentTts =
             dataType == 'urgent' &&
             (msgType == 'tts' || msgType == 'reminder_tts');
+        final messageKey =
+            msg.data['message_id']?.toString() ??
+            msg.messageId ??
+            '';
         // ── call_declined / call_cancel arriving via FCM ────────────────────
         // When the pilgrim's app is killed and declines, the backend's 30-second
         // ring timeout fires and sends a silent FCM with type=call_declined
@@ -205,10 +209,14 @@ void main() async {
               );
             }
             if (isUrgentTts) {
+              // Keep ordering consistent with background: sound -> delay -> TTS.
+              await NotificationService.instance.showNotificationFromMessage(msg);
+              await Future.delayed(const Duration(milliseconds: 2200));
               await NotificationService.speakTts(
                 'Incoming reminder. $text',
                 audioUrl: msg.data['audio_url']?.toString(),
                 lang: msg.data['lang']?.toString() ?? 'en',
+                messageKey: messageKey.isEmpty ? null : messageKey,
               );
             }
           }
@@ -222,12 +230,16 @@ void main() async {
               '';
           if (text.isNotEmpty) {
             AppLogger.i('🔊 Foreground urgent TTS: "$text"');
+            await NotificationService.instance.showNotificationFromMessage(msg);
+            await Future.delayed(const Duration(milliseconds: 2200));
             await NotificationService.speakTts(
               'Urgent message. $text',
               audioUrl: msg.data['audio_url']?.toString(),
               lang: msg.data['lang']?.toString() ?? 'en',
+              messageKey: messageKey.isEmpty ? null : messageKey,
             );
           }
+          return; // we already showed a local notification above
         }
 
         await NotificationService.instance.showNotificationFromMessage(msg);
