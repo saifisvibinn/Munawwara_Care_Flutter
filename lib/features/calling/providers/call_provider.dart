@@ -303,6 +303,13 @@ class CallNotifier extends Notifier<CallState> {
             endReason: status == 'none' ? 'declined' : status,
             isGroupRingingOut: false,
           );
+          // If moderator's outgoing ring ended before connect, downgrade SOS
+          // from "in call" back to "being handled".
+          final isMod =
+              ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
+          if (isMod) {
+            unawaited(SosAlertCoordinator.afterModeratorEndedCall(remoteUserId));
+          }
           _scheduleReset();
         }
       } catch (e) {
@@ -494,6 +501,13 @@ class CallNotifier extends Notifier<CallState> {
       if (remoteId != null && remoteId.isNotEmpty) {
         CallSignaling.emitWhenConnected('call-cancel', {'to': remoteId});
       }
+    }
+    // If moderator cancels outgoing ring (never connected), downgrade SOS
+    // from "in call" back to "being handled".
+    final remoteId = state.remoteUserId;
+    final isMod = ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
+    if (isMod && remoteId != null && remoteId.isNotEmpty) {
+      unawaited(SosAlertCoordinator.afterModeratorEndedCall(remoteId));
     }
     CallKitService.instance.endCurrentCall();
     _cleanup();

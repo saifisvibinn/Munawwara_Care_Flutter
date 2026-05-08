@@ -317,6 +317,33 @@ class ModeratorSosEngagementStore {
     await _saveMap(map);
   }
 
+  static Future<ModeratorSosEngagementRecord?> markReviewingForPilgrim(
+    String pilgrimId, {
+    required String moderatorId,
+    required String moderatorName,
+  }) async {
+    if (pilgrimId.isEmpty) return null;
+    final map = await _loadMap();
+    ModeratorSosEngagementRecord? best;
+    for (final r in map.values) {
+      if (!r.active || r.fullyHandled) continue;
+      if (r.pilgrimId != pilgrimId) continue;
+      if (best == null || r.updatedAtMs > best.updatedAtMs) best = r;
+    }
+    if (best == null) return null;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final next = best.copyWith(
+      blockingSuppressed: true,
+      handledByModeratorId: moderatorId,
+      handledByModeratorName: moderatorName,
+      handledStatus: 'reviewing',
+      updatedAtMs: now,
+    );
+    map[best.storageKey] = next;
+    await _saveMap(map);
+    return next;
+  }
+
   static Future<void> upsertModeratorStatus({
     required String storageKey,
     required String pilgrimId,

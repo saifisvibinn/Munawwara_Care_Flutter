@@ -544,8 +544,8 @@ class ModeratorSosBannerCard extends ConsumerWidget {
                 child: OutlinedButton.icon(
                   onPressed: resolveSos,
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFD6B48C)),
-                    foregroundColor: const Color(0xFFD6B48C),
+                    side: const BorderSide(color: Color(0xFFF97316)),
+                    foregroundColor: const Color(0xFFF97316),
                     padding: EdgeInsets.symmetric(vertical: 12.h),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14.r),
@@ -563,8 +563,8 @@ class ModeratorSosBannerCard extends ConsumerWidget {
                 child: OutlinedButton.icon(
                   onPressed: hasNav ? navigateToSos : null,
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFD6B48C)),
-                    foregroundColor: const Color(0xFFD6B48C),
+                    side: const BorderSide(color: Color(0xFF2563EB)),
+                    foregroundColor: const Color(0xFF2563EB),
                     padding: EdgeInsets.symmetric(vertical: 12.h),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14.r),

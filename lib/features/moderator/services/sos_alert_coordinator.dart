@@ -335,13 +335,25 @@ class SosAlertCoordinator {
   /// greyed-out cancel button. Re-uses the engagement store to look up the
   /// active SOS context for [pilgrimId].
   static Future<void> afterModeratorEndedCall(String pilgrimId) async {
+    final c = CallingScope.riverpod;
+    final mid = c?.read(authProvider).userId ?? '';
     // markCalledForPilgrim finds the best active SOS entry for this pilgrim.
     // We just need it for group_id / sos_id — the "called" mark is a bonus.
-    final entry = await ModeratorSosEngagementStore.markCalledForPilgrim(pilgrimId);
+    final entry = await ModeratorSosEngagementStore.markCalledForPilgrim(
+      pilgrimId,
+    );
     if (entry == null) return; // no active SOS for this pilgrim
     final gid = entry.groupId;
     final sid = entry.sosId;
     final modName = _getModeratorName();
+    if (mid.isNotEmpty) {
+      await ModeratorSosEngagementStore.markReviewingForPilgrim(
+        pilgrimId,
+        moderatorId: mid,
+        moderatorName: modName,
+      );
+      await _refreshEngagementUi();
+    }
     if (gid.isNotEmpty) {
       emitModeratorResponding(
         pilgrimId: pilgrimId,
