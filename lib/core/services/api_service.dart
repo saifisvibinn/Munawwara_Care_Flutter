@@ -87,7 +87,17 @@ class ApiService {
         InterceptorsWrapper(
           onError: (DioException e, handler) async {
             if (e.response?.statusCode == 401) {
-              if (_onUnauthorized != null) {
+              // Do not trigger logout for unauthenticated endpoints —
+              // the user is not yet logged in, so there is no session to
+              // invalidate. The caller (loginWithOneTimeToken / login) handles
+              // the error and shows it in the UI.
+              final path = e.requestOptions.path;
+              final isLoginPath =
+                  path.contains('/auth/login') ||
+                  path.contains('/auth/pilgrim/') ||
+                  path.contains('/auth/forgot-password') ||
+                  path.contains('/auth/reset-password');
+              if (!isLoginPath && _onUnauthorized != null) {
                 await _onUnauthorized!();
               }
             }

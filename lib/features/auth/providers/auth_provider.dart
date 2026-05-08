@@ -423,6 +423,26 @@ class AuthNotifier extends Notifier<AuthState> {
 
       return true;
     } on DioException catch (e) {
+      final statusCode = e.response?.statusCode;
+
+      // 410 = code expired, 409 = code already used
+      // These are not auth errors — extract the server message directly
+      // without triggering the global 401 logout interceptor.
+      if (statusCode == 410 || statusCode == 409 || statusCode == 422) {
+        final serverMessage = ApiService.parseError(e);
+        state = state.copyWith(isLoading: false, error: serverMessage);
+        return false;
+      }
+
+      // 401 with no existing session = invalid token (wrong code entered)
+      if (statusCode == 401) {
+        state = state.copyWith(
+          isLoading: false,
+          error: ApiService.parseError(e),
+        );
+        return false;
+      }
+
       state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
       return false;
     } catch (e) {

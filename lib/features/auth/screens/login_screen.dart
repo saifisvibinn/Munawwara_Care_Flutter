@@ -90,10 +90,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (success) {
       context.go('/location-onboarding');
     } else {
+      // Drop back to the manual-entry view so the error message is visible there.
       setState(() {
+        _isScanningQr = false;
+        _scanHandled = false;
         _loginError = ref.read(authProvider).error ?? 'login_invalid_code'.tr();
       });
-      _scanHandled = false;
     }
   }
 
@@ -343,6 +345,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               setState(() {
                 _isScanningQr = false;
                 _scanHandled = false;
+                _loginError = null;
               });
             },
             icon: const Icon(Symbols.keyboard_return, color: AppColors.primary),

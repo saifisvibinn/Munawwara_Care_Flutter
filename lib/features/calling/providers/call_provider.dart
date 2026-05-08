@@ -461,8 +461,15 @@ class CallNotifier extends Notifier<CallState> {
   /// End an in-progress call.
   void endCall() {
     _stopRingPoll();
-    if (state.remoteUserId != null) {
-      CallSignaling.emitWhenConnected('call-end', {'to': state.remoteUserId!});
+    final remoteId = state.remoteUserId;
+    if (remoteId != null) {
+      CallSignaling.emitWhenConnected('call-end', {'to': remoteId});
+    }
+    // If moderator ended an active call, signal "responding" to the pilgrim
+    final isMod = ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
+    final wasActive = state.status == CallStatus.connected;
+    if (isMod && wasActive && remoteId != null && remoteId.isNotEmpty) {
+      unawaited(SosAlertCoordinator.afterModeratorEndedCall(remoteId));
     }
     // Dismiss native call screen
     CallKitService.instance.endCurrentCall();

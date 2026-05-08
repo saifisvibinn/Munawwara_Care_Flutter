@@ -45,20 +45,47 @@ class SosAlertCoordinator {
     await c?.read(moderatorSosEngagementProvider.notifier).refresh();
   }
 
-  /// Notifies the pilgrim app so the SOS **auto-call** timer is cancelled
-  /// (moderator is viewing / engaging, not ignoring the request).
+  /// Notifies the pilgrim that the moderator **saw** the SOS (dialog appeared).
+  /// This updates the pilgrim's status label but does NOT stop the auto-call timer.
   static void emitModeratorHandling({
     required String pilgrimId,
     required String groupId,
     String? sosId,
+    String moderatorName = '',
   }) {
     if (pilgrimId.isEmpty || groupId.isEmpty) return;
-    final handling = <String, dynamic>{
+    final payload = <String, dynamic>{
       'groupId': groupId,
       'pilgrimId': pilgrimId,
+      'moderator_name': moderatorName,
     };
-    if (sosId != null && sosId.isNotEmpty) handling['sos_id'] = sosId;
-    SocketService.emit('sos_handling', handling);
+    if (sosId != null && sosId.isNotEmpty) payload['sos_id'] = sosId;
+    SocketService.emit('sos_handling', payload);
+  }
+
+  /// Notifies the pilgrim that the moderator is **actively handling** the SOS
+  /// (clicked Review or Navigate — a deliberate action). This stops the
+  /// pilgrim's auto-call timer. Only the first moderator to respond counts.
+  static void emitModeratorResponding({
+    required String pilgrimId,
+    required String groupId,
+    String? sosId,
+    String moderatorName = '',
+  }) {
+    if (pilgrimId.isEmpty || groupId.isEmpty) return;
+    final payload = <String, dynamic>{
+      'groupId': groupId,
+      'pilgrimId': pilgrimId,
+      'moderator_name': moderatorName,
+    };
+    if (sosId != null && sosId.isNotEmpty) payload['sos_id'] = sosId;
+    SocketService.emit('sos_responding', payload);
+  }
+
+  static String _getModeratorName() {
+    final c = CallingScope.riverpod;
+    if (c == null) return '';
+    return c.read(authProvider).fullName ?? '';
   }
 
   /// Unified entry for socket payload, FCM `data`, or pending deep-link map.
@@ -122,13 +149,7 @@ class SosAlertCoordinator {
 
     final pid = payload.pilgrimId;
     final gid = payload.groupId;
-    if (pid != null && pid.isNotEmpty && gid != null && gid.isNotEmpty) {
-      emitModeratorHandling(
-        pilgrimId: pid,
-        groupId: gid,
-        sosId: payload.sosId,
-      );
-    }
+    final modName = _getModeratorName();
 
     await showDialog<void>(
       context: ctx,
@@ -144,11 +165,29 @@ class SosAlertCoordinator {
             Navigator.of(dialogCtx).pop();
             await ModeratorSosEngagementStore.markUserDismissed(storageKey);
             await _refreshEngagementUi();
+            // Any button click — stop the pilgrim countdown, show "being reviewed"
+            if (pid != null && pid.isNotEmpty && gid != null && gid.isNotEmpty) {
+              emitModeratorHandling(
+                pilgrimId: pid,
+                groupId: gid,
+                sosId: payload.sosId,
+                moderatorName: modName,
+              );
+            }
           },
           onReview: () async {
             Navigator.of(dialogCtx).pop();
             await ModeratorSosEngagementStore.markReviewSuppressed(storageKey);
             await _refreshEngagementUi();
+            // Button click — stop pilgrim countdown, show "being reviewed"
+            if (pid != null && pid.isNotEmpty && gid != null && gid.isNotEmpty) {
+              emitModeratorHandling(
+                pilgrimId: pid,
+                groupId: gid,
+                sosId: payload.sosId,
+                moderatorName: modName,
+              );
+            }
             unawaited(_openReviewFlow(payload));
           },
           onNavigateSuccess: () async {
@@ -156,6 +195,15 @@ class SosAlertCoordinator {
               storageKey,
             );
             await _refreshEngagementUi();
+            // Button click — stop pilgrim countdown, show "being reviewed"
+            if (pid != null && pid.isNotEmpty && gid != null && gid.isNotEmpty) {
+              emitModeratorHandling(
+                pilgrimId: pid,
+                groupId: gid,
+                sosId: payload.sosId,
+                moderatorName: modName,
+              );
+            }
             if (next?.fullyHandled == true) {
               AppRouter.navigatorKey.currentState?.pop();
             }
@@ -170,6 +218,28 @@ class SosAlertCoordinator {
   static Future<void> afterModeratorPlacedCall(String pilgrimId) async {
     await ModeratorSosEngagementStore.markCalledForPilgrim(pilgrimId);
     await _refreshEngagementUi();
+  }
+
+  /// After moderator ends a call with a pilgrim — send "responding" signal
+  /// so the pilgrim's card switches to "being handled right now" with a
+  /// greyed-out cancel button. Re-uses the engagement store to look up the
+  /// active SOS context for [pilgrimId].
+  static Future<void> afterModeratorEndedCall(String pilgrimId) async {
+    // markCalledForPilgrim finds the best active SOS entry for this pilgrim.
+    // We just need it for group_id / sos_id — the "called" mark is a bonus.
+    final entry = await ModeratorSosEngagementStore.markCalledForPilgrim(pilgrimId);
+    if (entry == null) return; // no active SOS for this pilgrim
+    final gid = entry.groupId;
+    final sid = entry.sosId;
+    final modName = _getModeratorName();
+    if (gid.isNotEmpty) {
+      emitModeratorResponding(
+        pilgrimId: pilgrimId,
+        groupId: gid,
+        sosId: sid,
+        moderatorName: modName,
+      );
+    }
   }
 
   static Future<void> _openReviewFlow(SosModeratorPayload payload) async {

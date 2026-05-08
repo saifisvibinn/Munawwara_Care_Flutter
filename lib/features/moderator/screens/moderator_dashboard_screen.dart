@@ -213,6 +213,12 @@ class _ModeratorDashboardScreenState
             }
           }
 
+          // Dismiss any open SOS dialog (pilgrim cancelled — no need for it)
+          final nav = AppRouter.navigatorKey.currentState;
+          if (nav != null && nav.canPop()) {
+            nav.pop();
+          }
+
           ref.read(notificationProvider.notifier).fetch();
         });
         // Listen for missed calls — refresh notification/list + groups
