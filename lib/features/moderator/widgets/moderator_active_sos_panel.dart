@@ -73,6 +73,31 @@ class ModeratorSosBannerRow {
 
   String get groupLabel => group?.groupName ?? record?.groupName ?? '';
 
+  bool get isClaimedByOtherModerator {
+    final r = record;
+    if (r == null) return false;
+    final hid = r.handledByModeratorId?.trim() ?? '';
+    if (hid.isEmpty) return false;
+    final myId = SocketService.connectedUserId ?? '';
+    if (myId.isEmpty) return false;
+    return hid != myId;
+  }
+
+  String get claimedStatusLabel {
+    final r = record;
+    if (r == null) return '';
+    final name = r.handledByModeratorName.trim();
+    if (name.isEmpty) return '';
+    switch (r.handledStatus) {
+      case 'in_call':
+        return 'sos_claimed_in_call_with'.tr(namedArgs: {'name': name});
+      case 'reviewing':
+        return 'sos_claimed_being_reviewed_by'.tr(namedArgs: {'name': name});
+      default:
+        return '';
+    }
+  }
+
   double? get lat => record?.lat ?? pilgrim?.lat;
 
   double? get lng => record?.lng ?? pilgrim?.lng;
@@ -296,226 +321,291 @@ class ModeratorSosBannerCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hasNav = row.lat != null && row.lng != null;
+    final canShowClaimed = row.isClaimedByOtherModerator &&
+        row.claimedStatusLabel.isNotEmpty;
+
+    Future<void> resolveSos() async {
+      final gId = row.group?.id ?? row.record?.groupId;
+      final pId = row.pilgrim?.id ?? row.record?.pilgrimId;
+      final sosId = row.record?.sosId;
+      if (gId == null || gId.isEmpty || pId == null || pId.isEmpty) {
+        StandardSnackBar.showWarning(
+          context,
+          'sos_mod_pilgrim_not_loaded'.tr(),
+        );
+        return;
+      }
+
+      if (row.isClaimedByOtherModerator) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) {
+            return AlertDialog(
+              title: Text('sos_claimed_resolve_title'.tr()),
+              content: Text('sos_claimed_resolve_body'.tr()),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text('dialog_cancel'.tr()),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: Text('sos_claimed_resolve_anyway'.tr()),
+                ),
+              ],
+            );
+          },
+        );
+        if (confirmed != true || !context.mounted) return;
+      }
+
+      final payload = <String, dynamic>{
+        'groupId': gId,
+        'pilgrimId': pId,
+      };
+      if (sosId != null && sosId.isNotEmpty) {
+        payload['sos_id'] = sosId;
+      }
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final resolved = ModeratorResolvedSosRecord(
+        resolveKey: '${pId}_${gId}_$now',
+        pilgrimId: pId,
+        groupId: gId,
+        pilgrimName: row.displayName,
+        groupName: row.groupLabel.isEmpty ? '—' : row.groupLabel,
+        sosId: sosId,
+        lat: row.lat,
+        lng: row.lng,
+        resolvedAtMs: now,
+      );
+      SocketService.emit('sos_resolve', payload);
+      ref.read(moderatorProvider.notifier).markPilgrimSOS(pId, active: false);
+      await ModeratorSosEngagementStore.removeAllEntriesForPilgrim(pId);
+      await ref.read(moderatorResolvedSosProvider.notifier).addResolved(resolved);
+      await ref.read(moderatorSosEngagementProvider.notifier).refresh();
+      await ref.read(moderatorProvider.notifier).loadDashboard(silently: true);
+      await ref.read(notificationProvider.notifier).refetch();
+      if (!context.mounted) return;
+      onSosResolved?.call();
+      StandardSnackBar.showSuccess(
+        context,
+        'sos_moderator_resolve_sent'.tr(),
+      );
+    }
+
+    Future<void> navigateToSos() async {
+      if (!hasNav) return;
+      final p = row.pilgrim;
+      final g = row.group;
+      if (p != null && g != null) {
+        SosAlertCoordinator.emitModeratorHandling(
+          pilgrimId: p.id,
+          groupId: g.id,
+          sosId: row.record?.sosId,
+        );
+      }
+      final ok = await OpenMapsNavigation.confirmAndLaunch(
+        context,
+        row.lat!,
+        row.lng!,
+      );
+      if (!ok || !context.mounted) return;
+      final sk = row.storageKey;
+      if (sk != null) {
+        final next = await ModeratorSosEngagementStore.markNavigatedSuccess(sk);
+        await ref.read(moderatorSosEngagementProvider.notifier).refresh();
+        if (next?.fullyHandled == true && context.mounted) {
+          StandardSnackBar.showInfo(
+            context,
+            'sos_mod_handling_complete_hint'.tr(),
+          );
+        }
+      }
+    }
+
+    void viewDetails() {
+      final g = row.group;
+      final p = row.pilgrim;
+      if (g == null || p == null) {
+        StandardSnackBar.showWarning(
+          context,
+          'sos_mod_pilgrim_not_loaded'.tr(),
+        );
+        return;
+      }
+      SosAlertCoordinator.emitModeratorHandling(
+        pilgrimId: p.id,
+        groupId: g.id,
+        sosId: row.record?.sosId,
+      );
+      final uid = ref.read(authProvider).userId ?? '';
+      showPilgrimProfileSheet(context, p, g.id, uid);
+    }
 
     return Container(
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 14.h),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF1F2),
-        border: Border.all(color: const Color(0xFFFFE4E6)),
-        borderRadius: BorderRadius.circular(16.r),
+        color: const Color(0xFFFFF7E6),
+        border: Border.all(color: const Color(0xFFFDE5C6)),
+        borderRadius: BorderRadius.circular(18.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.red.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: EdgeInsets.all(8.w),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFFE4E6),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Symbols.warning,
-                    color: Color(0xFFDC2626),
-                    size: 20.w,
-                    fill: 1,
-                  ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: EdgeInsets.all(10.w),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFE4E6),
+                  shape: BoxShape.circle,
                 ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'dashboard_sos_active'.tr(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13.sp,
-                          color: AppColors.textDark,
-                        ),
+                child: Icon(
+                  Symbols.warning,
+                  color: Color(0xFFDC2626),
+                  size: 22.w,
+                  fill: 1,
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'sos_active_alert_title'.tr(),
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16.sp,
+                        color: AppColors.textDark,
                       ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        'dashboard_sos_banner_subtitle'.tr(
-                          namedArgs: {
-                            'name': row.displayName,
-                            'group': row.groupLabel.isEmpty
-                                ? '—'
-                                : row.groupLabel,
-                          },
-                        ),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 11.sp,
-                          color: const Color(0xFF475569),
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 10.h),
-            Wrap(
-              spacing: 8.w,
-              runSpacing: 8.h,
-              alignment: WrapAlignment.end,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    final gId = row.group?.id ?? row.record?.groupId;
-                    final pId = row.pilgrim?.id ?? row.record?.pilgrimId;
-                    final sosId = row.record?.sosId;
-                    if (gId == null ||
-                        gId.isEmpty ||
-                        pId == null ||
-                        pId.isEmpty) {
-                      StandardSnackBar.showWarning(
-                        context,
-                        'sos_mod_pilgrim_not_loaded'.tr(),
-                      );
-                      return;
-                    }
-                    final payload = <String, dynamic>{
-                      'groupId': gId,
-                      'pilgrimId': pId,
-                    };
-                    if (sosId != null && sosId.isNotEmpty) {
-                      payload['sos_id'] = sosId;
-                    }
-                    final now = DateTime.now().millisecondsSinceEpoch;
-                    final resolved = ModeratorResolvedSosRecord(
-                      resolveKey: '${pId}_${gId}_$now',
-                      pilgrimId: pId,
-                      groupId: gId,
-                      pilgrimName: row.displayName,
-                      groupName: row.groupLabel.isEmpty ? '—' : row.groupLabel,
-                      sosId: sosId,
-                      lat: row.lat,
-                      lng: row.lng,
-                      resolvedAtMs: now,
-                    );
-                    SocketService.emit('sos_resolve', payload);
-                    ref
-                        .read(moderatorProvider.notifier)
-                        .markPilgrimSOS(pId, active: false);
-                    await ModeratorSosEngagementStore.removeAllEntriesForPilgrim(
-                      pId,
-                    );
-                    await ref
-                        .read(moderatorResolvedSosProvider.notifier)
-                        .addResolved(resolved);
-                    await ref
-                        .read(moderatorSosEngagementProvider.notifier)
-                        .refresh();
-                    await ref
-                        .read(moderatorProvider.notifier)
-                        .loadDashboard(silently: true);
-                    await ref.read(notificationProvider.notifier).refetch();
-                    if (!context.mounted) return;
-                    onSosResolved?.call();
-                    StandardSnackBar.showSuccess(
-                      context,
-                      'sos_moderator_resolve_sent'.tr(),
-                    );
-                  },
-                  icon: Icon(Symbols.check_circle, size: 18.w),
-                  label: Text(
-                    'sos_moderator_resolve'.tr(),
-                    style: const TextStyle(fontFamily: 'Lexend'),
-                  ),
-                ),
-                if (hasNav)
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      final p = row.pilgrim;
-                      final g = row.group;
-                      if (p != null && g != null) {
-                        SosAlertCoordinator.emitModeratorHandling(
-                          pilgrimId: p.id,
-                          groupId: g.id,
-                          sosId: row.record?.sosId,
-                        );
-                      }
-                      final ok = await OpenMapsNavigation.confirmAndLaunch(
-                        context,
-                        row.lat!,
-                        row.lng!,
-                      );
-                      if (!ok || !context.mounted) return;
-                      final sk = row.storageKey;
-                      if (sk != null) {
-                        final next =
-                            await ModeratorSosEngagementStore.markNavigatedSuccess(
-                          sk,
-                        );
-                        await ref
-                            .read(moderatorSosEngagementProvider.notifier)
-                            .refresh();
-                        if (next?.fullyHandled == true && context.mounted) {
-                          StandardSnackBar.showInfo(
-                            context,
-                            'sos_mod_handling_complete_hint'.tr(),
-                          );
-                        }
-                      }
-                    },
-                    icon: Icon(Symbols.navigation, size: 18.w),
-                    label: Text(
-                      'explore_navigate'.tr(),
-                      style: const TextStyle(fontFamily: 'Lexend'),
                     ),
-                  ),
-                FilledButton(
-                  onPressed: () {
-                    final g = row.group;
-                    final p = row.pilgrim;
-                    if (g == null || p == null) {
-                      StandardSnackBar.showWarning(
-                        context,
-                        'sos_mod_pilgrim_not_loaded'.tr(),
-                      );
-                      return;
-                    }
-                    SosAlertCoordinator.emitModeratorHandling(
-                      pilgrimId: p.id,
-                      groupId: g.id,
-                      sosId: row.record?.sosId,
-                    );
-                    final uid = ref.read(authProvider).userId ?? '';
-                    showPilgrimProfileSheet(context, p, g.id, uid);
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFDC2626),
-                    foregroundColor: Colors.white,
-                  ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      'dashboard_sos_banner_subtitle'.tr(
+                        namedArgs: {
+                          'name': row.displayName,
+                          'group': row.groupLabel.isEmpty ? '—' : row.groupLabel,
+                        },
+                      ),
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textMutedDark,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (canShowClaimed) ...[
+            SizedBox(height: 12.h),
+            Row(
+              children: [
+                Icon(
+                  row.record?.handledStatus == 'in_call'
+                      ? Symbols.call
+                      : Symbols.person,
+                  size: 18.sp,
+                  color: AppColors.textMutedDark,
+                ),
+                SizedBox(width: 8.w),
+                Expanded(
                   child: Text(
-                    'dashboard_view'.tr(),
+                    row.claimedStatusLabel,
                     style: TextStyle(
                       fontFamily: 'Lexend',
+                      fontSize: 13.sp,
                       fontWeight: FontWeight.w700,
-                      fontSize: 12.sp,
+                      color: AppColors.textMutedDark,
                     ),
                   ),
                 ),
               ],
             ),
           ],
-        ),
+          SizedBox(height: 14.h),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: resolveSos,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFD6B48C)),
+                    foregroundColor: const Color(0xFFD6B48C),
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14.r),
+                    ),
+                  ),
+                  icon: Icon(Symbols.check_circle, size: 18.sp, fill: 1),
+                  label: Text(
+                    'sos_moderator_resolve'.tr(),
+                    style: const TextStyle(fontFamily: 'Lexend'),
+                  ),
+                ),
+              ),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: hasNav ? navigateToSos : null,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFD6B48C)),
+                    foregroundColor: const Color(0xFFD6B48C),
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14.r),
+                    ),
+                  ),
+                  icon: Icon(Symbols.navigation, size: 18.sp, fill: 1),
+                  label: Text(
+                    'explore_navigate'.tr(),
+                    style: const TextStyle(fontFamily: 'Lexend'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 10.h),
+          Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              width: 170.w,
+              child: FilledButton(
+                onPressed: viewDetails,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFDC2626),
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18.r),
+                  ),
+                ),
+                child: Text(
+                  'dashboard_view'.tr(),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13.sp,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

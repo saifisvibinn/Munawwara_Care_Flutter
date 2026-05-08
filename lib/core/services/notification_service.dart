@@ -410,6 +410,8 @@ class NotificationService {
     final notification = message.notification;
     final data = message.data;
     final type = data['type'] ?? 'normal';
+    final notificationType =
+        data['notification_type']?.toString() ?? data['type']?.toString() ?? '';
 
     // Determine title and body
     String title = notification?.title ?? data['title'] ?? 'Munawwara Care';
@@ -432,6 +434,18 @@ class NotificationService {
     if (type == 'incoming_call' || type == 'call_cancel') {
       AppLogger.i('📞 CALL CONTROL message detected (type=$type)');
       await CallKitService.handleFcmMessage(message);
+      return;
+    }
+
+    // SOS claimed by another moderator:
+    // - Update in-app UI state (in case socket event was missed)
+    // - Do not show a foreground local notification (prevents spam)
+    if (notificationType == 'sos_claimed') {
+      unawaited(
+        SosAlertCoordinator.applyClaimedStatusFromMap(
+          Map<String, dynamic>.from(data),
+        ),
+      );
       return;
     }
 
@@ -629,6 +643,11 @@ class NotificationService {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         SosAlertCoordinator.showOnceFromMap(data);
       });
+      return;
+    }
+
+    // SOS claimed by another moderator — no navigation (tray notification update).
+    if (notificationType == 'sos_claimed') {
       return;
     }
 

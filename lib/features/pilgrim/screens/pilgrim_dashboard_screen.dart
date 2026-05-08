@@ -12,6 +12,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/helpers/chat_notification_helper.dart';
@@ -87,6 +88,71 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   bool _hasModeratorCalledForThisSos = false;
   Timer? _sosResolvedUiTimer;
   bool _showResolvedSosCard = false;
+
+  static const _prefsSosUiPrefix = 'pilgrim_sos_ui_v1';
+
+  String _prefsKey(String activeSosId) => '$_prefsSosUiPrefix:$activeSosId';
+
+  Future<void> _persistSosUi() async {
+    final active = ref.read(pilgrimProvider).activeSosId?.trim();
+    if (active == null || active.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_prefsKey(active), <String>[
+        _sosHomePhase.name,
+        _sosHelpStatusKey,
+        _sosModeratorName,
+        _sosCallbackModeratorId ?? '',
+        _hasModeratorCalledForThisSos ? '1' : '0',
+        _showResolvedSosCard ? '1' : '0',
+      ]);
+    } catch (_) {}
+  }
+
+  Future<void> _restoreSosUiIfNeeded() async {
+    final p = ref.read(pilgrimProvider);
+    final active = p.activeSosId?.trim();
+    if (active == null || active.isEmpty) return;
+    if (!p.sosActive) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getStringList(_prefsKey(active));
+      if (raw == null || raw.length < 6) return;
+
+      final phaseStr = raw[0];
+      final statusKey = raw[1];
+      final modName = raw[2];
+      final cbId = raw[3];
+      final hasCalled = raw[4] == '1';
+      final showResolved = raw[5] == '1';
+
+      final phase =
+          SosHomePhase.values.where((e) => e.name == phaseStr).firstOrNull;
+
+      if (!mounted) return;
+      _stopSosHelpTimers();
+      setState(() {
+        _sosHomePhase = phase ?? SosHomePhase.helpSession;
+        _sosHelpStatusKey = statusKey.isNotEmpty
+            ? statusKey
+            : (hasCalled ? 'sos_status_being_handled' : 'sos_status_waiting');
+        _sosModeratorName = modName;
+        _sosCallbackModeratorId = cbId.isNotEmpty ? cbId : null;
+        _hasModeratorCalledForThisSos = hasCalled;
+        _showResolvedSosCard = showResolved;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _clearPersistedSosUi({String? sosId}) async {
+    final id = sosId?.trim() ?? ref.read(pilgrimProvider).activeSosId?.trim();
+    if (id == null || id.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefsKey(id));
+    } catch (_) {}
+  }
 
   // Location
   StreamSubscription<Position>? _locationSub;
@@ -172,6 +238,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         await ref.read(authProvider.notifier).hydrateFromCache();
         await ref.read(pilgrimProvider.notifier).hydrateFromCache();
         await ref.read(pilgrimProvider.notifier).loadDashboard();
+        // Hot restart resilience: if SOS is still active, restore last known
+        // UI status (being handled / callback) instead of resetting to "sent".
+        await _restoreSosUiIfNeeded();
         final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
         AppLogger.d('[PilgrimDashboard] Dashboard loaded. GroupId: $groupId');
 
@@ -448,6 +517,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               _sosHelpStatusKey = 'sos_status_reviewing';
               if (modName.isNotEmpty) _sosModeratorName = modName;
             });
+            unawaited(_persistSosUi());
           } catch (e) {
             AppLogger.e('[PilgrimDashboard] sos-handling handler error: $e');
           }
@@ -480,6 +550,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               _sosModeratorName = '';
               _showResolvedSosCard = true;
             });
+            unawaited(_clearPersistedSosUi(sosId: active));
             _sosResolvedUiTimer = Timer(const Duration(seconds: 30), () {
               if (!mounted) return;
               setState(() {
@@ -562,10 +633,12 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _stopSosHelpTimers();
     if (!mounted) return;
     setState(() => _sosHelpStatusKey = 'sos_status_notifying');
+    unawaited(_persistSosUi());
     _sosHelpPhaseTimer = Timer(const Duration(seconds: 2), () {
       if (!mounted) return;
       if (!ref.read(pilgrimProvider).sosActive) return;
       setState(() => _sosHelpStatusKey = 'sos_status_waiting');
+      unawaited(_persistSosUi());
     });
   }
 
@@ -890,6 +963,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         });
       }
       _startSosHelpSessionTimers();
+      unawaited(_persistSosUi());
     } else {
       // Get the actual error message from the provider
       final errorMsg = ref.read(pilgrimProvider).error ?? 'sos_failed'.tr();
@@ -982,6 +1056,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         _showResolvedSosCard = false;
       });
     }
+    unawaited(_clearPersistedSosUi());
     final pilgrimState = ref.read(pilgrimProvider);
     final groupId = pilgrimState.groupInfo?.groupId;
     final sosId = pilgrimState.activeSosId;
@@ -1075,6 +1150,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             _sosHelpStatusKey = 'sos_status_being_handled';
           });
         }
+        unawaited(_persistSosUi());
       }
 
       if (next.status == CallStatus.connected &&
@@ -1096,6 +1172,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                 (_sosCallbackModeratorId?.isNotEmpty ?? false);
         if (shouldShowCallback && mounted) {
           setState(() => _sosHelpStatusKey = 'sos_status_callback_available');
+          unawaited(_persistSosUi());
         }
       }
     });

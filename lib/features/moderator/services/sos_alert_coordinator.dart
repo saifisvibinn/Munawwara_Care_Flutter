@@ -25,6 +25,7 @@ class SosAlertCoordinator {
   static String? _lastShownSosId;
   static DateTime? _lastShownAt;
   static const _dedupeWindow = Duration(seconds: 4);
+  static String? _openDialogStorageKey;
 
   /// Set after IDE hot reload so a replayed socket/FCM SOS or reset dedupe
   /// state does not immediately show the full-screen moderator dialog again.
@@ -104,6 +105,25 @@ class SosAlertCoordinator {
     await _refreshEngagementUi();
 
     final storageKey = payload.storageKey;
+
+    // If another moderator already claimed this SOS on this device, do not show
+    // the blocking popup again.
+    final myId = CallingScope.riverpod?.read(authProvider).userId ?? '';
+    if (myId.isNotEmpty) {
+      final all = await ModeratorSosEngagementStore.loadAll();
+      final r = all
+          .where((e) => e.storageKey == storageKey)
+          .cast<ModeratorSosEngagementRecord?>()
+          .firstOrNull;
+      final claimedBy = r?.handledByModeratorId?.trim() ?? '';
+      final status = r?.handledStatus.trim() ?? '';
+      if (claimedBy.isNotEmpty && claimedBy != myId && status.isNotEmpty) {
+        AppLogger.i(
+          '[SosAlertCoordinator] Skipped SOS dialog (claimed by another moderator)',
+        );
+        return;
+      }
+    }
     final showModal =
         await ModeratorSosEngagementStore.shouldShowBlockingModal(storageKey);
     if (!showModal) {
@@ -151,6 +171,7 @@ class SosAlertCoordinator {
     final gid = payload.groupId;
     final modName = _getModeratorName();
 
+    _openDialogStorageKey = storageKey;
     await showDialog<void>(
       context: ctx,
       barrierDismissible: false,
@@ -177,11 +198,17 @@ class SosAlertCoordinator {
           },
           onReview: () async {
             Navigator.of(dialogCtx).pop();
-            await ModeratorSosEngagementStore.markReviewSuppressed(storageKey);
+            final c = CallingScope.riverpod;
+            final mid = c?.read(authProvider).userId ?? '';
+            await ModeratorSosEngagementStore.markReviewSuppressed(
+              storageKey,
+              moderatorId: mid,
+              moderatorName: modName,
+            );
             await _refreshEngagementUi();
             // Button click — stop pilgrim countdown, show "being reviewed"
             if (pid != null && pid.isNotEmpty && gid != null && gid.isNotEmpty) {
-              emitModeratorHandling(
+              emitModeratorResponding(
                 pilgrimId: pid,
                 groupId: gid,
                 sosId: payload.sosId,
@@ -211,12 +238,95 @@ class SosAlertCoordinator {
         );
       },
     );
+    if (_openDialogStorageKey == storageKey) _openDialogStorageKey = null;
+  }
+
+  static void dismissIfOpenForStorageKey(
+    String storageKey, {
+    String? reasonMessage,
+  }) {
+    if (storageKey.isEmpty) return;
+    if (_openDialogStorageKey != storageKey) return;
+    final ctx = AppRouter.navigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    final nav = Navigator.of(ctx, rootNavigator: true);
+    if (nav.canPop()) {
+      nav.pop();
+      _openDialogStorageKey = null;
+      if (reasonMessage != null && reasonMessage.trim().isNotEmpty) {
+        StandardSnackBar.showInfo(ctx, reasonMessage);
+      }
+    }
+  }
+
+  static Future<void> applyClaimedStatusFromMap(
+    Map<String, dynamic> raw,
+  ) async {
+    final c = CallingScope.riverpod;
+    if (c == null) return;
+    final role = c.read(authProvider).role?.toLowerCase();
+    if (role != 'moderator') return;
+
+    final status = raw['status']?.toString() ?? '';
+    if (status != 'reviewing' && status != 'in_call') return;
+
+    final pid = raw['pilgrim_id']?.toString() ?? '';
+    final gid = raw['group_id']?.toString() ?? '';
+    final sid = raw['sos_id']?.toString();
+    final modId = raw['moderator_id']?.toString() ?? '';
+    final modName = raw['moderator_name']?.toString() ?? '';
+    if (pid.isEmpty || gid.isEmpty || modId.isEmpty) return;
+
+    final sk = (sid != null && sid.isNotEmpty) ? sid : 'c_${pid}_$gid';
+    await ModeratorSosEngagementStore.upsertModeratorStatus(
+      storageKey: sk,
+      pilgrimId: pid,
+      groupId: gid,
+      pilgrimName: raw['pilgrim_name']?.toString() ?? '',
+      groupName: raw['group_name']?.toString() ?? '',
+      moderatorId: modId,
+      moderatorName: modName,
+      status: status == 'in_call' ? 'in_call' : 'reviewing',
+    );
+    await c.read(moderatorSosEngagementProvider.notifier).refresh();
+
+    dismissIfOpenForStorageKey(
+      sk,
+      reasonMessage: status == 'in_call'
+          ? (modName.trim().isEmpty
+              ? 'sos_claimed_in_call_other_mod'.tr()
+              : 'sos_claimed_in_call_with'.tr(namedArgs: {'name': modName}))
+          : (modName.trim().isEmpty
+              ? 'sos_claimed_handled_by_other_mod'.tr()
+              : 'sos_claimed_being_reviewed_by'.tr(namedArgs: {'name': modName})),
+    );
   }
 
   /// After moderator starts an internet call, refresh banner engagement.
   /// (Do not [Navigator.pop] here — [VoiceCallScreen] may be on top.)
   static Future<void> afterModeratorPlacedCall(String pilgrimId) async {
-    await ModeratorSosEngagementStore.markCalledForPilgrim(pilgrimId);
+    final c = CallingScope.riverpod;
+    final mid = c?.read(authProvider).userId ?? '';
+    final mName = _getModeratorName();
+    final entry = await ModeratorSosEngagementStore.markCalledForPilgrim(
+      pilgrimId,
+    );
+    if (mid.isNotEmpty) {
+      await ModeratorSosEngagementStore.markInCallForPilgrim(
+        pilgrimId,
+        moderatorId: mid,
+        moderatorName: mName,
+      );
+    }
+    // Broadcast for other moderators immediately.
+    if (entry != null && entry.groupId.isNotEmpty) {
+      SocketService.emit('sos_in_call', <String, dynamic>{
+        'groupId': entry.groupId,
+        'pilgrimId': pilgrimId,
+        if (entry.sosId != null && entry.sosId!.isNotEmpty) 'sos_id': entry.sosId,
+        'moderator_name': mName,
+      });
+    }
     await _refreshEngagementUi();
   }
 

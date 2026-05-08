@@ -15,6 +15,10 @@ class ModeratorSosEngagementRecord {
   final String? pilgrimGender;
   final double? lat;
   final double? lng;
+  final String? handledByModeratorId;
+  final String handledByModeratorName;
+  /// 'reviewing' | 'in_call' | '' (unknown)
+  final String handledStatus;
   final bool called;
   final bool navigated;
   final bool blockingSuppressed;
@@ -32,6 +36,9 @@ class ModeratorSosEngagementRecord {
     required this.pilgrimGender,
     required this.lat,
     required this.lng,
+    required this.handledByModeratorId,
+    required this.handledByModeratorName,
+    required this.handledStatus,
     required this.called,
     required this.navigated,
     required this.blockingSuppressed,
@@ -48,6 +55,9 @@ class ModeratorSosEngagementRecord {
     String? pilgrimGender,
     double? lat,
     double? lng,
+    String? handledByModeratorId,
+    String? handledByModeratorName,
+    String? handledStatus,
     bool? called,
     bool? navigated,
     bool? blockingSuppressed,
@@ -64,6 +74,10 @@ class ModeratorSosEngagementRecord {
     pilgrimGender: pilgrimGender ?? this.pilgrimGender,
     lat: lat ?? this.lat,
     lng: lng ?? this.lng,
+    handledByModeratorId: handledByModeratorId ?? this.handledByModeratorId,
+    handledByModeratorName:
+        handledByModeratorName ?? this.handledByModeratorName,
+    handledStatus: handledStatus ?? this.handledStatus,
     called: called ?? this.called,
     navigated: navigated ?? this.navigated,
     blockingSuppressed: blockingSuppressed ?? this.blockingSuppressed,
@@ -81,6 +95,9 @@ class ModeratorSosEngagementRecord {
     'pilgrim_gender': pilgrimGender,
     'lat': lat,
     'lng': lng,
+    'handled_by_moderator_id': handledByModeratorId,
+    'handled_by_moderator_name': handledByModeratorName,
+    'handled_status': handledStatus,
     'called': called,
     'navigated': navigated,
     'blocking_suppressed': blockingSuppressed,
@@ -103,6 +120,10 @@ class ModeratorSosEngagementRecord {
       pilgrimGender: j['pilgrim_gender']?.toString(),
       lat: (j['lat'] as num?)?.toDouble(),
       lng: (j['lng'] as num?)?.toDouble(),
+      handledByModeratorId: j['handled_by_moderator_id']?.toString(),
+      handledByModeratorName:
+          j['handled_by_moderator_name']?.toString() ?? '',
+      handledStatus: j['handled_status']?.toString() ?? '',
       called: j['called'] == true,
       navigated: j['navigated'] == true,
       blockingSuppressed: j['blocking_suppressed'] == true,
@@ -214,6 +235,9 @@ class ModeratorSosEngagementStore {
       pilgrimGender: p.pilgrimGender ?? existing?.pilgrimGender,
       lat: p.lat ?? existing?.lat,
       lng: p.lng ?? existing?.lng,
+      handledByModeratorId: existing?.handledByModeratorId,
+      handledByModeratorName: existing?.handledByModeratorName ?? '',
+      handledStatus: existing?.handledStatus ?? '',
       called: existing?.called ?? false,
       navigated: existing?.navigated ?? false,
       blockingSuppressed: existing?.blockingSuppressed ?? false,
@@ -249,12 +273,96 @@ class ModeratorSosEngagementStore {
     await _saveMap(map);
   }
 
-  static Future<void> markReviewSuppressed(String storageKey) async {
+  static Future<void> markReviewSuppressed(
+    String storageKey, {
+    required String moderatorId,
+    required String moderatorName,
+  }) async {
     final map = await _loadMap();
     final r = map[storageKey];
     if (r == null) return;
     final now = DateTime.now().millisecondsSinceEpoch;
-    map[storageKey] = r.copyWith(blockingSuppressed: true, updatedAtMs: now);
+    map[storageKey] = r.copyWith(
+      blockingSuppressed: true,
+      handledByModeratorId: moderatorId,
+      handledByModeratorName: moderatorName,
+      handledStatus: 'reviewing',
+      updatedAtMs: now,
+    );
+    await _saveMap(map);
+  }
+
+  static Future<void> markInCallForPilgrim(
+    String pilgrimId, {
+    required String moderatorId,
+    required String moderatorName,
+  }) async {
+    if (pilgrimId.isEmpty) return;
+    final map = await _loadMap();
+    ModeratorSosEngagementRecord? best;
+    for (final r in map.values) {
+      if (!r.active || r.fullyHandled) continue;
+      if (r.pilgrimId != pilgrimId) continue;
+      if (best == null || r.updatedAtMs > best.updatedAtMs) best = r;
+    }
+    if (best == null) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    map[best.storageKey] = best.copyWith(
+      blockingSuppressed: true,
+      handledByModeratorId: moderatorId,
+      handledByModeratorName: moderatorName,
+      handledStatus: 'in_call',
+      updatedAtMs: now,
+    );
+    await _saveMap(map);
+  }
+
+  static Future<void> upsertModeratorStatus({
+    required String storageKey,
+    required String pilgrimId,
+    required String groupId,
+    required String pilgrimName,
+    required String groupName,
+    required String moderatorId,
+    required String moderatorName,
+    required String status, // 'reviewing' | 'in_call'
+  }) async {
+    if (storageKey.isEmpty || pilgrimId.isEmpty || groupId.isEmpty) return;
+    final map = await _loadMap();
+    await _prune(map);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final existing = map[storageKey];
+    final next = (existing ??
+            ModeratorSosEngagementRecord(
+              storageKey: storageKey,
+              sosId: storageKey,
+              pilgrimId: pilgrimId,
+              groupId: groupId,
+              groupName: groupName,
+              pilgrimName: pilgrimName,
+              pilgrimGender: null,
+              lat: null,
+              lng: null,
+              handledByModeratorId: null,
+              handledByModeratorName: '',
+              handledStatus: '',
+              called: false,
+              navigated: false,
+              blockingSuppressed: true,
+              userDismissed: true,
+              active: true,
+              updatedAtMs: now,
+            ))
+        .copyWith(
+          active: true,
+          blockingSuppressed: true,
+          handledByModeratorId: moderatorId,
+          handledByModeratorName: moderatorName,
+          handledStatus: status,
+          updatedAtMs: now,
+        );
+    map[storageKey] = next;
+    _collapseDuplicateActiveIncidents(map);
     await _saveMap(map);
   }
 

@@ -89,8 +89,14 @@ class _ModeratorDashboardScreenState
 
   void _refreshRealtimeState() {
     if (!mounted) return;
-    ref.read(notificationProvider.notifier).refetch();
-    ref.read(moderatorProvider.notifier).loadDashboard(silently: true);
+    unawaited(() async {
+      ref.read(notificationProvider.notifier).refetch();
+      await ref.read(moderatorProvider.notifier).loadDashboard(silently: true);
+      if (!mounted) return;
+      // After dashboard refresh, ensure we are subscribed to all group rooms
+      // (important for newly invited moderators).
+      _joinAllGroupRooms();
+    }());
   }
 
   Future<void> _onSosAlertCancelled(dynamic data) async {
@@ -224,6 +230,63 @@ class _ModeratorDashboardScreenState
         // Backend may emit either name depending on transport/version.
         SocketService.on('sos-alert-cancelled', _onSosAlertCancelled);
         SocketService.on('sos_cancel', _onSosAlertCancelled);
+        // Cross-moderator status updates (reviewing / in-call)
+        SocketService.on('sos-moderator-responding', (data) async {
+          if (!mounted || data is! Map) return;
+          final map = Map<String, dynamic>.from(data);
+          final pid = map['pilgrim_id']?.toString() ?? '';
+          final gid = map['group_id']?.toString() ?? '';
+          final modId = map['moderator_id']?.toString() ?? '';
+          final modName = map['moderator_name']?.toString() ?? '';
+          if (pid.isEmpty || gid.isEmpty || modId.isEmpty) return;
+          final sid = map['sos_id']?.toString();
+          final sk = (sid != null && sid.isNotEmpty) ? sid : 'c_${pid}_$gid';
+          await ModeratorSosEngagementStore.upsertModeratorStatus(
+            storageKey: sk,
+            pilgrimId: pid,
+            groupId: gid,
+            pilgrimName: map['pilgrim_name']?.toString() ?? '',
+            groupName: map['group_name']?.toString() ?? '',
+            moderatorId: modId,
+            moderatorName: modName,
+            status: 'reviewing',
+          );
+          SosAlertCoordinator.dismissIfOpenForStorageKey(
+            sk,
+            reasonMessage: modName.trim().isEmpty
+                ? 'sos_claimed_handled_by_other_mod'.tr()
+                : 'sos_claimed_being_reviewed_by'.tr(namedArgs: {'name': modName}),
+          );
+          await ref.read(moderatorSosEngagementProvider.notifier).refresh();
+        });
+        SocketService.on('sos-moderator-in-call', (data) async {
+          if (!mounted || data is! Map) return;
+          final map = Map<String, dynamic>.from(data);
+          final pid = map['pilgrim_id']?.toString() ?? '';
+          final gid = map['group_id']?.toString() ?? '';
+          final modId = map['moderator_id']?.toString() ?? '';
+          final modName = map['moderator_name']?.toString() ?? '';
+          if (pid.isEmpty || gid.isEmpty || modId.isEmpty) return;
+          final sid = map['sos_id']?.toString();
+          final sk = (sid != null && sid.isNotEmpty) ? sid : 'c_${pid}_$gid';
+          await ModeratorSosEngagementStore.upsertModeratorStatus(
+            storageKey: sk,
+            pilgrimId: pid,
+            groupId: gid,
+            pilgrimName: map['pilgrim_name']?.toString() ?? '',
+            groupName: map['group_name']?.toString() ?? '',
+            moderatorId: modId,
+            moderatorName: modName,
+            status: 'in_call',
+          );
+          SosAlertCoordinator.dismissIfOpenForStorageKey(
+            sk,
+            reasonMessage: modName.trim().isEmpty
+                ? 'sos_claimed_in_call_other_mod'.tr()
+                : 'sos_claimed_in_call_with'.tr(namedArgs: {'name': modName}),
+          );
+          await ref.read(moderatorSosEngagementProvider.notifier).refresh();
+        });
         // Listen for missed calls — refresh notification/list + groups
         SocketService.on('missed-call-received', (_) {
           _refreshRealtimeState();
@@ -239,7 +302,15 @@ class _ModeratorDashboardScreenState
         SocketService.on('group_deleted', (_) {
           _refreshRealtimeState();
         });
-        SocketService.on('added-to-group', (_) {
+        SocketService.on('added-to-group', (data) {
+          // Critical: join the new room immediately so SOS realtime works.
+          if (data is Map) {
+            final map = Map<String, dynamic>.from(data);
+            final gid = map['group_id']?.toString();
+            if (gid != null && gid.trim().isNotEmpty) {
+              SocketService.emit('join_group', gid.trim());
+            }
+          }
           _refreshRealtimeState();
         });
         SocketService.on('removed-from-group', (_) {
@@ -314,6 +385,8 @@ class _ModeratorDashboardScreenState
     SocketService.off('sos-alert-received');
     SocketService.off('sos-alert-cancelled');
     SocketService.off('sos_cancel');
+    SocketService.off('sos-moderator-responding');
+    SocketService.off('sos-moderator-in-call');
     SocketService.off('missed-call-received');
     SocketService.off('notification_refresh');
     SocketService.off('group_updated');
