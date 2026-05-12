@@ -8,6 +8,10 @@ import '../../../core/utils/app_logger.dart';
 import '../helpers/chat_popup_dedup.dart';
 import '../models/message_model.dart';
 
+/// Server may run translation + Cloud TTS before responding; avoid false
+/// "send failed" when the default Dio receive timeout fires too early.
+const Duration _kMessageSendReceiveTimeout = Duration(seconds: 90);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────────────────────────────────────
@@ -219,6 +223,7 @@ class MessageNotifier extends Notifier<MessageState> {
     required String content,
     required bool isUrgent,
     bool isTts = false,
+    String? replyToMessageId,
   }) async {
     state = state.copyWith(isSending: true);
     try {
@@ -230,7 +235,10 @@ class MessageNotifier extends Notifier<MessageState> {
           'content': content,
           if (isTts) 'original_text': content,
           'is_urgent': isUrgent,
+          if (replyToMessageId != null && replyToMessageId.isNotEmpty)
+            'reply_to': replyToMessageId,
         },
+        options: Options(receiveTimeout: _kMessageSendReceiveTimeout),
       );
       final msg = GroupMessage.fromJson(
         response.data['data'] as Map<String, dynamic>,
@@ -256,6 +264,7 @@ class MessageNotifier extends Notifier<MessageState> {
     required String content,
     required bool isUrgent,
     bool isTts = false,
+    String? replyToMessageId,
   }) async {
     state = state.copyWith(isSending: true);
     try {
@@ -268,7 +277,10 @@ class MessageNotifier extends Notifier<MessageState> {
           'content': content,
           if (isTts) 'original_text': content,
           'is_urgent': isUrgent,
+          if (replyToMessageId != null && replyToMessageId.isNotEmpty)
+            'reply_to': replyToMessageId,
         },
+        options: Options(receiveTimeout: _kMessageSendReceiveTimeout),
       );
       final msg = GroupMessage.fromJson(
         response.data['data'] as Map<String, dynamic>,
@@ -295,6 +307,7 @@ class MessageNotifier extends Notifier<MessageState> {
     required String filePath,
     required bool isUrgent,
     int durationSeconds = 0,
+    String? replyToMessageId,
   }) async {
     state = state.copyWith(isSending: true);
     try {
@@ -303,12 +316,18 @@ class MessageNotifier extends Notifier<MessageState> {
         'type': 'voice',
         'is_urgent': isUrgent.toString(),
         'duration': durationSeconds.toString(),
+        if (replyToMessageId != null && replyToMessageId.isNotEmpty)
+          'reply_to': replyToMessageId,
         'file': await MultipartFile.fromFile(
           filePath,
           filename: 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
         ),
       });
-      final response = await ApiService.dio.post('/messages', data: formData);
+      final response = await ApiService.dio.post(
+        '/messages',
+        data: formData,
+        options: Options(receiveTimeout: _kMessageSendReceiveTimeout),
+      );
       final msg = GroupMessage.fromJson(
         response.data['data'] as Map<String, dynamic>,
       );
@@ -333,6 +352,7 @@ class MessageNotifier extends Notifier<MessageState> {
     required String filePath,
     required bool isUrgent,
     int durationSeconds = 0,
+    String? replyToMessageId,
   }) async {
     state = state.copyWith(isSending: true);
     try {
@@ -342,6 +362,8 @@ class MessageNotifier extends Notifier<MessageState> {
         'type': 'voice',
         'is_urgent': isUrgent.toString(),
         'duration': durationSeconds.toString(),
+        if (replyToMessageId != null && replyToMessageId.isNotEmpty)
+          'reply_to': replyToMessageId,
         'file': await MultipartFile.fromFile(
           filePath,
           filename: 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
@@ -350,6 +372,7 @@ class MessageNotifier extends Notifier<MessageState> {
       final response = await ApiService.dio.post(
         '/messages/individual',
         data: formData,
+        options: Options(receiveTimeout: _kMessageSendReceiveTimeout),
       );
       final msg = GroupMessage.fromJson(
         response.data['data'] as Map<String, dynamic>,

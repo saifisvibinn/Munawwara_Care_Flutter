@@ -26,7 +26,6 @@ import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
 import '../../calling/providers/missed_calls_unread_provider.dart';
-import '../../calling/screens/call_history_screen.dart';
 import '../../calling/screens/voice_call_screen.dart';
 import '../../calling/native_call_coordinator.dart' show isNavigatingToCall;
 import '../../notifications/providers/notification_provider.dart';
@@ -60,7 +59,6 @@ class PilgrimDashboardScreen extends ConsumerStatefulWidget {
 class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _isInitializingDashboard = true;
-  AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
   // Bottom nav
   int _currentTab = 0;
 
@@ -188,7 +186,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _lifecycleState = state;
     if (state == AppLifecycleState.resumed) {
       unawaited(_checkLocationPermission());
       _loadWeatherAlert(force: true);
@@ -365,9 +362,14 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               return;
             }
 
-            // Don't show popup or play sound when app is not in foreground
-            if (_lifecycleState != AppLifecycleState.resumed) {
-              AppLogger.d('[PilgrimDashboard] App not resumed, skipping popup');
+            // Don't show popup or play sound when app is not interactively
+            // foreground (binding reflects engine state; avoids false "resumed"
+            // before the first lifecycle callback).
+            if (WidgetsBinding.instance.lifecycleState !=
+                AppLifecycleState.resumed) {
+              AppLogger.d(
+                '[PilgrimDashboard] App not resumed (binding), skipping popup',
+              );
               return;
             }
 
@@ -1363,7 +1365,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           Navigator.of(context)
               .push(
                 MaterialPageRoute<void>(
-                  builder: (_) => const CallHistoryScreen(missedOnly: true),
+                  builder: (_) =>
+                      const PilgrimNotificationsScreen(missedCallsOnly: true),
                 ),
               )
               .then((_) {
@@ -1509,7 +1512,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             }
           },
           unreadMessages: ref.watch(messageProvider).unreadCount,
-          isDark: isDark,
         ),
       ),
     );

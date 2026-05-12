@@ -4,9 +4,10 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../services/incoming_chat_sfx.dart';
+import '../services/speech_service.dart';
 import '../theme/app_colors.dart';
 
 class InAppPopup {
@@ -22,6 +23,8 @@ class InAppPopup {
     bool lockUntilDismiss = false,
     String? playType,
     String? playValue,
+    String? playTtsAudioUrl,
+    String playLocale = 'en',
     Duration? duration,
   }) {
     _dismiss();
@@ -38,6 +41,8 @@ class InAppPopup {
         lockUntilDismiss: lockUntilDismiss,
         playType: playType,
         playValue: playValue,
+        playTtsAudioUrl: playTtsAudioUrl,
+        playLocale: playLocale,
         onDismiss: _dismiss,
       ),
     );
@@ -102,6 +107,8 @@ class _PopupCard extends StatefulWidget {
   final bool lockUntilDismiss;
   final String? playType;
   final String? playValue;
+  final String? playTtsAudioUrl;
+  final String playLocale;
 
   const _PopupCard({
     required this.senderName,
@@ -115,6 +122,8 @@ class _PopupCard extends StatefulWidget {
     this.lockUntilDismiss = false,
     this.playType,
     this.playValue,
+    this.playTtsAudioUrl,
+    this.playLocale = 'en',
   });
 
   @override
@@ -128,8 +137,28 @@ class _PopupCardState extends State<_PopupCard>
   late final Animation<double> _scaleAnim;
 
   final AudioPlayer _player = AudioPlayer();
-  final FlutterTts _tts = FlutterTts();
   bool _isPlaying = false;
+  /// True after the first full play (or error) so "Replay audio" enables.
+  bool _replayUnlocked = false;
+
+  void _markPlaybackFinished() {
+    if (!mounted) return;
+    setState(() {
+      _isPlaying = false;
+      _replayUnlocked = true;
+    });
+  }
+
+  /// Waits for [AudioPlayer] URL/device playback to finish (see [_runPlayback]).
+  Future<void> _awaitAudioplayersSourceEnd() async {
+    try {
+      await _player.onPlayerComplete.first.timeout(
+        const Duration(minutes: 5),
+      );
+    } on TimeoutException {
+      await _player.stop();
+    }
+  }
 
   @override
   void initState() {
@@ -151,57 +180,99 @@ class _PopupCardState extends State<_PopupCard>
       curve: widget.isUrgent ? Curves.elasticOut : Curves.easeOutCubic,
     ));
 
-    _player.onPlayerComplete.listen((_) {
-      if (mounted) setState(() => _isPlaying = false);
-    });
-    _tts.setCompletionHandler(() {
-      if (mounted) setState(() => _isPlaying = false);
-    });
-    _tts.setErrorHandler((_) {
-      if (mounted) setState(() => _isPlaying = false);
-    });
-
     _controller.forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_canPlay) {
+        if (mounted) setState(() => _replayUnlocked = true);
+        return;
+      }
+      _runPlayback();
+    });
   }
 
   bool get _canPlay {
     final type = widget.playType;
     final value = widget.playValue;
-    return (type == 'voice' || type == 'tts') &&
-        value != null &&
-        value.isNotEmpty;
+    if (type == 'voice') {
+      return value != null && value.isNotEmpty;
+    }
+    if (type == 'tts') {
+      final hasText = value != null && value.trim().isNotEmpty;
+      final hasUrl = widget.playTtsAudioUrl != null &&
+          widget.playTtsAudioUrl!.trim().isNotEmpty;
+      return hasText || hasUrl;
+    }
+    return false;
   }
 
-  Future<void> _togglePlay() async {
-    if (!_canPlay) return;
+  Future<void> _stopPlayback() async {
+    await IncomingChatSfx.stop();
+    await SpeechService.stop();
+    await _player.stop();
+    if (!mounted) return;
+    setState(() {
+      _isPlaying = false;
+      _replayUnlocked = true;
+    });
+  }
 
-    if (_isPlaying) {
-      await _player.stop();
-      await _tts.stop();
-      if (mounted) setState(() => _isPlaying = false);
-      return;
-    }
+  Future<void> _onReplayPressed() async {
+    if (!_replayUnlocked || _isPlaying) return;
+    await _runPlayback();
+  }
+
+  Future<void> _runPlayback() async {
+    if (!_canPlay || !mounted) return;
 
     final type = widget.playType;
-    final value = widget.playValue!;
+    final value = widget.playValue;
 
-    await _player.stop();
-    await _tts.stop();
+    try {
+      await IncomingChatSfx.stop();
+      await SpeechService.stop();
+      await _player.stop();
 
-    if (type == 'voice') {
-      await _player.play(UrlSource(value));
-      if (mounted) setState(() => _isPlaying = true);
-      return;
+      if (type == 'voice') {
+        try {
+          await _player.play(UrlSource(value!));
+          if (mounted) setState(() => _isPlaying = true);
+          await _awaitAudioplayersSourceEnd();
+        } catch (_) {
+          // UrlSource failed or playback error.
+        }
+        _markPlaybackFinished();
+        return;
+      }
+
+      if (type == 'tts') {
+        final url = widget.playTtsAudioUrl?.trim();
+        final text = value?.trim() ?? '';
+        if (text.isEmpty && (url == null || url.isEmpty)) {
+          _markPlaybackFinished();
+          return;
+        }
+        if (mounted) setState(() => _isPlaying = true);
+        try {
+          await SpeechService.playRobust(
+            audioUrl: (url != null && url.isNotEmpty) ? url : null,
+            backupText: text,
+            lang: widget.playLocale,
+          );
+        } finally {
+          _markPlaybackFinished();
+        }
+      }
+    } catch (_) {
+      _markPlaybackFinished();
     }
-
-    await _tts.speak(value);
-    if (mounted) setState(() => _isPlaying = true);
   }
 
   @override
   void dispose() {
+    unawaited(IncomingChatSfx.stop());
+    unawaited(SpeechService.stop());
     _player.dispose();
-    _tts.stop();
     _controller.dispose();
     super.dispose();
   }
@@ -375,38 +446,84 @@ class _PopupCardState extends State<_PopupCard>
               SizedBox(height: 12.h),
               Align(
                 alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: _togglePlay,
-                  icon: Icon(
-                    _isPlaying ? Symbols.stop_circle : Symbols.play_arrow,
-                    size: 16.w,
-                    color: isDark ? Colors.white : AppColors.textDark,
-                  ),
-                  label: Text(
-                    _isPlaying
-                        ? 'msg_stop'.tr()
-                        : (widget.playType == 'voice'
-                              ? 'popup_play_voice'.tr()
-                              : 'popup_play_tts'.tr()),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : AppColors.textDark,
+                child: Wrap(
+                  spacing: 8.w,
+                  runSpacing: 8.h,
+                  children: [
+                    if (_isPlaying)
+                      OutlinedButton.icon(
+                        onPressed: _stopPlayback,
+                        icon: Icon(
+                          Symbols.stop_circle,
+                          size: 16.w,
+                          color: isDark ? Colors.white : AppColors.textDark,
+                        ),
+                        label: Text(
+                          'msg_stop'.tr(),
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : AppColors.textDark,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                            color: isDark
+                                ? Colors.white24
+                                : const Color(0xFFD1D5DB),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(99.r),
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16.w,
+                            vertical: 8.h,
+                          ),
+                        ),
+                      ),
+                    Builder(
+                      builder: (context) {
+                        final canReplay = _replayUnlocked && !_isPlaying;
+                        final onFg = canReplay
+                            ? (isDark ? Colors.white : AppColors.textDark)
+                            : (isDark
+                                  ? Colors.white38
+                                  : const Color(0xFF9CA3AF));
+                        return OutlinedButton.icon(
+                          onPressed: canReplay ? _onReplayPressed : null,
+                          icon: Icon(Symbols.repeat, size: 16.w, color: onFg),
+                          label: Text(
+                            'popup_replay_audio'.tr(),
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 11.sp,
+                              fontWeight: FontWeight.w600,
+                              color: onFg,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: onFg,
+                            disabledForegroundColor: isDark
+                                ? Colors.white38
+                                : const Color(0xFF9CA3AF),
+                            side: BorderSide(
+                              color: isDark
+                                  ? Colors.white24
+                                  : const Color(0xFFD1D5DB),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(99.r),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16.w,
+                              vertical: 8.h,
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(
-                      color: isDark ? Colors.white24 : const Color(0xFFD1D5DB),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(99.r),
-                    ),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 16.w,
-                      vertical: 8.h,
-                    ),
-                  ),
+                  ],
                 ),
               ),
             ],

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -47,8 +48,8 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   // Scroll
   final _scrollController = ScrollController();
 
-  // Compose state
-  String _composeType = 'text'; // 'text' | 'voice' | 'tts'
+  // Compose: TTS (default) or voice only — no plain text channel.
+  String _composeMode = 'tts'; // 'tts' | 'voice'
   bool _isUrgent = false;
   final _textController = TextEditingController();
 
@@ -69,6 +70,9 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   String? _ttsPlayingId;
   bool _ttsSpeaking = false;
   bool _ttsLoading = false;
+
+  /// Message being quoted for the next send (any sender, inc. self).
+  GroupMessage? _replyTarget;
 
   @override
   void initState() {
@@ -219,19 +223,12 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
     }
 
     try {
-      // Play robustly (cloud with local fallback)
       await SpeechService.playRobust(
         audioUrl: msg.audioUrl,
         backupText: text,
         lang: _dominantPilgrimLanguageCode(),
       );
-      if (mounted && _ttsPlayingId == msg.id) {
-        setState(() {
-          _ttsLoading = false;
-          _ttsSpeaking = true;
-        });
-      }
-    } catch (_) {
+    } finally {
       if (mounted && _ttsPlayingId == msg.id) {
         setState(() {
           _ttsLoading = false;
@@ -320,11 +317,97 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
 
   // ── Send ──────────────────────────────────────────────────────────────────
 
-  Future<void> _sendText() async {
+  MessageReplySnapshot _snapshotForReplyDraft(GroupMessage msg) {
+    var preview = switch (msg.type) {
+      'text' => msg.content ?? '',
+      'tts' => msg.originalText ?? msg.content ?? '',
+      'voice' => 'msg_reply_preview_voice'.tr(),
+      'meetpoint' =>
+        msg.meetpointData?['name']?.toString() ?? msg.content ?? 'Meetpoint',
+      _ => msg.content ?? '',
+    };
+    if (preview.length > 200) {
+      preview = '${preview.substring(0, 197)}...';
+    }
+    return MessageReplySnapshot(
+      messageId: msg.id,
+      senderName: msg.sender?.fullName ?? 'you'.tr(),
+      previewText: preview,
+      messageType: msg.type,
+    );
+  }
+
+  Future<void> _openMessageActions(GroupMessage msg) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? AppColors.surfaceDark
+          : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Symbols.content_copy, size: 22.w),
+              title: Text(
+                'msg_copy'.tr(),
+                style: const TextStyle(fontFamily: 'Lexend'),
+              ),
+              onTap: () {
+                final plain = messagePlainTextForCopy(msg);
+                Navigator.pop(ctx);
+                if (plain.trim().isEmpty) {
+                  _snack('msg_copy_empty'.tr());
+                  return;
+                }
+                Clipboard.setData(ClipboardData(text: plain));
+                _snack('msg_copied'.tr());
+              },
+            ),
+            ListTile(
+              leading: Icon(Symbols.reply, size: 22.w),
+              title: Text(
+                'msg_reply'.tr(),
+                style: const TextStyle(fontFamily: 'Lexend'),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                setState(() => _replyTarget = msg);
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Symbols.delete_outline,
+                size: 22.w,
+                color: Colors.red.shade400,
+              ),
+              title: Text(
+                'msg_delete_confirm'.tr(),
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  color: Colors.red.shade400,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _deleteMessage(msg);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendTtsMessage() async {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
     _textController.clear();
     FocusScope.of(context).unfocus();
+    final replyId = _replyTarget?.id;
 
     final ok = await ref
         .read(messageProvider.notifier)
@@ -332,11 +415,15 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
           groupId: widget.groupId,
           content: text,
           isUrgent: _isUrgent,
-          isTts: _composeType == 'tts',
+          isTts: true,
+          replyToMessageId: replyId,
         );
 
     if (ok) {
-      setState(() => _isUrgent = false);
+      setState(() {
+        _isUrgent = false;
+        _replyTarget = null;
+      });
       _scrollToBottom();
     } else {
       _snack('msg_send_failed'.tr());
@@ -353,6 +440,8 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
       });
     }
 
+    final replyId = _replyTarget?.id;
+
     final ok = await ref
         .read(messageProvider.notifier)
         .sendVoiceMessage(
@@ -360,6 +449,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
           filePath: _recordedPath!,
           isUrgent: _isUrgent,
           durationSeconds: _recordSeconds,
+          replyToMessageId: replyId,
         );
 
     if (ok) {
@@ -367,6 +457,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
         _recordedPath = null;
         _isUrgent = false;
         _recordSeconds = 0;
+        _replyTarget = null;
       });
       _scrollToBottom();
     } else {
@@ -504,7 +595,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
     );
 
     return GestureDetector(
-      onLongPress: () => _deleteMessage(msg),
+      onLongPress: () => _openMessageActions(msg),
       child: Container(
         margin: EdgeInsets.only(bottom: 10.h),
         decoration: BoxDecoration(
@@ -519,78 +610,109 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
             ),
           ],
         ),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 14.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (msg.recipientId != null)
-                Padding(
-                  padding: EdgeInsets.only(bottom: 8.h),
-                  child: Builder(
-                    builder: (context) {
-                      final modState = ref.watch(moderatorProvider);
-                      final pilgrim = modState.currentGroup?.pilgrims.firstWhere(
-                        (p) => p.id == msg.recipientId,
-                        orElse: () =>
-                            PilgrimInGroup(id: '', fullName: 'msg_private_indicator'.tr()),
-                      );
-                      return PrivateIndicator(
-                        isForPilgrim: false,
-                        recipientName: pilgrim?.fullName,
-                      );
-                    },
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(14.w, 10.h, 40.w, 12.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (msg.recipientId != null)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 6.h),
+                      child: Builder(
+                        builder: (context) {
+                          final modState = ref.watch(moderatorProvider);
+                          final pilgrim =
+                              modState.currentGroup?.pilgrims.firstWhere(
+                            (p) => p.id == msg.recipientId,
+                            orElse: () => PilgrimInGroup(
+                              id: '',
+                              fullName: 'msg_private_indicator'.tr(),
+                            ),
+                          );
+                          return PrivateIndicator(
+                            isForPilgrim: false,
+                            recipientName: pilgrim?.fullName,
+                          );
+                        },
+                      ),
+                    ),
+                  if (msg.recipientId == null)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 6.h),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          _modGroupScopeChip(isDark: isDark),
+                          if (msg.isUrgent) ...[
+                            SizedBox(width: 8.w),
+                            const UrgentBadge(),
+                          ],
+                        ],
+                      ),
+                    )
+                  else if (msg.isUrgent)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 6.h),
+                      child: const UrgentBadge(),
+                    ),
+                  if (msg.replySnapshot != null)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 8.h),
+                      child: MessageReplyQuote(
+                        snapshot: msg.replySnapshot!,
+                        isDark: isDark,
+                      ),
+                    ),
+                  if (msg.type == 'text') _buildTextBody(msg, isDark),
+                  if (msg.type == 'voice') _buildVoiceBody(msg, isDark),
+                  if (msg.type == 'tts') _buildTtsBody(msg, isDark),
+                  if (msg.type == 'meetpoint') _buildMeetpointBody(msg, isDark),
+                  SizedBox(height: 6.h),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        msg.sender?.fullName ?? 'you'.tr(),
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 11.sp,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      Text(
+                        _formatDate(msg.createdAt),
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 11.sp,
+                          color: AppColors.textMutedLight,
+                        ),
+                      ),
+                    ],
                   ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 4.h,
+              right: 4.w,
+              child: IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.all(4.w),
+                constraints: BoxConstraints.tightFor(width: 32.w, height: 32.w),
+                onPressed: () => _deleteMessage(msg),
+                icon: Icon(
+                  Symbols.delete_outline,
+                  size: 18.w,
+                  color: Colors.red.shade400,
                 ),
-              // Header row: type badges + delete button
-              Row(
-                children: [
-                  MessageTypeBadge(type: msg.type),
-                  SizedBox(width: 6.w),
-                  if (msg.isUrgent) const UrgentBadge(),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => _deleteMessage(msg),
-                    child: Icon(
-                      Symbols.delete_outline,
-                      size: 18.w,
-                      color: Colors.red.shade400,
-                    ),
-                  ),
-                ],
               ),
-              SizedBox(height: 12.h),
-              // Body
-              if (msg.type == 'text') _buildTextBody(msg, isDark),
-              if (msg.type == 'voice') _buildVoiceBody(msg, isDark),
-              if (msg.type == 'tts') _buildTtsBody(msg, isDark),
-              if (msg.type == 'meetpoint') _buildMeetpointBody(msg, isDark),
-              SizedBox(height: 8.h),
-              // Footer
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    msg.sender?.fullName ?? 'you'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  Text(
-                    _formatDate(msg.createdAt),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 11.sp,
-                      color: AppColors.textMutedLight,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -639,6 +761,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           text,
@@ -646,19 +769,52 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
             fontFamily: 'Lexend',
             fontSize: 15.sp,
             fontWeight: FontWeight.w400,
-            height: 1.45,
+            height: 1.35,
             color: bodyColor,
           ),
         ),
-        SizedBox(height: 12.h),
+        SizedBox(height: 6.h),
         TtsPlayAloudButton(
           isSpeaking: isSpeaking,
           isLoading: isLoading,
+          compact: true,
           onPressed: () => _toggleTts(msg),
           idleLabel: 'msg_play_aloud'.tr(),
           playingLabel: 'msg_playing'.tr(),
         ),
       ],
+    );
+  }
+
+  /// Broadcast (whole group) scope — private rows use [PrivateIndicator].
+  Widget _modGroupScopeChip({required bool isDark}) {
+    final bg = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : AppColors.primary.withValues(alpha: 0.1);
+    final fg = isDark ? Colors.white70 : AppColors.primary;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6.r),
+        border: Border.all(color: fg.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Symbols.groups, size: 13.w, color: fg),
+          SizedBox(width: 4.w),
+          Text(
+            'msg_mod_group_scope'.tr(),
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 10.sp,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -825,15 +981,21 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Type selector row + urgent toggle
+          if (_replyTarget != null)
+            MessageReplyComposerStrip(
+              snapshot: _snapshotForReplyDraft(_replyTarget!),
+              isDark: isDark,
+              onCancel: () => setState(() => _replyTarget = null),
+            ),
+          // Text (read aloud) vs voice + urgent toggle
           Row(
             children: [
               _TypeButton(
                 label: 'msg_tab_text'.tr(),
                 icon: Symbols.text_fields,
-                selected: _composeType == 'text',
+                selected: _composeMode == 'tts',
                 onTap: () => setState(() {
-                  _composeType = 'text';
+                  _composeMode = 'tts';
                   _discardRecording();
                 }),
               ),
@@ -841,18 +1003,8 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
               _TypeButton(
                 label: 'msg_tab_voice'.tr(),
                 icon: Symbols.mic,
-                selected: _composeType == 'voice',
-                onTap: () => setState(() => _composeType = 'voice'),
-              ),
-              SizedBox(width: 6.w),
-              _TypeButton(
-                label: 'msg_tab_tts'.tr(),
-                icon: Symbols.volume_up,
-                selected: _composeType == 'tts',
-                onTap: () => setState(() {
-                  _composeType = 'tts';
-                  _discardRecording();
-                }),
+                selected: _composeMode == 'voice',
+                onTap: () => setState(() => _composeMode = 'voice'),
               ),
               const Spacer(),
               // Urgent toggle
@@ -901,9 +1053,8 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
             ],
           ),
           SizedBox(height: 10.h),
-          // Input area
-          if (_composeType == 'text' || _composeType == 'tts')
-            _buildTextInput(isDark, isSending)
+          if (_composeMode != 'voice')
+            _buildTtsComposer(isDark, isSending)
           else
             _buildVoiceInput(isDark, isSending),
         ],
@@ -911,7 +1062,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
     );
   }
 
-  Widget _buildTextInput(bool isDark, bool isSending) {
+  Widget _buildTtsComposer(bool isDark, bool isSending) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -931,9 +1082,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
                 color: isDark ? Colors.white : AppColors.textDark,
               ),
               decoration: InputDecoration(
-                hintText: _composeType == 'tts'
-                    ? 'msg_hint_tts'.tr()
-                    : 'msg_hint_text'.tr(),
+                hintText: 'msg_hint_tts'.tr(),
                 hintStyle: TextStyle(
                   fontFamily: 'Lexend',
                   fontSize: 14.sp,
@@ -950,7 +1099,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
         ),
         SizedBox(width: 10.w),
         GestureDetector(
-          onTap: isSending ? null : _sendText,
+          onTap: isSending ? null : _sendTtsMessage,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             width: 44.w,

@@ -9,6 +9,24 @@ import 'app_colors.dart';
 class AppTheme {
   AppTheme._();
 
+  /// Kept in sync with [MaterialApp.themeAnimationDuration] so custom chrome
+  /// (e.g. bottom bars) lerps at the same rate as the rest of the app.
+  static const Duration themeSwitchDuration = Duration(milliseconds: 180);
+
+  static const Curve themeSwitchCurve = Curves.easeOutCubic;
+
+  /// Same rule as [MaterialApp] theme mode — use this for chrome that must
+  /// flip with the toggle immediately (do not use [Theme.of] brightness
+  /// during [AnimatedTheme], it can lag behind the rest of the UI).
+  static bool isDarkEffective(ThemeMode mode, BuildContext context) {
+    return switch (mode) {
+      ThemeMode.dark => true,
+      ThemeMode.light => false,
+      ThemeMode.system =>
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark,
+    };
+  }
+
   static const _textTheme = TextTheme(
     displayLarge: TextStyle(fontFamily: 'Lexend', fontWeight: FontWeight.w700),
     displayMedium: TextStyle(fontFamily: 'Lexend', fontWeight: FontWeight.w700),
@@ -58,6 +76,12 @@ class AppTheme {
       textTheme: _textTheme.apply(
         bodyColor: textPrimary,
         displayColor: textPrimary,
+      ),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: surfaceColor,
+        selectedItemColor: primaryColor,
+        unselectedItemColor: textMuted,
+        elevation: 0,
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: surfaceColor,

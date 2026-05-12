@@ -655,41 +655,43 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
               automaticallyImplyLeading: false,
               elevation: 0,
               scrolledUnderElevation: 0,
-              toolbarHeight: 0,
+              surfaceTintColor: Colors.transparent,
+              // Tab-only bar: [toolbarHeight: 0] + [bottom: TabBar] left ~44px
+              // for the tab row and caused RenderFlex overflow on some devices.
+              toolbarHeight: 56.h,
               backgroundColor: pageBg,
-              bottom: PreferredSize(
-                preferredSize: Size.fromHeight(52.h),
-                child: Material(
-                  color: pageBg,
-                  child: TabBar(
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    padding: EdgeInsetsDirectional.only(start: 4.w),
-                    labelPadding: EdgeInsets.symmetric(horizontal: 10.w),
-                    dividerHeight: 0,
-                    indicatorSize: TabBarIndicatorSize.label,
-                    indicatorWeight: 3,
-                    indicatorColor: AppColors.primary,
-                    labelColor: AppColors.primary,
-                    unselectedLabelColor: isDark
-                        ? AppColors.textMutedLight
-                        : AppColors.textMutedDark,
-                    labelStyle: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15.sp,
-                    ),
-                    unselectedLabelStyle: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15.sp,
-                    ),
-                    tabs: [
-                      Tab(text: 'provision_tab_provision'.tr()),
-                      Tab(text: 'provision_tab_tracker'.tr()),
-                      Tab(text: 'provision_tab_manage'.tr()),
-                    ],
+              titleSpacing: 0,
+              centerTitle: false,
+              title: Material(
+                color: pageBg,
+                child: TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  padding: EdgeInsetsDirectional.only(start: 4.w),
+                  labelPadding: EdgeInsets.symmetric(horizontal: 10.w),
+                  dividerHeight: 0,
+                  indicatorSize: TabBarIndicatorSize.label,
+                  indicatorWeight: 2,
+                  indicatorColor: AppColors.primary,
+                  labelColor: AppColors.primary,
+                  unselectedLabelColor: isDark
+                      ? AppColors.textMutedLight
+                      : AppColors.textMutedDark,
+                  labelStyle: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14.sp,
                   ),
+                  unselectedLabelStyle: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14.sp,
+                  ),
+                  tabs: [
+                    Tab(text: 'provision_tab_provision'.tr()),
+                    Tab(text: 'provision_tab_tracker'.tr()),
+                    Tab(text: 'provision_tab_manage'.tr()),
+                  ],
                 ),
               ),
             ),

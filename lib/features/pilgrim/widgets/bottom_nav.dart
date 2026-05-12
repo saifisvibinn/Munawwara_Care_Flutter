@@ -1,33 +1,36 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pilgrim Bottom Navigation Bar
 // ─────────────────────────────────────────────────────────────────────────────
 
-class PilgrimBottomNav extends StatelessWidget {
+class PilgrimBottomNav extends ConsumerWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
   final int unreadMessages;
-  final bool isDark;
 
   const PilgrimBottomNav({
     super.key,
     required this.currentIndex,
     required this.onTap,
     required this.unreadMessages,
-    required this.isDark,
   });
 
   // Maps nav-bar slot → tab index in the IndexedStack.
   static const _tabIndices = [0, 1, 2, 3];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeProvider);
+    final isDark = AppTheme.isDarkEffective(themeMode, context);
     final labels = [
       'tab_home'.tr(),
       'tab_map'.tr(),
@@ -47,6 +50,8 @@ class PilgrimBottomNav extends StatelessWidget {
     final dividerColor = isDark
         ? Colors.white.withValues(alpha: 0.06)
         : Colors.black.withValues(alpha: 0.06);
+    final unselectedIconColor =
+        isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
 
     return Container(
       decoration: BoxDecoration(
@@ -81,7 +86,8 @@ class PilgrimBottomNav extends StatelessWidget {
                     clipBehavior: Clip.none,
                     children: [
                       AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
+                        duration: AppTheme.themeSwitchDuration,
+                        curve: AppTheme.themeSwitchCurve,
                         width: 44.w,
                         height: 32.h,
                         decoration: BoxDecoration(
@@ -97,7 +103,7 @@ class PilgrimBottomNav extends StatelessWidget {
                           size: 22.w,
                           color: isSelected
                               ? AppColors.primary
-                              : AppColors.textMutedLight,
+                              : unselectedIconColor,
                         ),
                       ),
                       if (badge > 0)
@@ -137,7 +143,7 @@ class PilgrimBottomNav extends StatelessWidget {
                           isSelected ? FontWeight.w600 : FontWeight.w400,
                       color: isSelected
                           ? AppColors.primary
-                          : AppColors.textMutedLight,
+                          : unselectedIconColor,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),

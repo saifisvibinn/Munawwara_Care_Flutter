@@ -35,6 +35,31 @@ DateTime _parseCreatedAt(dynamic raw) {
   return DateTime.now();
 }
 
+/// Quoted message preview stored with the new message (same group).
+class MessageReplySnapshot {
+  final String messageId;
+  final String senderName;
+  final String previewText;
+  final String messageType;
+
+  const MessageReplySnapshot({
+    required this.messageId,
+    required this.senderName,
+    required this.previewText,
+    required this.messageType,
+  });
+
+  factory MessageReplySnapshot.fromJson(Map<String, dynamic> j) {
+    final mid = j['message_id'];
+    return MessageReplySnapshot(
+      messageId: mid == null ? '' : _mongoIdString(mid),
+      senderName: j['sender_name']?.toString() ?? '',
+      previewText: j['preview_text']?.toString() ?? '',
+      messageType: j['message_type']?.toString() ?? 'text',
+    );
+  }
+}
+
 class MessageSender {
   final String id;
   final String fullName;
@@ -74,6 +99,7 @@ class GroupMessage {
   final Map<String, dynamic>?
   meetpointData; // { area_id, name, latitude, longitude }
   final DateTime createdAt;
+  final MessageReplySnapshot? replySnapshot;
 
   const GroupMessage({
     required this.id,
@@ -90,6 +116,7 @@ class GroupMessage {
     required this.duration,
     this.meetpointData,
     required this.createdAt,
+    this.replySnapshot,
   });
 
   bool get isFromModerator => senderModel == 'User';
@@ -109,6 +136,18 @@ class GroupMessage {
         meetpointData = Map<String, dynamic>.from(mpRaw);
       }
 
+      MessageReplySnapshot? replySnapshot;
+      final snapRaw = j['reply_snapshot'];
+      if (snapRaw is Map) {
+        final snap = MessageReplySnapshot.fromJson(
+          Map<String, dynamic>.from(snapRaw),
+        );
+        if (snap.previewText.trim().isNotEmpty ||
+            snap.senderName.trim().isNotEmpty) {
+          replySnapshot = snap;
+        }
+      }
+
       return GroupMessage(
         id: _mongoIdString(j['_id']),
         groupId: j['group_id']?.toString() ?? '',
@@ -126,10 +165,29 @@ class GroupMessage {
         duration: (j['duration'] as num?)?.toInt() ?? 0,
         meetpointData: meetpointData,
         createdAt: _parseCreatedAt(j['created_at']),
+        replySnapshot: replySnapshot,
       );
     } catch (e) {
       AppLogger.w('[GroupMessage] Error parsing fromJson: $e');
       rethrow;
     }
+  }
+}
+
+/// Text suitable for the system clipboard (voice → empty).
+String messagePlainTextForCopy(GroupMessage msg) {
+  switch (msg.type) {
+    case 'text':
+      return msg.content ?? '';
+    case 'tts':
+      return msg.originalText ?? msg.content ?? '';
+    case 'voice':
+      return '';
+    case 'meetpoint':
+      final n = msg.meetpointData?['name']?.toString();
+      if (n != null && n.isNotEmpty) return n;
+      return msg.content ?? '';
+    default:
+      return msg.content ?? '';
   }
 }

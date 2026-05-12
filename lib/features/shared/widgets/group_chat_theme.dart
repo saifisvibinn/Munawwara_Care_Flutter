@@ -46,6 +46,8 @@ class TtsPlayAloudButton extends StatelessWidget {
   final VoidCallback onPressed;
   final String idleLabel;
   final String playingLabel;
+  /// Tighter padding and type for moderator cards / short TTS lines.
+  final bool compact;
 
   const TtsPlayAloudButton({
     super.key,
@@ -54,6 +56,7 @@ class TtsPlayAloudButton extends StatelessWidget {
     required this.idleLabel,
     required this.playingLabel,
     this.isLoading = false,
+    this.compact = false,
   });
 
   @override
@@ -72,12 +75,16 @@ class TtsPlayAloudButton extends StatelessWidget {
       );
       label = idleLabel; // keep label stable during load
     } else if (isSpeaking) {
-      leadingIcon = Icon(Symbols.stop, size: 20.w);
+      leadingIcon = Icon(Symbols.stop, size: compact ? 18.w : 20.w);
       label = playingLabel;
     } else {
-      leadingIcon = Icon(Symbols.volume_up, size: 20.w);
+      leadingIcon = Icon(Symbols.volume_up, size: compact ? 18.w : 20.w);
       label = idleLabel;
     }
+
+    final vPad = compact ? 8.h : 12.h;
+    final hPad = compact ? 14.w : 18.w;
+    final fontSize = compact ? 13.sp : 14.sp;
 
     return FilledButton.tonalIcon(
       // Disable taps while buffering to prevent double-trigger
@@ -88,7 +95,7 @@ class TtsPlayAloudButton extends StatelessWidget {
         style: TextStyle(
           fontFamily: 'Lexend',
           fontWeight: FontWeight.w600,
-          fontSize: 14.sp,
+          fontSize: fontSize,
         ),
       ),
       style: FilledButton.styleFrom(
@@ -98,7 +105,7 @@ class TtsPlayAloudButton extends StatelessWidget {
         foregroundColor: isSpeaking ? Colors.white : AppColors.info,
         disabledBackgroundColor: AppColors.info.withValues(alpha: 0.10),
         disabledForegroundColor: AppColors.info.withValues(alpha: 0.60),
-        padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 12.h),
+        padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.r),
         ),

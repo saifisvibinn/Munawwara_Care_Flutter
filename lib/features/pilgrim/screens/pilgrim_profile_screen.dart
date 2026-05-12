@@ -11,8 +11,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/services/api_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
-import '../../calling/screens/call_history_screen.dart';
-
 class PilgrimProfileScreen extends ConsumerStatefulWidget {
   const PilgrimProfileScreen({super.key});
 
@@ -332,93 +330,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             },
                           );
                         }),
-                      ),
-                    ),
-
-                    SizedBox(height: 28.h),
-
-                    // ── Call history ─────────────────────────────────────
-                    Text(
-                      'call_history_title'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12.sp,
-                        color: textMuted,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    SizedBox(height: 8.h),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(16.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(
-                              alpha: isDark ? 0.3 : 0.06,
-                            ),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16.r),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const CallHistoryScreen(),
-                              ),
-                            );
-                          },
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 16.w,
-                              vertical: 16.h,
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 40.w,
-                                  height: 40.w,
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? AppColors.surfaceDark
-                                        : AppColors.primary.withValues(
-                                            alpha: 0.15,
-                                          ),
-                                    borderRadius: BorderRadius.circular(12.r),
-                                  ),
-                                  child: Icon(
-                                    Icons.history_rounded,
-                                    color: AppColors.primary,
-                                    size: 22.sp,
-                                  ),
-                                ),
-                                SizedBox(width: 14.w),
-                                Expanded(
-                                  child: Text(
-                                    'call_history_title'.tr(),
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 15.sp,
-                                      color: textPrimary,
-                                    ),
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: textMuted,
-                                  size: 24.sp,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
                       ),
                     ),
 

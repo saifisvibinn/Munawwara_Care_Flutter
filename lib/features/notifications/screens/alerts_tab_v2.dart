@@ -19,12 +19,21 @@ import '../providers/notification_provider.dart';
 /// Alerts Tab
 ///
 /// - Moderator: Active SOS, Resolved SOS, Call history (missed included)
-/// - Pilgrim: Call history (missed included)
+/// - Pilgrim: Call history (full list, or [pilgrimMissedCallsOnly] when opened
+///   from the home missed-calls entry).
 ///
 /// The old "All alerts" notification list was removed.
 class AlertsTab extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
-  const AlertsTab({super.key, this.onBack});
+
+  /// Pilgrim only: show only missed calls (e.g. home badge). Moderators ignore.
+  final bool pilgrimMissedCallsOnly;
+
+  const AlertsTab({
+    super.key,
+    this.onBack,
+    this.pilgrimMissedCallsOnly = false,
+  });
 
   @override
   ConsumerState<AlertsTab> createState() => _AlertsTabState();
@@ -213,13 +222,13 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
     );
   }
 
-  Widget _callHistoryTab() {
+  Widget _callHistoryTab({required bool missedOnly}) {
     return RefreshIndicator(
       color: AppColors.primary,
       onRefresh: _refresh,
       child: CallHistoryListView(
-        key: ValueKey(_callHistoryReloadSeed),
-        missedOnly: false,
+        key: ValueKey('${_callHistoryReloadSeed}_$missedOnly'),
+        missedOnly: missedOnly,
       ),
     );
   }
@@ -270,7 +279,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
                 children: [
                   _moderatorActiveSosTab(groups: groups),
                   _moderatorResolvedSosTab(isDark: isDark),
-                  _callHistoryTab(),
+                  _callHistoryTab(missedOnly: false),
                 ],
               ),
             ),
@@ -285,7 +294,11 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
         children: [
           _header(isDark: isDark, isModerator: false),
           SizedBox(height: 12.h),
-          Expanded(child: _callHistoryTab()),
+          Expanded(
+            child: _callHistoryTab(
+              missedOnly: widget.pilgrimMissedCallsOnly,
+            ),
+          ),
         ],
       ),
     );

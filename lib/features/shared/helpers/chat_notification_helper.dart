@@ -1,5 +1,6 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -7,6 +8,9 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/app_logger.dart';
+import '../../../core/services/incoming_chat_sfx.dart';
+import '../../../core/services/api_service.dart';
+import '../../../core/services/tts_cloud_api.dart';
 import '../../../core/widgets/in_app_popup.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/message_model.dart';
@@ -14,7 +18,54 @@ import '../providers/message_provider.dart';
 import 'chat_popup_dedup.dart';
 
 class ChatNotificationHelper {
-  static final AudioPlayer _sfxPlayer = AudioPlayer();
+  /// Same heuristic as pilgrim inbox — skip translate when script matches UI.
+  static String _detectLikelyLanguage(String text) {
+    if (text.trim().isEmpty) return 'unknown';
+    if (RegExp(r'[\u0600-\u06FF]').hasMatch(text)) return 'ar';
+    if (RegExp(r'[A-Za-z]').hasMatch(text)) return 'en';
+    return 'unknown';
+  }
+
+  static String _voicePopupLabel() => '\ud83c\udfa4 ${'voice_message'.tr()}';
+
+  static Future<String> _translateIfNeeded(
+    String targetLang,
+    String text,
+  ) async {
+    final t = text.trim();
+    if (t.isEmpty) return text;
+    final detected = _detectLikelyLanguage(t);
+    if (detected != 'unknown' && detected == targetLang) return text;
+    try {
+      final response = await ApiService.dio.post(
+        '/auth/translate',
+        data: {'text': t, 'targetLang': targetLang},
+      );
+      final translated = response.data?['translatedText'] as String?;
+      if (translated != null && translated.trim().isNotEmpty) {
+        return translated.trim();
+      }
+    } catch (e) {
+      AppLogger.w('[ChatNotificationHelper] translate: $e');
+    }
+    return text;
+  }
+
+  /// Moderator text/TTS → [targetLang] for popup body; others unchanged.
+  static Future<String> _bodyTextForPopup(
+    String targetLang,
+    GroupMessage msg,
+  ) async {
+    if (msg.type == 'voice') return _voicePopupLabel();
+    if (!msg.isFromModerator) return msg.content ?? '';
+    if (msg.type != 'text' && msg.type != 'tts') return msg.content ?? '';
+
+    final original = msg.type == 'tts'
+        ? (msg.originalText ?? msg.content ?? '')
+        : (msg.content ?? '');
+    if (original.trim().isEmpty) return msg.content ?? '';
+    return _translateIfNeeded(targetLang, original);
+  }
 
   static String _messageIdFromMap(Map<String, dynamic> map) {
     final raw = map['_id'] ?? map['id'];
@@ -53,6 +104,9 @@ class ChatNotificationHelper {
 
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (!context.mounted) return;
+      final targetLang = context.locale.languageCode;
+
       final messageId = _messageIdFromMap(map);
       final notifiedIds =
           prefs.getStringList(ChatPopupDedup.notifiedIdsKey) ?? [];
@@ -90,14 +144,26 @@ class ChatNotificationHelper {
       final myId = ref.read(authProvider).userId;
       if (msg.sender?.id == myId) return;
 
+      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+        AppLogger.d(
+          '[ChatNotificationHelper] Skipping popup/SFX (app not resumed)',
+        );
+        return;
+      }
+
       // ── Play SFX and Haptics ───────────────────────────────────────────────
-      if (msg.isUrgent) {
-        _sfxPlayer.play(AssetSource('static/urgent_tts.wav'));
+      // Urgent TTS: tray + InAppPopup already play speech — skip asset SFX so
+      // audioplayers does not steal focus from just_audio (cloud MP3 cutoff +
+      // flutter_tts fallback).
+      if (msg.isUrgent && msg.type == 'tts') {
         HapticFeedback.heavyImpact();
-        // Vibrate twice for urgency
+        HapticFeedback.vibrate();
+      } else if (msg.isUrgent) {
+        IncomingChatSfx.playUrgentAlarm();
+        HapticFeedback.heavyImpact();
         HapticFeedback.vibrate();
       } else {
-        _sfxPlayer.play(AssetSource('static/in_app.mp3'));
+        IncomingChatSfx.playNormalPop();
         HapticFeedback.lightImpact();
       }
 
@@ -107,8 +173,16 @@ class ChatNotificationHelper {
 
       if (msg.type == 'meetpoint') {
         // Meetpoint message → special popup with Navigate button
-        final mpName =
+        var mpName =
             msg.meetpointData?['name']?.toString() ?? 'meetpoint'.tr();
+        if (msg.isFromModerator) {
+          mpName = await _translateIfNeeded(targetLang, mpName);
+        }
+        var meetBody = msg.content ?? '';
+        if (msg.isFromModerator && meetBody.trim().isNotEmpty) {
+          meetBody = await _translateIfNeeded(targetLang, meetBody);
+        }
+        if (!context.mounted) return;
         final lat = msg.meetpointData?['latitude'];
         final lng = msg.meetpointData?['longitude'];
         final mTimeRaw = msg.meetpointData?['meetpoint_time'];
@@ -122,7 +196,7 @@ class ChatNotificationHelper {
         InAppPopup.showMeetpoint(
           context,
           name: mpName,
-          body: msg.content,
+          body: meetBody.isEmpty ? null : meetBody,
           time: displayTime,
           onNavigate: (lat != null && lng != null)
               ? () {
@@ -137,10 +211,8 @@ class ChatNotificationHelper {
         // Only show popup for urgent messages or brief for non-urgent
         if (!msg.isUrgent) {
           // Non-urgent: brief auto-dismissing popup (no lock, no TTS)
-          final body = msg.content ??
-              (msg.type == 'voice'
-                  ? '\ud83c\udfa4 ${'voice_message'.tr()}'
-                  : '');
+          final body = await _bodyTextForPopup(targetLang, msg);
+          if (!context.mounted) return;
           InAppPopup.show(
             context,
             title: senderName,
@@ -154,11 +226,12 @@ class ChatNotificationHelper {
           return;
         }
 
-        final body = msg.content ??
-            (msg.type == 'voice' ? '🎤 ${'voice_message'.tr()}' : '');
+        final body = await _bodyTextForPopup(targetLang, msg);
+        if (!context.mounted) return;
 
         String? playType;
         String? playValue;
+        String? playTtsAudioUrl;
         if (msg.isUrgent && msg.type == 'voice' && msg.mediaUrl != null) {
           playType = 'voice';
           playValue = ref
@@ -166,9 +239,32 @@ class ChatNotificationHelper {
               .buildUploadUrl(msg.mediaUrl!);
         } else if (msg.isUrgent && msg.type == 'tts') {
           playType = 'tts';
-          playValue = msg.originalText ?? msg.content ?? '';
+          // Same wording as the popup (translated for moderator copy).
+          playValue = body;
+          final original =
+              (msg.originalText ?? msg.content ?? '').trim();
+          final bodyTrim = body.trim();
+          if (msg.isFromModerator &&
+              bodyTrim.isNotEmpty &&
+              bodyTrim != original) {
+            playTtsAudioUrl = await TtsCloudApi.fetchAudioUrl(
+              text: body,
+              lang: targetLang,
+            );
+          }
+          if ((playTtsAudioUrl ?? '').trim().isEmpty) {
+            final rawTts = msg.audioUrl?.trim();
+            if (rawTts != null && rawTts.isNotEmpty) {
+              playTtsAudioUrl = rawTts.startsWith('http')
+                  ? rawTts
+                  : ref
+                      .read(messageProvider.notifier)
+                      .buildUploadUrl(rawTts);
+            }
+          }
         }
 
+        if (!context.mounted) return;
         InAppPopup.show(
           context,
           title: senderName,
@@ -177,6 +273,8 @@ class ChatNotificationHelper {
           lockUntilDismiss: true,
           playType: playType,
           playValue: playValue,
+          playTtsAudioUrl: playTtsAudioUrl,
+          playLocale: targetLang,
           onViewChat: onViewChat,
         );
       }
@@ -188,6 +286,6 @@ class ChatNotificationHelper {
   }
 
   static void dispose() {
-    _sfxPlayer.dispose();
+    unawaited(IncomingChatSfx.dispose());
   }
 }

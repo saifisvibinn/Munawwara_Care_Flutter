@@ -14,7 +14,9 @@ import '../../../core/services/api_service.dart';
 import '../../../core/services/location_permission_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/services/socket_service.dart';
+import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
@@ -2033,62 +2035,73 @@ class _ModBottomNav extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return BottomAppBar(
-      height: 70.h,
-      color: isDark ? AppColors.surfaceDark : Colors.white,
-      padding: EdgeInsets.zero,
-      surfaceTintColor: Colors.transparent,
+    final themeMode = ref.watch(themeProvider);
+    final isDark = AppTheme.isDarkEffective(themeMode, context);
+    final barColor = isDark ? AppColors.surfaceDark : Colors.white;
+    final shadowAlpha = isDark ? 0.4 : 0.12;
+    return Material(
+      color: barColor,
       elevation: 8,
-      shadowColor: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          Expanded(
-            child: _NavItem(
-              icon: Symbols.groups,
-              label: 'nav_groups'.tr(),
-              index: 0,
-              current: currentIndex,
-              onTap: onTap,
-              badge: false,
-              activeColor: AppColors.primary,
-            ),
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.black.withValues(alpha: shadowAlpha),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 70.h,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Expanded(
+                child: _NavItem(
+                  icon: Symbols.groups,
+                  label: 'nav_groups'.tr(),
+                  index: 0,
+                  current: currentIndex,
+                  onTap: onTap,
+                  badge: false,
+                  activeColor: AppColors.primary,
+                  isDark: isDark,
+                ),
+              ),
+              Expanded(
+                child: _NavItem(
+                  icon: Symbols.inbox,
+                  label: 'nav_provisioning'.tr(),
+                  index: 1,
+                  current: currentIndex,
+                  onTap: onTap,
+                  badge: false,
+                  activeColor: AppColors.primary,
+                  isDark: isDark,
+                ),
+              ),
+              Expanded(
+                child: _NavItem(
+                  icon: Symbols.notifications_active,
+                  label: 'nav_reminders'.tr(),
+                  index: 2,
+                  current: currentIndex,
+                  onTap: onTap,
+                  badge: false,
+                  activeColor: AppColors.primary,
+                  isDark: isDark,
+                ),
+              ),
+              Expanded(
+                child: _NavItem(
+                  icon: Symbols.person,
+                  label: 'nav_profile'.tr(),
+                  index: 3,
+                  current: currentIndex,
+                  onTap: onTap,
+                  badge: false,
+                  activeColor: AppColors.primary,
+                  isDark: isDark,
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            child: _NavItem(
-              icon: Symbols.inbox,
-              label: 'nav_provisioning'.tr(),
-              index: 1,
-              current: currentIndex,
-              onTap: onTap,
-              badge: false,
-              activeColor: AppColors.primary,
-            ),
-          ),
-          Expanded(
-            child: _NavItem(
-              icon: Symbols.notifications_active,
-              label: 'nav_reminders'.tr(),
-              index: 2,
-              current: currentIndex,
-              onTap: onTap,
-              badge: false,
-              activeColor: AppColors.primary,
-            ),
-          ),
-          Expanded(
-            child: _NavItem(
-              icon: Symbols.person,
-              label: 'nav_profile'.tr(),
-              index: 3,
-              current: currentIndex,
-              onTap: onTap,
-              badge: false,
-              activeColor: AppColors.primary,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -2102,6 +2115,7 @@ class _NavItem extends StatelessWidget {
   final ValueChanged<int> onTap;
   final bool badge;
   final Color activeColor;
+  final bool isDark;
 
   const _NavItem({
     required this.icon,
@@ -2111,12 +2125,12 @@ class _NavItem extends StatelessWidget {
     required this.onTap,
     required this.badge,
     required this.activeColor,
+    required this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
     final isSelected = index == current;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final color = isSelected
         ? activeColor
         : (isDark ? const Color(0xFF7A6E58) : AppColors.textMutedLight);

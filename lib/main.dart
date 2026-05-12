@@ -153,18 +153,21 @@ void main() async {
           NativeCallCoordinator.handleForegroundCallControl(msg.data);
           return;
         }
-        // Skip tray notification for chat when foreground — socket +
-        // ChatNotificationHelper / inbox SFX already handle UX (avoids double
-        // urgent_tts chime). Include a fallback when notification_type is
-        // missing from the FCM data payload on some devices.
+        // Skip tray + TTS for chat when foreground — socket +
+        // ChatNotificationHelper (in-app popup + playRobust) already handle UX.
+        // Urgent TTS must be included here; otherwise FCM also calls speakTts and
+        // speech plays twice. Reminder TTS uses messageType reminder_tts (not in
+        // chatMsgTypes) so it still flows to the reminder / speakTts branch below.
         const chatMsgTypes = {'text', 'voice', 'image', 'tts', 'meetpoint'};
         final isChatNotif =
             notifType == 'new_message' || notifType == 'meetpoint';
         final urgentChatNoNotifType = notifType.isEmpty &&
             dataType == 'urgent' &&
             chatMsgTypes.contains(msgType);
-        if ((isChatNotif || urgentChatNoNotifType) && !isUrgentTts) {
-          AppLogger.i('FCM onMessage: suppressed system notif (in-app popup)');
+        if (isChatNotif || urgentChatNoNotifType) {
+          AppLogger.i(
+            'FCM onMessage: suppressed (socket + in-app chat / urgent TTS)',
+          );
           return;
         }
         // SOS: one tray notification from FCM when backgrounded; in foreground
@@ -370,6 +373,8 @@ class MyApp extends ConsumerWidget {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeMode,
+          themeAnimationDuration: AppTheme.themeSwitchDuration,
+          themeAnimationCurve: AppTheme.themeSwitchCurve,
           localizationsDelegates: context.localizationDelegates,
           supportedLocales: context.supportedLocales,
           locale: context.locale,

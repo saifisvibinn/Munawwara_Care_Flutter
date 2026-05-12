@@ -21,6 +21,8 @@ import '../utils/app_logger.dart';
 //   await SpeechService.playUrgentLoop(audioUrl: url, backupText: text, lang: 'ur');
 // ─────────────────────────────────────────────────────────────────────────────
 
+enum _CloudPlayResult { success, failed, cancelled }
+
 class SpeechService {
   SpeechService._(); // static-only class
 
@@ -28,6 +30,12 @@ class SpeechService {
   static const _dismissedKey = 'speech_service_tts_dismissed';
   static const _lastSpokenIdKey = 'speech_service_last_spoken_id_v1';
   static const _lastSpokenMsKey = 'speech_service_last_spoken_ms_v1';
+
+  /// Incremented on every [stop]. In-flight cloud/local play compares to the
+  /// epoch captured after the opening [stop] in [playRobust]; a mismatch
+  /// means the user hit Stop (or a new play preempted) — do not run TTS
+  /// fallback for an aborted cloud attempt.
+  static int _playbackEpoch = 0;
 
   // Active player reference — allows stop() to interrupt cloud playback.
   static AudioPlayer? _activePlayer;
@@ -66,16 +74,23 @@ class SpeechService {
     // Avoid overlapping playback: always stop current speech/audio first.
     await stop();
 
+    final playEpoch = _playbackEpoch;
+
     await _configureAudioSession(isUrgent: isUrgent);
 
+    if (_playbackEpoch != playEpoch) return;
+
     if (audioUrl != null && audioUrl.isNotEmpty) {
-      final success = await _tryCloudPlay(audioUrl);
-      if (success) return;
+      final cloud = await _tryCloudPlay(audioUrl, playEpoch);
+      if (cloud == _CloudPlayResult.success) return;
+      if (cloud == _CloudPlayResult.cancelled) return;
     }
+
+    if (_playbackEpoch != playEpoch) return;
 
     // Cloud unavailable or skipped — use device TTS
     AppLogger.i('[Speech] Using local flutter_tts fallback');
-    await _speakLocal(backupText, lang);
+    await _speakLocal(backupText, lang, playEpoch);
   }
 
   // ── Public: urgent repetition loop (background handler) ──────────────────
@@ -148,6 +163,8 @@ class SpeechService {
 
   /// Stops any in-progress cloud playback or TTS speech and marks dismissed.
   static Future<void> stop() async {
+    _playbackEpoch++;
+
     try {
       await _activePlayer?.stop();
       _activePlayer?.dispose();
@@ -168,7 +185,10 @@ class SpeechService {
 
   // ── Internal: cloud playback ──────────────────────────────────────────────
 
-  static Future<bool> _tryCloudPlay(String url) async {
+  static Future<_CloudPlayResult> _tryCloudPlay(
+    String url,
+    int playEpoch,
+  ) async {
     final player = AudioPlayer();
     _activePlayer = player;
 
@@ -178,6 +198,11 @@ class SpeechService {
       // 5-second timeout for initial buffer. On slow networks this prevents
       // the pilgrim waiting indefinitely before hearing anything.
       await player.setUrl(url).timeout(const Duration(seconds: 5));
+      if (_playbackEpoch != playEpoch) {
+        AppLogger.i('[Speech] Cloud load cancelled (stop)');
+        return _CloudPlayResult.cancelled;
+      }
+
       await player.play();
 
       // Require playback to actually start promptly. Some devices/networks
@@ -185,25 +210,42 @@ class SpeechService {
       await player.playingStream
           .firstWhere((isPlaying) => isPlaying == true)
           .timeout(const Duration(seconds: 4));
+      if (_playbackEpoch != playEpoch) {
+        AppLogger.i('[Speech] Cloud start cancelled (stop)');
+        return _CloudPlayResult.cancelled;
+      }
 
-      // Wait for playback to finish
+      // Wait for real completion only — `idle` can appear too early on some
+      // streams and would skip cloud audio in favour of device TTS wrongly.
       await player.processingStateStream
-          .firstWhere(
-            (s) => s == ProcessingState.completed || s == ProcessingState.idle,
-          )
-          .timeout(const Duration(seconds: 60));
+          .firstWhere((s) => s == ProcessingState.completed)
+          .timeout(const Duration(seconds: 120));
 
       AppLogger.i('[Speech] ✓ Cloud audio playback complete');
-      return true;
+      return _CloudPlayResult.success;
     } on TimeoutException {
+      if (_playbackEpoch != playEpoch) {
+        AppLogger.i('[Speech] Cloud wait cancelled (stop)');
+        return _CloudPlayResult.cancelled;
+      }
       AppLogger.w('[Speech] Cloud audio timed out — using local TTS');
-      return false;
+      return _CloudPlayResult.failed;
     } on PlayerException catch (e) {
-      AppLogger.w('[Speech] Cloud PlayerException (${e.message}) — using local TTS');
-      return false;
+      if (_playbackEpoch != playEpoch) {
+        AppLogger.i('[Speech] Cloud player cancelled (stop)');
+        return _CloudPlayResult.cancelled;
+      }
+      AppLogger.w(
+        '[Speech] Cloud PlayerException (${e.message}) — using local TTS',
+      );
+      return _CloudPlayResult.failed;
     } catch (e) {
+      if (_playbackEpoch != playEpoch) {
+        AppLogger.i('[Speech] Cloud playback cancelled (stop)');
+        return _CloudPlayResult.cancelled;
+      }
       AppLogger.w('[Speech] Cloud audio error ($e) — using local TTS');
-      return false;
+      return _CloudPlayResult.failed;
     } finally {
       try {
         await player.stop();
@@ -215,43 +257,59 @@ class SpeechService {
 
   // ── Internal: local TTS fallback ─────────────────────────────────────────
 
+  /// Configures [tts] for [shortLang] (`en`, `ar`, …). Call before
+  /// [FlutterTts.speak]. Returns false when no engine is available.
+  static Future<bool> bindFlutterTtsLocale(
+    FlutterTts tts,
+    String shortLang,
+  ) async {
+    final rawEngines = await tts.getEngines;
+    final engines =
+        rawEngines is List ? List<String>.from(rawEngines) : <String>[];
+    if (engines.isEmpty) {
+      AppLogger.w('[Speech] No TTS engines installed — skipping speech');
+      return false;
+    }
+
+    final langToTry = _bcp47ForLang(shortLang);
+    final langResult = await tts.isLanguageAvailable(langToTry);
+    final langOk = langResult == 1 || langResult == true;
+
+    if (langOk) {
+      await tts.setLanguage(langToTry);
+    } else {
+      final enResult = await tts.isLanguageAvailable('en-US');
+      if (enResult == 1 || enResult == true) {
+        await tts.setLanguage('en-US');
+      } else {
+        await tts.setLanguage('en');
+      }
+    }
+
+    await tts.awaitSpeakCompletion(true);
+    await tts.setVolume(1.0);
+    await tts.setSpeechRate(0.4);
+    await tts.setPitch(1.0);
+    return true;
+  }
+
   @pragma('vm:entry-point')
-  static Future<void> _speakLocal(String text, String lang) async {
+  static Future<void> _speakLocal(
+    String text,
+    String lang,
+    int playEpoch,
+  ) async {
     if (text.isEmpty) return;
+    if (_playbackEpoch != playEpoch) return;
 
     final tts = FlutterTts();
     _activeTts = tts;
 
     try {
-      // Check engines
-      final rawEngines = await tts.getEngines;
-      final engines = rawEngines is List ? List<String>.from(rawEngines) : <String>[];
-      if (engines.isEmpty) {
-        AppLogger.w('[Speech] No TTS engines installed — skipping speech');
-        return;
-      }
-
-      // Map short BCP-47 code to a language the TTS engine understands
       final langToTry = _bcp47ForLang(lang);
-      final langResult = await tts.isLanguageAvailable(langToTry);
-      final langOk = langResult == 1 || langResult == true;
-
-      if (langOk) {
-        await tts.setLanguage(langToTry);
-      } else {
-        // Fallback chain: try 'en-US' then 'en'
-        final enResult = await tts.isLanguageAvailable('en-US');
-        if (enResult == 1 || enResult == true) {
-          await tts.setLanguage('en-US');
-        } else {
-          await tts.setLanguage('en');
-        }
-      }
-
-      await tts.awaitSpeakCompletion(true);
-      await tts.setVolume(1.0);
-      await tts.setSpeechRate(0.4);
-      await tts.setPitch(1.0);
+      final ready = await bindFlutterTtsLocale(tts, lang);
+      if (!ready) return;
+      if (_playbackEpoch != playEpoch) return;
 
       AppLogger.i('[Speech] Local TTS: "$text" (lang=$langToTry)');
       await tts.speak(text);

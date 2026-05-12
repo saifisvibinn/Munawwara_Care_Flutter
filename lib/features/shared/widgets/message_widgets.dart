@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../models/message_model.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Waveform player  (voice message playback bar)
@@ -117,41 +118,6 @@ class WaveformPlayer extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Message type badge
-// ─────────────────────────────────────────────────────────────────────────────
-
-class MessageTypeBadge extends StatelessWidget {
-  final String type;
-  const MessageTypeBadge({super.key, required this.type});
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, color) = switch (type) {
-      'voice' => ('Voice', const Color(0xFF7C3AED)),
-      'tts' => ('TTS', const Color(0xFF2563EB)),
-      _ => ('Text', AppColors.textMutedLight),
-    };
-
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 2.h),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6.r),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: 'Lexend',
-          fontSize: 10.sp,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Urgent message badge
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -234,6 +200,145 @@ class PrivateIndicator extends StatelessWidget {
               fontSize: 10.sp,
               fontWeight: FontWeight.w600,
               color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reply quote (in message bubble)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class MessageReplyQuote extends StatelessWidget {
+  final MessageReplySnapshot snapshot;
+  final bool isDark;
+
+  const MessageReplyQuote({
+    super.key,
+    required this.snapshot,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppColors.primary.withValues(alpha: 0.65);
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.fromLTRB(10.w, 8.h, 10.w, 8.h),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10.r),
+        border: Border(left: BorderSide(color: accent, width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            snapshot.senderName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+            ),
+          ),
+          SizedBox(height: 2.h),
+          Text(
+            snapshot.previewText,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 12.sp,
+              height: 1.35,
+              color: isDark ? Colors.white70 : AppColors.textMutedLight,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reply target strip above composer
+// ─────────────────────────────────────────────────────────────────────────────
+
+class MessageReplyComposerStrip extends StatelessWidget {
+  final MessageReplySnapshot snapshot;
+  final bool isDark;
+  final VoidCallback onCancel;
+
+  const MessageReplyComposerStrip({
+    super.key,
+    required this.snapshot,
+    required this.isDark,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.fromLTRB(10.w, 8.h, 6.w, 8.h),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.07)
+            : AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Symbols.reply, size: 18.w, color: AppColors.primary),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'msg_replying_to'.tr(),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textMutedLight,
+                  ),
+                ),
+                Text(
+                  '${snapshot.senderName}: ${snapshot.previewText}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : AppColors.textDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onCancel,
+            icon: Icon(
+              Symbols.close,
+              size: 20.w,
+              color: AppColors.textMutedLight,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: BoxConstraints(
+              minWidth: 32.w,
+              minHeight: 32.w,
             ),
           ),
         ],

@@ -35,6 +35,7 @@ import '../../calling/providers/call_provider.dart';
 import '../../calling/screens/voice_call_screen.dart';
 import '../../shared/providers/suggested_area_provider.dart';
 import 'group_messages_screen.dart';
+import 'individual_messages_screen.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
 import '../widgets/area_picker_screen.dart';
 import '../widgets/moderator_map_widgets.dart';
@@ -624,6 +625,22 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
   void _showPilgrimProfile(PilgrimInGroup pilgrim) {
     final currentUserId = ref.read(authProvider).userId ?? '';
     showPilgrimProfileSheet(context, pilgrim, widget.groupId, currentUserId);
+  }
+
+  void _openPrivateChat(PilgrimInGroup pilgrim) {
+    final currentUserId = ref.read(authProvider).userId ?? '';
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => IndividualMessagesScreen(
+          groupId: widget.groupId,
+          groupName: 'msg_private_header'.tr(),
+          recipientId: pilgrim.id,
+          recipientName: pilgrim.fullName,
+          currentUserId: currentUserId,
+          recipientLanguage: pilgrim.language,
+        ),
+      ),
+    );
   }
 
   // ── Leave Group Handlers ──────────────────────────────────────────────────
@@ -2075,6 +2092,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                   isSelected: _focusedPilgrimId == p.id,
                                   onTap: () => _focusPilgrim(p),
                                   onNavigate: () => _navigateToPilgrim(p),
+                                  onChat: () => _openPrivateChat(p),
                                   onCall: () => _showCallSheet(p),
                                   onRemove: () =>
                                       _confirmRemovePilgrim(group, p),
@@ -3081,6 +3099,7 @@ class _PilgrimManageTile extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback onNavigate;
+  final VoidCallback onChat;
   final VoidCallback? onCall;
   final VoidCallback? onRemove;
   final VoidCallback? onViewProfile;
@@ -3090,6 +3109,7 @@ class _PilgrimManageTile extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     required this.onNavigate,
+    required this.onChat,
     this.onCall,
     this.onRemove,
     this.onViewProfile,
@@ -3252,6 +3272,8 @@ class _PilgrimManageTile extends StatelessWidget {
                     onViewProfile?.call();
                   case 'navigate':
                     onNavigate();
+                  case 'chat':
+                    onChat();
                   case 'call':
                     onCall?.call();
                   case 'remove':
@@ -3274,6 +3296,15 @@ class _PilgrimManageTile extends StatelessWidget {
                   child: AppPopupMenu.actionRow(
                     icon: Symbols.near_me,
                     label: 'Navigate',
+                    isDark: isDark,
+                    iconColor: AppColors.primary,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'chat',
+                  child: AppPopupMenu.actionRow(
+                    icon: Symbols.chat,
+                    label: 'tab_chat'.tr(),
                     isDark: isDark,
                     iconColor: AppColors.primary,
                   ),

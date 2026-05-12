@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -10,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/tts_cloud_api.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/services/speech_service.dart';
 import '../../../core/widgets/standard_snackbar.dart';
@@ -70,9 +72,16 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   Timer? _pulseAllTimer;
   Timer? _pulsePrivateTimer;
 
-  // Translation — keyed by message id, value is translated text (null = not yet translated)
-  final Map<String, String?> _translations = {};
+  // Translation — keyed by message id (manual or auto).
+  final Map<String, String> _translations = {};
   final Set<String> _translating = {}; // ids currently fetching
+  /// Moderator messages translated automatically to [context.locale].
+  final Set<String> _autoTranslatedMessageIds = {};
+  /// When true, show source text but keep [_translations] for toggling back.
+  final Set<String> _showOriginalInstead = {};
+  /// Skips duplicate API work per message id (until locale changes).
+  final Set<String> _autoTranslateAttempted = {};
+  String? _autoTranslateLocale;
 
   @override
   void initState() {
@@ -100,6 +109,25 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
 
     // Listen for external scroll-to-bottom requests (e.g. tab switch)
     widget.scrollNotifier?.addListener(_onExternalScroll);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final lang = context.locale.languageCode;
+    if (_autoTranslateLocale != null && _autoTranslateLocale != lang) {
+      setState(() {
+        _translations.clear();
+        _autoTranslatedMessageIds.clear();
+        _showOriginalInstead.clear();
+        _autoTranslateAttempted.clear();
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _queueAutoTranslate(ref.read(messageProvider).messages);
+      });
+    }
+    _autoTranslateLocale = lang;
   }
 
   void _onExternalScroll() {
@@ -203,7 +231,13 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   }
 
   Future<void> _toggleTts(GroupMessage msg) async {
-    final text = msg.originalText ?? msg.content ?? '';
+    final ttsLang = context.locale.languageCode;
+    final originalText = msg.originalText ?? msg.content ?? '';
+    final showingTranslated = _translations.containsKey(msg.id) &&
+        !_showOriginalInstead.contains(msg.id);
+    final text = showingTranslated && _translations[msg.id] != null
+        ? _translations[msg.id]!
+        : originalText;
     final isCurrentlySpeaking = _ttsPlayingId == msg.id && (_ttsSpeaking || _ttsLoading);
     
     if (isCurrentlySpeaking) {
@@ -227,7 +261,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         });
       }
     }
-    
+
     await SpeechService.stop();
     if (mounted) {
       setState(() {
@@ -237,18 +271,21 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     }
 
     try {
-      // Play robustly (cloud with local fallback)
-      await SpeechService.playRobust(
-        audioUrl: msg.audioUrl,
-        backupText: text,
-      );
-      if (mounted && _ttsPlayingId == msg.id) {
-        setState(() {
-          _ttsLoading = false;
-          _ttsSpeaking = true;
-        });
+      // Stored [audio_url] matches server default (e.g. EN). When the bubble
+      // shows a translation, fetch Cloud TTS for that exact string + locale.
+      String? audioUrl = msg.audioUrl;
+      if (showingTranslated && (_translations[msg.id]?.trim().isNotEmpty ?? false)) {
+        audioUrl = await TtsCloudApi.fetchAudioUrl(
+          text: text,
+          lang: ttsLang,
+        );
       }
-    } catch (_) {
+      await SpeechService.playRobust(
+        audioUrl: audioUrl,
+        backupText: text,
+        lang: ttsLang,
+      );
+    } finally {
       if (mounted && _ttsPlayingId == msg.id) {
         setState(() {
           _ttsLoading = false;
@@ -260,6 +297,9 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   }
 
   Future<void> _playReceiveSfx(GroupMessage msg) async {
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
     try {
       if (msg.isUrgent) {
         // Avoid “double alarm” when urgent TTS is also handled by notifications.
@@ -308,6 +348,9 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
           });
         }
         _scrollToBottom(jump: true);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _queueAutoTranslate(next.messages);
+        });
         return;
       }
 
@@ -342,6 +385,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
           setState(() => _triggerTabPulse(targetTab));
         }
       }
+      _queueAutoTranslate(arrived.toList());
     });
 
     return Scaffold(
@@ -546,43 +590,80 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
       highlightNew: isNew && !isUrgent,
     );
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
-      margin: EdgeInsets.only(bottom: 10.h),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(
-          color: borderColor,
-          width: borderWidth,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isNew
-                ? AppColors.primary.withValues(alpha: 0.1)
-                : Colors.black.withValues(alpha: isDark ? 0.18 : 0.035),
-            blurRadius: isNew ? 12 : 10,
-            offset: const Offset(0, 2),
+    return GestureDetector(
+      onLongPress: () => _openInboxCopySheet(msg, isDark),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 400),
+        margin: EdgeInsets.only(bottom: 10.h),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(14.r),
+          border: Border.all(
+            color: borderColor,
+            width: borderWidth,
           ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 14.h),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (msg.recipientId != null)
-              Padding(
-                padding: EdgeInsets.only(bottom: 8.h),
-                child: const PrivateIndicator(isForPilgrim: true),
-              ),
-            _buildCardHeader(msg, isDark),
-            SizedBox(height: 12.h),
-            if (msg.type == 'text') _buildTextBody(msg, isDark),
+          boxShadow: [
+            BoxShadow(
+              color: isNew
+                  ? AppColors.primary.withValues(alpha: 0.1)
+                  : Colors.black.withValues(alpha: isDark ? 0.18 : 0.035),
+              blurRadius: isNew ? 12 : 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 14.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (msg.recipientId != null)
+                Padding(
+                  padding: EdgeInsets.only(bottom: 8.h),
+                  child: const PrivateIndicator(isForPilgrim: true),
+                ),
+              _buildCardHeader(msg, isDark),
+              SizedBox(height: 12.h),
+              if (msg.replySnapshot != null)
+                MessageReplyQuote(
+                  snapshot: msg.replySnapshot!,
+                  isDark: isDark,
+                ),
+              if (msg.type == 'text') _buildTextBody(msg, isDark),
             if (msg.type == 'voice') _buildVoiceBody(msg, isDark),
             if (msg.type == 'tts') _buildTtsBody(msg, isDark),
             if (msg.type == 'meetpoint') _buildMeetpointBody(msg, isDark),
-          ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openInboxCopySheet(GroupMessage msg, bool isDark) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: ListTile(
+          leading: Icon(Symbols.content_copy, size: 22.w),
+          title: Text(
+            'msg_copy'.tr(),
+            style: const TextStyle(fontFamily: 'Lexend'),
+          ),
+          onTap: () {
+            final plain = messagePlainTextForCopy(msg);
+            Navigator.pop(ctx);
+            if (plain.trim().isEmpty) {
+              StandardSnackBar.showInfo(context, 'msg_copy_empty'.tr());
+              return;
+            }
+            Clipboard.setData(ClipboardData(text: plain));
+            StandardSnackBar.showInfo(context, 'msg_copied'.tr());
+          },
         ),
       ),
     );
@@ -784,12 +865,18 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   }
 
   Widget _buildTextBody(GroupMessage msg, bool isDark) {
-    final translated = _translations[msg.id];
-    final displayText = translated ?? msg.content ?? '';
-    final bodyColor = isDark ? Colors.white.withValues(alpha: 0.88) : AppColors.textDark;
+    final original = msg.content ?? '';
+    final showingTranslated = _translations.containsKey(msg.id) &&
+        !_showOriginalInstead.contains(msg.id);
+    final displayText =
+        showingTranslated ? _translations[msg.id]! : original;
+    final bodyColor =
+        isDark ? Colors.white.withValues(alpha: 0.88) : AppColors.textDark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (_autoTranslatedMessageIds.contains(msg.id) && showingTranslated)
+          _buildAutoTranslatedBadge(isDark),
         Text(
           displayText,
           style: TextStyle(
@@ -801,7 +888,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
           ),
         ),
         SizedBox(height: 10.h),
-        _buildTranslateButton(msg, msg.content ?? '', dense: true),
+        _buildTranslateButton(msg, original, dense: true),
       ],
     );
   }
@@ -831,13 +918,19 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     final isSpeaking = _ttsPlayingId == msg.id && _ttsSpeaking;
     final isLoading = _ttsPlayingId == msg.id && _ttsLoading;
     final originalText = msg.originalText ?? msg.content ?? '';
-    final translated = _translations[msg.id];
-    final displayText = translated ?? originalText;
-    final bodyColor = isDark ? Colors.white.withValues(alpha: 0.88) : AppColors.textDark;
+    final showingTranslated = _translations.containsKey(msg.id) &&
+        !_showOriginalInstead.contains(msg.id);
+    final displayText = showingTranslated
+        ? _translations[msg.id]!
+        : originalText;
+    final bodyColor =
+        isDark ? Colors.white.withValues(alpha: 0.88) : AppColors.textDark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_autoTranslatedMessageIds.contains(msg.id) && showingTranslated)
+          _buildAutoTranslatedBadge(isDark),
         Text(
           displayText,
           style: TextStyle(
@@ -1057,7 +1150,9 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     String originalText, {
     bool dense = false,
   }) {
-    final isTranslated = _translations.containsKey(msg.id);
+    final hasCached = _translations.containsKey(msg.id);
+    final showingTranslated =
+        hasCached && !_showOriginalInstead.contains(msg.id);
     final isLoading = _translating.contains(msg.id);
 
     if (isLoading) {
@@ -1082,11 +1177,32 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
       );
     }
 
+    final label = hasCached
+        ? (showingTranslated
+            ? 'inbox_show_original'.tr()
+            : 'inbox_show_translation'.tr())
+        : 'inbox_translate'.tr();
+
     return InkWell(
-      onTap: () => _translateMessage(msg, originalText),
+      onTap: () {
+        if (hasCached) {
+          setState(() {
+            if (_showOriginalInstead.contains(msg.id)) {
+              _showOriginalInstead.remove(msg.id);
+            } else {
+              _showOriginalInstead.add(msg.id);
+            }
+          });
+          return;
+        }
+        unawaited(_translateMessage(msg, originalText));
+      },
       borderRadius: BorderRadius.circular(6.r),
       child: Padding(
-        padding: EdgeInsets.symmetric(vertical: dense ? 2.h : 4.h, horizontal: 2.w),
+        padding: EdgeInsets.symmetric(
+          vertical: dense ? 2.h : 4.h,
+          horizontal: 2.w,
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1097,9 +1213,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
             ),
             SizedBox(width: 5.w),
             Text(
-              isTranslated
-                  ? 'inbox_show_original'.tr()
-                  : 'inbox_translate'.tr(),
+              label,
               style: TextStyle(
                 fontFamily: 'Lexend',
                 fontSize: dense ? 11.sp : 12.sp,
@@ -1113,17 +1227,106 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     );
   }
 
-  Future<void> _translateMessage(GroupMessage msg, String originalText) async {
-    if (_translating.contains(msg.id)) return;
+  Widget _buildAutoTranslatedBadge(bool isDark) {
+    final muted = isDark ? Colors.white54 : AppColors.textMutedLight;
+    return Padding(
+      padding: EdgeInsets.only(bottom: 6.h),
+      child: Row(
+        children: [
+          Icon(
+            Icons.g_translate_rounded,
+            size: 11.w,
+            color: AppColors.primary.withValues(alpha: 0.85),
+          ),
+          SizedBox(width: 4.w),
+          Expanded(
+            child: Text(
+              'inbox_auto_translated_badge'.tr(),
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 9.5.sp,
+                fontWeight: FontWeight.w500,
+                height: 1.2,
+                color: muted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    // Toggle off if already translated
-    if (_translations.containsKey(msg.id)) {
-      setState(() => _translations.remove(msg.id));
+  void _queueAutoTranslate(List<GroupMessage> messages) {
+    if (messages.isEmpty) return;
+    unawaited(_runAutoTranslateQueue(messages));
+  }
+
+  Future<void> _runAutoTranslateQueue(List<GroupMessage> messages) async {
+    final targets = messages.where((m) {
+      if (!m.isFromModerator) return false;
+      if (m.type != 'text' && m.type != 'tts') return false;
+      if (_translations.containsKey(m.id)) return false;
+      if (_autoTranslateAttempted.contains(m.id)) return false;
+      return true;
+    }).toList();
+    for (final m in targets) {
+      if (!mounted) return;
+      await _autoTranslateMessageFromModerator(m);
+      await Future<void>.delayed(const Duration(milliseconds: 70));
+    }
+  }
+
+  Future<void> _autoTranslateMessageFromModerator(GroupMessage msg) async {
+    if (!mounted) return;
+    if (!msg.isFromModerator) return;
+    if (msg.type != 'text' && msg.type != 'tts') return;
+    if (_autoTranslateAttempted.contains(msg.id)) return;
+
+    final original = msg.type == 'tts'
+        ? (msg.originalText ?? msg.content ?? '')
+        : (msg.content ?? '');
+    if (original.trim().isEmpty) {
+      _autoTranslateAttempted.add(msg.id);
       return;
     }
 
-    // Lightweight pre-check: if the message appears to already be in the
-    // app's target language, warn and skip the translate call.
+    final targetLang = context.locale.languageCode;
+    final detected = _detectLikelyLanguage(original);
+    if (detected != 'unknown' && detected == targetLang) {
+      _autoTranslateAttempted.add(msg.id);
+      return;
+    }
+
+    if (_translating.contains(msg.id)) return;
+    _autoTranslateAttempted.add(msg.id);
+    if (mounted) setState(() => _translating.add(msg.id));
+    try {
+      final response = await ApiService.dio.post(
+        '/auth/translate',
+        data: {'text': original, 'targetLang': targetLang},
+      );
+      final translated = response.data?['translatedText'] as String?;
+      if (!mounted) return;
+      if (translated == null) {
+        _autoTranslateAttempted.remove(msg.id);
+        return;
+      }
+      if (translated.trim() == original.trim()) return;
+      setState(() {
+        _translations[msg.id] = translated;
+        _autoTranslatedMessageIds.add(msg.id);
+        _showOriginalInstead.remove(msg.id);
+      });
+    } catch (_) {
+      _autoTranslateAttempted.remove(msg.id);
+    } finally {
+      if (mounted) setState(() => _translating.remove(msg.id));
+    }
+  }
+
+  Future<void> _translateMessage(GroupMessage msg, String originalText) async {
+    if (_translating.contains(msg.id)) return;
+
     final targetLang = context.locale.languageCode;
     final detected = _detectLikelyLanguage(originalText);
     if (detected != 'unknown' && detected == targetLang) {
@@ -1135,19 +1338,21 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
       return;
     }
 
-    setState(() => _translating.add(msg.id));
+    if (mounted) setState(() => _translating.add(msg.id));
     try {
-      final lang = targetLang;
       final response = await ApiService.dio.post(
         '/auth/translate',
-        data: {'text': originalText, 'targetLang': lang},
+        data: {'text': originalText, 'targetLang': targetLang},
       );
       final translated = response.data?['translatedText'] as String?;
-      if (mounted && translated != null) {
-        setState(() => _translations[msg.id] = translated);
+      if (mounted && translated != null && translated.trim().isNotEmpty) {
+        setState(() {
+          _translations[msg.id] = translated;
+          _showOriginalInstead.remove(msg.id);
+        });
       }
     } catch (_) {
-      // Silently ignore — user still sees original text
+      // User still sees original text
     } finally {
       if (mounted) setState(() => _translating.remove(msg.id));
     }

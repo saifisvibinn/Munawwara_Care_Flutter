@@ -67,8 +67,27 @@ class ApiService {
   static Dio? _dioInstance;
   static Future<void> Function()? _onUnauthorized;
 
+  /// Prevents dozens of parallel 401s (e.g. after logout) from each running
+  /// the global logout + navigation handler and spamming logs.
+  static bool _unauthorizedHandlerRunning = false;
+
   static void setUnauthorizedCallback(Future<void> Function() callback) {
     _onUnauthorized = callback;
+  }
+
+  static bool _requestHadBearerToken(RequestOptions o) {
+    final h = o.headers;
+    final raw = h['Authorization'] ?? h['authorization'];
+    return raw is String && raw.startsWith('Bearer ');
+  }
+
+  /// True when this 401 should not trigger the global "force logout" callback.
+  static bool _shouldIgnoreUnauthorizedForPath(String path) {
+    return path.contains('/auth/login') ||
+        path.contains('/auth/pilgrim/') ||
+        path.contains('/auth/forgot-password') ||
+        path.contains('/auth/reset-password') ||
+        path.contains('/auth/logout');
   }
 
   static Dio get dio {
@@ -87,18 +106,19 @@ class ApiService {
         InterceptorsWrapper(
           onError: (DioException e, handler) async {
             if (e.response?.statusCode == 401) {
-              // Do not trigger logout for unauthenticated endpoints —
-              // the user is not yet logged in, so there is no session to
-              // invalidate. The caller (loginWithOneTimeToken / login) handles
-              // the error and shows it in the UI.
               final path = e.requestOptions.path;
-              final isLoginPath =
-                  path.contains('/auth/login') ||
-                  path.contains('/auth/pilgrim/') ||
-                  path.contains('/auth/forgot-password') ||
-                  path.contains('/auth/reset-password');
-              if (!isLoginPath && _onUnauthorized != null) {
-                await _onUnauthorized!();
+              if (!_shouldIgnoreUnauthorizedForPath(path) &&
+                  _onUnauthorized != null &&
+                  _requestHadBearerToken(e.requestOptions) &&
+                  !_unauthorizedHandlerRunning) {
+                _unauthorizedHandlerRunning = true;
+                try {
+                  await _onUnauthorized!();
+                } catch (_) {
+                  // Logout / navigation must not break the error chain.
+                } finally {
+                  _unauthorizedHandlerRunning = false;
+                }
               }
             }
             return handler.next(e);
