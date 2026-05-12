@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 
 import 'package:dio/dio.dart';
@@ -8,6 +9,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/services/app_data_cache.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/utils/app_logger.dart';
 
@@ -158,14 +160,14 @@ class AuthNotifier extends Notifier<AuthState> {
         final raw = response.data;
         final data = raw is Map<String, dynamic>
             ? raw
-            : (raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{});
+            : (raw is Map
+                  ? Map<String, dynamic>.from(raw)
+                  : <String, dynamic>{});
 
-        final resolvedRole =
-            (data['role'] ?? data['user_type'] ?? role)?.toString();
-        final resolvedId =
-            (data['_id'] ?? data['id'] ?? userId)?.toString();
-        final resolvedName =
-            (data['full_name'] ?? fullName)?.toString();
+        final resolvedRole = (data['role'] ?? data['user_type'] ?? role)
+            ?.toString();
+        final resolvedId = (data['_id'] ?? data['id'] ?? userId)?.toString();
+        final resolvedName = (data['full_name'] ?? fullName)?.toString();
 
         if (userId != null &&
             userId.isNotEmpty &&
@@ -216,6 +218,7 @@ class AuthNotifier extends Notifier<AuthState> {
           await AppDataCache.write(cacheId, AppDataCache.authMeFile, data);
         }
 
+        await _requestNotificationPermissions();
         await _registerFcmToken();
       } on DioException catch (e) {
         final code = e.response?.statusCode;
@@ -250,6 +253,7 @@ class AuthNotifier extends Notifier<AuthState> {
           fullName: fullName,
         );
         await _mergeAuthMeFromCache(userId);
+        await _requestNotificationPermissions();
         await _registerFcmToken();
       }
 
@@ -272,7 +276,8 @@ class AuthNotifier extends Notifier<AuthState> {
       phoneNumber: data['phone_number'] as String? ?? state.phoneNumber,
       age: (data['age'] as num?)?.toInt() ?? state.age,
       gender: data['gender'] as String? ?? state.gender,
-      medicalHistory: data['medical_history'] as String? ?? state.medicalHistory,
+      medicalHistory:
+          data['medical_history'] as String? ?? state.medicalHistory,
       hotelName: data['hotel_name'] as String? ?? state.hotelName,
       roomNumber: data['room_number'] as String? ?? state.roomNumber,
       busInfo: data['bus_info'] as String? ?? state.busInfo,
@@ -303,6 +308,28 @@ class AuthNotifier extends Notifier<AuthState> {
     state = const AuthState(isRestoringSession: false);
   }
 
+  Future<void> _requestNotificationPermissions() async {
+    if (Platform.isAndroid || Platform.isIOS) {
+      try {
+        AppLogger.d('AuthNotifier: requesting notification permissions');
+        await FirebaseMessaging.instance.requestPermission(
+          alert: true,
+          announcement: false,
+          badge: true,
+          carPlay: false,
+          criticalAlert: false,
+          provisional: false,
+          sound: true,
+        );
+
+        // Request local notification permissions
+        await NotificationService.instance.requestPermissions();
+      } catch (e) {
+        AppLogger.e('AuthNotifier permission request failed: $e');
+      }
+    }
+  }
+
   // ── Register FCM token with the backend ────────────────────────────────────
   // Fetches the current FCM token directly from Firebase and sends it to the
   // backend. Self-contained — no dependency on main.dart or any global state.
@@ -318,8 +345,6 @@ class AuthNotifier extends Notifier<AuthState> {
       AppLogger.e('⚠️ Failed to get FCM token from Firebase: $e');
     }
   }
-
-
 
   Future<void> _persistSession(
     String token,
@@ -376,7 +401,8 @@ class AuthNotifier extends Notifier<AuthState> {
         fullName: data['full_name'] as String,
       );
 
-      // Register FCM token immediately after login
+      // Request permissions and register FCM token immediately after login
+      await _requestNotificationPermissions();
       await _registerFcmToken();
 
       return true;
@@ -418,7 +444,8 @@ class AuthNotifier extends Notifier<AuthState> {
         fullName: data['full_name'] as String,
       );
 
-      // Register FCM token immediately after one-time login
+      // Request permissions and register FCM token immediately after one-time login
+      await _requestNotificationPermissions();
       await _registerFcmToken();
 
       return true;
@@ -567,7 +594,10 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<bool> requestPasswordReset(String email) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      await ApiService.dio.post('/auth/forgot-password', data: {'email': email});
+      await ApiService.dio.post(
+        '/auth/forgot-password',
+        data: {'email': email},
+      );
       state = state.copyWith(isLoading: false);
       return true;
     } on DioException catch (e) {
@@ -585,11 +615,7 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final response = await ApiService.dio.post(
         '/auth/reset-password',
-        data: {
-          'email': email,
-          'code': code,
-          'new_password': newPassword,
-        },
+        data: {'email': email, 'code': code, 'new_password': newPassword},
       );
       state = state.copyWith(isLoading: false);
       return (response.data as Map<String, dynamic>)['message']?.toString();
@@ -602,20 +628,26 @@ class AuthNotifier extends Notifier<AuthState> {
   // ── Update FCM Token ────────────────────────────────────────────────────────
   Future<void> updateFcmToken(String fcmToken) async {
     try {
-      AppLogger.d('Attempting to register FCM token with backend: ${fcmToken.substring(0, min(20, fcmToken.length))}...');
-      
+      AppLogger.d(
+        'Attempting to register FCM token with backend: ${fcmToken.substring(0, min(20, fcmToken.length))}...',
+      );
+
       final response = await ApiService.dio.put(
         '/auth/fcm-token',
         data: {'fcm_token': fcmToken},
       );
-      
+
       // Save it locally just for reference, though we no longer short-circuit
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('last_registered_fcm_token', fcmToken);
-      
-      AppLogger.i('✅ FCM token registered with backend successfully. Status: ${response.statusCode}');
+
+      AppLogger.i(
+        '✅ FCM token registered with backend successfully. Status: ${response.statusCode}',
+      );
     } on DioException catch (e) {
-      AppLogger.e('⚠️ Failed to register FCM token API error: ${e.response?.statusCode} - ${e.response?.data}');
+      AppLogger.e(
+        '⚠️ Failed to register FCM token API error: ${e.response?.statusCode} - ${e.response?.data}',
+      );
     } catch (e) {
       AppLogger.e('⚠️ Failed to register FCM token unknown error: $e');
     }

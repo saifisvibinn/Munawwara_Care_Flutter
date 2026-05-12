@@ -50,26 +50,7 @@ void main() async {
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   AppLogger.i('Background message handler registered');
 
-  // ── Request Notification Permissions ──────────────────────────────────────
-  AppLogger.d('main: requesting fcm permission');
   if (Platform.isAndroid || Platform.isIOS) {
-    try {
-      await FirebaseMessaging.instance.requestPermission(
-        alert: true,
-        announcement: false,
-        badge: true,
-        carPlay: false,
-        criticalAlert: false,
-        provisional: false,
-        sound: true,
-      );
-
-      // Request local notification permissions
-      await NotificationService.instance.requestPermissions();
-    } catch (e) {
-      AppLogger.e('FCM permission request failed: $e');
-    }
-
     try {
       // ── Get and Store FCM Token ───────────────────────────────────────────────
       _globalFcmToken = await FirebaseMessaging.instance.getToken();
@@ -142,9 +123,7 @@ void main() async {
             dataType == 'urgent' &&
             (msgType == 'tts' || msgType == 'reminder_tts');
         final messageKey =
-            msg.data['message_id']?.toString() ??
-            msg.messageId ??
-            '';
+            msg.data['message_id']?.toString() ?? msg.messageId ?? '';
         // ── call_declined / call_cancel arriving via FCM ────────────────────
         // When the pilgrim's app is killed and declines, the backend's 30-second
         // ring timeout fires and sends a silent FCM with type=call_declined
@@ -161,7 +140,8 @@ void main() async {
         const chatMsgTypes = {'text', 'voice', 'image', 'tts', 'meetpoint'};
         final isChatNotif =
             notifType == 'new_message' || notifType == 'meetpoint';
-        final urgentChatNoNotifType = notifType.isEmpty &&
+        final urgentChatNoNotifType =
+            notifType.isEmpty &&
             dataType == 'urgent' &&
             chatMsgTypes.contains(msgType);
         if (isChatNotif || urgentChatNoNotifType) {
@@ -221,10 +201,7 @@ void main() async {
             if (isUrgentTts) {
               // Tray notif would duplicate urgent_tts.wav from socket/helper.
               await Future.delayed(kUrgentAlertToTtsDelay);
-              final spoken = urgentTtsSpokenBackupText(
-                msg,
-                isReminder: true,
-              );
+              final spoken = urgentTtsSpokenBackupText(msg, isReminder: true);
               await NotificationService.speakTts(
                 spoken,
                 audioUrl: msg.data['audio_url']?.toString(),
@@ -244,10 +221,7 @@ void main() async {
           if (text.isNotEmpty) {
             AppLogger.i('🔊 Foreground urgent TTS: "$text"');
             await Future.delayed(kUrgentAlertToTtsDelay);
-            final spoken = urgentTtsSpokenBackupText(
-              msg,
-              isReminder: false,
-            );
+            final spoken = urgentTtsSpokenBackupText(msg, isReminder: false);
             await NotificationService.speakTts(
               spoken,
               audioUrl: msg.data['audio_url']?.toString(),

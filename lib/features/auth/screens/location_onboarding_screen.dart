@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -106,7 +107,7 @@ class _LocationOnboardingScreenState extends ConsumerState<LocationOnboardingScr
                 
                 // Title
                 Text(
-                  'Enable location to continue',
+                  'location_onboarding_title'.tr(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: 'Lexend',
@@ -120,7 +121,7 @@ class _LocationOnboardingScreenState extends ConsumerState<LocationOnboardingScr
                 
                 // Description
                 Text(
-                  'This app needs your location so your moderator can assist you and ensure your safety.',
+                  'location_onboarding_desc'.tr(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: 'Lexend',
@@ -145,7 +146,7 @@ class _LocationOnboardingScreenState extends ConsumerState<LocationOnboardingScr
                       SizedBox(width: 12.w),
                       Expanded(
                         child: Text(
-                          'Important: Please choose "Allow all the time" when prompted by your system settings.',
+                          'location_onboarding_important'.tr(),
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 14.sp,
@@ -184,7 +185,7 @@ class _LocationOnboardingScreenState extends ConsumerState<LocationOnboardingScr
                             ),
                           )
                         : Text(
-                            'Enable location',
+                            'location_onboarding_btn'.tr(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 16.sp,

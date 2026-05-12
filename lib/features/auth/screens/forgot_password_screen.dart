@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -21,10 +22,9 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
-  // Current step: 0 = email, 1 = code, 2 = new password, 3 = success
+  // Current step: 0 = email, 1 = code & new password, 2 = success
   int _step = 0;
   String? _localError;
-  String? _successMessage;
 
   // Controllers
   final _emailController = TextEditingController();
@@ -71,26 +71,19 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     }
   }
 
-  // ── Step 1: Verify code UI only (Logic is combined in Step 2) ──────────────
-
-  void _goToPasswordStep() {
-    final code = _codeController.text.trim();
-    if (code.isEmpty || code.length != 6) {
-      setState(() => _localError = 'forgot_password_code_invalid'.tr());
-      return;
-    }
-    setState(() {
-      _localError = null;
-      _step = 2;
-    });
-  }
+  // ── Step 1: Submit code and new password ──────────────────────────────────
 
   // ── Step 2: Submit new password ───────────────────────────────────────────
 
   Future<void> _submitNewPassword() async {
+    final code = _codeController.text.trim();
     final password = _passwordController.text;
     final confirm = _confirmPasswordController.text;
 
+    if (code.isEmpty || code.length != 6) {
+      setState(() => _localError = 'forgot_password_code_invalid'.tr());
+      return;
+    }
     if (password.isEmpty || password.length < 6) {
       setState(() => _localError = 'forgot_password_password_too_short'.tr());
       return;
@@ -104,23 +97,14 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
     final resultMessage = await ref.read(authProvider.notifier).resetPassword(
       email: _emailController.text.trim(),
-      code: _codeController.text.trim(),
+      code: code,
       newPassword: password,
     );
 
     if (resultMessage != null && mounted) {
       setState(() {
-        _successMessage = resultMessage;
-        _step = 3;
+        _step = 2;
       });
-    } else if (mounted) {
-      // If error occurs, the provider handles the 'error' state which we watch below
-      // But if it's specifically a code error, we might want to go back
-      final authError = ref.read(authProvider).error;
-      if (authError != null && 
-         (authError.contains('code') || authError.contains('expired'))) {
-        setState(() => _step = 1);
-      }
     }
   }
 
@@ -211,14 +195,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     children: [
                       IconButton(
                         onPressed: () {
-                          if (_step == 0 || _step == 3) {
+                          if (_step == 0 || _step == 2) {
                             context.pop();
-                          } else if (_step == 2) {
-                            setState(() {
-                              _step = 1;
-                              _localError = null;
-                              ref.read(authProvider.notifier).clearError();
-                            });
                           } else {
                             setState(() {
                               _step = 0;
@@ -237,56 +215,67 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 ),
 
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
-                    physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+                        physics: const BouncingScrollPhysics(),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight - 32.h,
+                          ),
+                          child: IntrinsicHeight(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
                         SizedBox(height: 16.h),
 
                         // Icon
-                        Align(
-                          alignment: Alignment.center,
-                          child: Container(
-                            width: 72.w,
-                            height: 72.w,
-                            margin: EdgeInsets.only(bottom: 24.h),
-                            decoration: BoxDecoration(
-                              color: isDark ? AppColors.surfaceDark : Colors.white,
-                              borderRadius: BorderRadius.circular(16.r),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withValues(alpha: 0.1),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              _step == 3 ? Symbols.check_circle : Symbols.lock_reset,
-                              size: 36.w,
-                              color: _step == 3 ? const Color(0xFF16A34A) : AppColors.primary,
+                        if (_step < 2)
+                          Align(
+                            alignment: Alignment.center,
+                            child: Container(
+                              width: 72.w,
+                              height: 72.w,
+                              margin: EdgeInsets.only(bottom: 24.h),
+                              decoration: BoxDecoration(
+                                color: isDark ? AppColors.surfaceDark : Colors.white,
+                                borderRadius: BorderRadius.circular(16.r),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Symbols.lock_reset,
+                                size: 36.w,
+                                color: AppColors.primary,
+                              ),
                             ),
                           ),
-                        ),
 
                         // Title
-                        Text(
-                          _step == 3 ? 'forgot_password_success'.tr() : 'forgot_password_title'.tr(),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontSize: 28.sp,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
-                            color: isDark ? Colors.white : AppColors.textDark,
+                        if (_step < 2)
+                          Text(
+                            'forgot_password_title'.tr(),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 28.sp,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.5,
+                              color: isDark ? Colors.white : AppColors.textDark,
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 8.h),
+                        if (_step < 2)
+                          SizedBox(height: 8.h),
 
                         // Subtitle
-                        if (_step < 3)
+                        if (_step < 2)
                           Text(
                             _getSubtitle(),
                             textAlign: TextAlign.center,
@@ -320,7 +309,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
                         SizedBox(height: 32.h),
                       ],
-                    ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -335,7 +328,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     switch (_step) {
       case 0: return 'forgot_password_email_subtitle'.tr();
       case 1: return 'forgot_password_code_sent'.tr(args: [_emailController.text.trim()]);
-      case 2: return 'forgot_password_new_password_subtitle'.tr();
       default: return '';
     }
   }
@@ -343,9 +335,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   Widget _buildStepContent(bool isDark, bool isLoading, String? error) {
     switch (_step) {
       case 0: return _buildEmailStep(isDark, isLoading, error);
-      case 1: return _buildCodeStep(isDark, isLoading, error);
-      case 2: return _buildPasswordStep(isDark, isLoading, error);
-      case 3: return _buildSuccessStep(isDark);
+      case 1: return _buildCodeAndPasswordStep(isDark, isLoading, error);
+      case 2: return _buildSuccessStep(isDark);
       default: return const SizedBox.shrink();
     }
   }
@@ -379,12 +370,12 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     );
   }
 
-  Widget _buildCodeStep(bool isDark, bool isLoading, String? error) {
+  Widget _buildCodeAndPasswordStep(bool isDark, bool isLoading, String? error) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildFieldLabel('forgot_password_code_label'.tr(), isDark),
-        SizedBox(height: 16.h),
+        SizedBox(height: 12.h),
         
         DigitCodeInput(
           length: 6,
@@ -392,41 +383,10 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           isLoading: isLoading,
           onCompleted: (code) {
             _codeController.text = code;
-            _goToPasswordStep();
           },
         ),
-
-        _buildErrorUI(error, isDark),
-        SizedBox(height: 32.h),
-        ElevatedButton(
-          onPressed: isLoading ? null : _goToPasswordStep,
-          child: Text('forgot_password_verify'.tr()),
-        ),
-        SizedBox(height: 20.h),
-        Center(
-          child: GestureDetector(
-            onTap: _resendCooldown > 0 || isLoading ? null : _resendCode,
-            child: Text(
-              _resendCooldown > 0
-                  ? 'forgot_password_resend_countdown'.tr(args: ['$_resendCooldown'])
-                  : 'forgot_password_resend_code'.tr(),
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w600,
-                color: _resendCooldown > 0 ? AppColors.textMutedLight : const Color(0xff3b82f6),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPasswordStep(bool isDark, bool isLoading, String? error) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
+        
+        SizedBox(height: 24.h),
         _buildFieldLabel('forgot_password_new_password'.tr(), isDark),
         SizedBox(height: 6.h),
         TextField(
@@ -466,11 +426,29 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             ),
           ),
         ),
+
         _buildErrorUI(error, isDark),
-        SizedBox(height: 24.h),
+        SizedBox(height: 32.h),
         ElevatedButton(
           onPressed: isLoading ? null : _submitNewPassword,
           child: isLoading ? _loadingIndicator() : Text('forgot_password_reset'.tr()),
+        ),
+        SizedBox(height: 20.h),
+        Center(
+          child: GestureDetector(
+            onTap: _resendCooldown > 0 || isLoading ? null : _resendCode,
+            child: Text(
+              _resendCooldown > 0
+                  ? 'forgot_password_resend_countdown'.tr(args: ['$_resendCooldown'])
+                  : 'forgot_password_resend_code'.tr(),
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                color: _resendCooldown > 0 ? AppColors.textMutedLight : const Color(0xff3b82f6),
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -479,16 +457,29 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   Widget _buildSuccessStep(bool isDark) {
     return Column(
       children: [
-        Icon(Symbols.check_circle, size: 64.w, color: const Color(0xFF16A34A)),
         SizedBox(height: 16.h),
+        TweenAnimationBuilder<double>(
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.elasticOut,
+          tween: Tween(begin: 0.0, end: 1.0),
+          builder: (context, value, child) {
+            return Transform.scale(
+              scale: value,
+              child: child,
+            );
+          },
+          child: Icon(Symbols.check_circle, size: 80.w, color: const Color(0xFF16A34A)),
+        ),
+        SizedBox(height: 24.h),
         Text(
-          _successMessage ?? 'forgot_password_success'.tr(),
+          'forgot_password_success'.tr(),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: 'Lexend',
-            fontSize: 15.sp,
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w500,
             height: 1.5,
-            color: isDark ? Colors.white70 : AppColors.textDark,
+            color: isDark ? Colors.white : AppColors.textDark,
           ),
         ),
         SizedBox(height: 32.h),
@@ -593,20 +584,36 @@ class _DigitCodeInputState extends State<DigitCodeInput> {
 
   void _onChanged(int index, String value) {
     if (value.length > 1) {
-      // Handle Paste or multiple char input
       final cleanValue = value.replaceAll(RegExp(r'[^0-9]'), '');
-      if (cleanValue.isEmpty) return;
-
-      for (var i = 0; i < widget.length && i < cleanValue.length; i++) {
-        _controllers[i].text = cleanValue[i];
+      if (cleanValue.isEmpty) {
+        _controllers[index].text = '';
+        return;
       }
-      
-      // Move focus to next appropriate box
-      final nextFocusIdx = cleanValue.length < widget.length ? cleanValue.length : widget.length - 1;
-      _focusNodes[nextFocusIdx].requestFocus();
-      
-      _checkCompletion();
-      return;
+
+      if (cleanValue.length > 2) {
+        // Handle Paste of 3+ digits
+        for (var i = 0; i < widget.length && i < cleanValue.length; i++) {
+          _controllers[i].text = cleanValue[i];
+        }
+        
+        // Move focus to next appropriate box
+        final nextFocusIdx = cleanValue.length < widget.length ? cleanValue.length : widget.length - 1;
+        _focusNodes[nextFocusIdx].requestFocus();
+        
+        _checkCompletion();
+        return;
+      } else if (cleanValue.length == 2) {
+        // User typed a second digit in an already filled box
+        // We keep the newest digit (the second one)
+        _controllers[index].text = cleanValue.substring(1);
+        _controllers[index].selection = TextSelection.collapsed(offset: 1);
+        
+        if (index < widget.length - 1) {
+          _focusNodes[index + 1].requestFocus();
+        }
+        _checkCompletion();
+        return;
+      }
     }
 
     if (value.isNotEmpty) {
@@ -626,29 +633,45 @@ class _DigitCodeInputState extends State<DigitCodeInput> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(widget.length, (index) {
-        return SizedBox(
-          width: 44.w, // Slightly adjusted for spacing
-          height: 56.h,
-          child: KeyboardListener(
-            focusNode: FocusNode(), // Intercept backspace
-            onKeyEvent: (event) {
-              if (event is KeyDownEvent && 
-                  event.logicalKey == LogicalKeyboardKey.backspace && 
-                  _controllers[index].text.isEmpty && 
-                  index > 0) {
-                _focusNodes[index - 1].requestFocus();
-              }
-            },
-            child: TextField(
-              controller: _controllers[index],
-              focusNode: _focusNodes[index],
-              enabled: !widget.isLoading,
-              textAlign: TextAlign.center,
-              keyboardType: TextInputType.number,
-              style: TextStyle(
+    return Directionality(
+      textDirection: ui.TextDirection.ltr,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: List.generate(widget.length, (index) {
+          return SizedBox(
+            width: 44.w, // Slightly adjusted for spacing
+            height: 56.h,
+            child: KeyboardListener(
+              focusNode: FocusNode(), // Intercept backspace
+              onKeyEvent: (event) {
+                if (event is KeyDownEvent && 
+                    event.logicalKey == LogicalKeyboardKey.backspace && 
+                    _controllers[index].text.isEmpty && 
+                    index > 0) {
+                  _focusNodes[index - 1].requestFocus();
+                }
+              },
+              child: TextField(
+                controller: _controllers[index],
+                focusNode: _focusNodes[index],
+                enabled: !widget.isLoading,
+                textAlign: TextAlign.center,
+                textDirection: ui.TextDirection.ltr,
+                keyboardType: TextInputType.number,
+                onTap: () {
+                  // Force focus to the first empty box to enforce LTR typing
+                  int targetIndex = widget.length - 1;
+                  for (int i = 0; i < widget.length; i++) {
+                    if (_controllers[i].text.isEmpty) {
+                      targetIndex = i;
+                      break;
+                    }
+                  }
+                  if (_focusNodes[targetIndex].hasFocus == false) {
+                    _focusNodes[targetIndex].requestFocus();
+                  }
+                },
+                style: TextStyle(
                 fontFamily: 'Lexend',
                 fontSize: 20.sp,
                 fontWeight: FontWeight.w600,
@@ -687,6 +710,6 @@ class _DigitCodeInputState extends State<DigitCodeInput> {
           ),
         );
       }),
-    );
+    ));
   }
 }
