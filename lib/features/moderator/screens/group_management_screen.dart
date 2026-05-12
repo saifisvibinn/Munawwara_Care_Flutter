@@ -3286,7 +3286,7 @@ class _PilgrimManageTile extends StatelessWidget {
                     value: 'profile',
                     child: AppPopupMenu.actionRow(
                       icon: Symbols.person,
-                      label: 'View Profile',
+                      label: 'manage_view_full_profile'.tr(),
                       isDark: isDark,
                       iconColor: AppColors.primary,
                     ),
@@ -3295,7 +3295,7 @@ class _PilgrimManageTile extends StatelessWidget {
                   value: 'navigate',
                   child: AppPopupMenu.actionRow(
                     icon: Symbols.near_me,
-                    label: 'Navigate',
+                    label: 'area_navigate'.tr(),
                     isDark: isDark,
                     iconColor: AppColors.primary,
                   ),
@@ -3314,7 +3314,7 @@ class _PilgrimManageTile extends StatelessWidget {
                     value: 'call',
                     child: AppPopupMenu.actionRow(
                       icon: Symbols.call,
-                      label: 'Call',
+                      label: 'group_call_prefix'.tr(),
                       isDark: isDark,
                       iconColor: const Color(0xFF16A34A),
                     ),
@@ -3324,7 +3324,7 @@ class _PilgrimManageTile extends StatelessWidget {
                     value: 'remove',
                     child: AppPopupMenu.actionRow(
                       icon: Symbols.person_remove,
-                      label: 'Remove',
+                      label: 'group_remove_confirm'.tr(),
                       isDark: isDark,
                       destructive: true,
                     ),
