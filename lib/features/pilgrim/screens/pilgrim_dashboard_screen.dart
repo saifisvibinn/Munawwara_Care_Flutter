@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:dio/dio.dart';
@@ -264,8 +264,10 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           userId: auth.userId!,
           role: auth.role ?? 'pilgrim',
         );
-        ref.read(callProvider.notifier).reRegisterListeners();
-        
+        // Note: CallNotifier.build() already registers call socket listeners on
+        // first access, and SocketService.connect() re-applies them on every
+        // reconnect via _applyPendingListeners(). No manual reRegisterListeners()
+        // needed here — calling it would cause duplicate handler registration.
         AppLogger.d(
           '[PilgrimDashboard] Socket status: ${SocketService.isConnected ? 'Connected' : 'Connecting...'}',
         );

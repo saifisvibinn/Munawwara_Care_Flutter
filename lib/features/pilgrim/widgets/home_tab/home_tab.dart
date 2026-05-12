@@ -480,12 +480,10 @@ class _HomeBody extends StatelessWidget {
                         statusKey: sosHelpStatusKey,
                         moderatorName: sosModeratorName,
                         onCancelRequest: onCancelSos,
+                        disableCancel:
+                            sosHelpStatusKey == 'sos_status_being_handled',
                         showCancel:
-                            sosHelpStatusKey != 'sos_status_being_handled' &&
-                                sosHelpStatusKey !=
-                                    'sos_status_callback_available' &&
-                                sosHelpStatusKey !=
-                                    'sos_status_resolved_friendly',
+                            sosHelpStatusKey != 'sos_status_resolved_friendly',
                         showCallBack:
                             sosHelpStatusKey == 'sos_status_callback_available',
                         onCallBack: onCallBackSos,

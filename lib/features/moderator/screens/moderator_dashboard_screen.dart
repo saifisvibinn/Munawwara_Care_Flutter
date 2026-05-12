@@ -203,8 +203,10 @@ class _ModeratorDashboardScreenState
           userId: auth.userId!,
           role: auth.role ?? 'moderator',
         );
-        // Make sure call provider's listeners are registered
-        ref.read(callProvider.notifier).reRegisterListeners();
+        // Note: CallNotifier.build() already registers call socket listeners on
+        // first access, and SocketService.connect() re-applies them on every
+        // reconnect via _applyPendingListeners(). No manual reRegisterListeners()
+        // needed here — calling it would cause duplicate handler registration.
         // Check if there's a pending call accepted from native call screen.
         // Must run AFTER the socket handshake so the call-answer emit goes through.
         if (SocketService.isConnected) {

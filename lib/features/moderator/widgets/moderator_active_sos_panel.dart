@@ -378,13 +378,19 @@ class ModeratorSosBannerCard extends ConsumerWidget {
         lng: row.lng,
         resolvedAtMs: now,
       );
+      final modProv = ref.read(moderatorProvider.notifier);
+      final resProv = ref.read(moderatorResolvedSosProvider.notifier);
+      final engProv = ref.read(moderatorSosEngagementProvider.notifier);
+      final notifProv = ref.read(notificationProvider.notifier);
+
       SocketService.emit('sos_resolve', payload);
-      ref.read(moderatorProvider.notifier).markPilgrimSOS(pId, active: false);
+      modProv.markPilgrimSOS(pId, active: false);
       await ModeratorSosEngagementStore.removeAllEntriesForPilgrim(pId);
-      await ref.read(moderatorResolvedSosProvider.notifier).addResolved(resolved);
-      await ref.read(moderatorSosEngagementProvider.notifier).refresh();
-      await ref.read(moderatorProvider.notifier).loadDashboard(silently: true);
-      await ref.read(notificationProvider.notifier).refetch();
+      await resProv.addResolved(resolved);
+      await engProv.refresh();
+      await modProv.loadDashboard(silently: true);
+      await notifProv.refetch();
+      
       if (!context.mounted) return;
       onSosResolved?.call();
       StandardSnackBar.showSuccess(
@@ -404,6 +410,7 @@ class ModeratorSosBannerCard extends ConsumerWidget {
           sosId: row.record?.sosId,
         );
       }
+      final engProv = ref.read(moderatorSosEngagementProvider.notifier);
       final ok = await OpenMapsNavigation.confirmAndLaunch(
         context,
         row.lat!,
@@ -413,7 +420,7 @@ class ModeratorSosBannerCard extends ConsumerWidget {
       final sk = row.storageKey;
       if (sk != null) {
         final next = await ModeratorSosEngagementStore.markNavigatedSuccess(sk);
-        await ref.read(moderatorSosEngagementProvider.notifier).refresh();
+        await engProv.refresh();
         if (next?.fullyHandled == true && context.mounted) {
           StandardSnackBar.showInfo(
             context,

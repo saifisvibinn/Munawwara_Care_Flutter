@@ -19,6 +19,7 @@ class SosHelpSessionPanel extends StatelessWidget {
   final Future<void> Function()? onCallBack;
   final bool showCancel;
   final bool showCallBack;
+  final bool disableCancel;
 
   const SosHelpSessionPanel({
     super.key,
@@ -28,6 +29,7 @@ class SosHelpSessionPanel extends StatelessWidget {
     this.onCallBack,
     this.showCancel = true,
     this.showCallBack = false,
+    this.disableCancel = false,
     this.moderatorName = '',
   });
 
@@ -167,11 +169,11 @@ class SosHelpSessionPanel extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: isResponding ? null : () => onCancelRequest(),
+                  onPressed: (isResponding || disableCancel) ? null : () => onCancelRequest(),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: isResponding ? Colors.grey.shade400 : muted,
+                    foregroundColor: (isResponding || disableCancel) ? Colors.grey.shade400 : muted,
                     side: BorderSide(
-                      color: isResponding
+                      color: (isResponding || disableCancel)
                           ? Colors.grey.shade300
                           : isDark
                               ? AppColors.dividerDark
