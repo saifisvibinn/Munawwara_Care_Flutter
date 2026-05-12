@@ -423,7 +423,6 @@ class _TrackerItemCard extends StatelessWidget {
                     color: AppPopupMenu.panelColor(isDark),
                     onSelected: (val) {
                       if (val == 'show_qr') onShowQr();
-                      if (val == 'share_qr') onShareQr();
                       if (val == 'reissue') onReissue();
                       if (val == 'delete') onDelete();
                     },
@@ -435,15 +434,6 @@ class _TrackerItemCard extends StatelessWidget {
                           child: AppPopupMenu.actionRow(
                             icon: Symbols.qr_code_2,
                             label: 'group_show_qr'.tr(),
-                            isDark: isDark,
-                            iconColor: AppColors.primary,
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: 'share_qr',
-                          child: AppPopupMenu.actionRow(
-                            icon: Symbols.share,
-                            label: 'group_share_invite'.tr(),
                             isDark: isDark,
                             iconColor: AppColors.primary,
                           ),

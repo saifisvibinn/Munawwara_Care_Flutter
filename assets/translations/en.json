@@ -1,4 +1,5 @@
-{
+﻿{
+  "share": "Share",
   "offline_showing_saved_data": "No connection — showing saved data. Connect to refresh.",
   "dialog_cancel": "Cancel",
   "dialog_confirm": "Confirm",

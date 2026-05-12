@@ -73,7 +73,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
         _checkOutDate != null &&
         _checkOutDate!.isBefore(_checkInDate!)) {
       setState(() {
-        _fieldError = 'Check-out date cannot be before check-in date';
+        _fieldError = 'Check-out date cannot be before check-in date'.tr();
         _isLoading = false;
       });
       return;
@@ -294,7 +294,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
 
         // ── Duration Dates ──
         Text(
-          'Stay Duration (Optional)',
+          '${'group_stay_duration'.tr()} (${'optional'.tr()})',
           style: TextStyle(
             fontFamily: 'Lexend',
             fontWeight: FontWeight.w600,
@@ -343,7 +343,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                       Text(
                         _checkInDate != null
                             ? DateFormat('yyyy-MM-dd').format(_checkInDate!)
-                            : 'Check-in',
+                            : 'group_checkin'.tr(),
                         style: TextStyle(
                           fontFamily: 'Lexend',
                           fontSize: 14.sp,
@@ -399,7 +399,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                       Text(
                         _checkOutDate != null
                             ? DateFormat('yyyy-MM-dd').format(_checkOutDate!)
-                            : 'Check-out',
+                            : 'group_checkout'.tr(),
                         style: TextStyle(
                           fontFamily: 'Lexend',
                           fontSize: 14.sp,

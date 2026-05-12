@@ -502,7 +502,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
                               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                               : const Icon(Icons.share, size: 18),
                             label: Text(
-                              _isSharing ? 'provisioning_wait'.tr() : 'group_share_invite'.tr(),
+                              _isSharing ? 'provisioning_wait'.tr() : 'share'.tr(),
                               style: const TextStyle(fontSize: 13),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -697,14 +697,10 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
               toolbarHeight: 56.h,
               backgroundColor: pageBg,
               titleSpacing: 0,
-              centerTitle: false,
+              centerTitle: true,
               title: Material(
                 color: pageBg,
                 child: TabBar(
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  padding: EdgeInsetsDirectional.only(start: 4.w),
-                  labelPadding: EdgeInsets.symmetric(horizontal: 10.w),
                   dividerHeight: 0,
                   indicatorSize: TabBarIndicatorSize.label,
                   indicatorWeight: 2,

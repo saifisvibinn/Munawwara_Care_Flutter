@@ -257,7 +257,9 @@ class _ModeratorDashboardScreenState
             sk,
             reasonMessage: modName.trim().isEmpty
                 ? 'sos_claimed_handled_by_other_mod'.tr()
-                : 'sos_claimed_being_reviewed_by'.tr(namedArgs: {'name': modName}),
+                : 'sos_claimed_being_reviewed_by'.tr(
+                    namedArgs: {'name': modName},
+                  ),
           );
           await ref.read(moderatorSosEngagementProvider.notifier).refresh();
         });
@@ -545,21 +547,10 @@ class _ModeratorDashboardScreenState
                   alignment: AlignmentDirectional.bottomEnd,
                   child: Padding(
                     padding: EdgeInsetsDirectional.only(
-                      end: 64.w,
-                      bottom: 100.h,
+                      end: 20.w,
+                      bottom: 80.h,
                     ),
-                    child: Transform.rotate(
-                      angle: Directionality.of(context) == ui.TextDirection.rtl
-                          ? 0.6
-                          : -0.6,
-                      child: Icon(
-                        Symbols.arrow_downward,
-                        size: 32.w,
-                        color: isDark
-                            ? const Color(0xFFD4B896)
-                            : const Color(0xFF1A1A4E),
-                      ),
-                    ),
+                    child: _BouncingArrow(isDark: isDark),
                   ),
                 ),
               ),
@@ -590,6 +581,67 @@ class _ModeratorDashboardScreenState
         bottomNavigationBar: _ModBottomNav(
           currentIndex: _currentTab,
           onTap: (i) => setState(() => _currentTab = i),
+        ),
+      ),
+    );
+  }
+}
+
+class _BouncingArrow extends StatefulWidget {
+  final bool isDark;
+  const _BouncingArrow({required this.isDark});
+
+  @override
+  State<_BouncingArrow> createState() => _BouncingArrowState();
+}
+
+class _BouncingArrowState extends State<_BouncingArrow>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0, end: 12).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        widget.isDark ? const Color(0xFFD4B896) : const Color(0xFF1A1A4E);
+
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, _animation.value),
+          child: child,
+        );
+      },
+      child: Padding(
+        padding: EdgeInsetsDirectional.only(end: 16.w),
+        child: Transform.rotate(
+          angle: Directionality.of(context) == ui.TextDirection.rtl
+              ? 0.3
+              : -0.3,
+          child: Icon(
+            Symbols.arrow_downward,
+            size: 42.w,
+            color: color,
+          ),
         ),
       ),
     );

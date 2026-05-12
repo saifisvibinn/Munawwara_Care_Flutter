@@ -435,10 +435,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                                   ? null
                                   : (v) =>
                                       setState(() => _selectedEthnicity = v),
-                              validator: (v) =>
-                                  v == null || v.trim().isEmpty
-                                      ? 'provisioning_required'.tr()
-                                      : null,
+
                             ),
                           ),
                           SizedBox(width: gSm),
