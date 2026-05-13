@@ -47,3 +47,4 @@ app.*.map.json
 /.env
 google-services.json
 **/android/local.properties
+scratch/privacy_repo
