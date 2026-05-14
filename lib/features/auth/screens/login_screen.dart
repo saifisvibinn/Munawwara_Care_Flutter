@@ -8,6 +8,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../../core/services/callkit_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_popup_menu.dart';
 import '../../../core/utils/qr_barcode_utils.dart';
@@ -557,6 +558,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         final newLocale = supportedLanguages[langName];
         if (newLocale != null) {
           context.setLocale(newLocale);
+          unawaited(
+            CallKitService.refreshCachedSupportDisplayName(
+              languageCode: newLocale.languageCode,
+            ),
+          );
         }
       },
       itemBuilder: (context) {

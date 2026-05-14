@@ -23,7 +23,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   void initState() {
     super.initState();
     AppLogger.d('SplashScreen initState');
-    _navigate();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _navigate();
+    });
   }
 
   Future<void> _navigate() async {
@@ -78,7 +81,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    AppLogger.d('SplashScreen build');
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -89,9 +91,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         children: [
           // Background Pattern Overlay
           Positioned.fill(
-            child: Opacity(
-              opacity: 0.4,
-              child: CustomPaint(painter: _IslamicPatternPainter()),
+            child: RepaintBoundary(
+              child: Opacity(
+                opacity: 0.4,
+                child: CustomPaint(
+                  painter: _IslamicPatternPainter(),
+                ),
+              ),
             ),
           ),
 

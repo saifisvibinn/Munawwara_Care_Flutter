@@ -1,5 +1,7 @@
-import 'package:easy_localization/easy_localization.dart';
+import 'dart:convert';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +12,8 @@ import '../utils/app_logger.dart';
 const String kCallKitSupportAvatarAsset = 'assets/static/app_icon.png';
 const String kDefaultSupportDisplayName = 'Munawwara Care';
 const String kSupportDisplayNamePrefsKey = 'support_display_name';
+const String _kSupportDisplayNameTranslationKey = 'call_support_display_name';
+const String _kTranslationsAssetPath = 'assets/translations';
 const String kPendingCallRecordIdKey = 'pending_call_record_id';
 const String kNativeApiBaseUrlPrefsKey = 'api_base_url';
 const String kNativeApiBaseUrlFallback =
@@ -216,12 +220,51 @@ class CallKitService {
   }
 
   static Future<void> cacheSupportDisplayNameFromBundle() async {
-    final label = _supportDisplayName();
-    if (label == 'call_support_display_name') return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString(kSupportDisplayNamePrefsKey);
+      if (cached != null && cached.isNotEmpty) {
+        return;
+      }
+      await prefs.setString(
+        kSupportDisplayNamePrefsKey,
+        kDefaultSupportDisplayName,
+      );
+    } catch (_) {}
+  }
+
+  static Future<void> refreshCachedSupportDisplayName({
+    String languageCode = 'en',
+  }) async {
+    final label = await readSupportDisplayNameFromAssets(
+      languageCode: languageCode,
+    );
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(kSupportDisplayNamePrefsKey, label);
     } catch (_) {}
+  }
+
+  static Future<String> readSupportDisplayNameFromAssets({
+    String languageCode = 'en',
+  }) async {
+    final candidates = <String>{
+      languageCode,
+      'en',
+    };
+    for (final code in candidates) {
+      try {
+        final raw = await rootBundle.loadString(
+          '$_kTranslationsAssetPath/$code.json',
+        );
+        final map = jsonDecode(raw) as Map<String, dynamic>;
+        final value = map[_kSupportDisplayNameTranslationKey]?.toString().trim();
+        if (value != null && value.isNotEmpty) {
+          return value;
+        }
+      } catch (_) {}
+    }
+    return kDefaultSupportDisplayName;
   }
 
   static Future<String> _resolveSupportDisplayName(String? fcmDisplayName) async {
@@ -234,9 +277,20 @@ class CallKitService {
       if (cached != null && cached.isNotEmpty) return cached;
     } catch (_) {}
 
-    final translated = _supportDisplayName();
-    if (translated != 'call_support_display_name') return translated;
-    return kDefaultSupportDisplayName;
+    return readSupportDisplayNameFromAssets(
+      languageCode: await _preferredLanguageCode(),
+    );
+  }
+
+  static Future<String> _preferredLanguageCode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString('locale');
+      if (stored != null && stored.isNotEmpty) {
+        return stored.split(RegExp('[-_]')).first;
+      }
+    } catch (_) {}
+    return 'en';
   }
 
   static bool isIncomingCallFcm(Map<String, dynamic> data) {
@@ -244,14 +298,6 @@ class CallKitService {
     if (type == 'incoming_call') return true;
     final notificationType = data['notification_type']?.toString() ?? '';
     return notificationType == 'incoming_call';
-  }
-
-  static String _supportDisplayName() {
-    try {
-      return 'call_support_display_name'.tr();
-    } catch (_) {
-      return 'Munawwara Care';
-    }
   }
 
   /// Android: `endCall` alone does not remove the incoming-call tray notification;
@@ -481,7 +527,6 @@ class CallKitService {
       return true;
     }
 
-    final type = data['type'];
     if (!isIncomingCallFcm(data)) return false;
 
     final callerId = data['callerId'] ?? '';

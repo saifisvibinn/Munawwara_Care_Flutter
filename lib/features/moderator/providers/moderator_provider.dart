@@ -327,6 +327,9 @@ class ModeratorState {
 // ── Notifier ──────────────────────────────────────────────────────────────────
 
 class ModeratorNotifier extends Notifier<ModeratorState> {
+  DateTime? _lastDashboardLoad;
+  Future<void>? _dashboardLoadInFlight;
+
   @override
   ModeratorState build() => const ModeratorState();
 
@@ -356,7 +359,28 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
   }
 
   // Load all groups + their pilgrims
-  Future<void> loadDashboard({bool silently = false}) async {
+  Future<void> loadDashboard({bool silently = false, bool force = false}) async {
+    final now = DateTime.now();
+    if (!force &&
+        _lastDashboardLoad != null &&
+        now.difference(_lastDashboardLoad!).inSeconds < 10) {
+      return;
+    }
+    if (_dashboardLoadInFlight != null) {
+      await _dashboardLoadInFlight;
+      return;
+    }
+
+    _lastDashboardLoad = now;
+    _dashboardLoadInFlight = _loadDashboardImpl(silently);
+    try {
+      await _dashboardLoadInFlight;
+    } finally {
+      _dashboardLoadInFlight = null;
+    }
+  }
+
+  Future<void> _loadDashboardImpl(bool silently) async {
     if (!silently) state = state.copyWith(isLoading: true, clearError: true);
     try {
       final resp = await ApiService.dio.get('/groups/dashboard');

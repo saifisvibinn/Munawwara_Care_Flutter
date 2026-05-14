@@ -178,22 +178,39 @@ class _ModeratorDashboardScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Subscribe for RouteAware callbacks
-      final route = ModalRoute.of(context);
-      if (route != null) {
-        AppRouter.moderatorRouteObserver.subscribe(this, route);
-      }
-      await ref.read(authProvider.notifier).hydrateFromCache();
-      await ref.read(moderatorProvider.notifier).hydrateFromCache();
-      await ref.read(moderatorProvider.notifier).loadDashboard();
-      await ref.read(moderatorSosEngagementProvider.notifier).refresh();
-      if (mounted) {
-        setState(() => _isInitializingDashboard = false);
-      }
-      // Connect socket with this moderator's identity
-      final auth = ref.read(authProvider);
-      if (auth.userId != null) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_bootstrapDashboard());
+    });
+  }
+
+  Future<void> _bootstrapDashboard() async {
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      AppRouter.moderatorRouteObserver.subscribe(this, route);
+    }
+    await ref.read(authProvider.notifier).hydrateFromCache();
+    await ref.read(moderatorProvider.notifier).hydrateFromCache();
+    if (mounted) {
+      setState(() => _isInitializingDashboard = false);
+    }
+
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_loadRemoteDashboardState());
+    });
+  }
+
+  Future<void> _loadRemoteDashboardState() async {
+    await ref.read(moderatorProvider.notifier).loadDashboard();
+    await ref.read(moderatorSosEngagementProvider.notifier).refresh();
+    if (!mounted) return;
+    _connectModeratorRealtime();
+  }
+
+  void _connectModeratorRealtime() {
+    final auth = ref.read(authProvider);
+    if (auth.userId != null) {
         _globalNavBeacon = ModeratorGlobalNavBeaconController(ref);
         final socketUrl = ApiService.socketOrigin;
         // Register before connect so a fast handshake never misses join + beacon.
@@ -386,8 +403,7 @@ class _ModeratorDashboardScreenState
             AppLogger.e('[ModeratorDashboard] new_message handler error: $e');
           }
         });
-      }
-    });
+    }
   }
 
   @override
@@ -543,7 +559,7 @@ class _ModeratorDashboardScreenState
                             setState(() => _currentTab = 4),
                       ), // 0: Groups
                       const PilgrimProvisioningScreen(), // 1: Provisioning
-                      const SystemRemindersScreen(), // 2: Reminders
+                      SystemRemindersScreen(isTabActive: _currentTab == 2), // 2
                       const ModeratorProfileScreen(), // 3: Profile
                       const AlertsTab(), // 4: Alerts
                     ],
@@ -1004,8 +1020,9 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
     return SafeArea(
       child: RefreshIndicator(
         color: AppColors.primary,
-        onRefresh: () async =>
-            ref.read(moderatorProvider.notifier).loadDashboard(),
+        onRefresh: () async => ref
+            .read(moderatorProvider.notifier)
+            .loadDashboard(force: true),
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
@@ -1317,7 +1334,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                       TextButton.icon(
                         onPressed: () => ref
                             .read(moderatorProvider.notifier)
-                            .loadDashboard(),
+                            .loadDashboard(force: true),
                         icon: Icon(
                           Symbols.refresh,
                           size: 18.w,

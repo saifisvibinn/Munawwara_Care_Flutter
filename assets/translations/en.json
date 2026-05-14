@@ -312,6 +312,7 @@
   "call_accept": "Accept",
   "call_internet": "Internet Call",
   "call_calling": "Calling...",
+  "call_connecting": "Connecting...",
   "call_declined": "Call declined",
   "call_busy": "User is busy",
   "call_cancelled": "Call cancelled",

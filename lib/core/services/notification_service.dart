@@ -20,7 +20,10 @@ import '../../features/pilgrim/screens/group_inbox_screen.dart';
 import '../../features/moderator/screens/group_messages_screen.dart';
 import '../../features/moderator/services/sos_alert_coordinator.dart';
 import '../../features/notifications/screens/alerts_tab_v2.dart';
+import '../../features/calling/calling_scope.dart';
+import '../../features/shared/providers/message_provider.dart';
 import '../theme/app_colors.dart';
+import '../utils/route_id_utils.dart';
 
 /// Wait after the urgent notification sound before starting TTS (extra 2 s).
 const Duration kUrgentAlertToTtsDelay = Duration(milliseconds: 4200);
@@ -354,6 +357,11 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  Future<void>? _initializationFuture;
+
+  Future<void> ensureInitialized() {
+    return _initializationFuture ??= initialize();
+  }
 
   // ── Initialize ─────────────────────────────────────────────────────────────
 
@@ -674,7 +682,7 @@ class NotificationService {
   static void navigateFromNotificationData(Map<String, dynamic> data) {
     final notificationType =
         data['notification_type']?.toString() ?? data['type']?.toString() ?? '';
-    final groupId = data['group_id']?.toString() ?? '';
+    final groupId = normalizeRouteId(data['group_id']?.toString() ?? '');
     final groupName = data['group_name']?.toString() ?? '';
 
     final messageType = data['messageType']?.toString() ?? '';
@@ -746,8 +754,15 @@ class NotificationService {
       return;
     }
 
-    // Import lazily to avoid circular deps — these are pushed imperatively
-    // exactly like the rest of the app already does.
+    final container = CallingScope.riverpod;
+    if (container != null) {
+      final notifier = container.read(messageProvider.notifier);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifier.setActiveGroup(groupId);
+        unawaited(notifier.loadMessages(groupId));
+      });
+    }
+
     nav.push(
       MaterialPageRoute(
         builder: (_) =>
@@ -854,7 +869,12 @@ class NotificationService {
       for (final pair in payload.split('&')) {
         final idx = pair.indexOf('=');
         if (idx > 0) {
-          map[pair.substring(0, idx)] = pair.substring(idx + 1);
+          final key = pair.substring(0, idx);
+          var value = pair.substring(idx + 1);
+          if (key == 'group_id') {
+            value = normalizeRouteId(value);
+          }
+          map[key] = value;
         }
       }
       return map;
@@ -869,18 +889,24 @@ class NotificationService {
 // Pilgrims see GroupInboxScreen; moderators see GroupMessagesScreen.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ChatRouteResolver extends StatelessWidget {
+class _ChatRouteResolver extends StatefulWidget {
   final String groupId;
   final String groupName;
 
   const _ChatRouteResolver({required this.groupId, required this.groupName});
 
   @override
+  State<_ChatRouteResolver> createState() => _ChatRouteResolverState();
+}
+
+class _ChatRouteResolverState extends State<_ChatRouteResolver> {
+  late final Future<String?> _roleFuture = _getRole();
+  Future<String?>? _userIdFuture;
+
+  @override
   Widget build(BuildContext context) {
-    // We need to check the role from SharedPreferences synchronously.
-    // Use a FutureBuilder to load it.
     return FutureBuilder<String?>(
-      future: _getRole(),
+      future: _roleFuture,
       builder: (context, snap) {
         if (!snap.hasData) {
           return const Scaffold(
@@ -889,12 +915,29 @@ class _ChatRouteResolver extends StatelessWidget {
         }
         final role = snap.data;
         if (role == 'pilgrim') {
-          // Lazy import — pilgrim inbox
-          return _buildPilgrimInbox();
-        } else {
-          // Moderator / admin chat
-          return _buildModeratorChat();
+          return GroupInboxScreen(
+            groupId: widget.groupId,
+            groupName:
+                widget.groupName.isNotEmpty ? widget.groupName : 'Messages',
+          );
         }
+        _userIdFuture ??= _getUserId();
+        return FutureBuilder<String?>(
+          future: _userIdFuture,
+          builder: (context, userSnap) {
+            if (!userSnap.hasData) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            return GroupMessagesScreen(
+              groupId: widget.groupId,
+              groupName:
+                  widget.groupName.isNotEmpty ? widget.groupName : 'Messages',
+              currentUserId: userSnap.data ?? '',
+            );
+          },
+        );
       },
     );
   }
@@ -902,32 +945,6 @@ class _ChatRouteResolver extends StatelessWidget {
   Future<String?> _getRole() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('user_role');
-  }
-
-  Widget _buildPilgrimInbox() {
-    // Import at call-site to keep notification_service lean
-    return GroupInboxScreen(
-      groupId: groupId,
-      groupName: groupName.isNotEmpty ? groupName : 'Messages',
-    );
-  }
-
-  Widget _buildModeratorChat() {
-    return FutureBuilder<String?>(
-      future: _getUserId(),
-      builder: (context, snap) {
-        if (!snap.hasData) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        return GroupMessagesScreen(
-          groupId: groupId,
-          groupName: groupName.isNotEmpty ? groupName : 'Messages',
-          currentUserId: snap.data ?? '',
-        );
-      },
-    );
   }
 
   Future<String?> _getUserId() async {

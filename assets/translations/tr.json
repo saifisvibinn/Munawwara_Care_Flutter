@@ -275,6 +275,7 @@
   "call_accept": "Kabul Et",
   "call_internet": "Internet Araması",
   "call_calling": "Arıyor...",
+  "call_connecting": "Bağlanıyor...",
   "call_declined": "Arama reddedildi",
   "call_busy": "Kullanıcı meşgul",
   "call_cancelled": "Arama iptal edildi",

@@ -48,13 +48,9 @@ class AppTheme {
     labelSmall: TextStyle(fontFamily: 'Lexend', fontWeight: FontWeight.w400),
   );
 
-  static ThemeData get lightTheme {
-    return _buildTheme(Brightness.light);
-  }
+  static final ThemeData lightTheme = _buildTheme(Brightness.light);
 
-  static ThemeData get darkTheme {
-    return _buildTheme(Brightness.dark);
-  }
+  static final ThemeData darkTheme = _buildTheme(Brightness.dark);
 
   static ThemeData _buildTheme(Brightness brightness) {
     final isDark = brightness == Brightness.dark;

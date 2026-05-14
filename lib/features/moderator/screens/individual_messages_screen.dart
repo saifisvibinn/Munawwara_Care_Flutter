@@ -121,6 +121,13 @@ class _IndividualMessagesScreenState
     await ref.read(messageProvider.notifier).loadMessages(widget.groupId);
   }
 
+  Future<void> _refreshMessages() async {
+    await ref.read(messageProvider.notifier).loadMessages(
+          widget.groupId,
+          force: true,
+        );
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -600,7 +607,7 @@ class _IndividualMessagesScreenState
 
     return RefreshIndicator(
       color: AppColors.primary,
-      onRefresh: _load,
+      onRefresh: _refreshMessages,
       child: ListView.builder(
         controller: _scrollController,
         padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),

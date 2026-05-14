@@ -34,7 +34,7 @@ String get _agoraAppId => dotenv.env['AGORA_APP_ID'] ?? '';
 // Call State
 // ─────────────────────────────────────────────────────────────────────────────
 
-enum CallStatus { idle, calling, ringing, connected, ended }
+enum CallStatus { idle, calling, ringing, connecting, connected, ended }
 
 class CallState {
   final CallStatus status;
@@ -75,6 +75,7 @@ class CallState {
   bool get isInCall =>
       status == CallStatus.calling ||
       status == CallStatus.ringing ||
+      status == CallStatus.connecting ||
       status == CallStatus.connected;
 
   String get formattedDuration {
@@ -393,7 +394,7 @@ class CallNotifier extends Notifier<CallState> {
       );
       _pendingChannelName = null;
       _pendingFromId = null;
-      _startTimer();
+      _beginConnectedTimer();
       // Android: mark call connected so native prefs use isAccepted=true; otherwise
       // endCall() routes to DECLINE and never stops CallkitNotificationService FGS.
       final callKitId = await CallKitService.instance
@@ -493,7 +494,8 @@ class CallNotifier extends Notifier<CallState> {
     }
     // If moderator ended an active call, signal "responding" to the pilgrim
     final isMod = ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
-    final wasActive = state.status == CallStatus.connected;
+    final wasActive = state.status == CallStatus.connected ||
+        state.status == CallStatus.connecting;
     if (isMod && wasActive && remoteId != null && remoteId.isNotEmpty) {
       unawaited(SosAlertCoordinator.afterModeratorEndedCall(remoteId));
     }
@@ -772,22 +774,29 @@ class CallNotifier extends Notifier<CallState> {
   }
 
   void _onAnswer(dynamic data) {
-    _stopRingPoll(); // call was answered — stop polling
-    _startTimer();
+    _stopRingPoll();
+    if (state.status == CallStatus.connected && _callTimer != null) {
+      return;
+    }
+    if (state.status == CallStatus.connecting) {
+      return;
+    }
     Map<String, dynamic>? map;
     if (data is Map) {
       map = Map<String, dynamic>.from(data);
     }
     final answererId = map?['from']?.toString();
+    if (state.status != CallStatus.calling) {
+      return;
+    }
     state = state.copyWith(
-      status: CallStatus.connected,
-      durationSeconds: 0,
+      status: CallStatus.connecting,
       isGroupRingingOut: false,
       remoteUserId: (answererId != null && answererId.isNotEmpty)
           ? answererId
           : state.remoteUserId,
     );
-    _syncPreConnectRingback(CallStatus.connected);
+    _syncPreConnectRingback(CallStatus.connecting);
   }
 
   void _onRemoteDecline(dynamic _) {
@@ -877,6 +886,7 @@ class CallNotifier extends Notifier<CallState> {
         },
         onUserJoined: (connection, remoteUid, elapsed) {
           AppLogger.i('[Agora] Remote user $remoteUid joined');
+          _onRemoteUserJoinedMedia();
         },
         onUserOffline: (connection, remoteUid, reason) {
           AppLogger.i('[Agora] Remote user $remoteUid offline: $reason');
@@ -895,6 +905,30 @@ class CallNotifier extends Notifier<CallState> {
         },
       ),
     );
+  }
+
+  void _onRemoteUserJoinedMedia() {
+    if (state.status != CallStatus.calling &&
+        state.status != CallStatus.connecting &&
+        state.status != CallStatus.connected) {
+      return;
+    }
+    _beginConnectedTimer();
+  }
+
+  void _beginConnectedTimer() {
+    if (_callTimer != null) {
+      if (state.status == CallStatus.connecting) {
+        state = state.copyWith(status: CallStatus.connected);
+      }
+      return;
+    }
+    state = state.copyWith(
+      status: CallStatus.connected,
+      durationSeconds: 0,
+    );
+    _syncPreConnectRingback(CallStatus.connected);
+    _startTimer();
   }
 
   void _startTimer() {

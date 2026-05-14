@@ -302,6 +302,7 @@
   "call_accept": "قبول",
   "call_internet": "مكالمة إنترنت",
   "call_calling": "جارٍ الاتصال...",
+  "call_connecting": "جارٍ الربط...",
   "call_declined": "تم رفض المكالمة",
   "call_busy": "المستخدم مشغول",
   "call_cancelled": "تم إلغاء المكالمة",

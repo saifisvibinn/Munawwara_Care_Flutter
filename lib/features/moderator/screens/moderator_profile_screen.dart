@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +10,7 @@ import '../../../core/widgets/custom_dialog.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/callkit_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'moderator_profile_edit_screen.dart';
 import '../../shared/widgets/moderator_avatar.dart';
@@ -255,6 +258,11 @@ class _ModeratorProfileScreenState
                               final code = lang['code']!;
                               setState(() => _selectedLocale = code);
                               context.setLocale(Locale(code));
+                              unawaited(
+                                CallKitService.refreshCachedSupportDisplayName(
+                                  languageCode: code,
+                                ),
+                              );
                               try {
                                 await ApiService.dio.put(
                                   '/auth/update-language',

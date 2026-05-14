@@ -221,39 +221,62 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _sosPulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
+    );
 
-    unawaited(_initLocationHealth());
-
-    // GPS + permission: start immediately (do not wait for map tab or dashboard).
-    unawaited(_initLocation());
-
-    // Load data after first frame so the provider is ready
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      AppLogger.d('[PilgrimDashboard] Starting loadDashboard...');
-      try {
-        await ref.read(authProvider.notifier).hydrateFromCache();
-        await ref.read(pilgrimProvider.notifier).hydrateFromCache();
-        await ref.read(pilgrimProvider.notifier).loadDashboard();
-        // Hot restart resilience: if SOS is still active, restore last known
-        // UI status (being handled / callback) instead of resetting to "sent".
-        await _restoreSosUiIfNeeded();
-        final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
-        AppLogger.d('[PilgrimDashboard] Dashboard loaded. GroupId: $groupId');
-
-        if (groupId != null) {
-          ref.read(messageProvider.notifier).fetchUnreadCount(groupId);
-        }
-      } catch (e) {
-        AppLogger.e('[PilgrimDashboard] Error loading dashboard: $e');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _sosPulseController.repeat(reverse: true);
       }
+      unawaited(_bootstrapDashboard());
+    });
+  }
+
+  Future<void> _bootstrapDashboard() async {
+    try {
+      await ref.read(authProvider.notifier).hydrateFromCache();
+      await ref.read(pilgrimProvider.notifier).hydrateFromCache();
       if (mounted) {
         setState(() => _isInitializingDashboard = false);
       }
+    } catch (e) {
+      AppLogger.e('[PilgrimDashboard] Error loading dashboard: $e');
+      if (mounted) {
+        setState(() => _isInitializingDashboard = false);
+      }
+    }
 
-      // Connect socket with this pilgrim's identity
-      final auth = ref.read(authProvider);
-      if (auth.userId != null) {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_loadRemoteDashboardState());
+    });
+  }
+
+  Future<void> _loadRemoteDashboardState() async {
+    unawaited(_initLocationHealth());
+    unawaited(_initLocation());
+
+    try {
+      await ref.read(pilgrimProvider.notifier).loadDashboard();
+      await _restoreSosUiIfNeeded();
+      final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
+      AppLogger.d('[PilgrimDashboard] Dashboard loaded. GroupId: $groupId');
+
+      if (groupId != null) {
+        ref.read(messageProvider.notifier).fetchUnreadCount(groupId);
+      }
+    } catch (e) {
+      AppLogger.e('[PilgrimDashboard] Error loading dashboard: $e');
+    }
+
+    if (!mounted) return;
+    _connectPilgrimRealtime();
+    await _finishDashboardWarmup();
+  }
+
+  void _connectPilgrimRealtime() {
+    final auth = ref.read(authProvider);
+    if (auth.userId != null) {
         // Re-join group room on every (re)connect. Register BEFORE connect so we
         // can't miss a fast connect on hot restart.
         SocketService.onConnected(_onSocketConnected);
@@ -579,27 +602,26 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             AppLogger.e('[PilgrimDashboard] sos-resolved handler error: $e');
           }
         });
-      }
-      // Fetch notification badge count
-      ref.read(notificationProvider.notifier).fetchUnreadCount();
-      ref.read(missedCallsUnreadProvider.notifier).refresh();
-      // Fire weather load immediately (don't await — let it run in parallel)
-      _loadWeatherAlert(force: true);
-      final profileOk = await ref.read(authProvider.notifier).fetchProfile();
+    }
+  }
+
+  Future<void> _finishDashboardWarmup() async {
+    if (!mounted) return;
+    ref.read(notificationProvider.notifier).fetchUnreadCount();
+    ref.read(missedCallsUnreadProvider.notifier).refresh();
+    unawaited(_loadWeatherAlert(force: true));
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated) {
+      context.go('/login');
+      return;
+    }
+    final gIdForAreas = ref.read(pilgrimProvider).groupInfo?.groupId;
+    if (gIdForAreas != null) {
+      ref.read(suggestedAreaProvider.notifier).load(gIdForAreas);
+    }
+    _weatherRefreshTimer ??= Timer.periodic(const Duration(hours: 3), (_) {
       if (!mounted) return;
-      if (!profileOk) {
-        context.go('/login');
-        return;
-      }
-      // Load suggested areas if in a group
-      final gIdForAreas = ref.read(pilgrimProvider).groupInfo?.groupId;
-      if (gIdForAreas != null) {
-        ref.read(suggestedAreaProvider.notifier).load(gIdForAreas);
-      }
-      _weatherRefreshTimer ??= Timer.periodic(const Duration(hours: 3), (_) {
-        if (!mounted) return;
-        _loadWeatherAlert(force: true);
-      });
+      _loadWeatherAlert(force: true);
     });
   }
 
@@ -1119,7 +1141,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _sosResolvedUiTimer = null;
     final call = ref.read(callProvider);
     if (call.status == CallStatus.calling ||
-        call.status == CallStatus.ringing) {
+        call.status == CallStatus.ringing ||
+        call.status == CallStatus.connecting) {
       ref.read(callProvider.notifier).cancelOutgoingRing();
     }
     if (mounted) {
@@ -1250,6 +1273,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       if (next.status == CallStatus.ended && prev != null) {
         final wasInVoice = prev.status == CallStatus.calling ||
             prev.status == CallStatus.ringing ||
+            prev.status == CallStatus.connecting ||
             prev.status == CallStatus.connected;
         final shouldShowCallback =
             wasInVoice && ref.read(pilgrimProvider).sosActive &&

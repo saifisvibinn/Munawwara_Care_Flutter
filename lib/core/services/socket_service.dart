@@ -125,7 +125,6 @@ class SocketService {
     if (_socket != null) {
       _socket!.off(event);
       _socket!.on(event, handler);
-      AppLogger.d('[SocketService] Listener registered: $event');
     }
   }
 
@@ -166,7 +165,6 @@ class SocketService {
     for (final entry in _pendingListeners.entries) {
       _socket!.off(entry.key);
       _socket!.on(entry.key, entry.value);
-      AppLogger.d('[SocketService] Applied pending listener: ${entry.key}');
     }
   }
 }

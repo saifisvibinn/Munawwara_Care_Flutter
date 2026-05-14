@@ -128,7 +128,6 @@ class AuthNotifier extends Notifier<AuthState> {
   static const _deviceBindingIdKey = 'device_binding_id';
 
   /// Called once from main.dart after the FCM token is obtained.
-  /// Kept for compatibility but no longer relied upon — see _registerFcmToken().
   static void setFcmTokenGetter(String? Function() getter) {}
 
   @override
@@ -219,7 +218,6 @@ class AuthNotifier extends Notifier<AuthState> {
         }
 
         await _requestNotificationPermissions();
-        await _registerFcmToken();
       } on DioException catch (e) {
         final code = e.response?.statusCode;
         if (code == 401) {
@@ -254,7 +252,6 @@ class AuthNotifier extends Notifier<AuthState> {
         );
         await _mergeAuthMeFromCache(userId);
         await _requestNotificationPermissions();
-        await _registerFcmToken();
       }
 
       AppLogger.d('AuthNotifier: restore complete');
@@ -311,6 +308,7 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> _requestNotificationPermissions() async {
     if (Platform.isAndroid || Platform.isIOS) {
       try {
+        await NotificationService.instance.ensureInitialized();
         AppLogger.d('AuthNotifier: requesting notification permissions');
         await FirebaseMessaging.instance.requestPermission(
           alert: true,
@@ -327,22 +325,6 @@ class AuthNotifier extends Notifier<AuthState> {
       } catch (e) {
         AppLogger.e('AuthNotifier permission request failed: $e');
       }
-    }
-  }
-
-  // ── Register FCM token with the backend ────────────────────────────────────
-  // Fetches the current FCM token directly from Firebase and sends it to the
-  // backend. Self-contained — no dependency on main.dart or any global state.
-  Future<void> _registerFcmToken() async {
-    try {
-      final fcmToken = await FirebaseMessaging.instance.getToken();
-      if (fcmToken != null) {
-        await updateFcmToken(fcmToken);
-      } else {
-        AppLogger.w('⚠️ FCM token is null — device may not support FCM');
-      }
-    } catch (e) {
-      AppLogger.e('⚠️ Failed to get FCM token from Firebase: $e');
     }
   }
 
@@ -401,9 +383,8 @@ class AuthNotifier extends Notifier<AuthState> {
         fullName: data['full_name'] as String,
       );
 
-      // Request permissions and register FCM token immediately after login
+      // Request permissions; FCM registration is handled by MyApp auth listener.
       await _requestNotificationPermissions();
-      await _registerFcmToken();
 
       return true;
     } on DioException catch (e) {
@@ -444,9 +425,8 @@ class AuthNotifier extends Notifier<AuthState> {
         fullName: data['full_name'] as String,
       );
 
-      // Request permissions and register FCM token immediately after one-time login
+      // Request permissions; FCM registration is handled by MyApp auth listener.
       await _requestNotificationPermissions();
-      await _registerFcmToken();
 
       return true;
     } on DioException catch (e) {
@@ -628,6 +608,12 @@ class AuthNotifier extends Notifier<AuthState> {
   // ── Update FCM Token ────────────────────────────────────────────────────────
   Future<void> updateFcmToken(String fcmToken) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastRegistered = prefs.getString('last_registered_fcm_token');
+      if (lastRegistered == fcmToken) {
+        return;
+      }
+
       AppLogger.d(
         'Attempting to register FCM token with backend: ${fcmToken.substring(0, min(20, fcmToken.length))}...',
       );
@@ -637,8 +623,6 @@ class AuthNotifier extends Notifier<AuthState> {
         data: {'fcm_token': fcmToken},
       );
 
-      // Save it locally just for reference, though we no longer short-circuit
-      final prefs = await SharedPreferences.getInstance();
       await prefs.setString('last_registered_fcm_token', fcmToken);
 
       AppLogger.i(

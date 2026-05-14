@@ -73,10 +73,13 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
 
   /// Message being quoted for the next send (any sender, inc. self).
   GroupMessage? _replyTarget;
+  late final MessageNotifier _messageNotifier;
+  bool _initialLoadDone = false;
 
   @override
   void initState() {
     super.initState();
+    _messageNotifier = ref.read(messageProvider.notifier);
 
     // Audio listeners
     _player.onPositionChanged.listen((p) {
@@ -95,10 +98,16 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(messageProvider.notifier).setActiveGroup(widget.groupId);
+      if (!mounted) return;
+      _messageNotifier.setActiveGroup(widget.groupId);
+      unawaited(
+        _load().then((_) {
+          if (!mounted) return;
+          _scrollToBottom(jump: true);
+        }),
+      );
       ref.read(messageProvider.notifier).markAllRead(widget.groupId);
       ref.read(moderatorProvider.notifier).loadDashboard(silently: true);
-      _load().then((_) => _scrollToBottom(jump: true));
     });
   }
 
@@ -110,12 +119,8 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
     _recorder.dispose();
     _player.dispose();
     SpeechService.stop();
-    // Use addPostFrameCallback or delay to prevent state updates during build/dispose
-    Future.microtask(() {
-      if (ref.exists(messageProvider)) {
-        ref.read(messageProvider.notifier).setActiveGroup(null);
-      }
-    });
+    final notifier = _messageNotifier;
+    Future.microtask(() => notifier.setActiveGroup(null));
     super.dispose();
   }
 
@@ -123,6 +128,13 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
 
   Future<void> _load() async {
     await ref.read(messageProvider.notifier).loadMessages(widget.groupId);
+  }
+
+  Future<void> _refreshMessages() async {
+    await ref.read(messageProvider.notifier).loadMessages(
+          widget.groupId,
+          force: true,
+        );
   }
 
   void _scrollToBottom({bool jump = false}) {
@@ -491,9 +503,16 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   Widget build(BuildContext context) {
     final msgState = ref.watch(messageProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final showLoading =
+        msgState.isLoading || (!_initialLoadDone && msgState.messages.isEmpty);
 
     // Scroll to bottom when new socket messages arrive
     ref.listen(messageProvider, (prev, next) {
+      final loadFinished =
+          (prev?.isLoading ?? false) && !next.isLoading;
+      if (loadFinished && mounted) {
+        setState(() => _initialLoadDone = true);
+      }
       if (!next.isLoading &&
           (prev?.messages.length ?? 0) < next.messages.length) {
         _scrollToBottom();
@@ -509,7 +528,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
               isDark: isDark,
               title: widget.groupName,
               subtitle: 'msg_broadcasts'.tr(),
-              onRefresh: _load,
+              onRefresh: _refreshMessages,
               onBack: () => Navigator.of(context).maybePop(),
               showBrandAvatar: true,
             ),
@@ -518,7 +537,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
               color: GroupChatTheme.filterStripBackground(isDark),
             ),
             Expanded(
-              child: msgState.isLoading
+              child: showLoading
                   ? const Center(
                       child: CircularProgressIndicator(
                         color: AppColors.primary,
@@ -560,7 +579,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
 
     return RefreshIndicator(
       color: AppColors.primary,
-      onRefresh: _load,
+      onRefresh: _refreshMessages,
       child: ListView.builder(
         controller: _scrollController,
         reverse: true,

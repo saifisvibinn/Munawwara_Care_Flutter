@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/callkit_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
 class PilgrimProfileScreen extends ConsumerStatefulWidget {
@@ -319,6 +320,11 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                               final code = lang['code']!;
                               setState(() => _selectedLocale = code);
                               context.setLocale(Locale(code));
+                              unawaited(
+                                CallKitService.refreshCachedSupportDisplayName(
+                                  languageCode: code,
+                                ),
+                              );
                               try {
                                 await ApiService.dio.put(
                                   '/auth/update-language',

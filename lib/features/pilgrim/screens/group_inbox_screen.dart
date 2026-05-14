@@ -82,10 +82,12 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   /// Skips duplicate API work per message id (until locale changes).
   final Set<String> _autoTranslateAttempted = {};
   String? _autoTranslateLocale;
+  late final MessageNotifier _messageNotifier;
 
   @override
   void initState() {
     super.initState();
+    _messageNotifier = ref.read(messageProvider.notifier);
 
     // Audio listeners
     _player.onPositionChanged.listen((pos) {
@@ -104,10 +106,10 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _load();
+      if (!mounted) return;
+      _messageNotifier.setActiveGroup(widget.groupId);
+      unawaited(_load());
     });
-
-    // Listen for external scroll-to-bottom requests (e.g. tab switch)
     widget.scrollNotifier?.addListener(_onExternalScroll);
   }
 
@@ -131,13 +133,35 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   }
 
   void _onExternalScroll() {
-    // Reload messages + mark read + scroll to bottom
-    _load();
+    _openChatTab();
+  }
+
+  Future<void> _openChatTab() async {
+    if (!mounted) return;
+    _preLoadUnread = ref.read(messageProvider).unreadCount;
+    await ref.read(messageProvider.notifier).markAllRead(widget.groupId);
+    _scrollToBottom(jump: true);
+    await ref.read(messageProvider.notifier).loadMessages(widget.groupId);
+    _queueAutoTranslateForCurrentMessages();
+  }
+
+  Future<void> _refreshMessages() async {
+    _preLoadUnread = ref.read(messageProvider).unreadCount;
+    await ref.read(messageProvider.notifier).loadMessages(
+          widget.groupId,
+          force: true,
+        );
+    await ref.read(messageProvider.notifier).markAllRead(widget.groupId);
+    _queueAutoTranslateForCurrentMessages();
   }
 
   @override
   void dispose() {
     widget.scrollNotifier?.removeListener(_onExternalScroll);
+    if (widget.scrollNotifier == null) {
+      final notifier = _messageNotifier;
+      Future.microtask(() => notifier.setActiveGroup(null));
+    }
     _player.dispose();
     _sfxPlayer.dispose();
     SpeechService.stop();
@@ -172,11 +196,16 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   // ── Data ──────────────────────────────────────────────────────────────────
 
   Future<void> _load() async {
-    // Capture unread count BEFORE clearing it so we know which to highlight
     _preLoadUnread = ref.read(messageProvider).unreadCount;
     await ref.read(messageProvider.notifier).loadMessages(widget.groupId);
     await ref.read(messageProvider.notifier).markAllRead(widget.groupId);
+    _queueAutoTranslateForCurrentMessages();
     // Scroll + highlight triggered by ref.listen detecting isLoading → false
+  }
+
+  void _queueAutoTranslateForCurrentMessages() {
+    if (!mounted) return;
+    _queueAutoTranslate(ref.read(messageProvider).messages);
   }
 
   void _scrollToBottom({bool jump = false}) {
@@ -196,8 +225,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     });
   }
 
-  List<GroupMessage> get _filtered {
-    final all = ref.read(messageProvider).messages;
+  List<GroupMessage> _filterMessages(List<GroupMessage> all) {
     return switch (_filter) {
       'private' => all.where((m) => m.recipientId != null).toList(),
       _ => all,
@@ -318,8 +346,10 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   @override
   Widget build(BuildContext context) {
     final msgState = ref.watch(messageProvider);
-    final filtered = _filtered;
+    final filtered = _filterMessages(msgState.messages);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final showLoading =
+        msgState.isLoading || (!_initialLoadDone && filtered.isEmpty);
 
     // Scroll & highlight driven by provider changes
     ref.listen(messageProvider, (prev, next) {
@@ -397,13 +427,13 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
               isDark: isDark,
               title: 'call_support_display_name'.tr(),
               subtitle: 'inbox_title'.tr(),
-              onRefresh: _load,
+              onRefresh: _refreshMessages,
               onBack: () => Navigator.of(context).maybePop(),
               showBrandAvatar: true,
             ),
             _buildFilterRow(isDark),
             Expanded(
-              child: msgState.isLoading
+              child: showLoading
                   ? const Center(
                       child: CircularProgressIndicator(
                         color: AppColors.primary,
@@ -413,7 +443,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
                   ? _buildEmpty()
                   : RefreshIndicator(
                       color: AppColors.primary,
-                      onRefresh: _load,
+                      onRefresh: _refreshMessages,
                       child: ListView.builder(
                         controller: _scrollController,
                         reverse: true,

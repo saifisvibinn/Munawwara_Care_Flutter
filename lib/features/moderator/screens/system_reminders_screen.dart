@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -14,7 +15,9 @@ import '../widgets/reminder_card.dart';
 import 'dart:async';
 
 class SystemRemindersScreen extends ConsumerStatefulWidget {
-  const SystemRemindersScreen({super.key});
+  const SystemRemindersScreen({super.key, this.isTabActive = true});
+
+  final bool isTabActive;
 
   @override
   ConsumerState<SystemRemindersScreen> createState() =>
@@ -34,10 +37,37 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _syncPilgrimAudienceWithGroups(ref.read(moderatorProvider).groups);
-      ref.read(reminderProvider.notifier).load();
+      if (widget.isTabActive) {
+        ref.read(reminderProvider.notifier).load();
+      }
     });
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) ref.read(reminderProvider.notifier).load();
+    _syncRefreshTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant SystemRemindersScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isTabActive != widget.isTabActive) {
+      _syncRefreshTimer();
+      if (widget.isTabActive) {
+        ref.read(reminderProvider.notifier).load();
+      }
+    }
+  }
+
+  void _syncRefreshTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    if (!widget.isTabActive) {
+      return;
+    }
+    final interval = kReleaseMode
+        ? const Duration(minutes: 2)
+        : const Duration(seconds: 30);
+    _refreshTimer = Timer.periodic(interval, (_) {
+      if (mounted && widget.isTabActive) {
+        ref.read(reminderProvider.notifier).load();
+      }
     });
   }
 

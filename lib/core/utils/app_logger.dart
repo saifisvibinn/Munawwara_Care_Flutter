@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 
 class AppLogger {
@@ -12,8 +13,17 @@ class AppLogger {
     ),
   );
 
-  static void v(dynamic message) => _logger.t(message); // Trace/Verbose
-  static void d(dynamic message) => _logger.d(message); // Debug
+  static void v(dynamic message) {
+    if (kDebugMode) {
+      _logger.t(message);
+    }
+  }
+
+  static void d(dynamic message) {
+    if (kDebugMode) {
+      _logger.d(message);
+    }
+  }
   static void i(dynamic message) => _logger.i(message); // Info
   static void w(dynamic message) => _logger.w(message); // Warning
   static void e(dynamic message, [dynamic error, StackTrace? stackTrace]) =>

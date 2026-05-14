@@ -275,6 +275,7 @@
   "call_accept": "Accepter",
   "call_internet": "Appel Internet",
   "call_calling": "Appel en cours...",
+  "call_connecting": "Connexion...",
   "call_declined": "Appel décliné",
   "call_busy": "Utilisateur occupé",
   "call_cancelled": "Appel annulé",

@@ -1,324 +1,50 @@
+import 'dart:async';
+
+import 'package:easy_localization/easy_localization.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'dart:io';
-import 'dart:ui';
-import 'dart:isolate';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'core/bootstrap/app_startup.dart';
+import 'core/bootstrap/mobile_messaging_bootstrap.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/router/app_router.dart';
-import 'core/theme/app_theme.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'core/env/env_check.dart';
 import 'core/services/api_service.dart';
+import 'core/services/callkit_service.dart';
 import 'core/services/notification_service.dart';
-import 'features/moderator/services/sos_alert_coordinator.dart';
-import 'core/router/app_router.dart' show AppRouter;
+import 'core/theme/app_theme.dart';
+import 'core/utils/app_logger.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/calling/calling_scope.dart';
 import 'features/calling/native_call_coordinator.dart';
-import 'core/services/callkit_service.dart';
-import 'core/utils/app_logger.dart';
-import 'core/widgets/reminder_popup.dart';
-import 'core/services/incoming_chat_sfx.dart';
-import 'core/theme/app_colors.dart';
-
-// Global FCM token
-String? _globalFcmToken;
+import 'features/moderator/services/sos_alert_coordinator.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  AppLogger.d('main: after ensureInitialized');
-
-  // Attach CallKit listener as early as possible. On cold start from native
-  // accept action, event can fire very early and be missed if we subscribe
-  // after other async initialization tasks.
+  GoogleFonts.config.allowRuntimeFetching = false;
   NativeCallCoordinator.registerEarlyListeners();
 
-  await Firebase.initializeApp();
+  await Future.wait<void>([
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge),
+    prepareCoreRuntime(),
+  ]);
   AppLogger.i('Firebase initialized');
 
-  // ── Initialize Notification Service ───────────────────────────────────────
-  await NotificationService.instance.initialize();
-  AppLogger.i('Notification service initialized');
-
-  // ── Set up Firebase Background Message Handler ────────────────────────────
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   AppLogger.i('Background message handler registered');
-
-  if (Platform.isAndroid || Platform.isIOS) {
-    try {
-      // ── Get and Store FCM Token ───────────────────────────────────────────────
-      _globalFcmToken = await FirebaseMessaging.instance.getToken();
-      AppLogger.i('FCM token: $_globalFcmToken');
-
-      // ── Give AuthNotifier a way to read the current token ──────────────────
-      // This avoids a circular import (main ↔ auth_provider) while still
-      // letting _restoreSession() and login() call updateFcmToken directly.
-      AuthNotifier.setFcmTokenGetter(() => _globalFcmToken);
-
-      // ── Handle Token Refresh ──────────────────────────────────────────────────
-      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-        _globalFcmToken = newToken;
-        AppLogger.i('FCM token refreshed: $newToken');
-        // Re-register immediately if user is already authenticated
-        final c = CallingScope.riverpod;
-        if (c != null) {
-          final auth = c.read(authProvider);
-          if (auth.isAuthenticated) {
-            c.read(authProvider.notifier).updateFcmToken(newToken);
-          }
-        }
-      });
-
-      // ── Background Isolate Communication Port ───────────────────────────────
-      // Used to receive triggers from the background isolate (e.g. for reminders)
-      // when Android routes FCM messages to the background even if app is open.
-      final ReceivePort port = ReceivePort();
-      IsolateNameServer.removePortNameMapping('popup_port');
-      IsolateNameServer.registerPortWithName(port.sendPort, 'popup_port');
-      port.listen((dynamic data) {
-        if (data is Map && data['type'] == 'reminder_popup') {
-          AppLogger.i('🔔 Received popup trigger from background isolate');
-          final ctx = AppRouter.navigatorKey.currentContext;
-          if (ctx != null) {
-            String schedTime = '';
-            final rawTime = data['rawTime']?.toString() ?? '';
-            if (rawTime.isNotEmpty) {
-              try {
-                final parsed = DateTime.parse(rawTime).toLocal();
-                schedTime = 'reminder_popup_scheduled_for'.tr(
-                  namedArgs: {'time': DateFormat('HH:mm').format(parsed)},
-                );
-              } catch (_) {}
-            }
-            if (schedTime.isEmpty) {
-              schedTime = 'reminder_popup_scheduled_for'.tr(
-                namedArgs: {'time': DateFormat('HH:mm').format(DateTime.now())},
-              );
-            }
-            ReminderPopup.show(
-              ctx,
-              body: data['body']?.toString() ?? '',
-              scheduledTime: schedTime,
-            );
-            IncomingChatSfx.playNormalPop();
-          } else {
-            AppLogger.w('⚠️ No navigator context — cannot show reminder popup');
-          }
-        }
-      });
-
-      // ── Handle Foreground Messages ──────────────────────────────────────────
-      FirebaseMessaging.onMessage.listen((msg) async {
-        AppLogger.i('FCM onMessage: ${msg.notification?.title} ${msg.data}');
-        final notifType = msg.data['notification_type']?.toString() ?? '';
-        final dataType = msg.data['type']?.toString() ?? '';
-        final callControlType = CallKitService.fcmCallControlType(msg.data);
-        // ── call_declined / call_cancel arriving via FCM ────────────────────
-        // When the pilgrim's app is killed and declines, the backend's 30-second
-        // ring timeout fires and sends a silent FCM with type=call_declined
-        // directly to the moderator. Handle it here to immediately stop ringing.
-        if (callControlType == 'call_declined' ||
-            callControlType == 'call_cancel') {
-          NativeCallCoordinator.handleForegroundCallControl(msg.data);
-          return;
-        }
-        if (CallKitService.isIncomingCallFcm(msg.data)) {
-          await CallKitService.handleFcmMessage(msg);
-          return;
-        }
-        final msgType = msg.data['messageType']?.toString() ?? '';
-        final isReminderTts = msgType == 'reminder_tts';
-        final isUrgentTts =
-            dataType == 'urgent' &&
-            (msgType == 'tts' || msgType == 'reminder_tts');
-        final messageKey =
-            msg.data['message_id']?.toString() ?? msg.messageId ?? '';
-        // Skip tray + TTS for chat when foreground — socket +
-        // ChatNotificationHelper (in-app popup + playRobust) already handle UX.
-        // Urgent TTS must be included here; otherwise FCM also calls speakTts and
-        // speech plays twice. Reminder TTS uses messageType reminder_tts (not in
-        // chatMsgTypes) so it still flows to the reminder / speakTts branch below.
-        const chatMsgTypes = {'text', 'voice', 'image', 'tts', 'meetpoint'};
-        final isChatNotif =
-            notifType == 'new_message' || notifType == 'meetpoint';
-        final urgentChatNoNotifType =
-            notifType.isEmpty &&
-            dataType == 'urgent' &&
-            chatMsgTypes.contains(msgType);
-        if (isChatNotif || urgentChatNoNotifType) {
-          AppLogger.i(
-            'FCM onMessage: suppressed (socket + in-app chat / urgent TTS)',
-          );
-          return;
-        }
-        // SOS: one tray notification from FCM when backgrounded; in foreground
-        // show the in-app dialog only — do not stack a second local notification.
-        if (notifType == 'sos_alert') {
-          AppLogger.i(
-            'FCM onMessage: SOS — in-app dialog (no duplicate local notif)',
-          );
-          await SosAlertCoordinator.showOnceFromMap(
-            Map<String, dynamic>.from(msg.data),
-          );
-          return;
-        }
-        // Reminder (moderator default = data type "normal"): still show popup + optional TTS
-        if (isReminderTts) {
-          final text =
-              msg.data['content']?.toString() ??
-              msg.data['body']?.toString() ??
-              msg.notification?.body ??
-              '';
-          if (text.isNotEmpty) {
-            AppLogger.i('🔔 Foreground reminder TTS payload: "$text"');
-            final ctx = AppRouter.navigatorKey.currentContext;
-            if (ctx != null && ctx.mounted) {
-              String schedTime = '';
-              final rawTime =
-                  msg.data['scheduledAt']?.toString() ??
-                  msg.data['scheduled_time']?.toString() ??
-                  '';
-              if (rawTime.isNotEmpty) {
-                try {
-                  final parsed = DateTime.parse(rawTime).toLocal();
-                  schedTime = 'reminder_popup_scheduled_for'.tr(
-                    namedArgs: {'time': DateFormat('HH:mm').format(parsed)},
-                  );
-                } catch (_) {}
-              }
-              if (schedTime.isEmpty) {
-                schedTime = 'reminder_popup_scheduled_for'.tr(
-                  namedArgs: {
-                    'time': DateFormat('HH:mm').format(DateTime.now()),
-                  },
-                );
-              }
-              ReminderPopup.show(ctx, body: text, scheduledTime: schedTime);
-              IncomingChatSfx.playNormalPop();
-            } else {
-              AppLogger.w(
-                '⚠️ No navigator context — cannot show reminder popup',
-              );
-            }
-            if (isUrgentTts) {
-              // Tray notif would duplicate urgent_tts.wav from socket/helper.
-              await Future.delayed(kUrgentAlertToTtsDelay);
-              final spoken = urgentTtsSpokenBackupText(msg, isReminder: true);
-              await NotificationService.speakTts(
-                spoken,
-                audioUrl: msg.data['audio_url']?.toString(),
-                lang: msg.data['lang']?.toString() ?? 'en',
-                messageKey: messageKey.isEmpty ? null : messageKey,
-              );
-            }
-          }
-          return;
-        }
-        // Other urgent TTS (not reminder)
-        if (isUrgentTts) {
-          final text =
-              msg.data['content']?.toString() ??
-              msg.data['body']?.toString() ??
-              '';
-          if (text.isNotEmpty) {
-            AppLogger.i('🔊 Foreground urgent TTS: "$text"');
-            await Future.delayed(kUrgentAlertToTtsDelay);
-            final spoken = urgentTtsSpokenBackupText(msg, isReminder: false);
-            await NotificationService.speakTts(
-              spoken,
-              audioUrl: msg.data['audio_url']?.toString(),
-              lang: msg.data['lang']?.toString() ?? 'en',
-              messageKey: messageKey.isEmpty ? null : messageKey,
-            );
-          }
-          return;
-        }
-
-        // Meetpoint deleted: show in-app alert and suppress tray notification
-        if (notifType == 'meetpoint_deleted') {
-          final body =
-              msg.data['content']?.toString() ??
-              msg.data['body']?.toString() ??
-              '';
-          if (body.isNotEmpty) {
-            final ctx = AppRouter.navigatorKey.currentContext;
-            if (ctx != null && ctx.mounted) {
-              ScaffoldMessenger.of(ctx).showSnackBar(
-                SnackBar(
-                  content: Text(body),
-                  backgroundColor: AppColors.primary,
-                  behavior: SnackBarBehavior.floating,
-                  duration: const Duration(seconds: 6),
-                ),
-              );
-            }
-          }
-          return;
-        }
-
-        await NotificationService.instance.showNotificationFromMessage(msg);
-      });
-
-      // ── Handle Message Opened App ───────────────────────────────────────────
-      FirebaseMessaging.onMessageOpenedApp.listen((msg) {
-        AppLogger.i(
-          'FCM onMessageOpenedApp: ${msg.notification?.title} ${msg.data}',
-        );
-        NotificationService.navigateFromNotificationData(msg.data);
-      });
-
-      // ── Handle Initial Message (App opened from terminated state) ──────────
-      FirebaseMessaging.instance.getInitialMessage().then((msg) {
-        if (msg != null) {
-          AppLogger.i(
-            'FCM getInitialMessage: ${msg.notification?.title} ${msg.data}',
-          );
-          NotificationService.navigateFromNotificationData(msg.data);
-        }
-      });
-    } catch (e) {
-      AppLogger.e(
-        'FCM messaging initialization failed (likely missing Google Play Services): $e',
-      );
-    }
-  }
-
-  // Prevent GoogleFonts from making network requests at runtime.
-  // Fonts are served from the local cache only — avoids ANR on emulators.
-  GoogleFonts.config.allowRuntimeFetching = false;
-  AppLogger.d('main: initializing EasyLocalization');
-  await EasyLocalization.ensureInitialized();
-  await CallKitService.cacheSupportDisplayNameFromBundle();
-  AppLogger.d('main: loading dotenv');
-  await dotenv.load(fileName: '.env');
-  AppLogger.d('main: verifying env');
-  await verifyEnv();
-  await ApiService.cacheNativeCallPrefs();
-  AppLogger.d('main: screenutil ensureScreenSize');
-  await ScreenUtil.ensureScreenSize();
 
   final container = ProviderContainer();
   CallingScope.riverpod = container;
 
-  // ── Register global unauthorized (401) handler ─────────────────────────────
   ApiService.setUnauthorizedCallback(() async {
     AppLogger.w('🛑 Unauthorized (401) detected — forcing logout');
     await container.read(authProvider.notifier).logout();
     AppRouter.router.go('/login');
   });
-
-  // Cold-start safeguard: if accept event fired before listener handling,
-  // restore pending call context from persisted CallKit payload.
-  await NativeCallCoordinator.recoverAcceptedCallOnStartup();
 
   runApp(
     EasyLocalization(
@@ -327,7 +53,7 @@ void main() async {
         Locale('ar'),
         Locale('ur'),
         Locale('fr'),
-        Locale('id'), // Bahasa
+        Locale('id'),
         Locale('tr'),
       ],
       path: 'assets/translations',
@@ -340,28 +66,54 @@ void main() async {
   );
 }
 
-class MyApp extends ConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeProvider);
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
 
-    // ── Register FCM Token when user logs in ──────────────────────────────────
-    ref.listen<AuthState>(authProvider, (previous, next) {
-      // Register FCM token whenever the user becomes authenticated:
-      // 1. Fresh login (unauthenticated → authenticated)
-      // 2. Session restore (isRestoringSession: true → authenticated)
+class _MyAppState extends ConsumerState<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    ref.listenManual<AuthState>(authProvider, (previous, next) {
       final wasRestoringOrUnauthenticated =
           previous == null ||
           previous.isRestoringSession ||
           !previous.isAuthenticated;
       if (next.isAuthenticated &&
           wasRestoringOrUnauthenticated &&
-          _globalFcmToken != null) {
-        ref.read(authProvider.notifier).updateFcmToken(_globalFcmToken!);
+          globalFcmToken != null) {
+        ref.read(authProvider.notifier).updateFcmToken(globalFcmToken!);
       }
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_runStartupTasksAfterFirstFrame());
+    });
+  }
+
+  Future<void> _runStartupTasksAfterFirstFrame() async {
+    await Future.wait<void>([
+      CallKitService.cacheSupportDisplayNameFromBundle(),
+      ApiService.cacheNativeCallPrefs(),
+    ]);
+    if (!mounted) return;
+    unawaited(
+      CallKitService.refreshCachedSupportDisplayName(
+        languageCode: context.locale.languageCode,
+      ),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(bindMobileMessagingServices());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeMode = ref.watch(themeProvider);
 
     return ScreenUtilInit(
       designSize: const Size(393, 852),
@@ -419,8 +171,6 @@ class MyApp extends ConsumerWidget {
   }
 }
 
-/// Briefly suppresses moderator SOS in-app dialogs after hot reload so
-/// duplicate socket/FCM deliveries or cleared dedupe state do not flash a false alert.
 class _HotReloadSosAlertSuppressor extends StatefulWidget {
   const _HotReloadSosAlertSuppressor({required this.child});
 

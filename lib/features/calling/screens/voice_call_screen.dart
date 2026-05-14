@@ -202,6 +202,7 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
                         const Spacer(flex: 3),
                         if (call.status == CallStatus.calling ||
                             call.status == CallStatus.ringing ||
+                            call.status == CallStatus.connecting ||
                             call.status == CallStatus.connected) ...[
                           Container(
                             margin: EdgeInsets.symmetric(horizontal: 28.w),
@@ -539,6 +540,7 @@ class _StatusChip extends StatelessWidget {
 
     final label = switch (call.status) {
       CallStatus.calling => 'call_calling'.tr(),
+      CallStatus.connecting => 'call_connecting'.tr(),
       CallStatus.connected => call.formattedDuration,
       _ => '',
     };

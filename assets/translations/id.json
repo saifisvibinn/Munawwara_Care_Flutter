@@ -275,6 +275,7 @@
   "call_accept": "Terima",
   "call_internet": "Panggilan Internet",
   "call_calling": "Memanggil...",
+  "call_connecting": "Menghubungkan...",
   "call_declined": "Panggilan ditolak",
   "call_busy": "Pengguna sedang sibuk",
   "call_cancelled": "Panggilan dibatalkan",

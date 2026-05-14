@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/app_data_cache.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/utils/route_id_utils.dart';
 import '../helpers/chat_popup_dedup.dart';
 import '../models/message_model.dart';
 
@@ -23,6 +24,7 @@ class MessageState {
   final String? error;
   final int unreadCount;
   final String? activeGroupId;
+  final String? loadedGroupId;
 
   const MessageState({
     this.messages = const [],
@@ -31,6 +33,7 @@ class MessageState {
     this.error,
     this.unreadCount = 0,
     this.activeGroupId,
+    this.loadedGroupId,
   });
 
   MessageState copyWith({
@@ -41,6 +44,8 @@ class MessageState {
     int? unreadCount,
     bool updateActiveGroup = false,
     String? activeGroupId,
+    String? loadedGroupId,
+    bool updateLoadedGroup = false,
   }) =>
       MessageState(
         messages: messages ?? this.messages,
@@ -50,6 +55,8 @@ class MessageState {
         unreadCount: unreadCount ?? this.unreadCount,
         activeGroupId:
             updateActiveGroup ? activeGroupId : this.activeGroupId,
+        loadedGroupId:
+            updateLoadedGroup ? loadedGroupId : this.loadedGroupId,
       );
 }
 
@@ -59,6 +66,8 @@ class MessageState {
 
 class MessageNotifier extends Notifier<MessageState> {
   static const _maxCachedMessages = 100;
+
+  int _loadGeneration = 0;
 
   @override
   MessageState build() => const MessageState();
@@ -124,28 +133,83 @@ class MessageNotifier extends Notifier<MessageState> {
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
-  Future<void> loadMessages(String groupId) async {
-    // Enter loading before cache hydrate so listeners never see 0→N growth
-    // while isLoading is false (avoids phantom receive SFX / tab pulses).
-    state = state.copyWith(isLoading: true, error: null);
-    await _hydrateMessagesFromCache(groupId);
+  bool _hasLoadedGroupMessages(String groupId) {
+    if (state.loadedGroupId != groupId || state.messages.isEmpty) {
+      return false;
+    }
+    return state.messages.every((message) => message.groupId == groupId);
+  }
+
+  Future<void> loadMessages(
+    String groupId, {
+    bool force = false,
+  }) async {
+    final normalizedGroupId = normalizeRouteId(groupId);
+    if (normalizedGroupId.isEmpty) return;
+
+    final loadGeneration = ++_loadGeneration;
+    final previousGroupId = state.loadedGroupId;
+    final hasWrongGroupMessages = state.messages.any(
+      (message) => message.groupId != normalizedGroupId,
+    );
+    final switchingGroup =
+        previousGroupId != null && previousGroupId != normalizedGroupId;
+    final mustClearMessages = switchingGroup || hasWrongGroupMessages;
+    final hasLoadedGroup = _hasLoadedGroupMessages(normalizedGroupId);
+
+    if (mustClearMessages) {
+      state = state.copyWith(
+        messages: const [],
+        isLoading: true,
+        error: null,
+      );
+    } else if (force || !hasLoadedGroup) {
+      state = state.copyWith(isLoading: true, error: null);
+    } else {
+      state = state.copyWith(error: null);
+    }
+
+    await _hydrateMessagesFromCache(normalizedGroupId);
+    if (loadGeneration != _loadGeneration) return;
+
+    final hasLocalMessages = state.messages.isNotEmpty;
+    if ((force || !hasLocalMessages) && !state.isLoading) {
+      state = state.copyWith(isLoading: true);
+    }
+
     try {
-      final res = await ApiService.dio.get('/messages/group/$groupId');
+      final res = await ApiService.dio.get(
+        '/messages/group/$normalizedGroupId',
+      );
+      if (loadGeneration != _loadGeneration) return;
       final body = Map<String, dynamic>.from(res.data as Map);
-      await _writeMessagesCache(groupId, body);
+      await _writeMessagesCache(normalizedGroupId, body);
+      if (loadGeneration != _loadGeneration) return;
       final raw = (body['data'] as List<dynamic>)
           .map((j) => GroupMessage.fromJson(j as Map<String, dynamic>))
           .toList();
       // oldest first (chronological / chat order)
       raw.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      state = state.copyWith(messages: raw, isLoading: false);
+      state = state.copyWith(
+        messages: raw,
+        isLoading: false,
+        updateLoadedGroup: true,
+        loadedGroupId: normalizedGroupId,
+      );
       await ChatPopupDedup.mergeKnownMessageIds(raw.map((m) => m.id));
     } on DioException catch (e) {
+      if (loadGeneration != _loadGeneration) return;
       if (state.messages.isEmpty) {
-        await _hydrateMessagesFromCache(groupId);
+        await _hydrateMessagesFromCache(normalizedGroupId);
+        if (loadGeneration != _loadGeneration) return;
       }
       if (state.messages.isNotEmpty) {
-        state = state.copyWith(isLoading: false, error: null);
+        state = state.copyWith(
+          isLoading: false,
+          error: null,
+          updateLoadedGroup: true,
+          loadedGroupId: normalizedGroupId,
+        );
         await ChatPopupDedup.mergeKnownMessageIds(
           state.messages.map((m) => m.id),
         );
@@ -153,6 +217,8 @@ class MessageNotifier extends Notifier<MessageState> {
         state = state.copyWith(
           isLoading: false,
           error: ApiService.parseError(e),
+          updateLoadedGroup: true,
+          loadedGroupId: normalizedGroupId,
         );
       }
     }
@@ -161,8 +227,12 @@ class MessageNotifier extends Notifier<MessageState> {
   // ── Unread ─────────────────────────────────────────────────────────────────
 
   Future<int> fetchUnreadCount(String groupId) async {
+    final normalizedGroupId = normalizeRouteId(groupId);
+    if (normalizedGroupId.isEmpty) return 0;
     try {
-      final res = await ApiService.dio.get('/messages/group/$groupId/unread');
+      final res = await ApiService.dio.get(
+        '/messages/group/$normalizedGroupId/unread',
+      );
       final count = (res.data['unread_count'] as num?)?.toInt() ?? 0;
       state = state.copyWith(unreadCount: count);
       return count;
@@ -172,14 +242,23 @@ class MessageNotifier extends Notifier<MessageState> {
   }
 
   Future<void> markAllRead(String groupId) async {
+    final normalizedGroupId = normalizeRouteId(groupId);
+    if (normalizedGroupId.isEmpty) return;
     try {
-      await ApiService.dio.post('/messages/group/$groupId/mark-read');
+      await ApiService.dio.post(
+        '/messages/group/$normalizedGroupId/mark-read',
+      );
       state = state.copyWith(unreadCount: 0);
     } catch (_) {}
   }
 
   void setActiveGroup(String? groupId) {
-    state = state.copyWith(updateActiveGroup: true, activeGroupId: groupId);
+    final normalizedGroupId =
+        groupId == null ? null : normalizeRouteId(groupId);
+    state = state.copyWith(
+      updateActiveGroup: true,
+      activeGroupId: normalizedGroupId,
+    );
   }
 
   /// Silently appends a single message received from a socket event.
