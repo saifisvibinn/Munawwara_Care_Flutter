@@ -74,8 +74,25 @@ class MessageNotifier extends Notifier<MessageState> {
 
   String get _uploadBase => ApiService.apiOrigin;
 
-  /// Full URL to stream a voice/image upload from the server
-  String buildUploadUrl(String filename) => '$_uploadBase/uploads/$filename';
+  /// Resolves [mediaUrl] from the API: full HTTPS URL (e.g. GCS) is returned
+  /// unchanged; a bare filename uses legacy `GET /uploads/:name` on this host.
+  String buildUploadUrl(String mediaUrl) {
+    final s = mediaUrl.trim();
+    if (s.isEmpty) return s;
+    final lower = s.toLowerCase();
+    if (lower.startsWith('http://') || lower.startsWith('https://')) {
+      return s;
+    }
+    return '$_uploadBase/uploads/$s';
+  }
+
+  /// Same as [buildUploadUrl] for nullable fields (TTS [audio_url], etc.).
+  String? resolveMediaUrl(String? mediaUrl) {
+    if (mediaUrl == null) return null;
+    final s = mediaUrl.trim();
+    if (s.isEmpty) return null;
+    return buildUploadUrl(s);
+  }
 
   Map<String, dynamic> _trimMessagesBody(Map<String, dynamic> body) {
     final copy = Map<String, dynamic>.from(body);
@@ -419,7 +436,8 @@ class MessageNotifier extends Notifier<MessageState> {
         );
       }
       return true;
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e('sendVoiceMessage failed', e, st);
       state = state.copyWith(isSending: false);
       return false;
     }
@@ -465,7 +483,8 @@ class MessageNotifier extends Notifier<MessageState> {
         );
       }
       return true;
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e('sendIndividualVoiceMessage failed', e, st);
       state = state.copyWith(isSending: false);
       return false;
     }

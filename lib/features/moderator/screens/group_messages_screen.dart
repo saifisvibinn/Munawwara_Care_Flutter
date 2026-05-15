@@ -235,8 +235,10 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
     }
 
     try {
+      final audioUrl =
+          ref.read(messageProvider.notifier).resolveMediaUrl(msg.audioUrl);
       await SpeechService.playRobust(
-        audioUrl: msg.audioUrl,
+        audioUrl: audioUrl,
         backupText: text,
         lang: _dominantPilgrimLanguageCode(),
       );

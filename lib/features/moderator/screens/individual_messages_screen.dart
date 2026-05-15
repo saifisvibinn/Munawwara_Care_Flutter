@@ -201,8 +201,10 @@ class _IndividualMessagesScreenState
     }
 
     try {
+      final audioUrl =
+          ref.read(messageProvider.notifier).resolveMediaUrl(msg.audioUrl);
       await SpeechService.playRobust(
-        audioUrl: msg.audioUrl,
+        audioUrl: audioUrl,
         backupText: text,
         lang: widget.recipientLanguage,
       );

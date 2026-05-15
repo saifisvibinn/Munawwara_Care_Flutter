@@ -255,11 +255,9 @@ class ChatNotificationHelper {
           if ((playTtsAudioUrl ?? '').trim().isEmpty) {
             final rawTts = msg.audioUrl?.trim();
             if (rawTts != null && rawTts.isNotEmpty) {
-              playTtsAudioUrl = rawTts.startsWith('http')
-                  ? rawTts
-                  : ref
-                      .read(messageProvider.notifier)
-                      .buildUploadUrl(rawTts);
+              playTtsAudioUrl = ref
+                  .read(messageProvider.notifier)
+                  .buildUploadUrl(rawTts);
             }
           }
         }

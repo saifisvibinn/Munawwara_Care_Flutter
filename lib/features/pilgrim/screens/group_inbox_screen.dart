@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/api_service.dart';
@@ -16,6 +17,7 @@ import '../../../core/services/callkit_service.dart';
 import '../../../core/services/speech_service.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../shared/models/message_model.dart';
+import '../../shared/helpers/chat_popup_dedup.dart';
 import '../../shared/providers/message_provider.dart';
 import '../../shared/widgets/group_chat_theme.dart';
 import '../../shared/widgets/message_widgets.dart';
@@ -301,7 +303,8 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     try {
       // Stored [audio_url] matches server default (e.g. EN). When the bubble
       // shows a translation, fetch Cloud TTS for that exact string + locale.
-      String? audioUrl = msg.audioUrl;
+      String? audioUrl =
+          ref.read(messageProvider.notifier).resolveMediaUrl(msg.audioUrl);
       if (showingTranslated && (_translations[msg.id]?.trim().isNotEmpty ?? false)) {
         audioUrl = await TtsCloudApi.fetchAudioUrl(
           text: text,
@@ -328,6 +331,14 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
       return;
     }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final notified =
+          prefs.getStringList(ChatPopupDedup.notifiedIdsKey) ?? [];
+      if (notified.contains(msg.id)) {
+        return;
+      }
+    } catch (_) {}
     try {
       if (msg.isUrgent) {
         // Avoid “double alarm” when urgent TTS is also handled by notifications.

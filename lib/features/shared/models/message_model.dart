@@ -91,7 +91,7 @@ class GroupMessage {
   final String senderModel; // 'User' | 'Pilgrim'
   final String type; // 'text' | 'voice' | 'tts' | 'meetpoint'
   final String? content;
-  final String? mediaUrl; // filename only (voice/image)
+  final String? mediaUrl; // GCS HTTPS URL or legacy uploads filename
   final String? audioUrl; // GCS URL for TTS messages
   final String? originalText; // TTS source text
   final bool isUrgent;

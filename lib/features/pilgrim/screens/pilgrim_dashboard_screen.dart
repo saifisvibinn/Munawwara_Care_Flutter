@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/helpers/chat_notification_helper.dart';
+import '../../shared/helpers/deferred_urgent_chat_popup.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/location_permission_service.dart';
 import '../../../core/services/socket_service.dart';
@@ -183,6 +184,31 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     ref.read(pilgrimProvider.notifier).loadDashboard(force: forceDashboard);
   }
 
+  /// Urgent socket messages received while !resumed are queued; see
+  /// [DeferredUrgentChatPopup].
+  Future<void> _flushDeferredUrgentChatPopup() async {
+    final map = DeferredUrgentChatPopup.takePending();
+    if (map == null || !mounted) return;
+    final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
+    final gid = map['group_id']?.toString();
+    if (groupId == null || gid != groupId) return;
+    if (ref.read(messageProvider).activeGroupId == groupId) {
+      AppLogger.d(
+        '[PilgrimDashboard] In chat, skip deferred urgent popup',
+      );
+      return;
+    }
+    await ChatNotificationHelper.showIncomingMessage(
+      context: context,
+      ref: ref,
+      map: map,
+      onViewChat: () {
+        setState(() => _currentTab = 3);
+        ref.read(messageProvider.notifier).markAllRead(groupId);
+        _chatScrollNotifier.value++;
+      },
+    );
+  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -193,6 +219,11 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       if (_locationSub == null) {
         unawaited(_initLocation());
       }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          unawaited(_flushDeferredUrgentChatPopup());
+        }
+      });
     }
   }
 
@@ -401,8 +432,11 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             if (WidgetsBinding.instance.lifecycleState !=
                 AppLifecycleState.resumed) {
               AppLogger.d(
-                '[PilgrimDashboard] App not resumed (binding), skipping popup',
+                '[PilgrimDashboard] App not resumed — deferring urgent popup',
               );
+              if (ref.read(messageProvider).activeGroupId != groupId) {
+                DeferredUrgentChatPopup.offerIfUrgent(map);
+              }
               return;
             }
 

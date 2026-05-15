@@ -42,7 +42,8 @@ Future<void> bindMobileMessagingServices() async {
 
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
       globalFcmToken = newToken;
-      AppLogger.i('FCM token refreshed: $newToken');
+      AppLogger.i('FCM token refreshed');
+      AppLogger.d('FCM token (refresh): $newToken');
       final c = CallingScope.riverpod;
       if (c != null) {
         final auth = c.read(authProvider);
@@ -88,7 +89,8 @@ Future<void> bindMobileMessagingServices() async {
     });
 
     FirebaseMessaging.onMessage.listen((msg) async {
-      AppLogger.i('FCM onMessage: ${msg.notification?.title} ${msg.data}');
+      AppLogger.i('FCM onMessage: ${msg.notification?.title ?? '(no title)'}');
+      AppLogger.d('FCM onMessage data: ${msg.data}');
       final notifType = msg.data['notification_type']?.toString() ?? '';
       final dataType = msg.data['type']?.toString() ?? '';
       final callControlType = CallKitService.fcmCallControlType(msg.data);
@@ -101,7 +103,7 @@ Future<void> bindMobileMessagingServices() async {
         await CallKitService.handleFcmMessage(msg);
         return;
       }
-      final msgType = msg.data['messageType']?.toString() ?? '';
+      final msgType = msg.data['messageType']?.toString().toLowerCase() ?? '';
       final isReminderTts = msgType == 'reminder_tts';
       final isUrgentTts =
           dataType == 'urgent' &&
@@ -111,13 +113,20 @@ Future<void> bindMobileMessagingServices() async {
       const chatMsgTypes = {'text', 'voice', 'image', 'tts', 'meetpoint'};
       final isChatNotif =
           notifType == 'new_message' || notifType == 'meetpoint';
+      // Foreground: socket + ChatNotificationHelper already surface urgent chat
+      // (voice, text, …). Suppress FCM-driven local notifications when the
+      // server tags the payload as generic "urgent" or omits notification_type,
+      // otherwise we duplicate (tray + in-app popup / alarm).
+      // Urgent TTS / reminder_tts are excluded — they are handled below.
       final urgentChatNoNotifType =
-          notifType.isEmpty &&
           dataType == 'urgent' &&
-          chatMsgTypes.contains(msgType);
+          chatMsgTypes.contains(msgType) &&
+          msgType != 'tts' &&
+          msgType != 'reminder_tts' &&
+          (notifType.isEmpty || notifType == 'urgent');
       if (isChatNotif || urgentChatNoNotifType) {
         AppLogger.i(
-          'FCM onMessage: suppressed (socket + in-app chat / urgent TTS)',
+          'FCM onMessage: suppressed (socket + in-app chat for urgent)',
         );
         return;
       }
@@ -137,7 +146,7 @@ Future<void> bindMobileMessagingServices() async {
             msg.notification?.body ??
             '';
         if (text.isNotEmpty) {
-          AppLogger.i('🔔 Foreground reminder TTS payload: "$text"');
+          AppLogger.d('🔔 Foreground reminder TTS payload: "$text"');
           final ctx = AppRouter.navigatorKey.currentContext;
           if (ctx != null && ctx.mounted) {
             String schedTime = '';
@@ -186,7 +195,7 @@ Future<void> bindMobileMessagingServices() async {
             msg.data['body']?.toString() ??
             '';
         if (text.isNotEmpty) {
-          AppLogger.i('🔊 Foreground urgent TTS: "$text"');
+          AppLogger.d('🔊 Foreground urgent TTS: "$text"');
           await Future.delayed(kUrgentAlertToTtsDelay);
           final spoken = urgentTtsSpokenBackupText(msg, isReminder: false);
           await NotificationService.speakTts(
@@ -225,16 +234,18 @@ Future<void> bindMobileMessagingServices() async {
 
     FirebaseMessaging.onMessageOpenedApp.listen((msg) {
       AppLogger.i(
-        'FCM onMessageOpenedApp: ${msg.notification?.title} ${msg.data}',
+        'FCM onMessageOpenedApp: ${msg.notification?.title ?? '(no title)'}',
       );
+      AppLogger.d('FCM onMessageOpenedApp data: ${msg.data}');
       NotificationService.navigateFromNotificationData(msg.data);
     });
 
     FirebaseMessaging.instance.getInitialMessage().then((msg) {
       if (msg != null) {
         AppLogger.i(
-          'FCM getInitialMessage: ${msg.notification?.title} ${msg.data}',
+          'FCM getInitialMessage: ${msg.notification?.title ?? '(no title)'}',
         );
+        AppLogger.d('FCM getInitialMessage data: ${msg.data}');
         NotificationService.navigateFromNotificationData(msg.data);
       }
     });
