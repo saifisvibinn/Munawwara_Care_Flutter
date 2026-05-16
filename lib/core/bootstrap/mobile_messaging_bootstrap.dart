@@ -28,6 +28,13 @@ Future<void> bindMobileMessagingServices() async {
   await NotificationService.instance.ensureInitialized();
   AppLogger.i('Notification service initialized');
 
+  final riverpod = CallingScope.riverpod;
+  if (riverpod != null) {
+    await riverpod
+        .read(authProvider.notifier)
+        .requestNotificationPermissionsForStartup();
+  }
+
   if (!Platform.isAndroid && !Platform.isIOS) {
     _mobileMessagingBound = true;
     return;

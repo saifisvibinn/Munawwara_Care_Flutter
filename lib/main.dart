@@ -90,24 +90,11 @@ class _MyAppState extends ConsumerState<MyApp> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(_runStartupTasksAfterFirstFrame());
-    });
-  }
-
-  Future<void> _runStartupTasksAfterFirstFrame() async {
-    await Future.wait<void>([
-      CallKitService.cacheSupportDisplayNameFromBundle(),
-      ApiService.cacheNativeCallPrefs(),
-    ]);
-    if (!mounted) return;
-    unawaited(
-      CallKitService.refreshCachedSupportDisplayName(
-        languageCode: context.locale.languageCode,
-      ),
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      unawaited(bindMobileMessagingServices());
+      unawaited(
+        CallKitService.refreshCachedSupportDisplayName(
+          languageCode: context.locale.languageCode,
+        ),
+      );
     });
   }
 
@@ -118,7 +105,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     return ScreenUtilInit(
       designSize: const Size(393, 852),
       minTextAdapt: true,
-      ensureScreenSize: true,
+      ensureScreenSize: false,
       builder: (context, child) {
         final bool isDarkUi = switch (themeMode) {
           ThemeMode.dark => true,

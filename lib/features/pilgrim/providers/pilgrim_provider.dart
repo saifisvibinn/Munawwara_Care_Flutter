@@ -307,7 +307,7 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
     }
   }
 
-  Future<void> loadDashboard({bool force = false}) async {
+  Future<void> loadDashboard({bool force = false, bool silently = false}) async {
     final now = DateTime.now();
     if (!force &&
         _lastDashboardLoad != null &&
@@ -316,7 +316,9 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
     }
     _lastDashboardLoad = now;
 
-    state = state.copyWith(isLoading: true, clearError: true);
+    if (!silently) {
+      state = state.copyWith(isLoading: true, clearError: true);
+    }
     try {
       // Parallel fetch: profile + group
       final results = await Future.wait([

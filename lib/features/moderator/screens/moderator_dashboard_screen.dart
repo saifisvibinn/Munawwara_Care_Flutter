@@ -10,6 +10,7 @@ import 'dart:ui' as ui;
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../core/bootstrap/app_startup_coordinator.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/services/location_permission_service.dart';
@@ -182,7 +183,28 @@ class _ModeratorDashboardScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    ref.listenManual<ModeratorState>(moderatorProvider, (prev, next) {
+      final pa = [...?prev?.groups.map((g) => g.id)]..sort();
+      final na = next.groups.map((g) => g.id).toList()..sort();
+      if (!listEquals(pa, na)) {
+        unawaited(
+          _globalNavBeacon?.sync(emitImmediateFix: true) ?? Future.value(),
+        );
+      }
+    });
+    ref.listenManual(callProvider, (prev, next) {
+      if (next.status == CallStatus.connected &&
+          prev?.status == CallStatus.ringing &&
+          mounted &&
+          !isNavigatingToCall &&
+          !VoiceCallScreen.isActive) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
+        );
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_checkLocationPermission());
       unawaited(_bootstrapDashboard());
     });
   }
@@ -192,6 +214,19 @@ class _ModeratorDashboardScreenState
     if (route != null) {
       AppRouter.moderatorRouteObserver.subscribe(this, route);
     }
+
+    if (AppStartupCoordinator.consumeDashboardPrimed()) {
+      if (mounted) {
+        setState(() => _isInitializingDashboard = false);
+      }
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_finishModeratorWarmup());
+      });
+      return;
+    }
+
     await ref.read(authProvider.notifier).hydrateFromCache();
     await ref.read(moderatorProvider.notifier).hydrateFromCache();
     if (mounted) {
@@ -206,7 +241,15 @@ class _ModeratorDashboardScreenState
   }
 
   Future<void> _loadRemoteDashboardState() async {
-    await ref.read(moderatorProvider.notifier).loadDashboard();
+    final hasCached = ref.read(moderatorProvider).groups.isNotEmpty;
+    await ref.read(moderatorProvider.notifier).loadDashboard(
+      silently: hasCached,
+    );
+    if (!mounted) return;
+    await _finishModeratorWarmup();
+  }
+
+  Future<void> _finishModeratorWarmup() async {
     await ref.read(moderatorSosEngagementProvider.notifier).refresh();
     if (!mounted) return;
     _connectModeratorRealtime();
@@ -474,30 +517,6 @@ class _ModeratorDashboardScreenState
       );
     }
 
-    ref.listen<ModeratorState>(moderatorProvider, (prev, next) {
-      final pa = [...?prev?.groups.map((g) => g.id)]..sort();
-      final na = next.groups.map((g) => g.id).toList()..sort();
-      if (!listEquals(pa, na)) {
-        unawaited(
-          _globalNavBeacon?.sync(emitImmediateFix: true) ?? Future.value(),
-        );
-      }
-    });
-
-    // Fallback: if an incoming call was accepted and we're connected,
-    // navigate to VoiceCallScreen from here.
-    ref.listen(callProvider, (prev, next) {
-      if (next.status == CallStatus.connected &&
-          prev?.status == CallStatus.ringing &&
-          mounted &&
-          !isNavigatingToCall &&
-          !VoiceCallScreen.isActive) {
-        Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const VoiceCallScreen()));
-      }
-    });
-
     final hasGroups = moderatorState.groups.isNotEmpty;
     final showEmptyGroupsArrow =
         _currentTab == 0 &&
@@ -712,6 +731,25 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
   String _searchQuery = '';
   GroupSortType _sortType = GroupSortType.oldestToNewest;
   bool _isAscending = false;
+  List<ModeratorGroup> _displayGroups = const [];
+  List<ModeratorGroup>? _lastSourceGroups;
+  GroupSortType? _lastSortType;
+  bool? _lastAscending;
+
+  void _syncFilteredGroups(List<ModeratorGroup> source) {
+    final query = widget.searchController.text.toLowerCase();
+    if (identical(_lastSourceGroups, source) &&
+        _searchQuery == query &&
+        _lastSortType == _sortType &&
+        _lastAscending == _isAscending) {
+      return;
+    }
+    _searchQuery = query;
+    _lastSourceGroups = source;
+    _lastSortType = _sortType;
+    _lastAscending = _isAscending;
+    _displayGroups = _filteredAndSorted(source);
+  }
 
   @override
   void initState() {
@@ -719,9 +757,10 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
     _loadSortPreferences();
     widget.searchController.addListener(() {
       if (mounted) {
-        setState(
-          () => _searchQuery = widget.searchController.text.toLowerCase(),
-        );
+        setState(() {
+          _searchQuery = widget.searchController.text.toLowerCase();
+          _lastSourceGroups = null;
+        });
       }
     });
   }
@@ -731,13 +770,14 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
     final sortIndex = prefs.getInt('mod_group_sort_type');
     final isAsc = prefs.getBool('mod_group_sort_asc');
     if (mounted) {
-      setState(() {
+        setState(() {
         if (sortIndex != null && sortIndex < GroupSortType.values.length) {
           _sortType = GroupSortType.values[sortIndex];
         }
         if (isAsc != null) {
           _isAscending = isAsc;
         }
+        _lastSourceGroups = null;
       });
     }
   }
@@ -1020,7 +1060,8 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
     final state = ref.watch(moderatorProvider);
     final notifCount = ref.watch(notificationProvider).unreadCount;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final groups = _filteredAndSorted(state.groups);
+    _syncFilteredGroups(state.groups);
+    final groups = _displayGroups;
     final showEmptyState =
         !state.isLoading && state.error == null && groups.isEmpty;
 

@@ -6,20 +6,18 @@ import '../env/env_check.dart';
 import '../services/api_service.dart';
 import '../utils/app_logger.dart';
 
-/// Loads Firebase, localization, and env before [runApp] without blocking
-/// each subsystem on the others.
+/// Minimum work before [runApp]: Firebase, localization, env file load.
 Future<void> prepareCoreRuntime() async {
   await Future.wait<void>([
     Firebase.initializeApp(),
     EasyLocalization.ensureInitialized(),
-    _loadEnvironment(),
+    dotenv.load(fileName: '.env'),
   ]);
 }
 
-Future<void> _loadEnvironment() async {
-  await dotenv.load(fileName: '.env');
+/// Env validation + native prefs — deferred until after first frame.
+Future<void> runDeferredStartupTasks() async {
   await verifyEnv();
-  // Native killed-state HTTP reads `api_base_url` from prefs — cache early.
   await ApiService.cacheNativeCallPrefs();
   AppLogger.w(
     '[Startup] api_base_url=${ApiService.baseUrl} '

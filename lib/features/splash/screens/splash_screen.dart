@@ -7,6 +7,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/bootstrap/app_startup_coordinator.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/services/location_permission_service.dart';
@@ -19,36 +20,56 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
+  bool _showPattern = false;
+
   @override
   void initState() {
     super.initState();
     AppLogger.d('SplashScreen initState');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _navigate();
+      _precacheDecorativeAssets();
+      setState(() => _showPattern = true);
+      unawaited(_navigate());
     });
   }
 
+  Future<void> _precacheDecorativeAssets() async {
+    if (!mounted) return;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final logoCache = (110.w * dpr).round();
+    await Future.wait([
+      precacheImage(
+        ResizeImage(
+          const AssetImage('assets/static/logo.jpeg'),
+          width: logoCache,
+          height: logoCache,
+        ),
+        context,
+      ),
+      precacheImage(
+        const AssetImage('assets/static/empty_groups_light.png'),
+        context,
+      ),
+      precacheImage(
+        const AssetImage('assets/static/empty_groups_dark.png'),
+        context,
+      ),
+    ]);
+  }
+
   Future<void> _navigate() async {
-    // Wait for _restoreSession to finish (isRestoringSession → false) with a
-    // minimum splash display time of 1.5 s for a polished UX. Add a hard
-    // timeout so we don't stay stuck if prefs/restore hangs.
-    AppLogger.d('SplashScreen waiting for auth restore');
+    AppLogger.d('SplashScreen waiting for startup coordinator');
     try {
-      await Future.any([
-        Future.wait([
-          Future.doWhile(() async {
-            await Future.delayed(const Duration(milliseconds: 50));
-            return ref.read(authProvider).isRestoringSession;
-          }),
-          Future.delayed(const Duration(milliseconds: 1500)),
-        ]),
-        Future.delayed(const Duration(seconds: 5)),
+      await Future.any<void>([
+        AppStartupCoordinator.prepareForNavigation(ref),
+        Future.delayed(const Duration(seconds: 15)),
       ]);
-    } catch (_) {
-      // ignore
+    } catch (e, st) {
+      AppLogger.e('SplashScreen startup failed: $e\n$st');
     }
     if (!mounted) return;
+
     final auth = ref.read(authProvider);
     if (auth.isAuthenticated) {
       final hasLoc = await hasLocationAlwaysPermission();
@@ -56,30 +77,30 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       if (!hasLoc) {
         AppLogger.i('SplashScreen nav to location onboarding');
         context.go('/location-onboarding');
-      } else {
-        final route = auth.role == 'moderator'
-            ? '/moderator-dashboard'
-            : '/pilgrim-dashboard';
-        AppLogger.i('SplashScreen nav to authenticated $route');
-        context.go(route);
+        return;
+      }
 
-        // Pending deep-link (cold-start). SOS waits for dashboard load — not here.
-        final pending = NotificationService.consumePendingNotificationData();
-        if (pending != null && pending.isNotEmpty) {
-          final type =
-              pending['notification_type']?.toString() ??
-              pending['type']?.toString() ??
-              '';
-          if (type == 'sos_alert') {
-            NotificationService.queuePendingSosAlert(pending);
-          } else {
-            AppLogger.i(
-              'SplashScreen: processing pending notification deep-link',
-            );
-            Future.delayed(const Duration(milliseconds: 600), () {
-              NotificationService.navigateFromNotificationData(pending);
-            });
-          }
+      final route = auth.role == 'moderator'
+          ? '/moderator-dashboard'
+          : '/pilgrim-dashboard';
+      AppLogger.i('SplashScreen nav to authenticated $route');
+      context.go(route);
+
+      final pending = NotificationService.consumePendingNotificationData();
+      if (pending != null && pending.isNotEmpty) {
+        final type =
+            pending['notification_type']?.toString() ??
+            pending['type']?.toString() ??
+            '';
+        if (type == 'sos_alert') {
+          NotificationService.queuePendingSosAlert(pending);
+        } else {
+          AppLogger.i(
+            'SplashScreen: processing pending notification deep-link',
+          );
+          Future.delayed(const Duration(milliseconds: 600), () {
+            NotificationService.navigateFromNotificationData(pending);
+          });
         }
       }
     } else {
@@ -91,6 +112,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final logoCache = (110.w * dpr).round();
 
     return Scaffold(
       backgroundColor: isDark
@@ -98,19 +121,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           : AppColors.backgroundLight,
       body: Stack(
         children: [
-          // Background Pattern Overlay
-          Positioned.fill(
-            child: RepaintBoundary(
-              child: Opacity(
-                opacity: 0.4,
-                child: CustomPaint(
-                  painter: _IslamicPatternPainter(),
+          if (_showPattern)
+            Positioned.fill(
+              child: RepaintBoundary(
+                child: Opacity(
+                  opacity: 0.4,
+                  child: CustomPaint(
+                    painter: _IslamicPatternPainter(),
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // Decorative Gradient Glows (Top Left)
           Positioned(
             top: -0.2 * 852.h,
             left: -0.2 * 393.w,
@@ -130,7 +152,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             ),
           ),
 
-          // Decorative Gradient Glows (Bottom Right)
           Positioned(
             bottom: -0.1 * 852.h,
             right: -0.1 * 393.w,
@@ -150,14 +171,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             ),
           ),
 
-          // Main Content
           SafeArea(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Spacer(flex: 3),
 
-                // Logo Container (uses static image if available)
                 Center(
                   child: Container(
                     width: 140.w,
@@ -173,8 +192,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 
-                            isDark ? 0.05 : 0.1,
+                          color: AppColors.primary.withValues(
+                            alpha: isDark ? 0.05 : 0.1,
                           ),
                           blurRadius: 24,
                           offset: const Offset(0, 10),
@@ -187,6 +206,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                         width: 110.w,
                         height: 110.w,
                         fit: BoxFit.contain,
+                        cacheWidth: logoCache,
+                        cacheHeight: logoCache,
                       ),
                     ),
                   ),
@@ -194,7 +215,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
                 SizedBox(height: 32.h),
 
-                // App Name & Tagline
                 RichText(
                   text: TextSpan(
                     style: TextStyle(
@@ -235,7 +255,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
                 const Spacer(flex: 4),
 
-                // Footer
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -274,7 +293,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 }
 
-// Painter to explicitly recreate the "Islamic-pattern" background from the CSS
 class _IslamicPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -287,7 +305,6 @@ class _IslamicPatternPainter extends CustomPainter {
 
     for (double y = 0; y < size.height; y += tileSize) {
       for (double x = 0; x < size.width; x += tileSize) {
-        // Draw the cross (M20 0L20 40M40 20L0 20)
         canvas.drawLine(
           Offset(x + tileSize / 2, y),
           Offset(x + tileSize / 2, y + tileSize),
@@ -298,8 +315,6 @@ class _IslamicPatternPainter extends CustomPainter {
           Offset(x + tileSize, y + tileSize / 2),
           paint,
         );
-
-        // Draw the circle (circle cx=20 cy=20 r=8)
         canvas.drawCircle(
           Offset(x + tileSize / 2, y + tileSize / 2),
           8.0,

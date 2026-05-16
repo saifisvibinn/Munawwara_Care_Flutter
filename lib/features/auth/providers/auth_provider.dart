@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
@@ -127,6 +128,8 @@ class AuthState {
 class AuthNotifier extends Notifier<AuthState> {
   static const _deviceBindingIdKey = 'device_binding_id';
 
+  Completer<void>? _remoteValidationCompleter;
+
   /// Called once from main.dart after the FCM token is obtained.
   static void setFcmTokenGetter(String? Function() getter) {}
 
@@ -137,9 +140,10 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   // ── Restore session on startup ──────────────────────────────────────────────
+  /// Phase A: prefs + disk cache only — unblocks splash without network.
   Future<void> _restoreSession() async {
     try {
-      AppLogger.d('AuthNotifier: restoring session');
+      AppLogger.d('AuthNotifier: restoring session (cached)');
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
       final role = prefs.getString('user_role');
@@ -153,113 +157,143 @@ class AuthNotifier extends Notifier<AuthState> {
       }
 
       ApiService.dio.options.headers['Authorization'] = 'Bearer $token';
-
-      try {
-        final response = await ApiService.dio.get('/auth/me');
-        final raw = response.data;
-        final data = raw is Map<String, dynamic>
-            ? raw
-            : (raw is Map
-                  ? Map<String, dynamic>.from(raw)
-                  : <String, dynamic>{});
-
-        final resolvedRole = (data['role'] ?? data['user_type'] ?? role)
-            ?.toString();
-        final resolvedId = (data['_id'] ?? data['id'] ?? userId)?.toString();
-        final resolvedName = (data['full_name'] ?? fullName)?.toString();
-
-        if (userId != null &&
-            userId.isNotEmpty &&
-            resolvedId != null &&
-            resolvedId.isNotEmpty &&
-            userId != resolvedId) {
-          AppLogger.w(
-            'AuthNotifier: stored user id does not match /auth/me — clearing session',
-          );
-          await _invalidateSessionLocally();
-          return;
-        }
-
-        state = AuthState(
-          isRestoringSession: false,
-          token: token,
-          role: resolvedRole,
-          userId: resolvedId,
-          fullName: resolvedName,
-          email: data['email'] as String?,
-          emailVerified: data['email_verified'] as bool? ?? false,
-          phoneNumber: data['phone_number'] as String?,
-          age: (data['age'] as num?)?.toInt(),
-          gender: data['gender'] as String?,
-          medicalHistory: data['medical_history'] as String?,
-          hotelName: data['hotel_name'] as String?,
-          roomNumber: data['room_number'] as String?,
-          busInfo: data['bus_info'] as String?,
-          visaNumber: data['visa']?['visa_number']?.toString(),
-          visaStatus: data['visa']?['status']?.toString(),
-          nationalId: data['national_id']?.toString(),
-          language: data['language']?.toString(),
-          ethnicity: data['ethnicity']?.toString(),
-        );
-
-        if (data['full_name'] != null) {
-          await prefs.setString('user_full_name', data['full_name'] as String);
-        }
-        if (resolvedId != null && resolvedId.isNotEmpty) {
-          await prefs.setString('user_id', resolvedId);
-        }
-        if (resolvedRole != null && resolvedRole.isNotEmpty) {
-          await prefs.setString('user_role', resolvedRole);
-        }
-
-        final cacheId = resolvedId ?? userId;
-        if (cacheId != null && cacheId.isNotEmpty) {
-          await AppDataCache.write(cacheId, AppDataCache.authMeFile, data);
-        }
-
-        await _requestNotificationPermissions();
-      } on DioException catch (e) {
-        final code = e.response?.statusCode;
-        if (code == 401) {
-          AppLogger.w('AuthNotifier: /auth/me 401 during restore');
-          final prefsAfter = await SharedPreferences.getInstance();
-          if (prefsAfter.getString('auth_token') != null) {
-            await _invalidateSessionLocally();
-          } else {
-            state = const AuthState(isRestoringSession: false);
-          }
-          AppLogger.d('AuthNotifier: restore complete (401)');
-          return;
-        }
-        if (code == 404) {
-          AppLogger.w(
-            'AuthNotifier: /auth/me 404 during restore — account likely removed',
-          );
-          await _invalidateSessionLocally();
-          AppLogger.d('AuthNotifier: restore complete (404)');
-          return;
-        }
-
-        AppLogger.w(
-          'AuthNotifier: /auth/me failed during restore (HTTP $code) — keeping offline session',
-        );
-        state = AuthState(
-          isRestoringSession: false,
-          token: token,
-          role: role,
-          userId: userId,
-          fullName: fullName,
-        );
-        await _mergeAuthMeFromCache(userId);
-        await _requestNotificationPermissions();
-      }
-
-      AppLogger.d('AuthNotifier: restore complete');
+      state = AuthState(
+        isRestoringSession: false,
+        token: token,
+        role: role,
+        userId: userId,
+        fullName: fullName,
+      );
+      await _mergeAuthMeFromCache(userId);
+      AppLogger.d('AuthNotifier: cached session ready — validating in background');
+      _remoteValidationCompleter = Completer<void>();
+      unawaited(
+        _validateSessionRemotely(token, role, userId, fullName).whenComplete(
+          _completeRemoteValidation,
+        ),
+      );
     } catch (e, st) {
       AppLogger.e('AuthNotifier restoreSession error: $e\n$st');
       state = const AuthState(isRestoringSession: false);
+      _completeRemoteValidation();
     }
   }
+
+  void _completeRemoteValidation() {
+    final c = _remoteValidationCompleter;
+    if (c != null && !c.isCompleted) {
+      c.complete();
+    }
+    _remoteValidationCompleter = null;
+  }
+
+  /// Awaited by splash before navigation when a token exists.
+  Future<void> waitForRemoteSessionValidation() async {
+    final pending = _remoteValidationCompleter;
+    if (pending != null) {
+      await pending.future;
+    }
+  }
+
+  /// Phase B: network validation before splash navigates away.
+  Future<void> _validateSessionRemotely(
+    String token,
+    String? role,
+    String? userId,
+    String? fullName,
+  ) async {
+    try {
+      final response = await ApiService.dio.get('/auth/me');
+      final raw = response.data;
+      final data = raw is Map<String, dynamic>
+          ? raw
+          : (raw is Map
+                ? Map<String, dynamic>.from(raw)
+                : <String, dynamic>{});
+
+      final resolvedRole = (data['role'] ?? data['user_type'] ?? role)
+          ?.toString();
+      final resolvedId = (data['_id'] ?? data['id'] ?? userId)?.toString();
+      final resolvedName = (data['full_name'] ?? fullName)?.toString();
+
+      if (userId != null &&
+          userId.isNotEmpty &&
+          resolvedId != null &&
+          resolvedId.isNotEmpty &&
+          userId != resolvedId) {
+        AppLogger.w(
+          'AuthNotifier: stored user id does not match /auth/me — clearing session',
+        );
+        await _invalidateSessionLocally();
+        return;
+      }
+
+      state = AuthState(
+        isRestoringSession: false,
+        token: token,
+        role: resolvedRole,
+        userId: resolvedId,
+        fullName: resolvedName,
+        email: data['email'] as String?,
+        emailVerified: data['email_verified'] as bool? ?? false,
+        phoneNumber: data['phone_number'] as String?,
+        age: (data['age'] as num?)?.toInt(),
+        gender: data['gender'] as String?,
+        medicalHistory: data['medical_history'] as String?,
+        hotelName: data['hotel_name'] as String?,
+        roomNumber: data['room_number'] as String?,
+        busInfo: data['bus_info'] as String?,
+        visaNumber: data['visa']?['visa_number']?.toString(),
+        visaStatus: data['visa']?['status']?.toString(),
+        nationalId: data['national_id']?.toString(),
+        language: data['language']?.toString(),
+        ethnicity: data['ethnicity']?.toString(),
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      if (data['full_name'] != null) {
+        await prefs.setString('user_full_name', data['full_name'] as String);
+      }
+      if (resolvedId != null && resolvedId.isNotEmpty) {
+        await prefs.setString('user_id', resolvedId);
+      }
+      if (resolvedRole != null && resolvedRole.isNotEmpty) {
+        await prefs.setString('user_role', resolvedRole);
+      }
+
+      final cacheId = resolvedId ?? userId;
+      if (cacheId != null && cacheId.isNotEmpty) {
+        await AppDataCache.write(cacheId, AppDataCache.authMeFile, data);
+      }
+      AppLogger.d('AuthNotifier: remote session validated');
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      if (code == 401) {
+        AppLogger.w('AuthNotifier: /auth/me 401 during background validate');
+        final prefsAfter = await SharedPreferences.getInstance();
+        if (prefsAfter.getString('auth_token') != null) {
+          await _invalidateSessionLocally();
+        }
+        return;
+      }
+      if (code == 404) {
+        AppLogger.w(
+          'AuthNotifier: /auth/me 404 during background validate — clearing session',
+        );
+        await _invalidateSessionLocally();
+        return;
+      }
+      AppLogger.w(
+        'AuthNotifier: /auth/me failed (HTTP $code) — keeping offline session',
+      );
+    } catch (e, st) {
+      AppLogger.e('AuthNotifier validateSessionRemotely error: $e\n$st');
+    }
+  }
+
+  /// Called from [bindMobileMessagingServices] after first frame.
+  Future<void> requestNotificationPermissionsForStartup() =>
+      _requestNotificationPermissions();
 
   Future<void> _mergeAuthMeFromCache(String? userId) async {
     if (userId == null || userId.isEmpty) return;
