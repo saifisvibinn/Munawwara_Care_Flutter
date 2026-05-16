@@ -809,16 +809,6 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                       color: textPrimary,
                     ),
                   ),
-                  SizedBox(height: 4.h),
-                  Text(
-                    'reminder_weekdays_hint'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 11.sp,
-                      height: 1.35,
-                      color: textMuted,
-                    ),
-                  ),
                   SizedBox(height: 10.h),
                   _WeekdayPickerStrip(
                     isDark: isDark,
