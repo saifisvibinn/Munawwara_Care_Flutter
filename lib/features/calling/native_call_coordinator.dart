@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
@@ -29,6 +32,74 @@ bool get isNavigatingToCall => _navigatingToCall;
 
 Map<String, String>? _pendingAcceptedCall;
 
+const String _pendingAcceptFileName = 'pending_call_accept.json';
+
+String? _documentsPath;
+
+Future<File> _pendingAcceptFile() async {
+  final dir = await getApplicationDocumentsDirectory();
+  _documentsPath = dir.path;
+  return File('${dir.path}/$_pendingAcceptFileName');
+}
+
+File? _pendingAcceptFileSync() {
+  final path = _documentsPath;
+  if (path == null) return null;
+  return File('$path/$_pendingAcceptFileName');
+}
+
+Future<void> _persistPendingAcceptToFile(Map<String, String> payload) async {
+  try {
+    final file = await _pendingAcceptFile();
+    file.writeAsStringSync(jsonEncode(payload));
+    AppLogger.i(
+      '[NativeCallCoordinator] pending accept persisted to file',
+    );
+  } catch (e) {
+    AppLogger.e('[NativeCallCoordinator] pending accept persist failed: $e');
+  }
+}
+
+Map<String, String>? _parsePendingAcceptPayload(Object? decoded) {
+  if (decoded is! Map) return null;
+  final channel = decoded['channelName']?.toString() ?? '';
+  if (channel.isEmpty) return null;
+  return Map<String, String>.from(
+    decoded.map((k, v) => MapEntry(k.toString(), v?.toString() ?? '')),
+  );
+}
+
+Future<Map<String, String>?> _readPendingAcceptFromFile() async {
+  try {
+    final file = await _pendingAcceptFile();
+    if (!file.existsSync()) return null;
+    final text = file.readAsStringSync();
+    return _parsePendingAcceptPayload(jsonDecode(text));
+  } catch (_) {
+    return null;
+  }
+}
+
+Map<String, String>? _readPendingAcceptFromFileSync() {
+  try {
+    final file = _pendingAcceptFileSync();
+    if (file == null || !file.existsSync()) return null;
+    final text = file.readAsStringSync();
+    return _parsePendingAcceptPayload(jsonDecode(text));
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> _clearPendingAcceptFile() async {
+  try {
+    final file = await _pendingAcceptFile();
+    if (file.existsSync()) {
+      file.deleteSync();
+    }
+  } catch (_) {}
+}
+
 /// Queued native decline/timeout before Riverpod is ready ([consumePendingDeclined]).
 class PendingDecline {
   const PendingDecline({required this.callerId, this.noAnswer = false});
@@ -39,9 +110,14 @@ class PendingDecline {
 PendingDecline? _pendingDeclined;
 
 Map<String, String>? consumePendingAcceptedCall() {
-  final data = _pendingAcceptedCall;
+  if (_pendingAcceptedCall != null) {
+    final data = _pendingAcceptedCall;
+    _pendingAcceptedCall = null;
+    return data;
+  }
+  final fromFile = _readPendingAcceptFromFileSync();
   _pendingAcceptedCall = null;
-  return data;
+  return fromFile;
 }
 
 PendingDecline? consumePendingDeclined() {
@@ -74,6 +150,7 @@ abstract final class NativeCallCoordinator {
           AppLogger.w('❌ Call DECLINED from native call screen');
           final declineCallerId = await _resolveCallerIdFromEvent(event);
           _pendingAcceptedCall = null;
+          unawaited(_clearPendingAcceptFile());
           final c = CallingScope.riverpod;
           if (c != null) {
             final currentState = c.read(callProvider);
@@ -101,6 +178,7 @@ abstract final class NativeCallCoordinator {
           AppLogger.w('⏰ Call TIMEOUT from native call screen');
           final timeoutCallerId = await _resolveCallerIdFromEvent(event);
           _pendingAcceptedCall = null;
+          unawaited(_clearPendingAcceptFile());
           final c = CallingScope.riverpod;
           if (c != null) {
             final currentState = c.read(callProvider);
@@ -145,6 +223,7 @@ abstract final class NativeCallCoordinator {
             await CallKitService.instance.endCurrentCall();
           }
           _pendingAcceptedCall = null;
+          unawaited(_clearPendingAcceptFile());
           await CallKitService.instance.clearLocalCallTracking();
           break;
 
@@ -154,9 +233,26 @@ abstract final class NativeCallCoordinator {
     });
   }
 
+  /// Clears durable accept payload after [call-answer] is emitted.
+  static Future<void> clearPendingAcceptFileAfterAnswer() async {
+    await _clearPendingAcceptFile();
+    AppLogger.i(
+      '[NativeCallCoordinator] pending accept consumed and file cleared',
+    );
+  }
+
   /// If user accepted from native UI before Flutter ran, restore pending join.
   static Future<void> recoverAcceptedCallOnStartup() async {
     try {
+      final fromFile = await _readPendingAcceptFromFile();
+      if (fromFile != null) {
+        _pendingAcceptedCall = fromFile;
+        AppLogger.i(
+          '📞 Startup recovery: restored pending accepted call from file',
+        );
+        return;
+      }
+
       final activeCalls = await FlutterCallkitIncoming.activeCalls();
       if (activeCalls is List && activeCalls.isNotEmpty) {
         final pending = await CallKitService.readRecentPendingIncomingCall(
@@ -190,6 +286,14 @@ abstract final class NativeCallCoordinator {
 
     AppLogger.w('📵 FCM call_declined/call_cancel — stopping call');
     final endReason = dataType == 'call_cancel' ? 'cancelled' : 'declined';
+    if (dataType == 'call_cancel') {
+      unawaited(
+        CallKitService.dismissNativeIncoming(
+          callerId: data['callerId']?.toString(),
+          callRecordId: data['callRecordId']?.toString(),
+        ),
+      );
+    }
     final c = CallingScope.riverpod;
     if (c != null) {
       final cs = c.read(callProvider);
@@ -231,12 +335,14 @@ Future<void> _handleAcceptedCallEvent(CallEvent event) async {
     }
   }
 
-  _pendingAcceptedCall = {
+  final acceptPayload = {
     'callerId': callerId,
     'callerName': callerName.isNotEmpty ? callerName : 'Unknown',
     'channelName': channelName,
     'callerRole': callerRole,
   };
+  await _persistPendingAcceptToFile(acceptPayload);
+  _pendingAcceptedCall = acceptPayload;
 
   AppLogger.i(
     '📞 Accept parsed: callerId=$callerId, channel=$channelName, name=$callerName',

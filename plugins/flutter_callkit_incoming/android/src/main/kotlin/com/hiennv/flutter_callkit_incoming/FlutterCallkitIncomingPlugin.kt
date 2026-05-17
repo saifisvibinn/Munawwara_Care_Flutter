@@ -2,8 +2,11 @@ package com.hiennv.flutter_callkit_incoming
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.os.Build
+import android.util.Log
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.NonNull
@@ -47,6 +50,54 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
             eventHandlers.reapCollection().forEach {
                 it.get()?.send(event, body)
             }
+        }
+
+        /**
+         * Munawwara: plugin ringtone/tray/FGS only — does not start app telecom service.
+         */
+        fun dismissPluginIncomingUi(context: Context?) {
+            if (context == null) {
+                Log.w("FlutterCallkitIncoming", "dismissPlugin skipped — null context")
+                return
+            }
+            try {
+                val sound = CallkitSoundPlayerManager(context)
+                sound.stop()
+                sound.destroy()
+            } catch (e: Exception) {
+                Log.w("FlutterCallkitIncoming", "dismissPlugin sound stop: ${e.message}")
+            }
+            try {
+                val flutterPrefs = context.getSharedPreferences(
+                    "FlutterSharedPreferences",
+                    Context.MODE_PRIVATE,
+                )
+                val uuid = flutterPrefs.getString("flutter.pending_call_uuid", null)
+                if (!uuid.isNullOrEmpty()) {
+                    val bundle = android.os.Bundle().apply {
+                        putString(CallkitConstants.EXTRA_CALLKIT_ID, uuid)
+                        putString(CallkitConstants.EXTRA_CALLKIT_NAME_CALLER, "")
+                        putString(CallkitConstants.EXTRA_CALLKIT_HANDLE, "")
+                    }
+                    getInstance()?.getCallkitNotificationManager()
+                        ?.clearIncomingNotification(bundle, false)
+                        ?: CallkitNotificationManager(context, null)
+                            .clearIncomingNotification(bundle, false)
+                }
+            } catch (e: Exception) {
+                Log.w("FlutterCallkitIncoming", "dismissPlugin notification: ${e.message}")
+            }
+            try {
+                CallkitNotificationService.stopService(context)
+            } catch (e: Exception) {
+                Log.w("FlutterCallkitIncoming", "dismissPlugin FGS stop: ${e.message}")
+            }
+            removeAllCalls(context)
+        }
+
+        /** @deprecated Use [dismissPluginIncomingUi]; kept for older call sites. */
+        fun forceDismissAllIncomingCallUi(context: Context?) {
+            dismissPluginIncomingUi(context)
         }
 
         public fun sendEventCustom(event: String, body: Map<String, Any>) {
@@ -185,6 +236,7 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
             )
         }
         removeAllCalls(context)
+        dismissPluginIncomingUi(context)
     }
 
     public fun sendEventCustom(body: Map<String, Any>) {
@@ -337,6 +389,7 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
                         }
                     }
                     removeAllCalls(context)
+                    dismissPluginIncomingUi(context)
                     result.success(true)
                 }
 
@@ -425,7 +478,7 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
     }
 
     override fun onDetachedFromActivity() {
-        instance.context = null
+        // Keep applicationContext — FCM background isolate still needs native dismiss.
         instance.activity = null
     }
 

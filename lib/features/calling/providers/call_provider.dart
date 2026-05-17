@@ -6,29 +6,26 @@
 // • [CallNotifier] (this file) — Riverpod state + Agora join/leave lifecycle.
 import 'dart:async';
 
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../auth/providers/auth_provider.dart';
 import '../../moderator/services/sos_alert_coordinator.dart';
+import '../../../core/router/app_router.dart';
+import '../../../core/services/agora_rtc_service.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/services/call_ringback_service.dart';
 import '../../../core/utils/app_logger.dart';
-import '../../../core/router/app_router.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../call_signaling.dart';
 import '../native_call_coordinator.dart';
 import '../screens/voice_call_screen.dart';
-
-/// Read at first use (after dotenv.load has run in main).
-String get _agoraAppId => dotenv.env['AGORA_APP_ID'] ?? '';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Call State
@@ -118,32 +115,79 @@ class CallState {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Call Notifier – owns the WebRTC peer connection lifecycle
+// Call Notifier – signaling + Agora media (join only after answer)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class CallNotifier extends Notifier<CallState> {
   static const _outgoingReceiverIdKey = 'outgoing_call_receiver_id';
   static const _outgoingIsGroupKey = 'outgoing_call_is_group';
 
-  RtcEngine? _engine;
   String? _pendingChannelName;
   String? _pendingFromId;
+  String? _outgoingChannelName;
+  String? _activeIncomingCallRecordId;
+  Future<void>? _outgoingCleanupInFlight;
   Timer? _callTimer;
   Timer? _ringPollTimer; // polls backend while outgoing call is ringing
+  Timer? _sessionWatchdogTimer;
+  Timer? _connectingTimeoutTimer;
 
-  /// Timestamp of the last processed call-offer — reject rapid duplicates.
-  DateTime? _lastOfferTime;
+  static const int _sessionWatchdogSeconds = 40;
+  static const int _connectingTimeoutSeconds = 30;
 
   @override
   CallState build() {
+    _wireAgoraHandlers();
     _registerSocketListeners();
     return const CallState();
+  }
+
+  void _wireAgoraHandlers() {
+    final agora = AgoraRtcService.instance;
+    agora.onRemoteUserJoined = (_) => _onRemoteUserJoinedMedia();
+    agora.onRemoteUserOffline = (_, _) {
+      if (state.status == CallStatus.connected) {
+        endCall();
+      }
+    };
+    agora.onMediaJoinFailed = (message) {
+      AppLogger.e('[CallProvider] Agora media failed: $message');
+      if (state.status == CallStatus.connecting ||
+          state.status == CallStatus.calling) {
+        unawaited(forceIdleCallSession(endReason: 'error'));
+      }
+    };
+    agora.onConnectionFailed = () {
+      if (state.status != CallStatus.connected &&
+          state.status != CallStatus.connecting) {
+        return;
+      }
+      final remoteId = state.remoteUserId;
+      if (remoteId != null && remoteId.isNotEmpty) {
+        CallSignaling.emitWhenConnected('call-end', {'to': remoteId});
+      }
+      unawaited(forceIdleCallSession(endReason: 'error'));
+      final ctx = AppRouter.navigatorKey.currentContext;
+      if (ctx != null && ctx.mounted) {
+        StandardSnackBar.showError(
+          ctx,
+          'Call connection lost. Please try again.',
+        );
+      }
+    };
   }
 
   // ── Register socket listeners ─────────────────────────────────────────────
   void _registerSocketListeners() {
     AppLogger.d('[CallProvider] Registering socket listeners');
-    SocketService.on('call-offer', _onIncomingOffer);
+    SocketService.onWithAck('call-offer', (data, ack) {
+      try {
+        ack?.call();
+      } catch (e) {
+        AppLogger.w('[CallProvider] call-offer ack failed: $e');
+      }
+      _onIncomingOffer(data);
+    });
     SocketService.on('call-answer', _onAnswer);
     SocketService.on('call-declined', _onRemoteDecline);
     SocketService.on('call-end', _onRemoteEnd);
@@ -163,7 +207,7 @@ class CallNotifier extends Notifier<CallState> {
   Future<void> startGroupModeratorCall(
     List<Map<String, String>> moderators,
   ) async {
-    if (state.isInCall) return;
+    if (!await prepareForOutgoingCall()) return;
     final ids = moderators
         .map((m) => m['id'] ?? '')
         .where((id) => id.isNotEmpty)
@@ -185,31 +229,16 @@ class CallNotifier extends Notifier<CallState> {
     try {
       await [Permission.microphone].request();
       final channelName = 'call_${DateTime.now().millisecondsSinceEpoch}';
+      _outgoingChannelName = channelName;
       AppLogger.i('[CallProvider] Group moderator ring on $channelName → $ids');
-      await _setupEngine();
-      await _engine!.joinChannel(
-        token: '',
-        channelId: channelName,
-        uid: 0,
-        options: const ChannelMediaOptions(
-          channelProfile: ChannelProfileType.channelProfileCommunication,
-          clientRoleType: ClientRoleType.clientRoleBroadcaster,
-        ),
-      );
       CallSignaling.emitWhenConnected('call-offer-group', {
         'targets': ids,
         'channelName': channelName,
       });
       _startRingPoll(ids.first);
+      _startSessionWatchdog();
     } catch (e) {
-      _stopRingPoll();
-      _cleanup();
-      state = state.copyWith(
-        status: CallStatus.ended,
-        endReason: 'error',
-        isGroupRingingOut: false,
-      );
-      _scheduleReset();
+      await forceIdleCallSession(endReason: 'error');
     }
   }
 
@@ -221,7 +250,7 @@ class CallNotifier extends Notifier<CallState> {
     required String remoteUserName,
     String? remotePeerGender,
   }) async {
-    if (state.isInCall) return;
+    if (!await prepareForOutgoingCall()) return;
     final isPilgrimCaller =
         ref.read(authProvider).role?.toLowerCase() == 'pilgrim';
     final displayName = isPilgrimCaller
@@ -243,20 +272,9 @@ class CallNotifier extends Notifier<CallState> {
     try {
       await [Permission.microphone].request();
       final channelName = 'call_${DateTime.now().millisecondsSinceEpoch}';
-      AppLogger.i('[CallProvider] Setting up Agora engine…');
-      await _setupEngine();
-      AppLogger.i('[CallProvider] Joining Agora channel: $channelName');
-      await _engine!.joinChannel(
-        token: '',
-        channelId: channelName,
-        uid: 0,
-        options: const ChannelMediaOptions(
-          channelProfile: ChannelProfileType.channelProfileCommunication,
-          clientRoleType: ClientRoleType.clientRoleBroadcaster,
-        ),
-      );
+      _outgoingChannelName = channelName;
       AppLogger.i(
-        '[CallProvider] → Emitting call-offer to $remoteUserId on channel $channelName',
+        '[CallProvider] → Emitting call-offer to $remoteUserId on $channelName',
       );
       CallSignaling.emitWhenConnected('call-offer', {
         'to': remoteUserId,
@@ -268,15 +286,9 @@ class CallNotifier extends Notifier<CallState> {
       // Start polling so we detect decline even when the pilgrim's app is killed
       // and the HTTP decline from the background isolate fails for any reason.
       _startRingPoll(remoteUserId);
+      _startSessionWatchdog();
     } catch (e) {
-      _stopRingPoll();
-      _cleanup();
-      state = state.copyWith(
-        status: CallStatus.ended,
-        endReason: 'error',
-        isGroupRingingOut: false,
-      );
-      _scheduleReset();
+      await forceIdleCallSession(endReason: 'error');
     }
   }
 
@@ -307,21 +319,14 @@ class CallNotifier extends Notifier<CallState> {
           AppLogger.w(
             '[RingPoll] Call no longer active ($status) — stopping ring',
           );
-          _stopRingPoll();
-          _cleanup();
-          state = state.copyWith(
-            status: CallStatus.ended,
-            endReason: status == 'none' ? 'declined' : status,
-            isGroupRingingOut: false,
-          );
-          // If moderator's outgoing ring ended before connect, downgrade SOS
-          // from "in call" back to "being handled".
           final isMod =
               ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
           if (isMod) {
             unawaited(SosAlertCoordinator.afterModeratorEndedCall(remoteUserId));
           }
-          _scheduleReset();
+          await forceIdleCallSession(
+            endReason: status == 'none' ? 'declined' : status,
+          );
         }
       } catch (e) {
         AppLogger.e('[RingPoll] Error: $e');
@@ -351,6 +356,170 @@ class CallNotifier extends Notifier<CallState> {
     }
   }
 
+  /// Idempotent teardown — use for cancel, decline, timeout, and watchdog.
+  Future<void> forceIdleCallSession({
+    required String endReason,
+    bool goIdleImmediately = false,
+    int scheduleResetDelaySeconds = 3,
+  }) async {
+    _stopRingPoll();
+    _stopSessionWatchdog();
+    _stopConnectingTimeout();
+    try {
+      await CallKitService.instance.endAllCalls();
+    } catch (e) {
+      AppLogger.w('[CallProvider] forceIdle endAllCalls failed: $e');
+    }
+    _cleanup();
+    state = state.copyWith(
+      status: CallStatus.ended,
+      endReason: endReason,
+      isGroupRingingOut: false,
+    );
+    if (goIdleImmediately) {
+      state = const CallState();
+    } else {
+      _scheduleReset(delaySeconds: scheduleResetDelaySeconds);
+    }
+  }
+
+  Future<bool> _isCallActiveOnServer(String callerId) async {
+    final id = callerId.trim();
+    if (id.isEmpty) return false;
+    try {
+      final resp = await ApiService.dio.get(
+        '/call-history/check-active',
+        queryParameters: {'callerId': id},
+      );
+      return resp.data?['active'] == true;
+    } catch (e) {
+      AppLogger.w('[CallProvider] check-active failed: $e');
+      return true;
+    }
+  }
+
+  /// Before placing a call: reset local state and clear stale server ringing.
+  Future<bool> prepareForOutgoingCall() async {
+    if (_outgoingCleanupInFlight != null) {
+      await _outgoingCleanupInFlight;
+    }
+
+    CallSignaling.clearPendingOutgoingEmits();
+
+    if (state.isInCall) {
+      await forceIdleCallSession(
+        endReason: 'cancelled',
+        goIdleImmediately: true,
+      );
+    }
+
+    final myId = await _getMyUserId() ?? '';
+    if (myId.isNotEmpty && await _isCallActiveOnServer(myId)) {
+      AppLogger.w(
+        '[CallProvider] Stale server ring for caller — cancel-all before new call',
+      );
+      await CallSignaling.notifyCancelHttp(myId);
+      await _waitForServerCallInactive(myId);
+    }
+
+    return ensureReadyForNewCall();
+  }
+
+  Future<void> _waitForServerCallInactive(String callerId) async {
+    for (var i = 0; i < 16; i++) {
+      if (!await _isCallActiveOnServer(callerId)) return;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    AppLogger.w(
+      '[CallProvider] Server still shows active after cancel — placing call anyway',
+    );
+  }
+
+  /// Clears ghost [isInCall] when server says the session ended.
+  Future<bool> ensureReadyForNewCall() async {
+    if (!state.isInCall) return true;
+
+    final myId = await _getMyUserId() ?? '';
+    final checkCallerId = state.status == CallStatus.calling
+        ? myId
+        : (state.remoteUserId ?? _pendingFromId ?? '');
+
+    if (checkCallerId.isEmpty) {
+      AppLogger.w('[CallProvider] Ghost in-call with no caller id — forceIdle');
+      await forceIdleCallSession(
+        endReason: 'cancelled',
+        goIdleImmediately: true,
+      );
+      return true;
+    }
+
+    final active = await _isCallActiveOnServer(checkCallerId);
+    if (!active) {
+      AppLogger.w(
+        '[CallProvider] Ghost in-call (server inactive) — forceIdle before new call',
+      );
+      await forceIdleCallSession(
+        endReason: 'cancelled',
+        goIdleImmediately: true,
+      );
+      return true;
+    }
+
+    if (state.status == CallStatus.calling && myId.isNotEmpty) {
+      await CallSignaling.notifyCancelHttp(myId);
+      await _waitForServerCallInactive(myId);
+      if (!await _isCallActiveOnServer(myId)) {
+        await forceIdleCallSession(
+          endReason: 'cancelled',
+          goIdleImmediately: true,
+        );
+        return true;
+      }
+    }
+
+    AppLogger.w(
+      '[CallProvider] Blocked new call — session still active on server',
+    );
+    return false;
+  }
+
+  void _startSessionWatchdog() {
+    _stopSessionWatchdog();
+    _sessionWatchdogTimer = Timer(
+      const Duration(seconds: _sessionWatchdogSeconds),
+      () => unawaited(_onSessionWatchdogTick()),
+    );
+  }
+
+  void _stopSessionWatchdog() {
+    _sessionWatchdogTimer?.cancel();
+    _sessionWatchdogTimer = null;
+  }
+
+  Future<void> _onSessionWatchdogTick() async {
+    if (state.status != CallStatus.calling &&
+        state.status != CallStatus.ringing) {
+      return;
+    }
+
+    final myId = await _getMyUserId() ?? '';
+    final checkCallerId = state.status == CallStatus.calling
+        ? myId
+        : (state.remoteUserId ?? _pendingFromId ?? '');
+
+    if (checkCallerId.isEmpty) {
+      await forceIdleCallSession(endReason: 'cancelled');
+      return;
+    }
+
+    final active = await _isCallActiveOnServer(checkCallerId);
+    if (active) return;
+
+    final reason = state.status == CallStatus.calling ? 'declined' : 'cancelled';
+    AppLogger.w('[SessionWatchdog] Server inactive — forceIdle ($reason)');
+    await forceIdleCallSession(endReason: reason);
+  }
+
   /// Accept an incoming call (status must be [CallStatus.ringing]).
   Future<void> acceptCall() async {
     if (state.status != CallStatus.ringing || _pendingChannelName == null) {
@@ -359,42 +528,35 @@ class CallNotifier extends Notifier<CallState> {
 
     final fromId = _pendingFromId;
     final channelName = _pendingChannelName!;
+
+    if (fromId != null && fromId.isNotEmpty) {
+      CallSignaling.emitWhenConnected('call-answer', {'to': fromId});
+      CallSignaling.notifyAnswerHttp(fromId, SocketService.connectedUserId);
+      NativeCallCoordinator.clearPendingAcceptFileAfterAnswer();
+      AppLogger.i(
+        '[CallProvider] call-answer emitted synchronously before permission request',
+      );
+    } else {
+      AppLogger.e(
+        '[CallProvider] Cannot signal call-answer: missing caller id (fromId=$fromId)',
+      );
+    }
+
+    _stopSessionWatchdog();
     state = state.copyWith(
-      status: CallStatus.connected,
+      status: CallStatus.connecting,
       durationSeconds: 0,
       clearIncomingDisplayName: true,
     );
-    _syncPreConnectRingback(CallStatus.connected);
+    _syncPreConnectRingback(CallStatus.connecting);
+    _startConnectingTimeout();
 
     try {
       await [Permission.microphone].request();
-      // Signal the server immediately — do not wait for Agora. The backend
-      // ring-timeout (30s) clears when it receives call-answer / REST answer;
-      // if joinChannel runs first, a slow SDK can miss the window and the
-      // caller gets "Call Not Answered" even after the callee tapped Accept.
-      if (fromId != null && fromId.isNotEmpty) {
-        CallSignaling.emitWhenConnected('call-answer', {'to': fromId});
-        CallSignaling.notifyAnswerHttp(fromId, SocketService.connectedUserId);
-      } else {
-        AppLogger.e(
-          '[CallProvider] Cannot signal call-answer: missing caller id (fromId=$fromId)',
-        );
-      }
-
-      AppLogger.i('[CallProvider] Accepting call on channel: $channelName');
-      await _setupEngine();
-      await _engine!.joinChannel(
-        token: '',
-        channelId: channelName,
-        uid: 0,
-        options: const ChannelMediaOptions(
-          channelProfile: ChannelProfileType.channelProfileCommunication,
-          clientRoleType: ClientRoleType.clientRoleBroadcaster,
-        ),
-      );
+      AppLogger.i('[CallProvider] Joining Agora on accept: $channelName');
+      await _joinMediaChannel(channelName);
       _pendingChannelName = null;
       _pendingFromId = null;
-      _beginConnectedTimer();
       // Android: mark call connected so native prefs use isAccepted=true; otherwise
       // endCall() routes to DECLINE and never stops CallkitNotificationService FGS.
       final callKitId = await CallKitService.instance
@@ -407,14 +569,9 @@ class CallNotifier extends Notifier<CallState> {
         }
       }
       await CallKitService.instance.dismissIncomingCallNotification();
-    } catch (e) {
-      _cleanup();
-      state = state.copyWith(
-        status: CallStatus.ended,
-        endReason: 'error',
-        isGroupRingingOut: false,
-      );
-      _scheduleReset();
+    } catch (e, st) {
+      AppLogger.e('[CallProvider] acceptCall failed: $e', e, st);
+      unawaited(forceIdleCallSession(endReason: 'error'));
     }
   }
 
@@ -425,15 +582,7 @@ class CallNotifier extends Notifier<CallState> {
       CallSignaling.emitWhenConnected('call-declined', {'to': remoteId});
       CallSignaling.notifyDeclineHttp(remoteId, SocketService.connectedUserId);
     }
-    // Dismiss native call screen
-    CallKitService.instance.endCurrentCall();
-    _cleanup();
-    state = state.copyWith(
-      status: CallStatus.ended,
-      endReason: 'declined',
-      isGroupRingingOut: false,
-    );
-    _scheduleReset();
+    unawaited(forceIdleCallSession(endReason: 'declined'));
   }
 
   /// Incoming ring timed out (CallKit) — server records **missed**, not declined.
@@ -450,14 +599,7 @@ class CallNotifier extends Notifier<CallState> {
         noAnswer: true,
       );
     }
-    CallKitService.instance.endCurrentCall();
-    _cleanup();
-    state = state.copyWith(
-      status: CallStatus.ended,
-      endReason: 'missed',
-      isGroupRingingOut: false,
-    );
-    _scheduleReset();
+    unawaited(forceIdleCallSession(endReason: 'missed'));
   }
 
   /// Decline a call when we only have the caller id (killed-state fallback).
@@ -474,15 +616,9 @@ class CallNotifier extends Notifier<CallState> {
         noAnswer: noAnswer,
       );
     }
-    CallKitService.instance.endCurrentCall();
-    _cleanup();
-    state = state.copyWith(
-      status: CallStatus.ended,
-      endReason: noAnswer ? 'missed' : 'declined',
-      remoteUserId: callerId,
-      isGroupRingingOut: false,
+    unawaited(
+      forceIdleCallSession(endReason: noAnswer ? 'missed' : 'declined'),
     );
-    _scheduleReset();
   }
 
   /// End an in-progress call.
@@ -499,58 +635,50 @@ class CallNotifier extends Notifier<CallState> {
     if (isMod && wasActive && remoteId != null && remoteId.isNotEmpty) {
       unawaited(SosAlertCoordinator.afterModeratorEndedCall(remoteId));
     }
-    // Dismiss native call screen
-    CallKitService.instance.endCurrentCall();
-    _cleanup();
-    state = state.copyWith(
-      status: CallStatus.ended,
-      endReason: 'ended',
-      isGroupRingingOut: false,
-    );
-    _scheduleReset();
+    unawaited(forceIdleCallSession(endReason: 'ended'));
   }
 
   /// Caller cancelled while still ringing — notify callee only via `call-cancel`.
   /// Never emit `call-end` here: the server treats `call-end` during `ringing`
   /// as a missed call and mis-notifies the recipient.
-  void cancelOutgoingRing() {
+  Future<void> cancelOutgoingRing() async {
+    AppLogger.i(
+      '[CallProvider] cancelOutgoingRing '
+      'remote=${state.remoteUserId} group=${state.isGroupRingingOut}',
+    );
     _stopRingPoll();
     final snapshot = state;
-    unawaited(
-      _signalOutgoingCancel(
-        isGroup: snapshot.isGroupRingingOut,
-        remoteId: snapshot.remoteUserId,
-      ),
+    final cleanup = _runOutgoingCleanup(snapshot);
+    _outgoingCleanupInFlight = cleanup;
+    try {
+      await cleanup;
+    } finally {
+      if (identical(_outgoingCleanupInFlight, cleanup)) {
+        _outgoingCleanupInFlight = null;
+      }
+    }
+  }
+
+  Future<void> _runOutgoingCleanup(CallState snapshot) async {
+    await _signalOutgoingCancel(
+      isGroup: snapshot.isGroupRingingOut,
+      remoteId: snapshot.remoteUserId,
     );
-    // If moderator cancels outgoing ring (never connected), downgrade SOS
-    // from "in call" back to "being handled".
     final remoteId = snapshot.remoteUserId;
     final isMod = ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
     if (isMod && remoteId != null && remoteId.isNotEmpty) {
       unawaited(SosAlertCoordinator.afterModeratorEndedCall(remoteId));
     }
-    CallKitService.instance.endCurrentCall();
-    _cleanup();
-    state = snapshot.copyWith(
-      status: CallStatus.ended,
+    await forceIdleCallSession(
       endReason: 'cancelled',
-      isGroupRingingOut: false,
+      goIdleImmediately: true,
     );
-    _scheduleReset();
   }
 
   /// Dismiss local ringing UI after the peer or server already signalled
   /// (FCM `call_cancel` / `call_declined`). Does not emit `call-end`.
   void stopLocalCallSession({required String endReason}) {
-    _stopRingPoll();
-    CallKitService.instance.endCurrentCall();
-    _cleanup();
-    state = state.copyWith(
-      status: CallStatus.ended,
-      endReason: endReason,
-      isGroupRingingOut: false,
-    );
-    _scheduleReset();
+    unawaited(forceIdleCallSession(endReason: endReason));
   }
 
   /// Accept a call that arrived via FCM (background/terminated state).
@@ -577,34 +705,23 @@ class CallNotifier extends Notifier<CallState> {
     // If the caller cancelled while we were waking up from killed state,
     // joining the Agora channel is pointless. This is the safety net that
     // WhatsApp / Telegram use: always ask the server before connecting.
-    try {
-      final response = await ApiService.dio.get(
-        '/call-history/check-active',
-        queryParameters: {'callerId': callerId},
-      );
-      final isActive = response.data?['active'] == true;
-      if (!isActive) {
-        AppLogger.w(
-          '[CallProvider] Call from $callerName is no longer active '
-          '(server: ${response.data?['status']})',
-        );
-        await CallKitService.instance.endAllCalls();
-        state = CallState(
-          status: CallStatus.ended,
-          endReason: 'cancelled',
-          remoteUserId: callerId,
-          remoteUserName: calleeDisplayName,
-          displayPeerAsSupportBranding: isPilgrimCallee,
-        );
-        _syncPreConnectRingback(CallStatus.ended);
-        _scheduleReset();
-        return;
-      }
-    } catch (e) {
-      // Network error — proceed anyway (better to try than miss a real call)
+    final pendingRecordId =
+        (await CallKitService.readPendingIncomingCall())?['callRecordId'];
+    final allowed = await CallKitService.verifyIncomingCallActive(
+      callerId: callerId,
+      callRecordId: pendingRecordId,
+    );
+    if (!allowed) {
       AppLogger.w(
-        '[CallProvider] Could not verify call status, proceeding: $e',
+        '[CallProvider] Call from $callerName is no longer active on server',
       );
+      state = CallState(
+        remoteUserId: callerId,
+        remoteUserName: calleeDisplayName,
+        displayPeerAsSupportBranding: isPilgrimCallee,
+      );
+      await forceIdleCallSession(endReason: 'cancelled');
+      return;
     }
 
     _pendingChannelName = channelName;
@@ -617,6 +734,7 @@ class CallNotifier extends Notifier<CallState> {
       incomingDisplayName: isPilgrimCallee ? calleeDisplayName : null,
       displayPeerAsSupportBranding: isPilgrimCallee,
     );
+    _startSessionWatchdog();
 
     await acceptCall();
   }
@@ -663,6 +781,35 @@ class CallNotifier extends Notifier<CallState> {
     await _reconcilePendingOutgoingStopFromFcm();
     await _reconcilePendingIncomingCall();
     await _reconcileStaleOutgoingPersistence();
+    await _reconcileGhostInCallState();
+  }
+
+  Future<void> _reconcileGhostInCallState() async {
+    if (state.status != CallStatus.calling &&
+        state.status != CallStatus.ringing) {
+      return;
+    }
+    final myId = await _getMyUserId() ?? '';
+    final checkCallerId = state.status == CallStatus.calling
+        ? myId
+        : (state.remoteUserId ?? _pendingFromId ?? '');
+    if (checkCallerId.isEmpty) {
+      await forceIdleCallSession(
+        endReason: 'cancelled',
+        goIdleImmediately: true,
+      );
+      return;
+    }
+    final active = await _isCallActiveOnServer(checkCallerId);
+    if (!active) {
+      AppLogger.w(
+        '[CallProvider] Resume reconcile — ghost ${state.status}, forceIdle',
+      );
+      await forceIdleCallSession(
+        endReason: 'cancelled',
+        goIdleImmediately: true,
+      );
+    }
   }
 
   Future<void> _reconcilePendingOutgoingStopFromFcm() async {
@@ -677,15 +824,13 @@ class CallNotifier extends Notifier<CallState> {
   void toggleMute() {
     final muted = !state.isMuted;
     state = state.copyWith(isMuted: muted);
-    _engine?.muteLocalAudioStream(muted);
+    unawaited(AgoraRtcService.instance.setMuted(muted));
   }
 
   Future<void> toggleSpeaker() async {
     final on = !state.isSpeakerOn;
     state = state.copyWith(isSpeakerOn: on);
-    if (_engine != null) {
-      await _engine!.setEnableSpeakerphone(on);
-    }
+    await AgoraRtcService.instance.setSpeakerOn(on);
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -693,13 +838,14 @@ class CallNotifier extends Notifier<CallState> {
   // ════════════════════════════════════════════════════════════════════════════
 
   void _onIncomingOffer(dynamic data) {
-    AppLogger.d('[CallProvider] ← call-offer received: $data');
-
-    // data may arrive as Map or as List([Map]) depending on socket.io
-    // serialisation – normalise first so all paths use the same payload.
     final Map<String, dynamic> payload = (data is List)
         ? Map<String, dynamic>.from(data.first as Map? ?? {})
         : Map<String, dynamic>.from(data as Map? ?? {});
+    unawaited(_handleIncomingOffer(payload));
+  }
+
+  Future<void> _handleIncomingOffer(Map<String, dynamic> payload) async {
+    AppLogger.d('[CallProvider] ← call-offer received: $payload');
 
     if (state.isInCall) {
       AppLogger.w(
@@ -719,24 +865,20 @@ class CallNotifier extends Notifier<CallState> {
     }
 
     // Duplicate guard: if we already have this exact channel pending, skip.
-    if (_pendingChannelName == channelName) {
+    if (_pendingChannelName == channelName &&
+        state.status == CallStatus.ringing) {
       AppLogger.d(
         '[CallProvider] ✗ duplicate call-offer for same channel, ignored',
       );
       return;
     }
 
-    // Timestamp guard: reject call-offer within 5 s of the last one.
-    final now = DateTime.now();
-    if (_lastOfferTime != null &&
-        now.difference(_lastOfferTime!).inSeconds < 5) {
-      AppLogger.w('[CallProvider] ✗ call-offer within 5 s window, ignored');
-      return;
-    }
-    _lastOfferTime = now;
-
     _pendingChannelName = channelName;
     _pendingFromId = payload['from'] as String?;
+    final recordId = payload['callRecordId']?.toString();
+    if (recordId != null && recordId.isNotEmpty) {
+      _activeIncomingCallRecordId = recordId;
+    }
 
     final callerInfo = payload['callerInfo'] as Map?;
     final callerName = callerInfo?['name'] as String? ?? 'Unknown';
@@ -752,16 +894,32 @@ class CallNotifier extends Notifier<CallState> {
       inAppDisplayName = callerName;
     }
 
+    final callerId = _pendingFromId ?? '';
+    if (callerId.isNotEmpty) {
+      final allowed = await CallKitService.verifyIncomingCallActive(
+        callerId: callerId,
+        callRecordId: recordId,
+      );
+      if (!allowed) {
+        AppLogger.w(
+          '[CallProvider] call-offer rejected — not active on server',
+        );
+        return;
+      }
+    }
+
     AppLogger.i(
-      '[CallProvider] ✓ Incoming call from $callerName ($_pendingFromId) on channel $channelName',
+      '[CallProvider] ✓ Incoming call from $callerName ($callerId) on $channelName',
     );
 
-    // Show NATIVE incoming call screen (like WhatsApp)
-    CallKitService.instance.showIncomingCall(
-      callerId: _pendingFromId ?? '',
+    await CallKitService.instance.showIncomingCall(
+      callerId: callerId,
       callerName: callerName,
       channelName: channelName,
       callerRole: callerRole,
+      callRecordId: recordId,
+      // Already verified active at line ~899 above — skip redundant HTTP call.
+      skipServerVerify: true,
     );
 
     state = CallState(
@@ -771,10 +929,12 @@ class CallNotifier extends Notifier<CallState> {
       incomingDisplayName: supportLabel,
       displayPeerAsSupportBranding: isPilgrim,
     );
+    _startSessionWatchdog();
   }
 
   void _onAnswer(dynamic data) {
     _stopRingPoll();
+    _stopSessionWatchdog();
     if (state.status == CallStatus.connected && _callTimer != null) {
       return;
     }
@@ -797,115 +957,123 @@ class CallNotifier extends Notifier<CallState> {
           : state.remoteUserId,
     );
     _syncPreConnectRingback(CallStatus.connecting);
+    _startConnectingTimeout();
+    unawaited(_joinMediaAsCaller());
+  }
+
+  Future<void> _joinMediaAsCaller() async {
+    final channel = _outgoingChannelName;
+    if (channel == null || channel.isEmpty) {
+      AppLogger.e('[CallProvider] No outgoing channel for Agora join');
+      return;
+    }
+    try {
+      await [Permission.microphone].request();
+      await _joinMediaChannel(channel);
+    } catch (e, st) {
+      AppLogger.e('[CallProvider] Caller Agora join failed: $e', e, st);
+      unawaited(forceIdleCallSession(endReason: 'error'));
+    }
+  }
+
+  Future<void> _joinMediaChannel(String channelName) async {
+    final myId = await _getMyUserId();
+    if (myId == null || myId.isEmpty) {
+      throw StateError('Missing user id for Agora token');
+    }
+    await AgoraRtcService.instance.joinVoiceChannel(
+      channelName: channelName,
+      userId: myId,
+    );
+    await AgoraRtcService.instance.applyPostJoinAudioSettings(
+      isMuted: state.isMuted,
+      isSpeakerOn: state.isSpeakerOn,
+    );
   }
 
   void _onRemoteDecline(dynamic _) {
-    _stopRingPoll();
-    CallKitService.instance.endCurrentCall();
     final snapshot = state;
-    _cleanup();
     final wasLive =
         snapshot.status == CallStatus.connected || snapshot.durationSeconds > 0;
-    state = snapshot.copyWith(
-      status: CallStatus.ended,
-      endReason: wasLive ? 'ended' : 'declined',
-      isGroupRingingOut: false,
+    unawaited(
+      forceIdleCallSession(endReason: wasLive ? 'ended' : 'declined'),
     );
-    _scheduleReset();
   }
 
   void _onRemoteEnd(dynamic _) {
-    _stopRingPoll();
-    CallKitService.instance.endCurrentCall();
-    final snapshot = state;
-    _cleanup();
-    state = snapshot.copyWith(
-      status: CallStatus.ended,
-      endReason: 'ended',
-      isGroupRingingOut: false,
-    );
-    _scheduleReset();
+    unawaited(forceIdleCallSession(endReason: 'ended'));
   }
 
-  void _onRemoteCancel(dynamic _) {
-    _stopRingPoll();
-    CallKitService.instance.endCurrentCall();
-    final snapshot = state;
-    _cleanup();
-    state = snapshot.copyWith(
-      status: CallStatus.ended,
-      endReason: 'cancelled',
-      isGroupRingingOut: false,
+  void _onRemoteCancel(dynamic data) {
+    unawaited(_handleRemoteCancel(data));
+  }
+
+  Future<void> _handleRemoteCancel(dynamic data) async {
+    if (!await _shouldApplyRemoteCancel(data)) {
+      AppLogger.w('[CallProvider] Ignoring stale call-cancel');
+      return;
+    }
+    final callerId = _parseCancelCallerId(data) ?? _pendingFromId ?? '';
+    final recordId = _parseCallRecordId(data);
+    await CallKitService.dismissNativeIncoming(
+      callerId: callerId,
+      callRecordId: recordId,
     );
-    _scheduleReset();
+    await forceIdleCallSession(endReason: 'cancelled');
+  }
+
+  Future<bool> _shouldApplyRemoteCancel(dynamic data) async {
+    final cancelRecordId = _parseCallRecordId(data);
+    if (cancelRecordId == null || cancelRecordId.isEmpty) {
+      return true;
+    }
+    final activeId = _activeIncomingCallRecordId;
+    if (activeId == null || activeId.isEmpty) {
+      return true;
+    }
+    if (cancelRecordId == activeId) {
+      return true;
+    }
+    final callerId = _parseCancelCallerId(data) ?? _pendingFromId;
+    if (callerId == null || callerId.isEmpty) {
+      return false;
+    }
+    final callerStillActive =
+        await CallKitService.isCallerActiveOnServer(callerId);
+    if (!callerStillActive) {
+      return true;
+    }
+    return false;
+  }
+
+  String? _parseCancelCallerId(dynamic data) {
+    if (data is Map) {
+      return data['from']?.toString() ?? data['callerId']?.toString();
+    }
+    if (data is List && data.isNotEmpty && data.first is Map) {
+      final map = data.first as Map;
+      return map['from']?.toString() ?? map['callerId']?.toString();
+    }
+    return null;
+  }
+
+  String? _parseCallRecordId(dynamic data) {
+    if (data is Map) {
+      return data['callRecordId']?.toString();
+    }
+    if (data is List && data.isNotEmpty && data.first is Map) {
+      return (data.first as Map)['callRecordId']?.toString();
+    }
+    return null;
   }
 
   void _onRemoteBusy(dynamic _) {
-    CallKitService.instance.endCurrentCall();
-    final snapshot = state;
-    _cleanup();
-    state = snapshot.copyWith(
-      status: CallStatus.ended,
-      endReason: 'busy',
-      isGroupRingingOut: false,
-    );
-    _scheduleReset();
+    unawaited(forceIdleCallSession(endReason: 'busy'));
   }
 
   // ════════════════════════════════════════════════════════════════════════════
   // PRIVATE HELPERS
   // ════════════════════════════════════════════════════════════════════════════
-
-  Future<void> _setupEngine() async {
-    if (_engine != null) return; // Reuse existing engine
-
-    _engine = createAgoraRtcEngine();
-    await _engine!.initialize(RtcEngineContext(appId: _agoraAppId));
-    await _engine!.enableAudio();
-    // Use default speech profile & 1-on-1 scenario for voice calls
-    await _engine!.setAudioProfile(
-      profile: AudioProfileType.audioProfileDefault,
-      scenario: AudioScenarioType.audioScenarioDefault,
-    );
-
-    _engine!.registerEventHandler(
-      RtcEngineEventHandler(
-        onJoinChannelSuccess: (connection, elapsed) {
-          AppLogger.i(
-            '[Agora] ✓ Joined channel ${connection.channelId} '
-            'as uid ${connection.localUid} (${elapsed}ms)',
-          );
-          // These must run AFTER joining the channel (not during setup),
-          // otherwise the SDK returns ERR_NOT_READY (-3).
-          // Must match [CallState.isSpeakerOn] or UI shows earpiece while audio is on speaker.
-          _engine?.setEnableSpeakerphone(state.isSpeakerOn);
-          _engine?.muteLocalAudioStream(state.isMuted);
-          _engine?.muteAllRemoteAudioStreams(false);
-          _engine?.adjustRecordingSignalVolume(400);
-          _engine?.adjustPlaybackSignalVolume(400);
-        },
-        onUserJoined: (connection, remoteUid, elapsed) {
-          AppLogger.i('[Agora] Remote user $remoteUid joined');
-          _onRemoteUserJoinedMedia();
-        },
-        onUserOffline: (connection, remoteUid, reason) {
-          AppLogger.i('[Agora] Remote user $remoteUid offline: $reason');
-          if (state.status == CallStatus.connected) {
-            endCall();
-          }
-        },
-        onError: (err, msg) {
-          AppLogger.e('[Agora] ✗ Error: $err — $msg');
-        },
-        onConnectionStateChanged: (connection, stateType, reason) {
-          AppLogger.d('[Agora] Connection state: $stateType reason: $reason');
-        },
-        onTokenPrivilegeWillExpire: (connection, token) {
-          AppLogger.w('[Agora] ⚠ Token will expire');
-        },
-      ),
-    );
-  }
 
   void _onRemoteUserJoinedMedia() {
     if (state.status != CallStatus.calling &&
@@ -916,7 +1084,26 @@ class CallNotifier extends Notifier<CallState> {
     _beginConnectedTimer();
   }
 
+  void _startConnectingTimeout() {
+    _stopConnectingTimeout();
+    _connectingTimeoutTimer = Timer(
+      const Duration(seconds: _connectingTimeoutSeconds),
+      () {
+        if (state.status != CallStatus.connecting) return;
+        AppLogger.w('[CallProvider] Connecting timeout — no media link');
+        unawaited(forceIdleCallSession(endReason: 'error'));
+      },
+    );
+  }
+
+  void _stopConnectingTimeout() {
+    _connectingTimeoutTimer?.cancel();
+    _connectingTimeoutTimer = null;
+  }
+
   void _beginConnectedTimer() {
+    _stopSessionWatchdog();
+    _stopConnectingTimeout();
     if (_callTimer != null) {
       if (state.status == CallStatus.connecting) {
         state = state.copyWith(status: CallStatus.connected);
@@ -950,11 +1137,12 @@ class CallNotifier extends Notifier<CallState> {
     _callTimer?.cancel();
     _callTimer = null;
     _syncPreConnectRingback(CallStatus.ended);
-    _engine?.leaveChannel();
-    // Do NOT release the engine here, we reuse it for consecutive calls.
-    // It will be disposed only when the app is terminated or CallProvider is disposed.
+    unawaited(AgoraRtcService.instance.leaveChannel());
     _pendingChannelName = null;
     _pendingFromId = null;
+    _outgoingChannelName = null;
+    _activeIncomingCallRecordId = null;
+    CallSignaling.clearPendingOutgoingEmits();
     unawaited(_clearOutgoingCallPersistence());
   }
 
@@ -988,16 +1176,42 @@ class CallNotifier extends Notifier<CallState> {
     return null;
   }
 
+  Future<String?> _fetchActiveOutgoingCallRecordId() async {
+    try {
+      final myId = await _getMyUserId();
+      if (myId == null || myId.isEmpty) return null;
+      final resp = await ApiService.dio.get(
+        '/call-history/check-active',
+        queryParameters: {'callerId': myId},
+      );
+      final id = resp.data?['callRecordId']?.toString();
+      if (id != null && id.isNotEmpty) return id;
+    } catch (e) {
+      AppLogger.w('[CallProvider] check-active for cancel failed: $e');
+    }
+    return null;
+  }
+
   Future<void> _signalOutgoingCancel({
     required bool isGroup,
     String? remoteId,
   }) async {
     final myId = await _getMyUserId();
+    if (myId == null || myId.isEmpty) {
+      AppLogger.e(
+        '[CallProvider] Cannot signal cancel — missing pilgrim/caller user id',
+      );
+      return;
+    }
+
+    final callRecordId = await _fetchActiveOutgoingCallRecordId();
+
     if (isGroup) {
       CallSignaling.emitWhenConnected('group-call-cancel', <String, dynamic>{});
-      if (myId != null && myId.isNotEmpty) {
-        CallSignaling.notifyGroupCancelHttp(myId);
-      }
+      await CallSignaling.notifyGroupCancelHttp(
+        myId,
+        callRecordId: callRecordId,
+      );
       return;
     }
 
@@ -1005,17 +1219,32 @@ class CallNotifier extends Notifier<CallState> {
     if (to == null || to.isEmpty) {
       to = await _readPersistedOutgoingReceiverId();
     }
-    if (to == null || to.isEmpty) return;
 
-    CallSignaling.emitWhenConnected('call-cancel', {'to': to});
-    if (myId != null && myId.isNotEmpty) {
-      CallSignaling.notifyCancelHttp(myId, to);
+    final socketPayload = <String, dynamic>{};
+    if (to != null && to.isNotEmpty) {
+      socketPayload['to'] = to;
+    }
+    CallSignaling.emitWhenConnected('call-cancel', socketPayload);
+
+    // Always hit REST — even without [to] the server cancels every ringing
+    // outgoing call for this caller (covers stale Riverpod state after decline→recall).
+    await CallSignaling.notifyCancelHttp(
+      myId,
+      receiverId: to,
+      callRecordId: callRecordId,
+    );
+
+    if (to == null || to.isEmpty) {
+      AppLogger.w(
+        '[CallProvider] Cancel sent without receiverId — server cancel-all '
+        'ringing fallback (record=$callRecordId)',
+      );
     }
   }
 
   Future<void> _reconcilePendingIncomingCall() async {
     final pending = await CallKitService.readRecentPendingIncomingCall(
-      maxAgeSeconds: 120,
+      maxAgeSeconds: 60,
     );
     if (pending == null) return;
 
@@ -1027,14 +1256,33 @@ class CallNotifier extends Notifier<CallState> {
         '/call-history/check-active',
         queryParameters: {'callerId': callerId},
       );
-      if (response.data?['active'] == true) return;
+      final active = response.data?['active'] == true;
+      if (active) {
+        final serverRecordId =
+            response.data?['callRecordId']?.toString().trim() ?? '';
+        final pendingRecordId = pending['callRecordId']?.trim() ?? '';
+        if (pendingRecordId.isNotEmpty &&
+            serverRecordId.isNotEmpty &&
+            pendingRecordId != serverRecordId) {
+          AppLogger.w(
+            '[CallProvider] Pending call record mismatch '
+            '(pending=$pendingRecordId server=$serverRecordId)',
+          );
+        } else {
+          return;
+        }
+      }
 
       AppLogger.w(
         '[CallProvider] Pending native call is no longer active on server',
       );
-      await CallKitService.instance.endCurrentCall();
-      if (!state.isInCall) {
-        stopLocalCallSession(endReason: 'cancelled');
+      if (state.isInCall) {
+        await forceIdleCallSession(endReason: 'cancelled');
+      } else {
+        await forceIdleCallSession(
+          endReason: 'cancelled',
+          goIdleImmediately: true,
+        );
       }
     } catch (e) {
       AppLogger.w('[CallProvider] incoming reconcile skipped: $e');

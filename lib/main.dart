@@ -20,6 +20,7 @@ import 'core/theme/app_theme.dart';
 import 'core/utils/app_logger.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/calling/calling_scope.dart';
+import 'features/calling/providers/call_provider.dart';
 import 'features/calling/native_call_coordinator.dart';
 import 'features/moderator/services/sos_alert_coordinator.dart';
 
@@ -73,10 +74,11 @@ class MyApp extends ConsumerStatefulWidget {
   ConsumerState<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends ConsumerState<MyApp> {
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     ref.listenManual<AuthState>(authProvider, (previous, next) {
       final wasRestoringOrUnauthenticated =
           previous == null ||
@@ -96,6 +98,21 @@ class _MyAppState extends ConsumerState<MyApp> {
         ),
       );
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(
+        ref.read(callProvider.notifier).reconcileCallStateAfterProcessDeath(),
+      );
+    }
   }
 
   @override

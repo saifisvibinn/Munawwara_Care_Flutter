@@ -15,12 +15,21 @@ import 'package:flutter_munawwara/core/utils/app_logger.dart';
 //    of on('connect', ...) to avoid clobbering the register-user handshake.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Handler for server events that require an acknowledgement (e.g. call-offer).
+typedef SocketAckHandler = void Function(
+  dynamic data,
+  void Function([dynamic response])? ack,
+);
+
 class SocketService {
   static io.Socket? _socket;
   static String? _connectedUserId;
 
   /// Custom-event listeners (NOT for reserved socket.io events).
   static final Map<String, void Function(dynamic)> _pendingListeners = {};
+
+  /// Events where the server expects an ACK (socket_io_client appends ack last).
+  static final Map<String, SocketAckHandler> _pendingAckListeners = {};
 
   /// Callbacks that fire every time the socket connects / reconnects.
   /// Use [onConnected] / [offConnected] to manage these.
@@ -124,6 +133,7 @@ class SocketService {
       );
       return; // silently ignore to avoid breaking the internal handshake
     }
+    _pendingAckListeners.remove(event);
     _pendingListeners[event] = handler;
     if (_socket != null) {
       _socket!.off(event);
@@ -131,9 +141,26 @@ class SocketService {
     }
   }
 
+  /// Register a handler that must ACK the server immediately on receipt.
+  static void onWithAck(String event, SocketAckHandler handler) {
+    if (_reserved.contains(event)) {
+      AppLogger.d(
+        '[SocketService] ⚠ "$event" is reserved – use onConnected() instead',
+      );
+      return;
+    }
+    _pendingListeners.remove(event);
+    _pendingAckListeners[event] = handler;
+    if (_socket != null) {
+      _socket!.off(event);
+      _socket!.on(event, _wrapAckHandler(handler));
+    }
+  }
+
   static void off(String event) {
     if (_reserved.contains(event)) return;
     _pendingListeners.remove(event);
+    _pendingAckListeners.remove(event);
     _socket?.off(event);
   }
 
@@ -165,9 +192,34 @@ class SocketService {
   // ── Internal ──────────────────────────────────────────────────────────────
   static void _applyPendingListeners() {
     if (_socket == null) return;
+    final ackEvents = _pendingAckListeners.keys.toSet();
     for (final entry in _pendingListeners.entries) {
+      if (ackEvents.contains(entry.key)) continue;
       _socket!.off(entry.key);
       _socket!.on(entry.key, entry.value);
     }
+    for (final entry in _pendingAckListeners.entries) {
+      _socket!.off(entry.key);
+      _socket!.on(entry.key, _wrapAckHandler(entry.value));
+    }
+  }
+
+  static void Function(dynamic, [dynamic]) _wrapAckHandler(
+    SocketAckHandler handler,
+  ) {
+    return (dynamic arg1, [dynamic arg2]) {
+      dynamic data = arg1;
+      void Function([dynamic])? ack;
+
+      if (arg2 is Function) {
+        ack = arg2 as void Function([dynamic]);
+      } else if (arg1 is List && arg1.isNotEmpty && arg1.last is Function) {
+        final list = List<dynamic>.from(arg1);
+        ack = list.removeLast() as void Function([dynamic]);
+        data = list.length == 1 ? list.first : list;
+      }
+
+      handler(data, ack);
+    };
   }
 }

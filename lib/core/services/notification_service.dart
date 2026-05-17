@@ -10,6 +10,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 import '../config/backend_config.dart';
+import 'api_service.dart';
 import 'callkit_service.dart';
 import 'speech_service.dart';
 import '../../core/utils/app_logger.dart';
@@ -353,10 +354,49 @@ class NotificationService {
   static final NotificationService instance = NotificationService._();
   NotificationService._();
 
+  static bool _fcmRefreshBound = false;
+
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
   Future<void>? _initializationFuture;
+
+  /// Registers FCM token refresh listener and uploads the current token.
+  /// Returns the initial token when available (Android/iOS only).
+  static Future<String?> registerFcmTokenLifecycle() async {
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      return null;
+    }
+    if (!_fcmRefreshBound) {
+      _fcmRefreshBound = true;
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+        unawaited(_uploadFcmToken(newToken));
+      });
+    }
+    final token = await FirebaseMessaging.instance.getToken();
+    if (token != null) {
+      await _uploadFcmToken(token);
+    }
+    return token;
+  }
+
+  static Future<void> _uploadFcmToken(String token) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastRegistered = prefs.getString('last_registered_fcm_token');
+      if (lastRegistered == token) {
+        return;
+      }
+      await ApiService.dio.put(
+        '/auth/fcm-token',
+        data: {'fcm_token': token},
+      );
+      await prefs.setString('last_registered_fcm_token', token);
+      AppLogger.i('[NotificationService] FCM token refreshed and uploaded');
+    } catch (e) {
+      AppLogger.e('[NotificationService] FCM token upload failed: $e');
+    }
+  }
 
   Future<void> ensureInitialized() {
     return _initializationFuture ??= initialize();
@@ -513,13 +553,30 @@ class NotificationService {
     // default path below. No extra guard needed — fall through is correct.
     // We only skip if the FCM already had a notification block AND we are
     // NOT in foreground (which is guaranteed: onMessage only fires in foreground).
-    if (type == 'missed_call' && notification != null) {
-      // Android suppresses the system tray notification in foreground —
-      // show exactly one local notification via the default path.
-      AppLogger.i(
-        '📬 missed_call in foreground — showing single local notification',
-      );
-      await _showDefaultNotification(title: title, body: body, data: data);
+    if (type == 'missed_call') {
+      final callerId = data['callerId']?.toString() ?? '';
+      if (callerId.isNotEmpty) {
+        final pending = await CallKitService.readRecentPendingIncomingCall(
+          maxAgeSeconds: 120,
+        );
+        if (pending != null && pending['callerId'] == callerId) {
+          AppLogger.i(
+            '📞 missed_call while incoming ring — treating as remote cancel',
+          );
+          await CallKitService.handleFcmMessage(
+            RemoteMessage(
+              data: {'type': 'call_cancel', 'callerId': callerId},
+            ),
+          );
+          return;
+        }
+      }
+      if (notification != null) {
+        AppLogger.i(
+          '📬 missed_call in foreground — showing single local notification',
+        );
+        await _showDefaultNotification(title: title, body: body, data: data);
+      }
       return;
     }
 

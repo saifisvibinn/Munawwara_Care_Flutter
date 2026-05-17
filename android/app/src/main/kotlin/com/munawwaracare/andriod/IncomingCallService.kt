@@ -17,6 +17,9 @@ import androidx.core.telecom.CallAttributesCompat
 import androidx.core.telecom.CallControlScope
 import androidx.core.telecom.CallsManager
 import kotlinx.coroutines.*
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
@@ -38,6 +41,8 @@ class IncomingCallService : Service() {
         const val ACTION_DECLINE = "com.munawwaracare.andriod.ACTION_DECLINE_CALL"
         const val ACTION_ACCEPT = "com.munawwaracare.andriod.ACTION_ACCEPT_CALL"
         const val ACTION_END = "com.munawwaracare.andriod.ACTION_END_CALL"
+        const val ACTION_REMOTE_CANCEL =
+            "com.munawwaracare.andriod.ACTION_REMOTE_CANCEL"
         /**
          * Remove duplicate tray entry; CallKit already shows incoming/ongoing UI.
          * Must match `${applicationId}.ACTION_DISMISS_FG_NOTIFICATION` from CallkitIncomingBroadcastReceiver.
@@ -54,6 +59,60 @@ class IncomingCallService : Service() {
         private const val KEY_DECLINER_ID = "flutter.user_id"
         private const val KEY_CALL_RECORD_ID = "flutter.pending_call_record_id"
         private val FALLBACK_URL = BackendConfig.API_BASE_URL_FALLBACK
+
+        fun resolveBaseUrl(context: Context): String {
+            return try {
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .getString(KEY_API_BASE_URL, null)
+                    ?.takeIf { it.isNotBlank() } ?: FALLBACK_URL
+            } catch (_: Exception) {
+                FALLBACK_URL
+            }
+        }
+
+        /** @return true=ringing/in-progress, false=ended, null=network/parse error */
+        fun isCallerStillActiveOnServer(context: Context, callerId: String): Boolean? {
+            if (callerId.isBlank()) return null
+            return try {
+                val base = resolveBaseUrl(context).trimEnd('/')
+                val url = URL("$base/call-history/check-active?callerId=$callerId")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "GET"
+                conn.connectTimeout = 8000
+                conn.readTimeout = 8000
+                val code = conn.responseCode
+                val stream = if (code in 200..299) {
+                    conn.inputStream
+                } else {
+                    conn.errorStream
+                }
+                val body = BufferedReader(InputStreamReader(stream, "UTF-8")).use {
+                    it.readText()
+                }
+                conn.disconnect()
+                if (code !in 200..299) {
+                    Log.w(TAG, "📞 check-active HTTP $code")
+                    return null
+                }
+                JSONObject(body).optBoolean("active", false)
+            } catch (e: Exception) {
+                Log.w(TAG, "📞 check-active failed: ${e.message}")
+                null
+            }
+        }
+
+        /** Core-Telecom teardown only — must not call plugin dismiss (no recursion). */
+        fun requestTeardown(context: Context) {
+            val intent = Intent(context, IncomingCallService::class.java).apply {
+                action = ACTION_REMOTE_CANCEL
+            }
+            try {
+                context.startService(intent)
+                Log.i(TAG, "📞 requestTeardown → ACTION_REMOTE_CANCEL")
+            } catch (e: Exception) {
+                Log.w(TAG, "📞 requestTeardown failed: ${e.message}")
+            }
+        }
     }
 
     // Each call gets a fresh scope — never reuse a cancelled scope
@@ -61,7 +120,10 @@ class IncomingCallService : Service() {
     private var callControlScope: CallControlScope? = null
     private var currentCallerId: String? = null
     private var callJob: Job? = null
+    private var activePollJob: Job? = null
     private var callWasAnswered = false
+    private var suppressDeclineHttpOnDisconnect = false
+    private var isTearingDown = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -82,6 +144,7 @@ class IncomingCallService : Service() {
             )
             ACTION_ACCEPT -> handleAccept()
             ACTION_END -> handleEnd()
+            ACTION_REMOTE_CANCEL -> handleRemoteCancel()
             ACTION_DISMISS_FG_NOTIFICATION -> dismissForegroundNotificationOnly()
         }
         return START_NOT_STICKY
@@ -94,15 +157,15 @@ class IncomingCallService : Service() {
         callControlScope = null
         callWasAnswered = false
 
-        val callerId = intent.getStringExtra(EXTRA_CALLER_ID) ?: ""
+        val resolvedCallerId = intent.getStringExtra(EXTRA_CALLER_ID) ?: ""
         val callerName = intent.getStringExtra(EXTRA_CALLER_NAME) ?: "Unknown"
 
-        if (callerId.isBlank()) {
+        if (resolvedCallerId.isBlank()) {
             Log.w(TAG, "📞 No callerId in intent, reading from SharedPreferences")
             val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
             currentCallerId = prefs.getString("flutter.pending_call_caller_id", null) ?: ""
         } else {
-            currentCallerId = callerId
+            currentCallerId = resolvedCallerId
         }
 
         if (currentCallerId.isNullOrBlank()) {
@@ -113,15 +176,36 @@ class IncomingCallService : Service() {
 
         Log.i(TAG, "📞 Starting foreground for call from $callerName (id=$currentCallerId)")
 
-        // Start as foreground service immediately (must happen within 5 seconds)
         startForeground(NOTIFICATION_ID, buildForegroundNotification(callerName))
 
-        // Create a FRESH coroutine scope for this call
         val freshScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         callScope = freshScope
 
-        // Register with Core-Telecom
+        startActiveCallPolling(currentCallerId!!, freshScope)
+
         callJob = freshScope.launch {
+            val callerId = currentCallerId!!
+            var stillActive = isCallerStillActiveOnServer(
+                this@IncomingCallService,
+                callerId,
+            )
+            if (stillActive == null) {
+                delay(400)
+                stillActive = isCallerStillActiveOnServer(
+                    this@IncomingCallService,
+                    callerId,
+                )
+            }
+            if (stillActive != true) {
+                Log.w(
+                    TAG,
+                    "📞 check-active not active before Core-Telecom — aborting ring",
+                )
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+                return@launch
+            }
+
             try {
                 val callsManager = CallsManager(this@IncomingCallService)
                 try {
@@ -147,11 +231,18 @@ class IncomingCallService : Service() {
                     onDisconnect = { disconnectCause ->
                         Log.i(TAG, "📞 Core-Telecom onDisconnect: ${disconnectCause.reason}")
                         val cid = currentCallerId
-                        if (!cid.isNullOrBlank() && !callWasAnswered) {
+                        if (
+                            !suppressDeclineHttpOnDisconnect &&
+                            !cid.isNullOrBlank() &&
+                            !callWasAnswered
+                        ) {
                             sendDeclineHttp(cid, noAnswer = false)
                         } else if (callWasAnswered) {
                             Log.i(TAG, "📞 Skip decline HTTP — call was already answered")
+                        } else if (suppressDeclineHttpOnDisconnect) {
+                            Log.i(TAG, "📞 Skip decline HTTP — remote cancel / teardown")
                         }
+                        suppressDeclineHttpOnDisconnect = false
                         resetCallState()
                     },
                     onSetActive = {
@@ -178,6 +269,8 @@ class IncomingCallService : Service() {
 
     private fun handleDecline(intent: Intent?, noAnswer: Boolean = false) {
         Log.i(TAG, "📞 handleDecline called noAnswer=$noAnswer")
+        callJob?.cancel()
+        suppressDeclineHttpOnDisconnect = true
         var cid = currentCallerId
         if (cid.isNullOrBlank()) {
             cid = intent?.getStringExtra(EXTRA_CALLER_ID)
@@ -210,11 +303,7 @@ class IncomingCallService : Service() {
                 Log.w(TAG, "📞 handleDecline skipped — no callerId/callRecordId")
             }
         }
-        val scope = callScope ?: CoroutineScope(Dispatchers.IO)
-        scope.launch {
-            delay(3000)
-            resetCallState()
-        }
+        resetCallState()
     }
 
     private fun handleAccept() {
@@ -232,14 +321,33 @@ class IncomingCallService : Service() {
 
     private fun handleEnd() {
         Log.i(TAG, "📞 handleEnd called")
-        val scope = callScope ?: CoroutineScope(Dispatchers.IO)
-        scope.launch {
+        handleRemoteCancel()
+    }
+
+    /** Pilgrim cancelled while mod is ringing — Core-Telecom teardown only. */
+    private fun handleRemoteCancel() {
+        if (isTearingDown) {
+            Log.w(TAG, "📞 handleRemoteCancel skipped — already tearing down")
+            return
+        }
+        isTearingDown = true
+        Log.i(TAG, "📞 handleRemoteCancel called")
+        suppressDeclineHttpOnDisconnect = true
+        activePollJob?.cancel()
+        activePollJob = null
+        callJob?.cancel()
+        val control = callControlScope
+        callScope?.cancel()
+        callScope = null
+        CoroutineScope(Dispatchers.IO).launch {
             try {
-                callControlScope?.disconnect(DisconnectCause(DisconnectCause.LOCAL))
+                control?.disconnect(DisconnectCause(DisconnectCause.REMOTE))
             } catch (e: Exception) {
-                Log.w(TAG, "📞 Core-Telecom end failed: ${e.message}")
+                Log.w(TAG, "📞 Core-Telecom remote cancel disconnect: ${e.message}")
             }
             resetCallState()
+            isTearingDown = false
+            stopSelf()
         }
     }
 
@@ -260,8 +368,52 @@ class IncomingCallService : Service() {
      * Reset call state WITHOUT stopping the service.
      * This allows the service to handle subsequent incoming calls.
      */
+    /**
+     * When FCM [call_cancel] never reaches a killed mod app, poll the public
+     * check-active endpoint so we still stop Core-Telecom ringing.
+     */
+    private fun startActiveCallPolling(callerId: String, scope: CoroutineScope) {
+        activePollJob?.cancel()
+        activePollJob = scope.launch {
+            Log.i(TAG, "📞 check-active poll started for callerId=$callerId")
+            delay(200)
+            repeat(90) { tick ->
+                if (!isActive || callWasAnswered) return@launch
+                when (val active = isCallerStillActiveOnServer(this@IncomingCallService, callerId)) {
+                    false -> {
+                        Log.i(
+                            TAG,
+                            "📞 check-active poll: caller no longer active — remote cancel",
+                        )
+                        handleRemoteCancel()
+                        return@launch
+                    }
+                    true -> {
+                        if (tick == 0 || tick % 5 == 0) {
+                            Log.i(TAG, "📞 check-active poll: still active (tick=$tick)")
+                        }
+                    }
+                    null -> {
+                        if (tick >= 2) {
+                            Log.w(
+                                TAG,
+                                "📞 check-active poll: repeated errors — remote cancel",
+                            )
+                            handleRemoteCancel()
+                            return@launch
+                        }
+                    }
+                }
+                delay(1000)
+            }
+            Log.w(TAG, "📞 check-active poll ended without remote cancel")
+        }
+    }
+
     private fun resetCallState() {
         Log.i(TAG, "📞 Resetting call state (service stays alive)")
+        activePollJob?.cancel()
+        activePollJob = null
         callJob?.cancel()
         callJob = null
         callControlScope = null
@@ -275,7 +427,7 @@ class IncomingCallService : Service() {
     }
 
     private fun sendDeclineHttp(callerId: String, noAnswer: Boolean = false) {
-        val baseUrl = resolveBaseUrl()
+        val baseUrl = resolveBaseUrl(this)
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val declinerId = prefs.getString(KEY_DECLINER_ID, null).orEmpty()
         val callRecordId = prefs.getString(KEY_CALL_RECORD_ID, null).orEmpty()
@@ -324,17 +476,6 @@ class IncomingCallService : Service() {
             }
         }
         Log.e(TAG, "📞 All decline HTTP attempts failed")
-    }
-
-    private fun resolveBaseUrl(): String {
-        return try {
-            val prefs: SharedPreferences =
-                getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            prefs.getString(KEY_API_BASE_URL, null)
-                ?.takeIf { it.isNotBlank() } ?: FALLBACK_URL
-        } catch (_: Exception) {
-            FALLBACK_URL
-        }
     }
 
     private fun createNotificationChannel() {

@@ -7,8 +7,14 @@ import '../../core/utils/app_logger.dart';
 class CallSignaling {
   CallSignaling._();
 
+  static final Map<String, Map<String, dynamic>> _pendingEmitPayloads = {};
+  static final Map<String, void Function()> _pendingEmitCallbacks = {};
+
+  /// Emit when the socket is up; coalesce one pending payload per [event] so
+  /// rapid cancel/recall does not flush a burst of stale offers on reconnect.
   static void emitWhenConnected(String event, Map<String, dynamic> payload) {
     if (SocketService.isConnected) {
+      _clearPendingEmit(event);
       SocketService.emit(event, payload);
       AppLogger.w(
         '[CallSignaling] Emitted "$event" (connected) payload=$payload',
@@ -20,13 +26,45 @@ class CallSignaling {
       '[CallSignaling] Socket not connected, queueing "$event" '
       'payload=$payload',
     );
-    void sendOnce() {
-      SocketService.emit(event, payload);
-      SocketService.offConnected(sendOnce);
-      AppLogger.i('[CallSignaling] Queued "$event" emit sent after reconnect');
+    _pendingEmitPayloads[event] = payload;
+    if (_pendingEmitCallbacks.containsKey(event)) {
+      return;
     }
 
+    void sendOnce() {
+      final pending = _pendingEmitPayloads.remove(event);
+      _pendingEmitCallbacks.remove(event);
+      SocketService.offConnected(sendOnce);
+      if (pending != null) {
+        SocketService.emit(event, pending);
+        AppLogger.i(
+          '[CallSignaling] Queued "$event" emit sent after reconnect',
+        );
+      }
+    }
+
+    _pendingEmitCallbacks[event] = sendOnce;
     SocketService.onConnected(sendOnce);
+  }
+
+  static void _clearPendingEmit(String event) {
+    _pendingEmitPayloads.remove(event);
+    final cb = _pendingEmitCallbacks.remove(event);
+    if (cb != null) {
+      SocketService.offConnected(cb);
+    }
+  }
+
+  /// Drop queued signaling for a new outgoing attempt (cancel/recall spam).
+  static void clearPendingOutgoingEmits() {
+    for (final event in [
+      'call-offer',
+      'call-offer-group',
+      'call-cancel',
+      'group-call-cancel',
+    ]) {
+      _clearPendingEmit(event);
+    }
   }
 
   /// HTTP fallback when socket is not up (cold start / background).
@@ -66,49 +104,57 @@ class CallSignaling {
         );
   }
 
-  static void notifyCancelHttp(
-    String callerId,
-    String receiverId, {
+  static Future<void> notifyCancelHttp(
+    String callerId, {
+    String? receiverId,
     String? callRecordId,
-  }) {
-    ApiService.dio
-        .post(
-          '/call-history/cancel',
-          data: {
-            'callerId': callerId,
-            'receiverId': receiverId,
-            if (callRecordId != null && callRecordId.isNotEmpty)
-              'callRecordId': callRecordId,
-          },
-        )
-        .then(
-          (_) => AppLogger.i(
-            '[CallSignaling] HTTP call-cancel → $receiverId',
-          ),
-        )
-        .catchError(
-          (e) => AppLogger.e('[CallSignaling] HTTP call-cancel failed: $e'),
+  }) async {
+    final data = <String, dynamic>{
+      'callerId': callerId,
+      if (receiverId != null && receiverId.isNotEmpty) 'receiverId': receiverId,
+      if (callRecordId != null && callRecordId.isNotEmpty)
+        'callRecordId': callRecordId,
+    };
+    Object? lastError;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        await ApiService.dio.post('/call-history/cancel', data: data);
+        AppLogger.i(
+          '[CallSignaling] HTTP call-cancel OK caller=$callerId '
+          'receiver=${receiverId ?? "ALL_RINGING"} '
+          'record=${callRecordId ?? ""}',
         );
+        return;
+      } catch (e) {
+        lastError = e;
+        AppLogger.e(
+          '[CallSignaling] HTTP call-cancel attempt ${attempt + 1} failed: $e',
+        );
+        if (attempt < 2) {
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+        }
+      }
+    }
+    AppLogger.e('[CallSignaling] HTTP call-cancel gave up: $lastError');
   }
 
-  static void notifyGroupCancelHttp(String callerId, {String? callRecordId}) {
-    ApiService.dio
-        .post(
-          '/call-history/cancel',
-          data: {
-            'callerId': callerId,
-            'groupCancel': true,
-            if (callRecordId != null && callRecordId.isNotEmpty)
-              'callRecordId': callRecordId,
-          },
-        )
-        .then(
-          (_) => AppLogger.i('[CallSignaling] HTTP group-call-cancel'),
-        )
-        .catchError(
-          (e) => AppLogger.e(
-            '[CallSignaling] HTTP group-call-cancel failed: $e',
-          ),
-        );
+  static Future<void> notifyGroupCancelHttp(
+    String callerId, {
+    String? callRecordId,
+  }) async {
+    try {
+      await ApiService.dio.post(
+        '/call-history/cancel',
+        data: {
+          'callerId': callerId,
+          'groupCancel': true,
+          if (callRecordId != null && callRecordId.isNotEmpty)
+            'callRecordId': callRecordId,
+        },
+      );
+      AppLogger.i('[CallSignaling] HTTP group-call-cancel');
+    } catch (e) {
+      AppLogger.e('[CallSignaling] HTTP group-call-cancel failed: $e');
+    }
   }
 }

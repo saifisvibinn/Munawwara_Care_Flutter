@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -77,10 +78,17 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="mc_default_v2" />
-        <!-- Do NOT declare com.google.firebase.messaging.FirebaseMessagingService here.
-             firebase_messaging already registers FlutterFirebaseMessagingService for
-             MESSAGING_EVENT; a second service steals messages so Dart background
-             handlers never run (data-only urgent TTS would be silent). -->
+        <!-- Replace plugin FCM service: dismiss calls natively, then forward to Flutter. -->
+        <service
+            android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService"
+            tools:node="remove" />
+        <service
+            android:name=".MunawwaraFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
         <!-- Receiver for boot and notification actions -->
         <receiver 
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"

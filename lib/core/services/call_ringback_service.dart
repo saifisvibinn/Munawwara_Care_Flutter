@@ -23,10 +23,12 @@ class CallRingbackService {
       await _configureAudioSession();
       await _player.stop();
       await _player.setReleaseMode(ReleaseMode.loop);
+      // Asset must exist at assets/static/ringbacktone.m4a (see pubspec.yaml).
       await _player.play(AssetSource('static/ringbacktone.m4a'));
       _playing = true;
     } catch (e) {
-      AppLogger.w('[CallRingback] start failed: $e');
+      // Missing asset or audio focus — non-fatal; call still works.
+      AppLogger.w('[CallRingback] start failed (ignored): $e');
       _playing = false;
     }
   }

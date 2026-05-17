@@ -1,12 +1,14 @@
 import 'dart:convert';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../config/backend_config.dart';
+import 'api_service.dart';
 import '../utils/app_logger.dart';
 
 /// Shown on CallKit / prefs when a pilgrim receives a moderator call (native asset path).
@@ -27,6 +29,10 @@ const String kNativeApiBaseUrlFallback = kDefaultProductionApiBaseUrl;
 class CallKitService {
   static final CallKitService instance = CallKitService._();
   CallKitService._();
+
+  static const MethodChannel _nativeIncomingChannel = MethodChannel(
+    'com.munawwaracare.andriod/incoming_call',
+  );
 
   static const _uuid = Uuid();
   static const _pendingCallerIdKey = 'pending_call_caller_id';
@@ -83,8 +89,19 @@ class CallKitService {
   /// rapid duplicate invocations that slip past the _currentCallId guard.
   DateTime? _lastShowTime;
 
+  /// Last ring we surfaced — blocks duplicate socket+FCM for the same attempt.
+  String? _lastShownCallRecordId;
+  String? _lastShownChannelName;
+
   /// Show a native incoming call screen.
   /// Call this from both foreground and background FCM handlers.
+  ///
+  /// [skipServerVerify] — set to `true` when called from the FCM background
+  /// handler. In that context `ApiService.dio` is not initialised (no base URL
+  /// or auth headers in the background isolate), so the HTTP check would
+  /// silently fail and suppress the ring. The FCM message itself IS the
+  /// server's signal that the call is active, so the extra round-trip is
+  /// redundant anyway.
   Future<void> showIncomingCall({
     required String callerId,
     required String callerName,
@@ -92,6 +109,7 @@ class CallKitService {
     String? callerRole,
     String? callRecordId,
     String? displayName,
+    bool skipServerVerify = false,
   }) async {
     // ── Guard 1: Dart-side flag (with stale-state recovery) ─────────────
     if (_currentCallId != null) {
@@ -116,14 +134,49 @@ class CallKitService {
       }
     }
 
-    // ── Guard 2: Timestamp-based dedup (5 s window) ─────────────────────
+    // ── Guard 2: Same call attempt (record / channel) ───────────────────
+    final recordKey = callRecordId?.trim() ?? '';
+    if (recordKey.isNotEmpty && recordKey == _lastShownCallRecordId) {
+      AppLogger.w(
+        '📞 [CallKit] duplicate callRecordId=$recordKey — ignoring',
+      );
+      return;
+    }
+    if (channelName.isNotEmpty &&
+        channelName == _lastShownChannelName &&
+        _lastShowTime != null &&
+        DateTime.now().difference(_lastShowTime!).inSeconds < 45) {
+      AppLogger.w(
+        '📞 [CallKit] duplicate channel=$channelName — ignoring',
+      );
+      return;
+    }
+
+    // ── Guard 3: Timestamp-based dedup (5 s window) ─────────────────────
     final now = DateTime.now();
     if (_lastShowTime != null && now.difference(_lastShowTime!).inSeconds < 5) {
       AppLogger.w('📞 [CallKit] showIncomingCall called within 5 s — ignoring');
       return;
     }
 
-    // ── Guard 3: Check actual system state for active calls ─────────────
+    // ── Guard 4: Server must still be ringing this caller ───────────────
+    // Skipped when called from FCM background handler — ApiService.dio is not
+    // initialised in the background isolate and the FCM is itself proof the
+    // server initiated this call.
+    if (!skipServerVerify) {
+      final callerKey = callerId.trim();
+      if (callerKey.isNotEmpty) {
+        final allowed = await verifyIncomingCallActive(
+          callerId: callerKey,
+          callRecordId: recordKey.isEmpty ? null : recordKey,
+        );
+        if (!allowed) {
+          return;
+        }
+      }
+    }
+
+    // ── Guard 5: Check actual system state for active calls ─────────────
     try {
       final activeCalls = await FlutterCallkitIncoming.activeCalls();
       if (activeCalls is List && activeCalls.isNotEmpty) {
@@ -140,6 +193,8 @@ class CallKitService {
 
     _currentCallId = _uuid.v4();
     _lastShowTime = now;
+    _lastShownCallRecordId = recordKey.isEmpty ? null : recordKey;
+    _lastShownChannelName = channelName.isEmpty ? null : channelName;
 
     final prefs = await SharedPreferences.getInstance();
     final role = prefs.getString(_prefsUserRoleKey) ?? '';
@@ -181,7 +236,7 @@ class CallKitService {
       avatar: avatarAsset,
       handle: callerRole ?? 'Voice Call',
       type: 0, // 0 = audio call, 1 = video call
-      duration: 30000, // Ring for 30 seconds max
+      duration: 35000, // 35s CallKit ring; server timeout is 45s (10s gap)
       textAccept: 'Accept',
       textDecline: 'Decline',
       missedCallNotification: const NotificationParams(
@@ -359,6 +414,8 @@ class CallKitService {
     }
     _currentCallId = null;
     _lastShowTime = null;
+    _lastShownCallRecordId = null;
+    _lastShownChannelName = null;
   }
 
   /// End/dismiss the current incoming call UI.
@@ -379,11 +436,14 @@ class CallKitService {
     }
     _currentCallId = null;
     _lastShowTime = null;
+    _lastShownCallRecordId = null;
+    _lastShownChannelName = null;
     await clearPendingIncomingCall();
   }
 
   /// End all calls (cleanup).
   Future<void> endAllCalls() async {
+    await dismissNativeIncoming();
     try {
       final raw = await FlutterCallkitIncoming.activeCalls();
       if (raw is List) {
@@ -402,6 +462,8 @@ class CallKitService {
     await FlutterCallkitIncoming.endAllCalls();
     _currentCallId = null;
     _lastShowTime = null;
+    _lastShownCallRecordId = null;
+    _lastShownChannelName = null;
     await clearPendingIncomingCall();
   }
 
@@ -411,7 +473,80 @@ class CallKitService {
   Future<void> clearLocalCallTracking() async {
     _currentCallId = null;
     _lastShowTime = null;
+    _lastShownCallRecordId = null;
+    _lastShownChannelName = null;
     await clearPendingIncomingCall();
+  }
+
+  /// Server says this exact call attempt is still ringing (fail-closed on error).
+  static Future<bool> verifyIncomingCallActive({
+    required String callerId,
+    String? callRecordId,
+  }) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final params = <String, dynamic>{'callerId': callerId};
+        final expected = callRecordId?.trim() ?? '';
+        if (expected.isNotEmpty) {
+          params['callRecordId'] = expected;
+        }
+        final response = await ApiService.dio.get(
+          '/call-history/check-active',
+          queryParameters: params,
+        );
+        final active = response.data?['active'] == true;
+        if (!active) {
+          AppLogger.w(
+            '📞 [CallKit] check-active inactive for $callerId '
+            '(status=${response.data?['status']}) — skip ring',
+          );
+          return false;
+        }
+        return true;
+      } catch (e) {
+        if (attempt == 0) {
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+          continue;
+        }
+        AppLogger.w(
+          '📞 [CallKit] check-active failed for $callerId — skip ring: $e',
+        );
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /// Whether [callerId] has any ringing/in-progress row (ignore record id).
+  static Future<bool> isCallerActiveOnServer(String callerId) async {
+    try {
+      final response = await ApiService.dio.get(
+        '/call-history/check-active',
+        queryParameters: {'callerId': callerId},
+      );
+      return response.data?['active'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Core-Telecom + plugin incoming UI (Android); no-op on other platforms.
+  static Future<void> dismissNativeIncoming({
+    String? callerId,
+    String? callRecordId,
+  }) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+    try {
+      await _nativeIncomingChannel.invokeMethod<void>('stopRinging', {
+        if (callerId != null && callerId.isNotEmpty) 'callerId': callerId,
+        if (callRecordId != null && callRecordId.isNotEmpty)
+          'callRecordId': callRecordId,
+      });
+    } catch (e) {
+      AppLogger.w('📞 [CallKit] dismissNativeIncoming failed: $e');
+    }
   }
 
   static Future<void> _savePendingIncomingCall({
@@ -495,6 +630,17 @@ class CallKitService {
     await prefs.remove(_pendingCallRecordIdKey);
   }
 
+  static Future<bool> _isCancelForCurrentIncoming(String cancelRecordId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pending = prefs.getString(_pendingCallRecordIdKey) ?? '';
+      if (pending.isEmpty) return true;
+      return pending == cancelRecordId;
+    } catch (_) {
+      return true;
+    }
+  }
+
   /// Process an FCM message and show incoming call if it's a call notification.
   /// Returns true if it was a call message and was handled.
   static Future<bool> handleFcmMessage(RemoteMessage message) async {
@@ -502,16 +648,32 @@ class CallKitService {
     final controlType = fcmCallControlType(data);
 
     if (controlType == 'call_cancel') {
-      AppLogger.i('📞 FCM call_cancel detected — dismissing native call UI');
-      try {
-        await CallKitService.instance.endCurrentCall();
-      } catch (e) {
-        AppLogger.e('📞 call_cancel endCurrentCall failed: $e');
+      final cancelRecordId = data['callRecordId']?.toString() ?? '';
+      final callerId = data['callerId']?.toString() ?? '';
+      if (cancelRecordId.isNotEmpty &&
+          !await _isCancelForCurrentIncoming(cancelRecordId)) {
+        if (callerId.isNotEmpty &&
+            await isCallerActiveOnServer(callerId)) {
+          AppLogger.w(
+            '📞 Ignoring stale FCM call_cancel record=$cancelRecordId '
+            '(caller still has newer active call)',
+          );
+          return true;
+        }
+        AppLogger.w(
+          '📞 Stale FCM call_cancel record=$cancelRecordId — dismissing ghost ring',
+        );
       }
+      AppLogger.i('📞 FCM call_cancel — clearing native + Dart call state');
+      await dismissNativeIncoming(
+        callerId: callerId,
+        callRecordId: cancelRecordId.isEmpty ? null : cancelRecordId,
+      );
       try {
-        await Future.delayed(const Duration(milliseconds: 500));
-        await FlutterCallkitIncoming.endAllCalls();
-      } catch (_) {}
+        await CallKitService.instance.endAllCalls();
+      } catch (e) {
+        AppLogger.e('📞 call_cancel endAllCalls failed: $e');
+      }
       return true;
     }
 
@@ -548,6 +710,9 @@ class CallKitService {
         callerRole: callerRole,
         callRecordId: callRecordId.isNotEmpty ? callRecordId : null,
         displayName: displayName,
+        // FCM IS the server's signal — skip the redundant check-active HTTP
+        // call which fails in the background isolate (ApiService not init'd).
+        skipServerVerify: true,
       );
     } catch (e, st) {
       AppLogger.e('📞 FCM incoming_call showIncomingCall failed: $e\n$st');
