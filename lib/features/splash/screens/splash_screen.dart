@@ -10,7 +10,8 @@ import '../../auth/providers/auth_provider.dart';
 import '../../../core/bootstrap/app_startup_coordinator.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/services/notification_service.dart';
-import '../../../core/services/location_permission_service.dart';
+import '../../moderator/services/sos_alert_coordinator.dart';
+import '../../../core/services/oem_settings_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -72,11 +73,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
     final auth = ref.read(authProvider);
     if (auth.isAuthenticated) {
-      final hasLoc = await hasLocationAlwaysPermission();
+      final showPermissions =
+          await OemSettingsService.shouldShowOnboardingAtLaunch();
       if (!mounted) return;
-      if (!hasLoc) {
-        AppLogger.i('SplashScreen nav to location onboarding');
-        context.go('/location-onboarding');
+      if (showPermissions) {
+        AppLogger.i('SplashScreen nav to permissions onboarding');
+        context.go('/device-care-onboarding');
         return;
       }
 
@@ -93,7 +95,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             pending['type']?.toString() ??
             '';
         if (type == 'sos_alert') {
-          NotificationService.queuePendingSosAlert(pending);
+          unawaited(
+            SosAlertCoordinator.queueSosAlertIfStillActive(pending),
+          );
         } else {
           AppLogger.i(
             'SplashScreen: processing pending notification deep-link',

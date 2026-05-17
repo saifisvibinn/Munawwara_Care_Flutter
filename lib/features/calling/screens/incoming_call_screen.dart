@@ -8,7 +8,9 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/services/callkit_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../providers/call_provider.dart';
+import '../widgets/call_peer_display.dart';
 import 'voice_call_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,6 +28,7 @@ class IncomingCallScreen extends ConsumerStatefulWidget {
 class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
+  String? _cachedDisplayName;
 
   @override
   void initState() {
@@ -34,6 +37,11 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
+    final call = ref.read(callProvider);
+    final resolved = resolveCallPeerDisplayName(call: call);
+    if (resolved.isNotEmpty) {
+      _cachedDisplayName = resolved;
+    }
   }
 
   @override
@@ -55,14 +63,15 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
       }
     });
 
-    final name = call.incomingDisplayName ?? call.remoteUserName ?? 'Unknown';
-    final initials = name
-        .trim()
-        .split(' ')
-        .where((w) => w.isNotEmpty)
-        .take(2)
-        .map((w) => w[0].toUpperCase())
-        .join();
+    final displayName = resolveCallPeerDisplayName(
+      call: call,
+      cachedName: _cachedDisplayName,
+    );
+    if (displayName.isNotEmpty) {
+      _cachedDisplayName = displayName;
+    }
+    final showPeerName = displayName.isNotEmpty;
+    final initials = showPeerName ? callPeerInitials(displayName) : '';
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -107,18 +116,25 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                     },
                     child: call.displayPeerAsSupportBranding
                         ? _IncomingSupportBrandingAvatar(palette: c)
-                        : _IncomingAvatarRing(initials: initials, palette: c),
+                        : _IncomingPeerAvatar(
+                            gender: call.remotePeerGender,
+                            initials: initials,
+                            palette: c,
+                          ),
                   ),
                   SizedBox(height: 22.h),
-                  Text(
-                    name,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 26.sp,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'Lexend',
-                      color: c.textPrimary,
-                      letterSpacing: -0.3,
+                  Opacity(
+                    opacity: showPeerName ? 1 : 0,
+                    child: Text(
+                      showPeerName ? displayName : ' ',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 26.sp,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Lexend',
+                        color: c.textPrimary,
+                        letterSpacing: -0.3,
+                      ),
                     ),
                   ),
                   SizedBox(height: 8.h),
@@ -205,11 +221,21 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                           label: 'call_accept'.tr(),
                           variant: _IncomingActionVariant.accept,
                           onTap: () async {
+                            final seedName = resolveCallPeerDisplayName(
+                              call: ref.read(callProvider),
+                              cachedName: _cachedDisplayName,
+                            );
                             await ref.read(callProvider.notifier).acceptCall();
                             if (context.mounted) {
                               Navigator.of(context).pushReplacement(
                                 MaterialPageRoute(
-                                  builder: (_) => const VoiceCallScreen(),
+                                  builder: (_) => VoiceCallScreen(
+                                    initialPeerName: seedName.isNotEmpty
+                                        ? seedName
+                                        : null,
+                                    initialPeerGender:
+                                        ref.read(callProvider).remotePeerGender,
+                                  ),
                                 ),
                               );
                             }
@@ -278,6 +304,44 @@ class _SoftOrb extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(shape: BoxShape.circle, color: color),
       ),
+    );
+  }
+}
+
+class _IncomingPeerAvatar extends StatelessWidget {
+  const _IncomingPeerAvatar({
+    required this.gender,
+    required this.initials,
+    required this.palette,
+  });
+
+  final String? gender;
+  final String initials;
+  final _IncomingPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final g = gender?.trim() ?? '';
+    if (g.isEmpty) {
+      return _IncomingAvatarRing(initials: initials, palette: palette);
+    }
+    final inner = 104.w;
+    return Container(
+      width: 120.w,
+      height: 120.w,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: palette.avatarRing, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.25),
+            blurRadius: 24,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: PilgrimGenderAvatar(gender: g, size: inner),
     );
   }
 }

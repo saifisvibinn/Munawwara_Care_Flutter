@@ -389,7 +389,8 @@ class ModeratorSosBannerCard extends ConsumerWidget {
       await resProv.addResolved(resolved);
       await engProv.refresh();
       await modProv.loadDashboard(silently: true);
-      await notifProv.refetch();
+      notifProv.removeSosAlertsForPilgrim(pId, sosId: sosId);
+      await notifProv.fetchUnreadCount();
       
       if (!context.mounted) return;
       onSosResolved?.call();

@@ -15,6 +15,7 @@ import 'core/providers/theme_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/services/api_service.dart';
 import 'core/services/callkit_service.dart';
+import 'core/services/locale_prefs.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/app_logger.dart';
@@ -92,9 +93,11 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      final lang = context.locale.languageCode;
+      unawaited(LocalePrefs.saveLanguageCode(lang));
       unawaited(
         CallKitService.refreshCachedSupportDisplayName(
-          languageCode: context.locale.languageCode,
+          languageCode: lang,
         ),
       );
     });

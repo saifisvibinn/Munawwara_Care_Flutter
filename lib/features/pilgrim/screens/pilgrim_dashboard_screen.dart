@@ -20,6 +20,8 @@ import '../../shared/helpers/deferred_urgent_chat_popup.dart';
 import '../../../core/bootstrap/app_startup_coordinator.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/location_permission_service.dart';
+import '../../../core/services/oem_settings_service.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/map/app_map_tiles.dart';
 import '../../../core/theme/app_colors.dart';
@@ -179,6 +181,16 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     }
   }
 
+  void _reconcileCallsAfterSocketReady() {
+    if (!mounted) return;
+    unawaited(
+      ref.read(callProvider.notifier).reconcileCallStateAfterProcessDeath(),
+    );
+    if (!mounted) return;
+    ref.read(callProvider.notifier).checkPendingAcceptedCall();
+    ref.read(callProvider.notifier).checkPendingDeclinedCall();
+  }
+
   void _refreshRealtimeState({bool forceDashboard = false}) {
     if (!mounted) return;
     ref.read(notificationProvider.notifier).refetch();
@@ -214,7 +226,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(_checkLocationPermission());
+      unawaited(_checkRequiredPermissions());
       _loadWeatherAlert(force: true);
       ref.read(missedCallsUnreadProvider.notifier).refresh();
       if (_locationSub == null) {
@@ -228,14 +240,49 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     }
   }
 
-  Future<void> _checkLocationPermission() async {
+  int _permissionsCheckGate = 0;
+
+  Future<void> _checkRequiredPermissions() async {
+    if (OemSettingsService.isOnboardingSkippedForSession) return;
+
+    final gate = OemSettingsService.onboardingGate;
+    final checkId = ++_permissionsCheckGate;
+
     final hasLoc = await hasLocationAlwaysPermission();
-    if (mounted && _hasLocPermission != hasLoc) {
+    if (!mounted ||
+        checkId != _permissionsCheckGate ||
+        OemSettingsService.isOnboardingSkippedForSession ||
+        gate != OemSettingsService.onboardingGate) {
+      return;
+    }
+    if (_hasLocPermission != hasLoc) {
       setState(() => _hasLocPermission = hasLoc);
     }
-    if (!hasLoc && mounted) {
-      context.go('/location-onboarding');
+
+    final showOnboarding = await OemSettingsService.shouldShowOnboardingOnResume(
+      gate: gate,
+    );
+    if (!mounted ||
+        checkId != _permissionsCheckGate ||
+        OemSettingsService.isOnboardingSkippedForSession ||
+        gate != OemSettingsService.onboardingGate) {
+      return;
     }
+    if (showOnboarding) {
+      context.go('/device-care-onboarding');
+    }
+  }
+
+  Future<void> _promptPermissionsForLocationUse() async {
+    final showOnboarding =
+        await OemSettingsService.shouldShowOnboardingForLocationUse();
+    if (!mounted) return;
+    if (showOnboarding) {
+      context.go('/device-care-onboarding');
+      return;
+    }
+    await requestLocationPermissionsFlow(context);
+    await _checkRequiredPermissions();
   }
 
   @override
@@ -363,7 +410,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       if (mounted) {
         _sosPulseController.repeat(reverse: true);
       }
-      unawaited(_checkLocationPermission());
+      unawaited(_checkRequiredPermissions());
       unawaited(_bootstrapDashboard());
     });
   }
@@ -467,21 +514,11 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         // Check if there's a pending call accepted from native call screen.
         // Must run AFTER the socket handshake so the call-answer emit goes through.
         if (SocketService.isConnected) {
-          unawaited(
-            ref.read(callProvider.notifier).reconcileCallStateAfterProcessDeath(),
-          );
-          ref.read(callProvider.notifier).checkPendingAcceptedCall();
-          ref.read(callProvider.notifier).checkPendingDeclinedCall();
+          _reconcileCallsAfterSocketReady();
         } else {
           void checkOnce() {
-            unawaited(
-              ref
-                  .read(callProvider.notifier)
-                  .reconcileCallStateAfterProcessDeath(),
-            );
-            ref.read(callProvider.notifier).checkPendingAcceptedCall();
-            ref.read(callProvider.notifier).checkPendingDeclinedCall();
             SocketService.offConnected(checkOnce);
+            _reconcileCallsAfterSocketReady();
           }
 
           SocketService.onConnected(checkOnce);
@@ -1439,14 +1476,14 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         hasLocPermission: _hasLocPermission,
         onLocationInactiveTap: () async {
           if (!_hasLocPermission) {
-            await requestLocationPermissionsFlow();
-            await _checkLocationPermission();
+            await _promptPermissionsForLocationUse();
           } else if (!_isGpsEnabled) {
             await Geolocator.openLocationSettings();
           }
         },
         myLocation: _myLatLng,
         onNavigateToModerator: _navigateToModerator,
+        callCooldownSeconds: ref.watch(callProvider).cooldownSeconds,
         notificationCount: notifCount,
         onNotificationTap: () {
           Navigator.of(context)
@@ -1462,6 +1499,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         },
         missedCallUnreadCount: missedCallUnread,
         onMissedCallsTap: () {
+          unawaited(NotificationService.onAlertsTabOpened());
           Navigator.of(context)
               .push(
                 MaterialPageRoute<void>(

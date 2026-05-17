@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart' show kIsWeb, listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'dart:ui' as ui;
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -13,7 +12,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/bootstrap/app_startup_coordinator.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/notification_service.dart';
-import '../../../core/services/location_permission_service.dart';
+import '../../../core/services/oem_settings_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/providers/theme_provider.dart';
@@ -62,7 +61,6 @@ class _ModeratorDashboardScreenState
   int _currentTab =
       0; // 0=Groups, 1=Provisioning, 2=Reminders, 3=Profile, 4=Alerts
   final _searchController = TextEditingController();
-  final _alertTts = FlutterTts();
   ModeratorGlobalNavBeaconController? _globalNavBeacon;
 
   // ── RouteAware: re-join group rooms when returning from sub-screens ────────
@@ -94,6 +92,16 @@ class _ModeratorDashboardScreenState
     unawaited(_globalNavBeacon?.emitSnapshotIfNeeded() ?? Future.value());
   }
 
+  void _reconcileCallsAfterSocketReady() {
+    if (!mounted) return;
+    unawaited(
+      ref.read(callProvider.notifier).reconcileCallStateAfterProcessDeath(),
+    );
+    if (!mounted) return;
+    ref.read(callProvider.notifier).checkPendingAcceptedCall();
+    ref.read(callProvider.notifier).checkPendingDeclinedCall();
+  }
+
   void _refreshRealtimeState() {
     if (!mounted) return;
     unawaited(() async {
@@ -106,35 +114,6 @@ class _ModeratorDashboardScreenState
     }());
   }
 
-  Future<void> _onSosAlertCancelled(dynamic data) async {
-    if (!mounted) return;
-    _alertTts.stop();
-
-    String? pilgrimId;
-    if (data is Map) {
-      final map = Map<String, dynamic>.from(data);
-      pilgrimId = (map['pilgrim_id'] ?? map['pilgrimId'])?.toString();
-    }
-
-    final pid = pilgrimId?.trim();
-    if (pid != null && pid.isNotEmpty) {
-      ref.read(moderatorProvider.notifier).markPilgrimSOS(pid, active: false);
-      // Important: await removal BEFORE refresh to avoid a race where the
-      // Active SOS tab re-reads the old prefs snapshot.
-      await ModeratorSosEngagementStore.removeAllEntriesForPilgrim(pid);
-      await ref.read(moderatorSosEngagementProvider.notifier).refresh();
-    }
-
-    // Dismiss any open SOS dialog (pilgrim cancelled — no need for it)
-    final nav = AppRouter.navigatorKey.currentState;
-    if (nav != null && nav.canPop()) {
-      nav.pop();
-    }
-
-    // Refresh list + unread badge without auto-marking as read.
-    unawaited(ref.read(notificationProvider.notifier).refetch());
-  }
-
   Future<void> _onSosAlertArrived(dynamic data) async {
     if (!mounted) return;
     // Update badge/list without auto-clearing unread count.
@@ -143,7 +122,6 @@ class _ModeratorDashboardScreenState
     final map = data is Map
         ? Map<String, dynamic>.from(data)
         : <String, dynamic>{};
-    final name = map['pilgrim_name'] as String? ?? 'A pilgrim';
     final pid = map['pilgrim_id']?.toString();
     if (pid != null && pid.isNotEmpty) {
       ref.read(moderatorProvider.notifier).markPilgrimSOS(pid, active: true);
@@ -151,18 +129,14 @@ class _ModeratorDashboardScreenState
 
     // In-app dialog (deduped). Do not show a second local notification — FCM
     // already surfaces one tray notification when applicable.
-    SosAlertCoordinator.showOnceFromMap(map);
-
-    await _alertTts.setVolume(1.0);
-    await _alertTts.setSpeechRate(0.42);
-    await _alertTts.speak('SOS Alert! $name needs immediate help!');
+    await SosAlertCoordinator.showOnceFromMap(map);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted && !kIsWeb) {
       unawaited(() async {
-        await _checkLocationPermission();
+        await _checkRequiredPermissions();
         if (mounted) {
           unawaited(
             _globalNavBeacon?.sync(emitImmediateFix: true) ?? Future.value(),
@@ -172,10 +146,25 @@ class _ModeratorDashboardScreenState
     }
   }
 
-  Future<void> _checkLocationPermission() async {
-    final hasLoc = await hasLocationAlwaysPermission();
-    if (!hasLoc && mounted) {
-      context.go('/location-onboarding');
+  int _permissionsCheckGate = 0;
+
+  Future<void> _checkRequiredPermissions() async {
+    if (OemSettingsService.isOnboardingSkippedForSession) return;
+
+    final gate = OemSettingsService.onboardingGate;
+    final checkId = ++_permissionsCheckGate;
+
+    final showOnboarding = await OemSettingsService.shouldShowOnboardingOnResume(
+      gate: gate,
+    );
+    if (!mounted ||
+        checkId != _permissionsCheckGate ||
+        OemSettingsService.isOnboardingSkippedForSession ||
+        gate != OemSettingsService.onboardingGate) {
+      return;
+    }
+    if (showOnboarding) {
+      context.go('/device-care-onboarding');
     }
   }
 
@@ -204,7 +193,7 @@ class _ModeratorDashboardScreenState
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_checkLocationPermission());
+      unawaited(_checkRequiredPermissions());
       unawaited(_bootstrapDashboard());
     });
   }
@@ -276,38 +265,26 @@ class _ModeratorDashboardScreenState
         // Check if there's a pending call accepted from native call screen.
         // Must run AFTER the socket handshake so the call-answer emit goes through.
         if (SocketService.isConnected) {
-          unawaited(
-            ref.read(callProvider.notifier).reconcileCallStateAfterProcessDeath(),
-          );
-          ref.read(callProvider.notifier).checkPendingAcceptedCall();
-          ref.read(callProvider.notifier).checkPendingDeclinedCall();
+          _reconcileCallsAfterSocketReady();
         } else {
           void checkOnce() {
-            unawaited(
-              ref
-                  .read(callProvider.notifier)
-                  .reconcileCallStateAfterProcessDeath(),
-            );
-            ref.read(callProvider.notifier).checkPendingAcceptedCall();
-            ref.read(callProvider.notifier).checkPendingDeclinedCall();
             SocketService.offConnected(checkOnce);
+            _reconcileCallsAfterSocketReady();
           }
 
           SocketService.onConnected(checkOnce);
         }
-        // Fetch unread notification count for badge
-        ref.read(notificationProvider.notifier).fetchUnreadCount();
+        if (mounted) {
+          ref.read(notificationProvider.notifier).fetchUnreadCount();
+        }
         if (SocketService.isConnected) {
           _onSocketConnected();
         }
         unawaited(
           _globalNavBeacon?.sync(emitImmediateFix: true) ?? Future.value(),
         );
-        // Listen for real-time SOS alerts
+        // Listen for real-time SOS alerts (cancel handled globally in bootstrap).
         SocketService.on('sos-alert-received', _onSosAlertArrived);
-        // Backend may emit either name depending on transport/version.
-        SocketService.on('sos-alert-cancelled', _onSosAlertCancelled);
-        SocketService.on('sos_cancel', _onSosAlertCancelled);
         // Cross-moderator status updates (reviewing / in-call)
         SocketService.on('sos-moderator-responding', (data) async {
           if (!mounted || data is! Map) return;
@@ -460,11 +437,9 @@ class _ModeratorDashboardScreenState
     NotificationService.markModeratorDashboardNotReady();
     WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
-    _alertTts.stop();
+    unawaited(SosAlertCoordinator.stopAlertSpeech());
     AppRouter.moderatorRouteObserver.unsubscribe(this);
     SocketService.off('sos-alert-received');
-    SocketService.off('sos-alert-cancelled');
-    SocketService.off('sos_cancel');
     SocketService.off('sos-moderator-responding');
     SocketService.off('sos-moderator-in-call');
     SocketService.off('missed-call-received');
@@ -581,8 +556,10 @@ class _ModeratorDashboardScreenState
                     children: [
                       _GroupsHomeTab(
                         searchController: _searchController,
-                        onNotificationTap: () =>
-                            setState(() => _currentTab = 4),
+                        onNotificationTap: () {
+                          unawaited(NotificationService.onAlertsTabOpened());
+                          setState(() => _currentTab = 4);
+                        },
                       ), // 0: Groups
                       const PilgrimProvisioningScreen(), // 1: Provisioning
                       SystemRemindersScreen(isTabActive: _currentTab == 2), // 2

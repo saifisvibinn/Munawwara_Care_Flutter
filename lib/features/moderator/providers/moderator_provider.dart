@@ -6,6 +6,7 @@ import 'package:flutter_munawwara/core/utils/app_logger.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/services/app_data_cache.dart';
+import '../../../core/services/caller_gender_cache.dart';
 
 // ── Pilgrim-in-group model ────────────────────────────────────────────────────
 class PilgrimInGroup {
@@ -356,6 +357,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
     }
     if (groups.isEmpty) return;
     state = state.copyWith(groups: groups);
+    await CallerGenderCache.syncFromGroups(groups);
   }
 
   // Load all groups + their pilgrims
@@ -406,6 +408,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
         clearError: true,
         clearOfflineSnapshot: true,
       );
+      await CallerGenderCache.syncFromGroups(groups);
     } on DioException catch (e) {
       final code = e.response?.statusCode;
       if (code == 401) {

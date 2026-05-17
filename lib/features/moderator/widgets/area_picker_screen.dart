@@ -251,7 +251,9 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
         }
       }
     } catch (e) {
+      if (mounted) {
         StandardSnackBar.showError(context, 'error_location_unavailable'.tr());
+      }
     } finally {
       if (mounted) setState(() => _recenteringGps = false);
     }

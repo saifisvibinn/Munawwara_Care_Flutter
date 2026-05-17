@@ -18,6 +18,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/services/agora_rtc_service.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/socket_service.dart';
+import '../../../core/services/caller_gender_cache.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/services/call_ringback_service.dart';
 import '../../../core/utils/app_logger.dart';
@@ -54,6 +55,7 @@ class CallState {
   final int durationSeconds;
   final String?
   endReason; // 'declined' | 'busy' | 'ended' | 'cancelled' | 'error'
+  final int cooldownSeconds;
 
   const CallState({
     this.status = CallStatus.idle,
@@ -67,6 +69,7 @@ class CallState {
     this.isSpeakerOn = false,
     this.durationSeconds = 0,
     this.endReason,
+    this.cooldownSeconds = 0,
   });
 
   bool get isInCall =>
@@ -94,6 +97,7 @@ class CallState {
     bool? isSpeakerOn,
     int? durationSeconds,
     String? endReason,
+    int? cooldownSeconds,
   }) {
     return CallState(
       status: status ?? this.status,
@@ -110,6 +114,7 @@ class CallState {
       isSpeakerOn: isSpeakerOn ?? this.isSpeakerOn,
       durationSeconds: durationSeconds ?? this.durationSeconds,
       endReason: endReason ?? this.endReason,
+      cooldownSeconds: cooldownSeconds ?? this.cooldownSeconds,
     );
   }
 }
@@ -265,9 +270,7 @@ class CallNotifier extends Notifier<CallState> {
       remotePeerGender: isPilgrimCaller ? null : remotePeerGender,
     );
     _syncPreConnectRingback(CallStatus.calling);
-    unawaited(
-      _persistOutgoingCall(remoteUserId: remoteUserId, isGroup: false),
-    );
+    unawaited(_persistOutgoingCall(remoteUserId: remoteUserId, isGroup: false));
 
     try {
       await [Permission.microphone].request();
@@ -319,10 +322,11 @@ class CallNotifier extends Notifier<CallState> {
           AppLogger.w(
             '[RingPoll] Call no longer active ($status) — stopping ring',
           );
-          final isMod =
-              ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
+          final isMod = ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
           if (isMod) {
-            unawaited(SosAlertCoordinator.afterModeratorEndedCall(remoteUserId));
+            unawaited(
+              SosAlertCoordinator.afterModeratorEndedCall(remoteUserId),
+            );
           }
           await forceIdleCallSession(
             endReason: status == 'none' ? 'declined' : status,
@@ -356,6 +360,41 @@ class CallNotifier extends Notifier<CallState> {
     }
   }
 
+  Timer? _cooldownTimer;
+
+  void _startCooldown(int seconds) {
+    _cooldownTimer?.cancel();
+    state = state.copyWith(cooldownSeconds: seconds);
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (state.cooldownSeconds > 0) {
+        state = state.copyWith(cooldownSeconds: state.cooldownSeconds - 1);
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  void _scheduleReset({int delaySeconds = 3}) {
+    Future.delayed(Duration(seconds: delaySeconds), () {
+      if (state.status == CallStatus.ended) {
+        state = CallState(cooldownSeconds: state.cooldownSeconds);
+      }
+    });
+  }
+
+  void _cleanup() {
+    _callTimer?.cancel();
+    _callTimer = null;
+    _syncPreConnectRingback(CallStatus.ended);
+    unawaited(AgoraRtcService.instance.leaveChannel());
+    _pendingChannelName = null;
+    _pendingFromId = null;
+    _outgoingChannelName = null;
+    _activeIncomingCallRecordId = null;
+    CallSignaling.clearPendingOutgoingEmits();
+    unawaited(_clearOutgoingCallPersistence());
+  }
+
   /// Idempotent teardown — use for cancel, decline, timeout, and watchdog.
   Future<void> forceIdleCallSession({
     required String endReason,
@@ -376,8 +415,12 @@ class CallNotifier extends Notifier<CallState> {
       endReason: endReason,
       isGroupRingingOut: false,
     );
+
+    // Always enforce a 10s cooldown after a call ends
+    _startCooldown(10);
+
     if (goIdleImmediately) {
-      state = const CallState();
+      state = CallState(cooldownSeconds: state.cooldownSeconds);
     } else {
       _scheduleReset(delaySeconds: scheduleResetDelaySeconds);
     }
@@ -515,7 +558,9 @@ class CallNotifier extends Notifier<CallState> {
     final active = await _isCallActiveOnServer(checkCallerId);
     if (active) return;
 
-    final reason = state.status == CallStatus.calling ? 'declined' : 'cancelled';
+    final reason = state.status == CallStatus.calling
+        ? 'declined'
+        : 'cancelled';
     AppLogger.w('[SessionWatchdog] Server inactive — forceIdle ($reason)');
     await forceIdleCallSession(endReason: reason);
   }
@@ -630,7 +675,8 @@ class CallNotifier extends Notifier<CallState> {
     }
     // If moderator ended an active call, signal "responding" to the pilgrim
     final isMod = ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
-    final wasActive = state.status == CallStatus.connected ||
+    final wasActive =
+        state.status == CallStatus.connected ||
         state.status == CallStatus.connecting;
     if (isMod && wasActive && remoteId != null && remoteId.isNotEmpty) {
       unawaited(SosAlertCoordinator.afterModeratorEndedCall(remoteId));
@@ -669,10 +715,7 @@ class CallNotifier extends Notifier<CallState> {
     if (isMod && remoteId != null && remoteId.isNotEmpty) {
       unawaited(SosAlertCoordinator.afterModeratorEndedCall(remoteId));
     }
-    await forceIdleCallSession(
-      endReason: 'cancelled',
-      goIdleImmediately: true,
-    );
+    await forceIdleCallSession(endReason: 'cancelled', goIdleImmediately: true);
   }
 
   /// Dismiss local ringing UI after the peer or server already signalled
@@ -705,8 +748,9 @@ class CallNotifier extends Notifier<CallState> {
     // If the caller cancelled while we were waking up from killed state,
     // joining the Agora channel is pointless. This is the safety net that
     // WhatsApp / Telegram use: always ask the server before connecting.
-    final pendingRecordId =
-        (await CallKitService.readPendingIncomingCall())?['callRecordId'];
+    final pending = await CallKitService.readPendingIncomingCall();
+    final pendingRecordId = pending?['callRecordId'];
+    final pendingGender = pending?['callerGender']?.trim();
     final allowed = await CallKitService.verifyIncomingCallActive(
       callerId: callerId,
       callRecordId: pendingRecordId,
@@ -733,6 +777,12 @@ class CallNotifier extends Notifier<CallState> {
       remoteUserName: calleeDisplayName,
       incomingDisplayName: isPilgrimCallee ? calleeDisplayName : null,
       displayPeerAsSupportBranding: isPilgrimCallee,
+      remotePeerGender:
+          isPilgrimCallee ||
+              pendingGender == null ||
+              pendingGender.isEmpty
+          ? null
+          : pendingGender,
     );
     _startSessionWatchdog();
 
@@ -883,6 +933,13 @@ class CallNotifier extends Notifier<CallState> {
     final callerInfo = payload['callerInfo'] as Map?;
     final callerName = callerInfo?['name'] as String? ?? 'Unknown';
     final callerRole = callerInfo?['role'] as String?;
+    var callerGender = CallerGenderCache.normalize(
+      callerInfo?['gender']?.toString(),
+    );
+    final callerIdForGender = payload['from']?.toString() ?? '';
+    if (callerGender == null && callerIdForGender.isNotEmpty) {
+      callerGender = await CallerGenderCache.resolve(callerIdForGender);
+    }
     final isPilgrim = ref.read(authProvider).role == 'pilgrim';
     final String inAppDisplayName;
     final String? supportLabel;
@@ -918,6 +975,7 @@ class CallNotifier extends Notifier<CallState> {
       channelName: channelName,
       callerRole: callerRole,
       callRecordId: recordId,
+      callerGender: callerGender,
       // Already verified active at line ~899 above — skip redundant HTTP call.
       skipServerVerify: true,
     );
@@ -928,6 +986,7 @@ class CallNotifier extends Notifier<CallState> {
       remoteUserName: inAppDisplayName,
       incomingDisplayName: supportLabel,
       displayPeerAsSupportBranding: isPilgrim,
+      remotePeerGender: isPilgrim ? null : callerGender,
     );
     _startSessionWatchdog();
   }
@@ -995,9 +1054,7 @@ class CallNotifier extends Notifier<CallState> {
     final snapshot = state;
     final wasLive =
         snapshot.status == CallStatus.connected || snapshot.durationSeconds > 0;
-    unawaited(
-      forceIdleCallSession(endReason: wasLive ? 'ended' : 'declined'),
-    );
+    unawaited(forceIdleCallSession(endReason: wasLive ? 'ended' : 'declined'));
   }
 
   void _onRemoteEnd(dynamic _) {
@@ -1038,8 +1095,9 @@ class CallNotifier extends Notifier<CallState> {
     if (callerId == null || callerId.isEmpty) {
       return false;
     }
-    final callerStillActive =
-        await CallKitService.isCallerActiveOnServer(callerId);
+    final callerStillActive = await CallKitService.isCallerActiveOnServer(
+      callerId,
+    );
     if (!callerStillActive) {
       return true;
     }
@@ -1110,10 +1168,7 @@ class CallNotifier extends Notifier<CallState> {
       }
       return;
     }
-    state = state.copyWith(
-      status: CallStatus.connected,
-      durationSeconds: 0,
-    );
+    state = state.copyWith(status: CallStatus.connected, durationSeconds: 0);
     _syncPreConnectRingback(CallStatus.connected);
     _startTimer();
   }
@@ -1123,27 +1178,6 @@ class CallNotifier extends Notifier<CallState> {
     _callTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       state = state.copyWith(durationSeconds: state.durationSeconds + 1);
     });
-  }
-
-  void _scheduleReset({int delaySeconds = 3}) {
-    Future.delayed(Duration(seconds: delaySeconds), () {
-      if (state.status == CallStatus.ended) {
-        state = const CallState();
-      }
-    });
-  }
-
-  void _cleanup() {
-    _callTimer?.cancel();
-    _callTimer = null;
-    _syncPreConnectRingback(CallStatus.ended);
-    unawaited(AgoraRtcService.instance.leaveChannel());
-    _pendingChannelName = null;
-    _pendingFromId = null;
-    _outgoingChannelName = null;
-    _activeIncomingCallRecordId = null;
-    CallSignaling.clearPendingOutgoingEmits();
-    unawaited(_clearOutgoingCallPersistence());
   }
 
   Future<void> _persistOutgoingCall({

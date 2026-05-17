@@ -190,6 +190,20 @@ class ApiService {
     return token;
   }
 
+  /// Auth + base URL for FCM background isolate (no dotenv).
+  @pragma('vm:entry-point')
+  static Future<void> restoreForBackgroundIsolate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getString(kNativeApiBaseUrlPrefsKey);
+    if (cached != null && cached.isNotEmpty) {
+      dio.options.baseUrl = cached;
+    }
+    final token = prefs.getString('auth_token');
+    if (token != null && token.isNotEmpty) {
+      dio.options.headers['Authorization'] = 'Bearer $token';
+    }
+  }
+
   /// Native decline/answer HTTP uses SharedPreferences, not Dart [dio].
   static Future<void> cacheNativeCallPrefs() async {
     final prefs = await SharedPreferences.getInstance();

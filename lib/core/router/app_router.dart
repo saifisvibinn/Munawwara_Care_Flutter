@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/splash/screens/splash_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
-import '../../features/auth/screens/location_onboarding_screen.dart';
+import '../../features/auth/screens/device_care_onboarding_screen.dart';
 
 import '../../features/pilgrim/screens/pilgrim_dashboard_screen.dart';
 import '../../features/moderator/screens/moderator_dashboard_screen.dart';
@@ -38,9 +38,9 @@ class AppRouter {
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
       GoRoute(
-        path: '/location-onboarding',
-        name: 'location-onboarding',
-        builder: (context, state) => const LocationOnboardingScreen(),
+        path: '/device-care-onboarding',
+        name: 'device-care-onboarding',
+        builder: (context, state) => const DeviceCareOnboardingScreen(),
       ),
       GoRoute(
         path: '/pilgrim-dashboard',

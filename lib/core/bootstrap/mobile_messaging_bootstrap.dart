@@ -15,6 +15,7 @@ import '../router/app_router.dart';
 import '../services/callkit_service.dart';
 import '../services/incoming_chat_sfx.dart';
 import '../services/notification_service.dart';
+import '../services/tts_cloud_api.dart';
 import '../theme/app_colors.dart';
 import '../utils/app_logger.dart';
 import '../widgets/reminder_popup.dart';
@@ -46,6 +47,7 @@ Future<void> bindMobileMessagingServices() async {
     AppLogger.d('FCM token: $globalFcmToken');
 
     AuthNotifier.setFcmTokenGetter(() => globalFcmToken);
+    SosAlertCoordinator.bindCancelListeners();
 
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
       globalFcmToken = newToken;
@@ -129,6 +131,13 @@ Future<void> bindMobileMessagingServices() async {
         );
         return;
       }
+      final fcmType = msg.data['type']?.toString() ?? '';
+      if (fcmType == 'sos_alert_cancelled') {
+        await SosAlertCoordinator.handleCancelledFromMap(
+          Map<String, dynamic>.from(msg.data),
+        );
+        return;
+      }
       if (notifType == 'sos_alert') {
         AppLogger.i(
           'FCM onMessage: SOS — in-app dialog (no duplicate local notif)',
@@ -178,11 +187,21 @@ Future<void> bindMobileMessagingServices() async {
           if (isUrgentTts) {
             await Future.delayed(kUrgentAlertToTtsDelay);
             final spoken = urgentTtsSpokenBackupText(msg, isReminder: true);
-            await NotificationService.speakTts(
+            final ctx = AppRouter.navigatorKey.currentContext;
+            final lang = msg.data['lang']?.toString() ??
+                (ctx != null && ctx.mounted
+                    ? ctx.locale.languageCode
+                    : null);
+            final rid = msg.data['reminderId']?.toString() ?? '';
+            await NotificationService.speakTtsCloud(
               spoken,
               audioUrl: msg.data['audio_url']?.toString(),
-              lang: msg.data['lang']?.toString() ?? 'en',
-              messageKey: messageKey.isEmpty ? null : messageKey,
+              lang: lang != null
+                  ? TtsCloudApi.normalizeLang(lang)
+                  : null,
+              messageKey: rid.isNotEmpty
+                  ? 'reminder_$rid'
+                  : (messageKey.isEmpty ? null : messageKey),
             );
           }
         }
@@ -197,10 +216,13 @@ Future<void> bindMobileMessagingServices() async {
           AppLogger.d('🔊 Foreground urgent TTS: "$text"');
           await Future.delayed(kUrgentAlertToTtsDelay);
           final spoken = urgentTtsSpokenBackupText(msg, isReminder: false);
-          await NotificationService.speakTts(
+          final ctx = AppRouter.navigatorKey.currentContext;
+          final lang = msg.data['lang']?.toString() ??
+              (ctx != null && ctx.mounted ? ctx.locale.languageCode : null);
+          await NotificationService.speakTtsCloud(
             spoken,
             audioUrl: msg.data['audio_url']?.toString(),
-            lang: msg.data['lang']?.toString() ?? 'en',
+            lang: lang != null ? TtsCloudApi.normalizeLang(lang) : null,
             messageKey: messageKey.isEmpty ? null : messageKey,
           );
         }

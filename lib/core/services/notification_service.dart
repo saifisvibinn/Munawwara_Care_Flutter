@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:ui';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -13,22 +14,31 @@ import '../config/backend_config.dart';
 import 'api_service.dart';
 import 'callkit_service.dart';
 import 'speech_service.dart';
+import 'locale_prefs.dart';
+import 'tts_cloud_api.dart';
 import '../../core/utils/app_logger.dart';
 import '../../core/router/app_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../features/pilgrim/screens/group_inbox_screen.dart';
 import '../../features/moderator/screens/group_messages_screen.dart';
 import '../../features/moderator/services/sos_alert_coordinator.dart';
 import '../../features/notifications/screens/alerts_tab_v2.dart';
 import '../../features/calling/calling_scope.dart';
+import '../../features/calling/data/call_history_api.dart';
+import '../../features/calling/providers/missed_calls_unread_provider.dart';
 import '../../features/shared/providers/message_provider.dart';
 import '../theme/app_colors.dart';
 import '../utils/route_id_utils.dart';
 
 /// Wait after the urgent notification sound before starting TTS (extra 2 s).
 const Duration kUrgentAlertToTtsDelay = Duration(milliseconds: 4200);
+
+const _notificationTrayChannel = MethodChannel(
+  'com.munawwaracare.andriod/notification_tray',
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Background Message Handler
@@ -154,6 +164,183 @@ String urgentTtsSpokenBackupText(
   return useEnglishPrefix ? '$prefix $text' : text;
 }
 
+bool _isSosAlertFcm(RemoteMessage message) {
+  final data = message.data;
+  final t = data['notification_type']?.toString() ??
+      data['type']?.toString() ??
+      '';
+  return t == 'sos_alert';
+}
+
+bool _isReminderTtsFcm(RemoteMessage message) {
+  final dataType = message.data['type']?.toString() ?? '';
+  final msgType = message.data['messageType']?.toString() ?? '';
+  return dataType == 'urgent' && msgType == 'reminder_tts';
+}
+
+Future<String> _resolveTtsLang(RemoteMessage message) async {
+  final fromFcm = message.data['lang']?.toString().trim() ?? '';
+  if (fromFcm.isNotEmpty) {
+    return TtsCloudApi.normalizeLang(fromFcm);
+  }
+  return TtsCloudApi.normalizeLang(await LocalePrefs.readLanguageCode());
+}
+
+void _sendReminderPopupToMainIsolate(RemoteMessage message) {
+  final sendPort = IsolateNameServer.lookupPortByName('popup_port');
+  if (sendPort == null) return;
+  final text =
+      message.data['content']?.toString() ??
+      message.data['body']?.toString() ??
+      message.notification?.body ??
+      '';
+  if (text.isEmpty) return;
+  sendPort.send({
+    'type': 'reminder_popup',
+    'body': text,
+    'rawTime':
+        message.data['scheduledAt']?.toString() ??
+        message.data['scheduled_time']?.toString() ??
+        '',
+  });
+}
+
+/// Spoken SOS copy for cloud/local TTS (background has no EasyLocalization).
+String _sosSpokenBackupText(RemoteMessage message) {
+  final body = message.notification?.body?.trim() ?? '';
+  if (body.isNotEmpty) return body;
+  final data = message.data;
+  final name = data['pilgrim_name']?.toString() ?? 'A pilgrim';
+  final group = data['group_name']?.toString() ?? '';
+  if (group.isEmpty) {
+    return 'SOS Alert! $name needs immediate help.';
+  }
+  return 'SOS Alert! $name needs immediate help in $group.';
+}
+
+/// Cloud TTS when the app is killed, backgrounded, or the screen is off.
+@pragma('vm:entry-point')
+Future<void> _playSosAlertTtsInBackground(RemoteMessage message) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final role = prefs.getString('user_role');
+    if (role != 'moderator') {
+      AppLogger.i('🔊 SOS TTS [background]: skipped (role=$role)');
+      return;
+    }
+
+    final text = _sosSpokenBackupText(message);
+    if (text.isEmpty) return;
+
+    final lang = TtsCloudApi.normalizeLang(
+      await LocalePrefs.readLanguageCode(),
+    );
+    final sosId = message.data['sos_id']?.toString() ?? '';
+    final pilgrimId = message.data['pilgrim_id']?.toString() ?? '';
+
+    AppLogger.i(
+      '🔊 SOS TTS [background]: "$text" (lang=$lang, '
+      'audioUrl=pending)',
+    );
+
+    await ApiService.restoreForBackgroundIsolate();
+    final audioFuture = TtsCloudApi.fetchAudioUrl(text: text, lang: lang);
+
+    var wakelockOn = false;
+    if (Platform.isAndroid || Platform.isIOS) {
+      try {
+        await WakelockPlus.enable();
+        wakelockOn = true;
+      } catch (e) {
+        AppLogger.w('[SOS TTS] WakeLock failed (non-fatal): $e');
+      }
+    }
+
+    try {
+      await Future.delayed(kUrgentAlertToTtsDelay);
+      final audioUrl = await audioFuture;
+      await SpeechService.playRobust(
+        audioUrl: audioUrl,
+        backupText: text,
+        lang: lang,
+        isUrgent: true,
+        messageKey: sosId.isNotEmpty
+            ? 'sos_speak_$sosId'
+            : (pilgrimId.isNotEmpty ? 'sos_speak_$pilgrimId' : null),
+      );
+    } finally {
+      if (wakelockOn) {
+        try {
+          await WakelockPlus.disable();
+        } catch (_) {}
+      }
+    }
+  } catch (e, st) {
+    AppLogger.e('🔊 SOS TTS [background] failed: $e\n$st');
+  }
+}
+
+/// Cloud TTS for scheduled reminders (killed / locked / background).
+@pragma('vm:entry-point')
+Future<void> _playReminderTtsInBackground(RemoteMessage message) async {
+  try {
+    var text = urgentTtsSpokenBackupText(message, isReminder: true);
+    if (text.isEmpty &&
+        (message.notification?.body ?? '').trim().isNotEmpty) {
+      text = message.notification!.body!.trim();
+    }
+    if (text.isEmpty) return;
+
+    final lang = await _resolveTtsLang(message);
+    final reminderId = message.data['reminderId']?.toString() ?? '';
+    final messageKey = reminderId.isNotEmpty
+        ? 'reminder_$reminderId'
+        : (message.data['message_id']?.toString() ??
+            message.messageId ??
+            '');
+
+    AppLogger.i(
+      '🔊 Reminder TTS [background]: "$text" (lang=$lang, '
+      'audioUrl=pending)',
+    );
+
+    await ApiService.restoreForBackgroundIsolate();
+    var audioUrl = message.data['audio_url']?.toString().trim();
+    if (audioUrl == null || audioUrl.isEmpty) {
+      audioUrl = await TtsCloudApi.fetchAudioUrl(text: text, lang: lang);
+    }
+
+    var wakelockOn = false;
+    if (Platform.isAndroid || Platform.isIOS) {
+      try {
+        await WakelockPlus.enable();
+        wakelockOn = true;
+      } catch (e) {
+        AppLogger.w('[Reminder TTS] WakeLock failed (non-fatal): $e');
+      }
+    }
+
+    try {
+      await Future.delayed(kUrgentAlertToTtsDelay);
+      await SpeechService.playRobust(
+        audioUrl: audioUrl,
+        backupText: text,
+        lang: lang,
+        isUrgent: true,
+        messageKey: messageKey.isEmpty ? null : messageKey,
+      );
+    } finally {
+      if (wakelockOn) {
+        try {
+          await WakelockPlus.disable();
+        } catch (_) {}
+      }
+    }
+  } catch (e, st) {
+    AppLogger.e('🔊 Reminder TTS [background] failed: $e\n$st');
+  }
+}
+
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -234,35 +421,36 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     return;
   }
 
+  final fcmType = message.data['type']?.toString() ?? '';
+  if (fcmType == 'sos_alert_cancelled') {
+    await SosAlertCoordinator.handleCancelledFromMap(
+      Map<String, dynamic>.from(message.data),
+    );
+    return;
+  }
+
+  // SOS: tray is shown by FCM; speak aloud here (killed / locked / background).
+  if (_isSosAlertFcm(message)) {
+    await _playSosAlertTtsInBackground(message);
+    return;
+  }
+
+  // Reminders: always cloud TTS (data-only FCM; legacy notif payloads too).
+  if (_isReminderTtsFcm(message)) {
+    await NotificationService.instance.initialize();
+    _sendReminderPopupToMainIsolate(message);
+    if (message.notification == null) {
+      await NotificationService.instance.showNotificationFromMessage(message);
+    }
+    await _playReminderTtsInBackground(message);
+    return;
+  }
+
   // ── If the FCM payload contains a 'notification' block, Android already
   //    showed a system notification automatically — skip showing another one
   //    to avoid duplicates. We only create a local notification for
   //    data-only messages (urgent TTS, etc.) that Android won't display.
   if (message.notification != null) {
-    // Standard FCM still delivers to this handler on some devices. If the main
-    // isolate is alive, show the in-app reminder card (tray may be enough,
-    // but pilgrims expect the same popup as foreground onMessage).
-    final msgTypeEarly = message.data['messageType']?.toString() ?? '';
-    if (msgTypeEarly == 'reminder_tts') {
-      final sendPort = IsolateNameServer.lookupPortByName('popup_port');
-      if (sendPort != null) {
-        final text =
-            message.data['body']?.toString() ??
-            message.data['content']?.toString() ??
-            message.notification?.body ??
-            '';
-        if (text.isNotEmpty) {
-          sendPort.send({
-            'type': 'reminder_popup',
-            'body': text,
-            'rawTime':
-                message.data['scheduledAt']?.toString() ??
-                message.data['scheduled_time']?.toString() ??
-                '',
-          });
-        }
-      }
-    }
     AppLogger.i('📩 Notification block present — Android already displayed it');
     return;
   }
@@ -288,58 +476,38 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // ── Data-only messages → show local notification ────────────────────────
   await NotificationService.instance.initialize();
 
-  // ── Urgent TTS / Reminder TTS → show notification then speak ──────────────
-  if (dataType == 'urgent' && (msgType == 'tts' || msgType == 'reminder_tts')) {
-    final isReminder = msgType == 'reminder_tts';
-    var text = urgentTtsSpokenBackupText(message, isReminder: isReminder);
-    final audioUrl = message.data['audio_url']?.toString();
-    final lang = message.data['lang']?.toString() ?? 'en';
+  // ── Urgent broadcast TTS (not reminders — handled above) ─────────────────
+  if (dataType == 'urgent' && msgType == 'tts') {
+    var text = urgentTtsSpokenBackupText(message, isReminder: false);
+    if (text.isEmpty) return;
+
+    final lang = await _resolveTtsLang(message);
     final messageKey =
         message.data['message_id']?.toString() ??
         message.messageId ??
         '';
-    if (text.isEmpty &&
-        isReminder &&
-        (message.notification?.body ?? '').isNotEmpty) {
-      text = message.notification!.body!;
-    }
+
     AppLogger.i(
-      '🔊 ${isReminder ? 'Reminder' : 'Urgent'} TTS [background]: "$text" '
-      '(audioUrl=${audioUrl != null ? 'present' : 'null'}, lang=$lang)',
+      '🔊 Urgent TTS [background]: "$text" (lang=$lang)',
     );
 
-    // 1. Show notification — the urgent channel plays urgent_tts.wav as sound
     await NotificationService.instance.showNotificationFromMessage(message);
+    await Future.delayed(kUrgentAlertToTtsDelay);
 
-    // Reminder TTS only: main isolate may show ReminderPopup. Urgent broadcast
-    // TTS must not use that UI (wrong "reminder" title); tray + TTS suffice.
-    final sendPort = IsolateNameServer.lookupPortByName('popup_port');
-    if (sendPort != null && isReminder) {
-      AppLogger.i('🔔 Main isolate is alive — sending reminder popup trigger');
-      sendPort.send({
-        'type': 'reminder_popup',
-        'body': text,
-        'rawTime':
-            message.data['scheduledAt']?.toString() ??
-            message.data['scheduled_time']?.toString() ??
-            '',
-      });
+    var audioUrl = message.data['audio_url']?.toString().trim();
+    if (audioUrl == null || audioUrl.isEmpty) {
+      await ApiService.restoreForBackgroundIsolate();
+      audioUrl = await TtsCloudApi.fetchAudioUrl(text: text, lang: lang);
     }
 
-    if (text.isNotEmpty) {
-      // 2. Wait for the alert sound to finish before TTS begins.
-      await Future.delayed(kUrgentAlertToTtsDelay);
-
-      // 3. Play cloud audio (with local TTS fallback) once.
-      await SpeechService.playRobust(
-        audioUrl: audioUrl,
-        backupText: text,
-        lang: lang,
-        isUrgent: true,
-        messageKey: messageKey.isEmpty ? null : messageKey,
-      );
-    }
-    return; // notification already shown above, skip the call below
+    await SpeechService.playRobust(
+      audioUrl: audioUrl,
+      backupText: text,
+      lang: lang,
+      isUrgent: true,
+      messageKey: messageKey.isEmpty ? null : messageKey,
+    );
+    return;
   }
 
   await NotificationService.instance.showNotificationFromMessage(message);
@@ -355,6 +523,49 @@ class NotificationService {
   NotificationService._();
 
   static bool _fcmRefreshBound = false;
+
+  static String chatTrayTag(String groupId) => 'chat_$groupId';
+
+  static const String missedCallTrayTag = 'missed_call';
+
+  /// Dismisses a tray notification by Android tag (FCM + local plugin).
+  static Future<void> dismissTrayByTag(String tag) async {
+    final t = tag.trim();
+    if (t.isEmpty) return;
+    if (Platform.isAndroid) {
+      try {
+        await _notificationTrayChannel.invokeMethod<bool>(
+          'dismissNotificationByTag',
+          <String, String>{'tag': t},
+        );
+        AppLogger.i('[NotificationService] Dismissed tray tag=$t');
+      } catch (e) {
+        AppLogger.w('[NotificationService] dismissTrayByTag native: $e');
+      }
+    }
+    if (Platform.isAndroid) {
+      final android = NotificationService.instance._notifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      await android?.cancel(0, tag: t);
+    }
+  }
+
+  static Future<void> dismissTrayByTags(Iterable<String> tags) async {
+    for (final tag in tags) {
+      await dismissTrayByTag(tag);
+    }
+  }
+
+  static Future<void> dismissChatTrayForGroup(String groupId) async {
+    final gid = normalizeRouteId(groupId);
+    if (gid.isEmpty) return;
+    await dismissTrayByTag(chatTrayTag(gid));
+  }
+
+  static Future<void> dismissMissedCallTray() async {
+    await dismissTrayByTag(missedCallTrayTag);
+  }
 
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
@@ -650,6 +861,17 @@ class NotificationService {
   }) async {
     AppLogger.i('📬 Showing default notification');
 
+    final notifType =
+        data['notification_type']?.toString() ?? data['type']?.toString() ?? '';
+    final groupId = normalizeRouteId(data['group_id']?.toString() ?? '');
+    String? androidTag;
+    if (notifType == 'missed_call') {
+      androidTag = missedCallTrayTag;
+    } else if ((notifType == 'new_message' || notifType == 'meetpoint') &&
+        groupId.isNotEmpty) {
+      androidTag = chatTrayTag(groupId);
+    }
+
     final androidDetails = AndroidNotificationDetails(
       'mc_default_v2',
       'Default Notifications',
@@ -661,6 +883,7 @@ class NotificationService {
       enableVibration: true,
       icon: '@mipmap/ic_launcher',
       styleInformation: BigTextStyleInformation(body),
+      tag: androidTag,
     );
 
     const iosDetails = DarwinNotificationDetails(
@@ -695,20 +918,74 @@ class NotificationService {
     await _notifications.cancelAll();
   }
 
+  /// Dismisses Android tray SOS notifications (FCM tag matches backend).
+  static Future<void> dismissSosTrayFor({
+    required String pilgrimId,
+    String? groupId,
+    String? sosId,
+  }) async {
+    final tags = <String>{};
+    final sid = sosId?.trim() ?? '';
+    final gid = groupId?.trim() ?? '';
+    final pid = pilgrimId.trim();
+    if (sid.isNotEmpty) tags.add('sos_$sid');
+    if (pid.isNotEmpty && gid.isNotEmpty) tags.add('sos_c_${pid}_$gid');
+    if (tags.isEmpty) return;
+    await dismissTrayByTags(tags);
+  }
+
+  /// Drops queued in-app SOS dialog when the pilgrim cancels.
+  static void clearPendingSosForPilgrim(String pilgrimId) {
+    final pending = _pendingSosAlertData;
+    if (pending == null) return;
+    if (pilgrimId.isEmpty) {
+      _pendingSosAlertData = null;
+      return;
+    }
+    final pid = (pending['pilgrim_id'] ?? pending['pilgrimId'])?.toString();
+    if (pid == pilgrimId) {
+      _pendingSosAlertData = null;
+      AppLogger.i('[NotificationService] Cleared pending SOS for $pilgrimId');
+    }
+  }
+
   // ── TTS (public, usable from foreground context) ───────────────────────────
 
-  /// Play [text] aloud using the hybrid SpeechService.
-  /// Optionally supply [audioUrl] (GCS MP3) to attempt cloud playback first;
-  /// falls back to local flutter_tts on timeout or failure.
+  /// Cloud TTS first ([audioUrl] or `/auth/tts-audio-url`), then device TTS.
+  static Future<void> speakTtsCloud(
+    String text, {
+    String? audioUrl,
+    String? lang,
+    String? messageKey,
+  }) async {
+    final t = text.trim();
+    if (t.isEmpty) return;
+    final normalizedLang = TtsCloudApi.normalizeLang(
+      lang ?? await LocalePrefs.readLanguageCode(),
+    );
+    var url = audioUrl?.trim();
+    if (url == null || url.isEmpty) {
+      url = await TtsCloudApi.fetchAudioUrl(text: t, lang: normalizedLang);
+    }
+    await SpeechService.playRobust(
+      audioUrl: url,
+      backupText: t,
+      lang: normalizedLang,
+      isUrgent: true,
+      messageKey: messageKey,
+    );
+  }
+
+  /// Play [text] aloud using cloud TTS when possible.
   static Future<void> speakTts(
     String text, {
     String? audioUrl,
     String lang = 'en',
     String? messageKey,
   }) =>
-      SpeechService.playRobust(
+      speakTtsCloud(
+        text,
         audioUrl: audioUrl,
-        backupText: text,
         lang: lang,
         messageKey: messageKey,
       );
@@ -758,7 +1035,7 @@ class NotificationService {
     }
 
     if (notificationType == 'sos_alert') {
-      queuePendingSosAlert(data);
+      unawaited(SosAlertCoordinator.queueSosAlertIfStillActive(data));
       return;
     }
 
@@ -768,8 +1045,10 @@ class NotificationService {
     }
 
     if (notificationType == 'new_message' && groupId.isNotEmpty) {
+      unawaited(dismissChatTrayForGroup(groupId));
       _navigateToChat(groupId: groupId, groupName: groupName);
     } else if (notificationType == 'meetpoint' && groupId.isNotEmpty) {
+      unawaited(dismissChatTrayForGroup(groupId));
       _navigateToChat(groupId: groupId, groupName: groupName);
     }
   }
@@ -819,6 +1098,19 @@ class NotificationService {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(SosAlertCoordinator.showOnceFromMap(data));
     });
+  }
+
+  /// Clears missed-call tray + server read state when opening Alerts.
+  static Future<void> onAlertsTabOpened() async {
+    await dismissMissedCallTray();
+    final c = CallingScope.riverpod;
+    if (c == null) return;
+    try {
+      await CallHistoryApi.markMissedCallsRead();
+      await c.read(missedCallsUnreadProvider.notifier).refresh();
+    } catch (e) {
+      AppLogger.w('[NotificationService] onAlertsTabOpened: $e');
+    }
   }
 
   /// Consume and clear any pending notification data.

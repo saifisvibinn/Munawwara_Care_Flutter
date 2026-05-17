@@ -15,6 +15,10 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val INCOMING_CALL_CHANNEL =
             "com.munawwaracare.andriod/incoming_call"
+        private const val OEM_SETTINGS_CHANNEL =
+            "com.munawwaracare.andriod/oem_settings"
+        private const val NOTIFICATION_TRAY_CHANNEL =
+            "com.munawwaracare.andriod/notification_tray"
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -37,6 +41,71 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            OEM_SETTINGS_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "openAutostartSettings" -> {
+                    val opened = OemSettingsHelper.openAutostartSettings(this)
+                    result.success(opened)
+                }
+                "openBatterySettings" -> {
+                    val opened = OemSettingsHelper.openBatterySettings(this)
+                    if (opened) {
+                        SettingsReturnWatcher.start(this, "battery")
+                    }
+                    result.success(opened)
+                }
+                "openLocationPermissionSettings" -> {
+                    val opened = OemSettingsHelper.openLocationPermissionSettings(this)
+                    result.success(opened)
+                }
+                "openLockScreenCallSettings" -> {
+                    val opened = OemSettingsHelper.openLockScreenCallSettings(this)
+                    result.success(opened)
+                }
+                "openNotificationSettings" -> {
+                    val opened = OemSettingsHelper.openNotificationSettings(this)
+                    if (opened) {
+                        SettingsReturnWatcher.start(this, "notifications")
+                    }
+                    result.success(opened)
+                }
+                "openAppSettings" -> {
+                    val opened = OemSettingsHelper.openAppDetails(this)
+                    val watchKind = call.argument<String>("watchKind")
+                    if (opened && watchKind != null) {
+                        SettingsReturnWatcher.start(this, watchKind)
+                    }
+                    result.success(opened)
+                }
+                "getDeviceOemHaystack" ->
+                    result.success(OemSettingsHelper.deviceOemHaystack())
+                "isBatteryUnrestricted" ->
+                    result.success(OemSettingsHelper.isBatteryUnrestricted(this))
+                else -> result.notImplemented()
+            }
+        }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            NOTIFICATION_TRAY_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "dismissNotificationByTag" -> {
+                    val tag = call.argument<String>("tag") ?: ""
+                    result.success(NotificationTrayHelper.dismissByTag(this, tag))
+                }
+                "dismissNotificationByTags" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val tags =
+                        call.argument<List<String>>("tags") ?: emptyList()
+                    NotificationTrayHelper.dismissByTags(this, tags)
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,6 +113,16 @@ class MainActivity : FlutterActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             createNotificationChannels()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        SettingsReturnWatcher.stop()
+    }
+
+    override fun onDestroy() {
+        SettingsReturnWatcher.stop()
+        super.onDestroy()
     }
 
     private fun createNotificationChannels() {

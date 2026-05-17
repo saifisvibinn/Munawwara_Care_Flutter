@@ -5,11 +5,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/router/app_router.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../core/services/speech_service.dart';
 import '../../../core/services/socket_service.dart';
+import '../../../core/services/tts_cloud_api.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/calling_scope.dart';
+import '../../notifications/providers/notification_provider.dart';
 import '../models/sos_moderator_payload.dart';
 import '../providers/moderator_provider.dart';
 import '../providers/moderator_sos_engagement_provider.dart';
@@ -26,6 +30,7 @@ class SosAlertCoordinator {
   static DateTime? _lastShownAt;
   static const _dedupeWindow = Duration(seconds: 4);
   static String? _openDialogStorageKey;
+  static bool _cancelListenersBound = false;
 
   /// Set after IDE hot reload so a replayed socket/FCM SOS or reset dedupe
   /// state does not immediately show the full-screen moderator dialog again.
@@ -89,6 +94,155 @@ class SosAlertCoordinator {
     return c.read(authProvider).fullName ?? '';
   }
 
+  /// Cloud TTS (GCS MP3) with local fallback — same pipeline as urgent messages.
+  static Future<void> speakAlertForPayload(SosModeratorPayload payload) async {
+    final ctx = AppRouter.navigatorKey.currentContext;
+    final lang = ctx != null
+        ? TtsCloudApi.normalizeLang(ctx.locale.languageCode)
+        : 'en';
+    final group = payload.groupName.isEmpty ? '—' : payload.groupName;
+    final text = 'sos_mod_spoken_alert'.tr(
+      namedArgs: {'name': payload.pilgrimName, 'group': group},
+    );
+    if (text.trim().isEmpty) return;
+
+    AppLogger.i('[SosAlertCoordinator] Speaking SOS alert (lang=$lang)');
+    final audioUrl = await TtsCloudApi.fetchAudioUrl(text: text, lang: lang);
+
+    await Future.delayed(kUrgentAlertToTtsDelay);
+    await SpeechService.playRobust(
+      audioUrl: audioUrl,
+      backupText: text,
+      lang: lang,
+      isUrgent: true,
+      messageKey: 'sos_speak_${payload.storageKey}',
+      dedupeWindow: _dedupeWindow,
+    );
+  }
+
+  /// Stops in-progress SOS speech (e.g. pilgrim cancelled).
+  static Future<void> stopAlertSpeech() async {
+    await SpeechService.stop();
+  }
+
+  /// Global socket listener so cancel is handled even off the dashboard route.
+  static void bindCancelListeners() {
+    if (_cancelListenersBound) return;
+    _cancelListenersBound = true;
+    SocketService.on('sos-alert-cancelled', _onCancelledSocket);
+    SocketService.on('sos_cancel', _onCancelledSocket);
+    AppLogger.i('[SosAlertCoordinator] SOS cancel listeners bound');
+  }
+
+  static void _onCancelledSocket(dynamic data) {
+    final map = data is Map
+        ? Map<String, dynamic>.from(data)
+        : <String, dynamic>{};
+    unawaited(handleCancelledFromMap(map));
+  }
+
+  /// Pilgrim cancelled SOS: clear UI, tray notification, and local state.
+  static Future<void> handleCancelledFromMap(Map<String, dynamic> raw) async {
+    await stopAlertSpeech();
+
+    final payload = SosModeratorPayload.fromMap(raw);
+    final pid = payload.pilgrimId?.trim() ?? '';
+    final gid = payload.groupId?.trim() ?? '';
+
+    dismissOpenSosDialogIfAny();
+    NotificationService.clearPendingSosForPilgrim(pid);
+
+    if (pid.isNotEmpty) {
+      await NotificationService.dismissSosTrayFor(
+        pilgrimId: pid,
+        groupId: gid.isEmpty ? null : gid,
+        sosId: payload.sosId,
+      );
+
+      final c = CallingScope.riverpod;
+      final notif = c?.read(notificationProvider.notifier);
+      final mod = c?.read(moderatorProvider.notifier);
+      mod?.markPilgrimSOS(pid, active: false);
+      await ModeratorSosEngagementStore.removeAllEntriesForPilgrim(pid);
+      await _refreshEngagementUi();
+      notif?.removeSosAlertsForPilgrim(
+        pid,
+        sosId: payload.sosId,
+      );
+      // Sync badge + Active SOS tab from server; do not refetch() immediately
+      // or stale SOS rows can reappear before DB delete completes.
+      unawaited(mod?.loadDashboard(silently: true) ?? Future.value());
+      unawaited(notif?.fetchUnreadCount() ?? Future.value());
+    }
+
+    _lastShownSosId = null;
+    _lastShownAt = null;
+
+    AppLogger.i(
+      '[SosAlertCoordinator] SOS cancelled'
+      '${pid.isEmpty ? '' : ' pilgrim=$pid'}',
+    );
+  }
+
+  /// Whether [pilgrimId] still has an active SOS on the moderator dashboard.
+  static Future<bool> isPilgrimSosStillActive(String pilgrimId) async {
+    if (pilgrimId.isEmpty) return true;
+    final c = CallingScope.riverpod;
+    if (c == null) return true;
+    var groups = c.read(moderatorProvider).groups;
+    if (groups.isEmpty) {
+      await c.read(moderatorProvider.notifier).loadDashboard(silently: true);
+      groups = c.read(moderatorProvider).groups;
+    }
+    for (final g in groups) {
+      for (final p in g.pilgrims) {
+        if (p.id == pilgrimId && p.hasSOS) return true;
+      }
+    }
+    return false;
+  }
+
+  /// Queues SOS dialog only if the pilgrim still has an active request.
+  static Future<void> queueSosAlertIfStillActive(
+    Map<String, dynamic> data,
+  ) async {
+    final payload = SosModeratorPayload.fromMap(data);
+    final pid = payload.pilgrimId?.trim() ?? '';
+    if (pid.isNotEmpty) {
+      final stillActive = await isPilgrimSosStillActive(pid);
+      if (!stillActive) {
+        AppLogger.i(
+          '[SosAlertCoordinator] Stale SOS tap — pilgrim $pid no longer active',
+        );
+        NotificationService.clearPendingSosForPilgrim(pid);
+        await NotificationService.dismissSosTrayFor(
+          pilgrimId: pid,
+          groupId: payload.groupId,
+          sosId: payload.sosId,
+        );
+        return;
+      }
+    }
+    NotificationService.queuePendingSosAlert(data);
+  }
+
+  /// Closes the blocking SOS dialog if it is open.
+  static void dismissOpenSosDialogIfAny() {
+    if (_openDialogStorageKey == null || _openDialogStorageKey!.isEmpty) {
+      return;
+    }
+    final ctx = AppRouter.navigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) {
+      _openDialogStorageKey = null;
+      return;
+    }
+    final nav = Navigator.of(ctx, rootNavigator: true);
+    if (nav.canPop()) {
+      nav.pop();
+    }
+    _openDialogStorageKey = null;
+  }
+
   /// Unified entry for socket payload, FCM `data`, or pending deep-link map.
   static Future<void> showOnceFromMap(Map<String, dynamic> raw) async {
     final until = _suppressDialogsUntil;
@@ -101,6 +255,22 @@ class SosAlertCoordinator {
     }
 
     final payload = SosModeratorPayload.fromMap(raw);
+    final pid = payload.pilgrimId?.trim() ?? '';
+    if (pid.isNotEmpty) {
+      final stillActive = await isPilgrimSosStillActive(pid);
+      if (!stillActive) {
+        AppLogger.i(
+          '[SosAlertCoordinator] SOS no longer active — skip dialog for $pid',
+        );
+        NotificationService.clearPendingSosForPilgrim(pid);
+        await NotificationService.dismissSosTrayFor(
+          pilgrimId: pid,
+          groupId: payload.groupId,
+          sosId: payload.sosId,
+        );
+        return;
+      }
+    }
     await ModeratorSosEngagementStore.upsertActiveFromPayload(payload);
     await _refreshEngagementUi();
 
@@ -165,10 +335,11 @@ class SosAlertCoordinator {
       return;
     }
 
+    unawaited(speakAlertForPayload(payload));
+
     final groupLabel = payload.groupName.isEmpty ? '—' : payload.groupName;
 
-    final pid = payload.pilgrimId;
-    final gid = payload.groupId;
+    final gid = payload.groupId?.trim() ?? '';
     final modName = _getModeratorName();
 
     _openDialogStorageKey = storageKey;
@@ -187,7 +358,7 @@ class SosAlertCoordinator {
             await ModeratorSosEngagementStore.markUserDismissed(storageKey);
             await _refreshEngagementUi();
             // Any button click — stop the pilgrim countdown, show "being reviewed"
-            if (pid != null && pid.isNotEmpty && gid != null && gid.isNotEmpty) {
+            if (pid.isNotEmpty && gid.isNotEmpty) {
               emitModeratorHandling(
                 pilgrimId: pid,
                 groupId: gid,
@@ -207,7 +378,7 @@ class SosAlertCoordinator {
             );
             await _refreshEngagementUi();
             // Button click — stop pilgrim countdown, show "being reviewed"
-            if (pid != null && pid.isNotEmpty && gid != null && gid.isNotEmpty) {
+            if (pid.isNotEmpty && gid.isNotEmpty) {
               emitModeratorResponding(
                 pilgrimId: pid,
                 groupId: gid,
@@ -223,7 +394,7 @@ class SosAlertCoordinator {
             );
             await _refreshEngagementUi();
             // Button click — stop pilgrim countdown, show "being reviewed"
-            if (pid != null && pid.isNotEmpty && gid != null && gid.isNotEmpty) {
+            if (pid.isNotEmpty && gid.isNotEmpty) {
               emitModeratorHandling(
                 pilgrimId: pid,
                 groupId: gid,

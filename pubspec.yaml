@@ -46,6 +46,7 @@ dependencies:
   geolocator: ^14.0.2
   battery_plus: ^6.0.3
   permission_handler: ^11.3.1
+  device_info_plus: ^11.3.0
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
   url_launcher: ^6.3.1

@@ -51,6 +51,7 @@ class _PilgrimProfileSheet extends ConsumerWidget {
     final bg = isDark ? AppColors.backgroundDark : Colors.white;
     final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
     final textMuted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final cooldownSeconds = ref.watch(callProvider).cooldownSeconds;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
@@ -223,9 +224,9 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                     Expanded(
                       child: _ActionButton(
                         icon: Symbols.call,
-                        label: 'call_internet'.tr(),
-                        color: AppColors.success,
-                        onTap: () {
+                        label: cooldownSeconds > 0 ? '${'call_internet'.tr()} ($cooldownSeconds)' : 'call_internet'.tr(),
+                        color: cooldownSeconds > 0 ? AppColors.success.withValues(alpha: 0.5) : AppColors.success,
+                        onTap: cooldownSeconds > 0 ? null : () {
                           Navigator.pop(context);
                           ref.read(callProvider.notifier).startCall(
                                 remoteUserId: pilgrim.id,
@@ -235,7 +236,10 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const VoiceCallScreen(),
+                              builder: (_) => VoiceCallScreen(
+                                initialPeerName: pilgrim.fullName,
+                                initialPeerGender: pilgrim.gender,
+                              ),
                             ),
                           );
                         },
@@ -488,7 +492,7 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool isOutlined;
 
   const _ActionButton({

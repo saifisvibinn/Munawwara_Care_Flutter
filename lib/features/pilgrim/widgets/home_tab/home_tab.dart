@@ -44,11 +44,13 @@ class PilgrimHomeTab extends StatelessWidget {
   final VoidCallback onSettingsTap;
   final VoidCallback onGroupCardTap;
   final VoidCallback onHotspotsTap;
+
   /// Opens weather tips / detail sheet (card remains tappable when not loading).
   final VoidCallback onWeatherTap;
   final bool isGpsEnabled;
   final bool hasLocPermission;
   final VoidCallback onLocationInactiveTap;
+  final int callCooldownSeconds;
 
   /// From [authProvider] / prefs when pilgrim profile is not hydrated yet.
   final String? authFullName;
@@ -86,6 +88,7 @@ class PilgrimHomeTab extends StatelessWidget {
     required this.isGpsEnabled,
     required this.hasLocPermission,
     required this.onLocationInactiveTap,
+    this.callCooldownSeconds = 0,
   });
 
   String _greetingDisplayName(PilgrimProfile? profile) {
@@ -102,8 +105,9 @@ class PilgrimHomeTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final profile = pilgrimState.profile;
     final group = pilgrimState.groupInfo;
-    final headerBg =
-        isDark ? AppColors.backgroundDark : const Color(0xFFFFF7ED);
+    final headerBg = isDark
+        ? AppColors.backgroundDark
+        : const Color(0xFFFFF7ED);
     final headerText = isDark ? Colors.white : AppColors.textDark;
     final iconContainerBg = isDark
         ? Colors.white.withValues(alpha: 0.1)
@@ -247,17 +251,14 @@ class PilgrimHomeTab extends StatelessWidget {
                             ),
                             if (!isGpsEnabled || !hasLocPermission)
                               Align(
-                                alignment:
-                                    AlignmentDirectional.centerStart,
+                                alignment: AlignmentDirectional.centerStart,
                                 child: Container(
                                   margin: EdgeInsets.only(top: 20.h),
                                   child: Material(
                                     color: Colors.red.shade100,
-                                    borderRadius:
-                                        BorderRadius.circular(12.r),
+                                    borderRadius: BorderRadius.circular(12.r),
                                     child: InkWell(
-                                      borderRadius:
-                                          BorderRadius.circular(12.r),
+                                      borderRadius: BorderRadius.circular(12.r),
                                       onTap: onLocationInactiveTap,
                                       child: Padding(
                                         padding: EdgeInsets.symmetric(
@@ -279,10 +280,8 @@ class PilgrimHomeTab extends StatelessWidget {
                                               style: TextStyle(
                                                 fontFamily: 'Lexend',
                                                 fontSize: 13.sp,
-                                                fontWeight:
-                                                    FontWeight.w600,
-                                                color:
-                                                    Colors.red.shade700,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.red.shade700,
                                               ),
                                             ),
                                           ],
@@ -324,6 +323,7 @@ class PilgrimHomeTab extends StatelessWidget {
                           navBeacons: navBeacons,
                           myLocation: myLocation,
                           onNavigateToModerator: onNavigateToModerator,
+                          callCooldownSeconds: callCooldownSeconds,
                         ),
                       )
                     else
@@ -351,6 +351,7 @@ class PilgrimHomeTab extends StatelessWidget {
                           navBeacons: navBeacons,
                           myLocation: myLocation,
                           onNavigateToModerator: onNavigateToModerator,
+                          callCooldownSeconds: callCooldownSeconds,
                         ),
                       ),
                   ],
@@ -391,6 +392,7 @@ class _HomeBody extends StatelessWidget {
   final Map<String, ModeratorBeacon> navBeacons;
   final LatLng? myLocation;
   final void Function(ModeratorBeacon) onNavigateToModerator;
+  final int callCooldownSeconds;
 
   const _HomeBody({
     required this.isDark,
@@ -415,6 +417,7 @@ class _HomeBody extends StatelessWidget {
     required this.navBeacons,
     this.myLocation,
     required this.onNavigateToModerator,
+    this.callCooldownSeconds = 0,
   });
 
   @override
@@ -487,6 +490,7 @@ class _HomeBody extends StatelessWidget {
                         showCallBack:
                             sosHelpStatusKey == 'sos_status_callback_available',
                         onCallBack: onCallBackSos,
+                        cooldownSeconds: callCooldownSeconds,
                       )
                     : Column(
                         key: const ValueKey<String>('sos_ui_idle'),
@@ -542,8 +546,11 @@ class _HomeBody extends StatelessWidget {
                       padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 8.h),
                       child: Row(
                         children: [
-                          Icon(Symbols.my_location,
-                              size: 18.w, color: AppColors.primary),
+                          Icon(
+                            Symbols.my_location,
+                            size: 18.w,
+                            color: AppColors.primary,
+                          ),
                           SizedBox(width: 8.w),
                           Text(
                             'nav_to_moderator'.tr(),
@@ -596,7 +603,9 @@ class _HomeBody extends StatelessWidget {
 
                         return Padding(
                           padding: EdgeInsets.symmetric(
-                              horizontal: 16.w, vertical: 10.h),
+                            horizontal: 16.w,
+                            vertical: 10.h,
+                          ),
                           child: Row(
                             children: [
                               ModeratorAvatar(
@@ -642,14 +651,17 @@ class _HomeBody extends StatelessWidget {
                                 onTap: () => onNavigateToModerator(beacon),
                                 child: Container(
                                   padding: EdgeInsets.symmetric(
-                                      horizontal: 14.w, vertical: 9.h),
+                                    horizontal: 14.w,
+                                    vertical: 9.h,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: AppColors.primary,
                                     borderRadius: BorderRadius.circular(14.r),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: AppColors.primary
-                                            .withValues(alpha: 0.35),
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.35,
+                                        ),
                                         blurRadius: 8,
                                         offset: const Offset(0, 3),
                                       ),
@@ -658,8 +670,11 @@ class _HomeBody extends StatelessWidget {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Symbols.navigation,
-                                          color: Colors.white, size: 16.w),
+                                      Icon(
+                                        Symbols.navigation,
+                                        color: Colors.white,
+                                        size: 16.w,
+                                      ),
                                       SizedBox(width: 6.w),
                                       Text(
                                         'nav_go'.tr(),

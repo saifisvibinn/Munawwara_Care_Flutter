@@ -9,6 +9,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/services/callkit_service.dart';
+import '../../../core/services/locale_prefs.dart';
+import '../../../core/services/oem_settings_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_popup_menu.dart';
 import '../../../core/utils/qr_barcode_utils.dart';
@@ -62,12 +64,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         .login(identifier: identifier, password: password);
     if (!mounted) return;
     if (success) {
-      context.go('/location-onboarding');
+      await _goAfterAuth();
     } else {
       setState(
         () => _loginError = ref.read(authProvider).error ?? 'Login failed',
       );
     }
+  }
+
+  Future<void> _goAfterAuth() async {
+    final showOnboarding =
+        await OemSettingsService.shouldShowOnboardingOnResume();
+    if (!mounted) return;
+    if (showOnboarding) {
+      context.go('/device-care-onboarding');
+      return;
+    }
+    final role = ref.read(authProvider).role;
+    context.go(
+      role == 'moderator' ? '/moderator-dashboard' : '/pilgrim-dashboard',
+    );
   }
 
   Future<void> _handlePilgrimLoginCode(String rawToken) async {
@@ -89,7 +105,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
-      context.go('/location-onboarding');
+      await _goAfterAuth();
     } else {
       // Drop back to the manual-entry view so the error message is visible there.
       setState(() {
@@ -558,6 +574,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         final newLocale = supportedLanguages[langName];
         if (newLocale != null) {
           context.setLocale(newLocale);
+          unawaited(
+            LocalePrefs.saveLanguageCode(newLocale.languageCode),
+          );
           unawaited(
             CallKitService.refreshCachedSupportDisplayName(
               languageCode: newLocale.languageCode,

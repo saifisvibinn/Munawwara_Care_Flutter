@@ -50,7 +50,11 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
     if (oldWidget.isTabActive != widget.isTabActive) {
       _syncRefreshTimer();
       if (widget.isTabActive) {
-        ref.read(reminderProvider.notifier).load();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ref.read(reminderProvider.notifier).load();
+          }
+        });
       }
     }
   }

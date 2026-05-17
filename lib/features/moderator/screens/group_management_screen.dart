@@ -441,15 +441,18 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-        ),
-        padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 32.h),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      builder: (_) => Consumer(
+        builder: (ctx, ref, child) {
+          final cooldownSeconds = ref.watch(callProvider).cooldownSeconds;
+          return Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.surfaceDark : Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+            ),
+            padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 32.h),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
             Container(
               width: 40.w,
               height: 4.h,
@@ -476,7 +479,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                   Expanded(
                     child: GestureDetector(
                       onTap: () async {
-                        Navigator.pop(context);
+                        Navigator.pop(ctx);
                         final uri = Uri(
                           scheme: 'tel',
                           path: pilgrim.phoneNumber,
@@ -543,8 +546,8 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                 // ── Internet call ─────────────────────────────────
                 Expanded(
                   child: GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
+                    onTap: cooldownSeconds > 0 ? null : () {
+                      Navigator.pop(ctx);
                       // Initiate WebRTC call
                       ref
                           .read(callProvider.notifier)
@@ -554,60 +557,66 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                             remotePeerGender: pilgrim.gender,
                           );
                       Navigator.push(
-                        context,
+                        ctx,
                         MaterialPageRoute(
-                          builder: (_) => const VoiceCallScreen(),
+                          builder: (_) => VoiceCallScreen(
+                            initialPeerName: pilgrim.fullName,
+                            initialPeerGender: pilgrim.gender,
+                          ),
                         ),
                       );
                     },
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        vertical: 18.h,
-                        horizontal: 12.w,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8C97A).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(16.r),
-                        border: Border.all(
-                          color: const Color(0xFFE8C97A).withValues(alpha: 0.4),
+                    child: Opacity(
+                      opacity: cooldownSeconds > 0 ? 0.5 : 1.0,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          vertical: 18.h,
+                          horizontal: 12.w,
                         ),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 52.w,
-                            height: 52.w,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFB0924A),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Symbols.wifi_calling_3,
-                              color: Colors.white,
-                              size: 26.w,
-                            ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8C97A).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(16.r),
+                          border: Border.all(
+                            color: const Color(0xFFE8C97A).withValues(alpha: 0.4),
                           ),
-                          SizedBox(height: 10.h),
-                          Text(
-                            'group_internet_call'.tr(),
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13.sp,
-                              color: isDark ? Colors.white : AppColors.textDark,
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 52.w,
+                              height: 52.w,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFB0924A),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Symbols.wifi_calling_3,
+                                color: Colors.white,
+                                size: 26.w,
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 4.h),
-                          Text(
-                            'group_internet_call_sub'.tr(),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 10.sp,
-                              color: AppColors.textMutedLight,
+                            SizedBox(height: 10.h),
+                            Text(
+                              cooldownSeconds > 0 ? '${'group_internet_call'.tr()} ($cooldownSeconds)' : 'group_internet_call'.tr(),
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13.sp,
+                                color: isDark ? Colors.white : AppColors.textDark,
+                              ),
                             ),
-                          ),
-                        ],
+                            SizedBox(height: 4.h),
+                            Text(
+                              'group_internet_call_sub'.tr(),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontSize: 10.sp,
+                                color: AppColors.textMutedLight,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -616,6 +625,8 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
             ),
           ],
         ),
+      );
+    },
       ),
     );
   }

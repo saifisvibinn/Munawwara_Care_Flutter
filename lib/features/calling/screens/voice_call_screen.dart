@@ -11,6 +11,7 @@ import '../../../core/services/callkit_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../providers/call_provider.dart';
+import '../widgets/call_peer_display.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // VoiceCallScreen — in-app voice call UI (outgoing / connected / ended)
@@ -23,10 +24,18 @@ class VoiceCallScreen extends ConsumerStatefulWidget {
   final List<Map<String, String>>? autoRouteMods;
   final VoidCallback? onAllBusy;
 
+  /// Seeds the header before [callProvider] finishes async setup (UI only).
+  final String? initialPeerName;
+
+  /// Seeds pilgrim avatar before [CallState.remotePeerGender] is set.
+  final String? initialPeerGender;
+
   const VoiceCallScreen({
     super.key,
     this.autoRouteMods,
     this.onAllBusy,
+    this.initialPeerName,
+    this.initialPeerGender,
   });
 
   @override
@@ -36,6 +45,7 @@ class VoiceCallScreen extends ConsumerStatefulWidget {
 class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
   late List<Map<String, String>> _queue;
   String? _cachedName;
+  String? _cachedGender;
   Timer? _autoPopTimer;
 
   @override
@@ -43,6 +53,43 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
     super.initState();
     VoiceCallScreen.isActive = true;
     _queue = List.from(widget.autoRouteMods ?? []);
+    _seedDisplayCache();
+  }
+
+  void _seedDisplayCache() {
+    if (!isUnresolvedCallPeerName(widget.initialPeerName)) {
+      _cachedName = widget.initialPeerName!.trim();
+    }
+    final initialGender = widget.initialPeerGender?.trim();
+    if (initialGender != null && initialGender.isNotEmpty) {
+      _cachedGender = initialGender;
+    }
+    final call = ref.read(callProvider);
+    final resolved = resolveCallPeerDisplayName(
+      call: call,
+      cachedName: _cachedName,
+    );
+    if (resolved.isNotEmpty) {
+      _cachedName = resolved;
+    }
+    final gender = call.remotePeerGender?.trim();
+    if (gender != null && gender.isNotEmpty) {
+      _cachedGender = gender;
+    }
+  }
+
+  void _syncDisplayCache(CallState call) {
+    final resolved = resolveCallPeerDisplayName(
+      call: call,
+      cachedName: _cachedName,
+    );
+    if (resolved.isNotEmpty) {
+      _cachedName = resolved;
+    }
+    final gender = call.remotePeerGender?.trim();
+    if (gender != null && gender.isNotEmpty) {
+      _cachedGender = gender;
+    }
   }
 
   @override
@@ -58,9 +105,7 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final c = _CallPalette(isDark);
 
-    if (call.remoteUserName != null && call.remoteUserName!.isNotEmpty) {
-      _cachedName = call.remoteUserName;
-    }
+    _syncDisplayCache(call);
 
     ref.listen(callProvider, (prev, next) {
       if (next.status == CallStatus.ended &&
@@ -82,8 +127,18 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
             final nextMod = _queue.removeAt(0);
             // Do not cache moderator personal name — pilgrim UI uses support label
             // from [callProvider]; caching here would override it on the next frame.
-            setState(() => _cachedName = null);
-            ref.read(callProvider.notifier).startCall(
+            final nextName = nextMod['name']?.trim();
+            final nextGender = nextMod['gender']?.trim();
+            setState(() {
+              _cachedName = isUnresolvedCallPeerName(nextName) ? null : nextName;
+              _cachedGender =
+                  (nextGender != null && nextGender.isNotEmpty)
+                      ? nextGender
+                      : null;
+            });
+            ref
+                .read(callProvider.notifier)
+                .startCall(
                   remoteUserId: nextMod['id']!,
                   remoteUserName: nextMod['name'] ?? '',
                   remotePeerGender: nextMod['gender'],
@@ -108,14 +163,12 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
       }
     });
 
-    final name = _cachedName ?? call.remoteUserName ?? 'Unknown';
-    final initials = name
-        .trim()
-        .split(' ')
-        .where((w) => w.isNotEmpty)
-        .take(2)
-        .map((w) => w[0].toUpperCase())
-        .join();
+    final displayName = resolveCallPeerDisplayName(
+      call: call,
+      cachedName: _cachedName,
+    );
+    final showPeerName = displayName.isNotEmpty;
+    final initials = showPeerName ? callPeerInitials(displayName) : '';
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -126,21 +179,37 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
             Positioned(
               top: -80.h,
               right: -40.w,
-              child: _BlurOrb(color: AppColors.primary.withValues(alpha: isDark ? 0.12 : 0.18), size: 220),
+              child: _BlurOrb(
+                color: AppColors.primary.withValues(
+                  alpha: isDark ? 0.12 : 0.18,
+                ),
+                size: 220,
+              ),
             ),
             Positioned(
               bottom: 40.h,
               left: -60.w,
-              child: _BlurOrb(color: AppColors.accentGold.withValues(alpha: isDark ? 0.06 : 0.1), size: 180),
+              child: _BlurOrb(
+                color: AppColors.accentGold.withValues(
+                  alpha: isDark ? 0.06 : 0.1,
+                ),
+                size: 180,
+              ),
             ),
             SafeArea(
               child: Column(
                 children: [
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 20.w,
+                      vertical: 10.h,
+                    ),
                     child: Center(
                       child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 14.w,
+                          vertical: 8.h,
+                        ),
                         decoration: BoxDecoration(
                           color: c.chipFill,
                           borderRadius: BorderRadius.circular(20.r),
@@ -149,7 +218,11 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Symbols.wifi_calling_3, size: 17.sp, color: AppColors.primary),
+                            Icon(
+                              Symbols.wifi_calling_3,
+                              size: 17.sp,
+                              color: AppColors.primary,
+                            ),
                             SizedBox(width: 8.w),
                             Text(
                               'call_internet'.tr(),
@@ -176,19 +249,22 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
                           _AvatarRing(initials: initials, palette: c)
                         else
                           _PilgrimPeerAvatar(
-                            gender: call.remotePeerGender,
+                            gender: _cachedGender ?? call.remotePeerGender,
                             palette: c,
                           ),
                         SizedBox(height: 22.h),
-                        Text(
-                          name,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 24.sp,
-                            fontWeight: FontWeight.w700,
-                            fontFamily: 'Lexend',
-                            color: c.textPrimary,
-                            letterSpacing: -0.3,
+                        Opacity(
+                          opacity: showPeerName ? 1 : 0,
+                          child: Text(
+                            showPeerName ? displayName : ' ',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 24.sp,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Lexend',
+                              color: c.textPrimary,
+                              letterSpacing: -0.3,
+                            ),
                           ),
                         ),
                         SizedBox(height: 10.h),
@@ -318,27 +394,34 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
 
 class _CallPalette {
   _CallPalette(bool isDark)
-      : textPrimary = isDark ? AppColors.textLight : AppColors.textDark,
-        textSecondary = isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
-        textMuted = isDark ? AppColors.textMutedLight.withValues(alpha: 0.75) : AppColors.textMutedDark,
-        chipFill = isDark ? AppColors.surfaceDark.withValues(alpha: 0.85) : Colors.white.withValues(alpha: 0.92),
-        chipBorder = isDark ? AppColors.dividerDark : AppColors.dividerLight,
-        panelFill = isDark ? AppColors.surfaceDark : Colors.white,
-        panelBorder = isDark ? AppColors.dividerDark : AppColors.dividerLight,
-        avatarRing = isDark ? AppColors.dividerDark : AppColors.dividerLight,
-        backgroundGradient = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? [
+    : textPrimary = isDark ? AppColors.textLight : AppColors.textDark,
+      textSecondary = isDark
+          ? AppColors.textMutedLight
+          : AppColors.textMutedDark,
+      textMuted = isDark
+          ? AppColors.textMutedLight.withValues(alpha: 0.75)
+          : AppColors.textMutedDark,
+      chipFill = isDark
+          ? AppColors.surfaceDark.withValues(alpha: 0.85)
+          : Colors.white.withValues(alpha: 0.92),
+      chipBorder = isDark ? AppColors.dividerDark : AppColors.dividerLight,
+      panelFill = isDark ? AppColors.surfaceDark : Colors.white,
+      panelBorder = isDark ? AppColors.dividerDark : AppColors.dividerLight,
+      avatarRing = isDark ? AppColors.dividerDark : AppColors.dividerLight,
+      backgroundGradient = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: isDark
+            ? [
+                AppColors.backgroundDark,
+                Color.lerp(
                   AppColors.backgroundDark,
-                  Color.lerp(AppColors.backgroundDark, const Color(0xFF151D2E), 0.5)!,
-                ]
-              : [
-                  AppColors.backgroundLight,
-                  const Color(0xFFE4E7F5),
-                ],
-        );
+                  const Color(0xFF151D2E),
+                  0.5,
+                )!,
+              ]
+            : [AppColors.backgroundLight, const Color(0xFFE4E7F5)],
+      );
 
   final Color textPrimary;
   final Color textSecondary;
@@ -371,10 +454,7 @@ class _BlurOrb extends StatelessWidget {
 }
 
 class _PilgrimPeerAvatar extends StatelessWidget {
-  const _PilgrimPeerAvatar({
-    required this.gender,
-    required this.palette,
-  });
+  const _PilgrimPeerAvatar({required this.gender, required this.palette});
 
   final String? gender;
   final _CallPalette palette;
@@ -505,6 +585,7 @@ class _StatusChip extends StatelessWidget {
 
   final CallState call;
   final _CallPalette palette;
+
   /// When the call has just ended, show this in the same slot as the timer
   /// so the Munawwara logo block does not jump vertically.
   final String? endedMessage;
@@ -550,10 +631,14 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       decoration: BoxDecoration(
-        color: isLive ? AppColors.primary.withValues(alpha: 0.14) : palette.chipFill,
+        color: isLive
+            ? AppColors.primary.withValues(alpha: 0.14)
+            : palette.chipFill,
         borderRadius: BorderRadius.circular(14.r),
         border: Border.all(
-          color: isLive ? AppColors.primary.withValues(alpha: 0.45) : palette.chipBorder,
+          color: isLive
+              ? AppColors.primary.withValues(alpha: 0.45)
+              : palette.chipBorder,
         ),
       ),
       child: Text(
@@ -607,7 +692,9 @@ class _ControlTile extends StatelessWidget {
                       ? AppColors.primary.withValues(alpha: 0.2)
                       : palette.chipFill,
                   border: Border.all(
-                    color: active ? AppColors.primary.withValues(alpha: 0.5) : palette.chipBorder,
+                    color: active
+                        ? AppColors.primary.withValues(alpha: 0.5)
+                        : palette.chipBorder,
                   ),
                 ),
                 child: Icon(

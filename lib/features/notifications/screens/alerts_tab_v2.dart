@@ -14,6 +14,7 @@ import '../../moderator/providers/moderator_resolved_sos_provider.dart';
 import '../../moderator/providers/moderator_sos_engagement_provider.dart';
 import '../../moderator/widgets/moderator_active_sos_panel.dart';
 import '../../moderator/widgets/moderator_resolved_sos_list.dart';
+import '../../../core/services/notification_service.dart';
 import '../providers/notification_provider.dart';
 
 /// Alerts Tab
@@ -52,6 +53,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
       // When opening Alerts, mark notifications as read so the bell badge
       // reflects "still unread" notifications only.
       unawaited(ref.read(notificationProvider.notifier).fetch(markAllAsRead: true));
+      unawaited(NotificationService.onAlertsTabOpened());
       if (ref.read(authProvider).role == 'moderator') {
         unawaited(ref.read(moderatorSosEngagementProvider.notifier).refresh());
         unawaited(ref.read(moderatorResolvedSosProvider.notifier).refresh());

@@ -5,6 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
+
+import 'caller_gender_cache.dart';
+import '../../features/shared/widgets/pilgrim_gender_avatar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../config/backend_config.dart';
@@ -38,6 +41,7 @@ class CallKitService {
   static const _pendingCallerIdKey = 'pending_call_caller_id';
   static const _pendingCallerNameKey = 'pending_call_caller_name';
   static const _pendingCallerRoleKey = 'pending_call_caller_role';
+  static const _pendingCallerGenderKey = 'pending_call_caller_gender';
   static const _pendingChannelNameKey = 'pending_call_channel_name';
   static const _pendingCreatedAtMsKey = 'pending_call_created_at_ms';
   static const _pendingCallUuidKey = 'pending_call_uuid';
@@ -109,6 +113,7 @@ class CallKitService {
     String? callerRole,
     String? callRecordId,
     String? displayName,
+    String? callerGender,
     bool skipServerVerify = false,
   }) async {
     // ── Guard 1: Dart-side flag (with stale-state recovery) ─────────────
@@ -202,7 +207,19 @@ class CallKitService {
     final nativeCallerLine = useSupportBranding
         ? await _resolveSupportDisplayName(displayName)
         : (displayName?.trim().isNotEmpty == true ? displayName!.trim() : callerName);
-    final avatarAsset = useSupportBranding ? kCallKitSupportAvatarAsset : null;
+    var resolvedGender = CallerGenderCache.normalize(callerGender);
+    if (!useSupportBranding && callerId.trim().isNotEmpty) {
+      final fromCache = await CallerGenderCache.resolve(callerId);
+      resolvedGender ??= fromCache;
+    }
+    final avatarAsset = useSupportBranding
+        ? kCallKitSupportAvatarAsset
+        : PilgrimGenderAvatar.assetPathForGender(resolvedGender);
+    AppLogger.i(
+      '📞 CallKit avatar role=$role caller=$callerId '
+      'fcmGender=${callerGender ?? "—"} resolved=${resolvedGender ?? "—"} '
+      'asset=$avatarAsset',
+    );
     final apiBaseUrl = prefs.getString(kNativeApiBaseUrlPrefsKey) ??
         kNativeApiBaseUrlFallback;
 
@@ -213,6 +230,7 @@ class CallKitService {
       channelName: channelName,
       callRecordId: callRecordId,
       apiBaseUrl: apiBaseUrl,
+      callerGender: resolvedGender ?? callerGender,
     );
 
     final androidParams = AndroidParams(
@@ -254,6 +272,8 @@ class CallKitService {
         'apiBaseUrl': apiBaseUrl,
         if (callRecordId != null && callRecordId.isNotEmpty)
           'callRecordId': callRecordId,
+        if (callerGender != null && callerGender.trim().isNotEmpty)
+          'callerGender': callerGender.trim(),
       },
       headers: <String, dynamic>{},
       android: androidParams,
@@ -556,11 +576,18 @@ class CallKitService {
     required String channelName,
     String? callRecordId,
     String? apiBaseUrl,
+    String? callerGender,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_pendingCallerIdKey, callerId);
     await prefs.setString(_pendingCallerNameKey, callerName);
     await prefs.setString(_pendingCallerRoleKey, callerRole);
+    final gender = callerGender?.trim() ?? '';
+    if (gender.isNotEmpty) {
+      await prefs.setString(_pendingCallerGenderKey, gender);
+    } else {
+      await prefs.remove(_pendingCallerGenderKey);
+    }
     await prefs.setString(_pendingChannelNameKey, channelName);
     final resolvedApiBaseUrl = apiBaseUrl?.trim();
     if (resolvedApiBaseUrl != null && resolvedApiBaseUrl.isNotEmpty) {
@@ -598,6 +625,7 @@ class CallKitService {
       'callerRole': callerRole,
       'channelName': channelName,
       'callRecordId': prefs.getString(_pendingCallRecordIdKey) ?? '',
+      'callerGender': prefs.getString(_pendingCallerGenderKey) ?? '',
       'createdAtMs': (prefs.getInt(_pendingCreatedAtMsKey) ?? 0).toString(),
     };
   }
@@ -628,6 +656,7 @@ class CallKitService {
     await prefs.remove(_pendingCreatedAtMsKey);
     await prefs.remove(_pendingCallUuidKey);
     await prefs.remove(_pendingCallRecordIdKey);
+    await prefs.remove(_pendingCallerGenderKey);
   }
 
   static Future<bool> _isCancelForCurrentIncoming(String cancelRecordId) async {
@@ -697,6 +726,7 @@ class CallKitService {
     final callRecordId = data['callRecordId']?.toString() ?? '';
     final displayName = data['displayName']?.toString() ??
         data['callerDisplayName']?.toString();
+    final callerGender = data['callerGender']?.toString();
 
     AppLogger.i('📞 FCM incoming_call detected — showing native call screen');
     AppLogger.i('   Caller: $callerName ($callerId)');
@@ -710,6 +740,7 @@ class CallKitService {
         callerRole: callerRole,
         callRecordId: callRecordId.isNotEmpty ? callRecordId : null,
         displayName: displayName,
+        callerGender: callerGender,
         // FCM IS the server's signal — skip the redundant check-active HTTP
         // call which fails in the background isolate (ApiService not init'd).
         skipServerVerify: true,

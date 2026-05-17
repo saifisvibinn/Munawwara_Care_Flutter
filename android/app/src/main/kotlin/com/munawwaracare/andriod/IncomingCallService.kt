@@ -58,6 +58,9 @@ class IncomingCallService : Service() {
         private const val KEY_API_BASE_URL = "flutter.api_base_url"
         private const val KEY_DECLINER_ID = "flutter.user_id"
         private const val KEY_CALL_RECORD_ID = "flutter.pending_call_record_id"
+        /** Keep the process alive for 30s after a call ends so the next
+         *  FCM/socket arrives instantly instead of hitting Android's cold-wake throttle. */
+        private const val LINGER_MS = 30_000L
         private val FALLBACK_URL = BackendConfig.API_BASE_URL_FALLBACK
 
         fun resolveBaseUrl(context: Context): String {
@@ -124,6 +127,7 @@ class IncomingCallService : Service() {
     private var callWasAnswered = false
     private var suppressDeclineHttpOnDisconnect = false
     private var isTearingDown = false
+    private var lingerJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -151,6 +155,9 @@ class IncomingCallService : Service() {
     }
 
     private fun handleIncoming(intent: Intent) {
+        // Cancel pending linger so the service stays alive for the new call
+        lingerJob?.cancel()
+        lingerJob = null
         // Cancel any previous call that wasn't cleaned up
         callJob?.cancel()
         callScope?.cancel()
@@ -304,6 +311,13 @@ class IncomingCallService : Service() {
             }
         }
         resetCallState()
+        // Linger so the next call doesn't hit Android's cold-wake throttle.
+        lingerJob?.cancel()
+        lingerJob = CoroutineScope(Dispatchers.IO).launch {
+            delay(LINGER_MS)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        }
     }
 
     private fun handleAccept() {
@@ -347,7 +361,15 @@ class IncomingCallService : Service() {
             }
             resetCallState()
             isTearingDown = false
-            stopSelf()
+            // Keep the process alive for 30s so the next FCM/socket arrives
+            // instantly instead of being throttled by Android's cold-wake limiter.
+            Log.i(TAG, "📞 Delaying stopSelf by ${LINGER_MS}ms to prevent FCM throttle")
+            lingerJob?.cancel()
+            lingerJob = CoroutineScope(Dispatchers.IO).launch {
+                delay(LINGER_MS)
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
         }
     }
 
@@ -357,8 +379,8 @@ class IncomingCallService : Service() {
      */
     private fun dismissForegroundNotificationOnly() {
         try {
-            Log.i(TAG, "📞 Dismiss duplicate FGS notification (CallKit owns UI)")
-            stopForeground(STOP_FOREGROUND_REMOVE)
+            Log.i(TAG, "📞 Duplicate FGS dismiss requested, but keeping FGS to prevent OS kill")
+            // Intentionally not calling stopForeground to maintain process life.
         } catch (e: Exception) {
             Log.w(TAG, "📞 dismissForegroundNotificationOnly: ${e.message}")
         }
@@ -419,11 +441,7 @@ class IncomingCallService : Service() {
         callControlScope = null
         currentCallerId = null
         callWasAnswered = false
-        try {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-        } catch (e: Exception) {
-            Log.w(TAG, "📞 resetCallState stopForeground: ${e.message}")
-        }
+        // Removed stopForeground here. FGS stays alive until 30s linger completes.
     }
 
     private fun sendDeclineHttp(callerId: String, noAnswer: Boolean = false) {

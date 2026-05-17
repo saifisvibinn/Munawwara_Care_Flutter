@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -8,7 +10,7 @@ import '../../../../core/theme/app_colors.dart';
 // Post-SOS help session panel (calm surface; status text + cancel button)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class SosHelpSessionPanel extends StatelessWidget {
+class SosHelpSessionPanel extends StatefulWidget {
   final bool isDark;
   final String statusKey;
 
@@ -21,6 +23,8 @@ class SosHelpSessionPanel extends StatelessWidget {
   final bool showCallBack;
   final bool disableCancel;
 
+  final int cooldownSeconds;
+
   const SosHelpSessionPanel({
     super.key,
     required this.isDark,
@@ -31,23 +35,94 @@ class SosHelpSessionPanel extends StatelessWidget {
     this.showCallBack = false,
     this.disableCancel = false,
     this.moderatorName = '',
+    this.cooldownSeconds = 0,
   });
+
+  @override
+  State<SosHelpSessionPanel> createState() => _SosHelpSessionPanelState();
+}
+
+class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
+  bool _isCallBackConnecting = false;
+  Timer? _connectingDotsTimer;
+  int _connectingDotPhase = 0;
+
+  bool get _isCallBackDisabled =>
+      widget.onCallBack == null ||
+      widget.cooldownSeconds > 0 ||
+      _isCallBackConnecting;
+
+  String get _connectingLabelBase =>
+      'call_connecting'.tr().replaceAll(RegExp(r'\.+\s*$'), '').trim();
+
+  String get _connectingButtonLabel {
+    if (_connectingDotPhase == 0) {
+      return _connectingLabelBase;
+    }
+    final dots = List<String>.generate(
+      _connectingDotPhase,
+      (_) => '.',
+    ).join(' ');
+    return '$_connectingLabelBase $dots';
+  }
+
+  void _startConnectingDotsAnimation() {
+    _connectingDotsTimer?.cancel();
+    _connectingDotPhase = 0;
+    _connectingDotsTimer = Timer.periodic(
+      const Duration(milliseconds: 450),
+      (_) {
+        if (!mounted) return;
+        setState(() {
+          _connectingDotPhase = (_connectingDotPhase + 1) % 4;
+        });
+      },
+    );
+  }
+
+  void _stopConnectingDotsAnimation() {
+    _connectingDotsTimer?.cancel();
+    _connectingDotsTimer = null;
+    _connectingDotPhase = 0;
+  }
+
+  Future<void> _handleCallBackTap() async {
+    if (_isCallBackDisabled) return;
+    setState(() => _isCallBackConnecting = true);
+    _startConnectingDotsAnimation();
+    try {
+      await widget.onCallBack!();
+    } finally {
+      _stopConnectingDotsAnimation();
+      if (mounted) {
+        setState(() => _isCallBackConnecting = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _stopConnectingDotsAnimation();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final brand = 'call_support_display_name'.tr();
-    final surface = isDark ? AppColors.surfaceDark : Colors.white;
+    final surface = widget.isDark ? AppColors.surfaceDark : Colors.white;
     final border = AppColors.primary.withValues(alpha: 0.22);
-    final titleColor = isDark ? Colors.white : AppColors.textDark;
-    final muted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final titleColor = widget.isDark ? Colors.white : AppColors.textDark;
+    final muted = widget.isDark
+        ? AppColors.textMutedLight
+        : AppColors.textMutedDark;
 
-    final isResponding = statusKey == 'sos_status_responding';
+    final isResponding = widget.statusKey == 'sos_status_responding';
 
     final String statusText;
     if (isResponding) {
       statusText = 'sos_status_responding'.tr();
     } else {
-      statusText = statusKey.tr();
+      statusText = widget.statusKey.tr();
     }
 
     return ConstrainedBox(
@@ -58,15 +133,11 @@ class SosHelpSessionPanel extends StatelessWidget {
           color: surface,
           borderRadius: BorderRadius.circular(22.r),
           border: Border.all(
-            color: isResponding
-                ? Colors.green.withValues(alpha: 0.35)
-                : border,
+            color: isResponding ? Colors.green.withValues(alpha: 0.35) : border,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(
-                alpha: isDark ? 0.25 : 0.06,
-              ),
+              color: Colors.black.withValues(alpha: widget.isDark ? 0.25 : 0.06),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -119,7 +190,9 @@ class SosHelpSessionPanel extends StatelessWidget {
                     .withValues(alpha: 0.12),
               ),
               child: Icon(
-                isResponding ? Icons.check_rounded : Icons.support_agent_rounded,
+                isResponding
+                    ? Icons.check_rounded
+                    : Icons.support_agent_rounded,
                 color: isResponding ? Colors.green : AppColors.primary,
                 size: 36.w,
               ),
@@ -141,21 +214,34 @@ class SosHelpSessionPanel extends StatelessWidget {
             ),
             SizedBox(height: 22.h),
 
-            if (showCallBack) ...[
+            if (widget.showCallBack) ...[
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: onCallBack == null ? null : () => onCallBack!(),
+                  onPressed: _isCallBackDisabled ? null : _handleCallBackTap,
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: (_isCallBackConnecting ||
+                            widget.cooldownSeconds > 0)
+                        ? AppColors.primary.withValues(alpha: 0.5)
+                        : AppColors.primary,
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor:
+                        AppColors.primary.withValues(alpha: 0.5),
+                    disabledForegroundColor: Colors.white.withValues(
+                      alpha: 0.85,
+                    ),
                     padding: EdgeInsets.symmetric(vertical: 14.h),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14.r),
                     ),
                   ),
                   child: Text(
-                    'sos_call_back'.tr(),
+                    _isCallBackConnecting
+                        ? _connectingButtonLabel
+                        : widget.cooldownSeconds > 0
+                            ? '${'sos_call_back'.tr()} '
+                                '(${widget.cooldownSeconds})'
+                            : 'sos_call_back'.tr(),
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontSize: 14.sp,
@@ -164,20 +250,24 @@ class SosHelpSessionPanel extends StatelessWidget {
                   ),
                 ),
               ),
-            ] else if (showCancel) ...[
+            ] else if (widget.showCancel) ...[
               // ── Cancel button ───────────────────────────────────────────────
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: (isResponding || disableCancel) ? null : () => onCancelRequest(),
+                  onPressed: (isResponding || widget.disableCancel)
+                      ? null
+                      : () => widget.onCancelRequest(),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: (isResponding || disableCancel) ? Colors.grey.shade400 : muted,
+                    foregroundColor: (isResponding || widget.disableCancel)
+                        ? Colors.grey.shade400
+                        : muted,
                     side: BorderSide(
-                      color: (isResponding || disableCancel)
+                      color: (isResponding || widget.disableCancel)
                           ? Colors.grey.shade300
-                          : isDark
-                              ? AppColors.dividerDark
-                              : AppColors.dividerLight,
+                          : widget.isDark
+                          ? AppColors.dividerDark
+                          : AppColors.dividerLight,
                     ),
                     padding: EdgeInsets.symmetric(vertical: 14.h),
                     shape: RoundedRectangleBorder(

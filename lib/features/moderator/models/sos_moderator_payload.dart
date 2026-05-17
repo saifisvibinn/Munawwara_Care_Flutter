@@ -44,8 +44,10 @@ class SosModeratorPayload {
     final name = raw['pilgrim_name']?.toString() ??
         raw['pilgrimName']?.toString() ??
         'A pilgrim';
-    final pid = socketStringId(raw['pilgrim_id']);
-    final gid = socketStringId(raw['group_id']);
+    final pid =
+        socketStringId(raw['pilgrim_id']) ?? socketStringId(raw['pilgrimId']);
+    final gid =
+        socketStringId(raw['group_id']) ?? socketStringId(raw['groupId']);
     final gname = raw['group_name']?.toString() ?? '';
     final sid = raw['sos_id']?.toString();
 

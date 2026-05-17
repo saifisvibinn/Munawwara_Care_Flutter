@@ -150,6 +150,28 @@ class NotificationNotifier extends Notifier<NotificationState> {
     } catch (_) {}
   }
 
+  /// Removes SOS rows for [pilgrimId] (and optional [sosId]) from bell/badge state.
+  void removeSosAlertsForPilgrim(String pilgrimId, {String? sosId}) {
+    if (pilgrimId.isEmpty && (sosId == null || sosId.isEmpty)) return;
+    var removedUnread = 0;
+    final kept = state.notifications.where((n) {
+      if (n.type != 'sos_alert') return true;
+      final pid = n.data?['pilgrim_id'] ?? n.data?['pilgrimId'];
+      final sid = n.data?['sos_id'] ?? n.data?['sosId'];
+      final matchPilgrim =
+          pilgrimId.isNotEmpty && pid?.toString() == pilgrimId;
+      final matchSos = sosId != null &&
+          sosId.isNotEmpty &&
+          sid?.toString() == sosId;
+      final match = matchPilgrim || matchSos;
+      if (match && !n.read) removedUnread++;
+      return !match;
+    }).toList();
+    if (kept.length == state.notifications.length) return;
+    final unread = (state.unreadCount - removedUnread).clamp(0, 999999);
+    state = state.copyWith(notifications: kept, unreadCount: unread);
+  }
+
   // ── Delete single notification ────────────────────────────────────────────
   Future<void> delete(String id) async {
     final prev = state.notifications;

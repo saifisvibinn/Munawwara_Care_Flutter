@@ -11,6 +11,7 @@ import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/callkit_service.dart';
+import '../../../core/services/locale_prefs.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'moderator_profile_edit_screen.dart';
 import '../../shared/widgets/moderator_avatar.dart';
@@ -258,6 +259,7 @@ class _ModeratorProfileScreenState
                               final code = lang['code']!;
                               setState(() => _selectedLocale = code);
                               context.setLocale(Locale(code));
+                              unawaited(LocalePrefs.saveLanguageCode(code));
                               unawaited(
                                 CallKitService.refreshCachedSupportDisplayName(
                                   languageCode: code,
