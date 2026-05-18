@@ -4,11 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
-import '../config/legal_config.dart';
 import '../theme/app_colors.dart';
 import '../widgets/custom_dialog.dart';
-import '../../features/auth/providers/auth_provider.dart';
-
 /// Privacy, support, and account-deletion links for profile settings.
 class LegalSupportSection extends ConsumerWidget {
   const LegalSupportSection({
@@ -74,7 +71,7 @@ class LegalSupportSection extends ConsumerWidget {
                   textPrimary: textPrimary,
                   textMuted: textMuted,
                   isDestructive: true,
-                  onTap: () => _requestPilgrimDeletion(context, ref),
+                  onTap: () => _requestPilgrimDeletion(context),
                 ),
               ],
             ],
@@ -112,10 +109,7 @@ class LegalSupportSection extends ConsumerWidget {
     );
   }
 
-  Future<void> _requestPilgrimDeletion(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
+  Future<void> _requestPilgrimDeletion(BuildContext context) async {
     final confirmed = await StandardDialog.show<bool>(
       context: context,
       title: 'legal_deletion_confirm_title',
@@ -125,33 +119,7 @@ class LegalSupportSection extends ConsumerWidget {
       isDestructive: true,
     );
     if (confirmed != true || !context.mounted) return;
-
-    final auth = ref.read(authProvider);
-    final body = StringBuffer()
-      ..writeln('legal_deletion_email_intro'.tr())
-      ..writeln()
-      ..writeln('${'legal_deletion_email_app'.tr()}: ${LegalConfig.appName}')
-      ..writeln('${'legal_deletion_email_role'.tr()}: pilgrim');
-    if (auth.userId != null) {
-      body.writeln('${'legal_deletion_email_user_id'.tr()}: ${auth.userId}');
-    }
-    if (auth.fullName != null) {
-      body.writeln('${'legal_deletion_email_name'.tr()}: ${auth.fullName}');
-    }
-    if (auth.phoneNumber != null) {
-      body.writeln(
-        '${'legal_deletion_email_phone'.tr()}: ${auth.phoneNumber}',
-      );
-    }
-
-    if (!context.mounted) return;
-    context.push(
-      '/contact-support',
-      extra: <String, String>{
-        'subject': 'legal_deletion_email_subject'.tr(),
-        'body': body.toString(),
-      },
-    );
+    context.push('/request-account-deletion');
   }
 }
 
