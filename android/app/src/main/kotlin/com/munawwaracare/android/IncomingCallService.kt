@@ -1,4 +1,4 @@
-package com.munawwaracare.andriod
+package com.munawwaracare.android
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -37,18 +37,18 @@ class IncomingCallService : Service() {
         private const val CHANNEL_ID = "incoming_call_service"
         private const val NOTIFICATION_ID = 9999
 
-        const val ACTION_INCOMING = "com.munawwaracare.andriod.ACTION_INCOMING_CALL"
-        const val ACTION_DECLINE = "com.munawwaracare.andriod.ACTION_DECLINE_CALL"
-        const val ACTION_ACCEPT = "com.munawwaracare.andriod.ACTION_ACCEPT_CALL"
-        const val ACTION_END = "com.munawwaracare.andriod.ACTION_END_CALL"
+        const val ACTION_INCOMING = "com.munawwaracare.android.ACTION_INCOMING_CALL"
+        const val ACTION_DECLINE = "com.munawwaracare.android.ACTION_DECLINE_CALL"
+        const val ACTION_ACCEPT = "com.munawwaracare.android.ACTION_ACCEPT_CALL"
+        const val ACTION_END = "com.munawwaracare.android.ACTION_END_CALL"
         const val ACTION_REMOTE_CANCEL =
-            "com.munawwaracare.andriod.ACTION_REMOTE_CANCEL"
+            "com.munawwaracare.android.ACTION_REMOTE_CANCEL"
         /**
          * Remove duplicate tray entry; CallKit already shows incoming/ongoing UI.
          * Must match `${applicationId}.ACTION_DISMISS_FG_NOTIFICATION` from CallkitIncomingBroadcastReceiver.
          */
         const val ACTION_DISMISS_FG_NOTIFICATION =
-            "com.munawwaracare.andriod.ACTION_DISMISS_FG_NOTIFICATION"
+            "com.munawwaracare.android.ACTION_DISMISS_FG_NOTIFICATION"
 
         const val EXTRA_CALLER_ID = "callerId"
         const val EXTRA_CALLER_NAME = "callerName"

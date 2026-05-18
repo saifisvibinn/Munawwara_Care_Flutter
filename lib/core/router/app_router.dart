@@ -7,6 +7,8 @@ import '../../features/auth/screens/device_care_onboarding_screen.dart';
 
 import '../../features/pilgrim/screens/pilgrim_dashboard_screen.dart';
 import '../../features/moderator/screens/moderator_dashboard_screen.dart';
+import '../../features/legal/screens/privacy_policy_screen.dart';
+import '../../features/legal/screens/contact_support_screen.dart';
 
 class AppRouter {
   /// Global navigator key — used by CallKit accept handler to push
@@ -51,6 +53,25 @@ class AppRouter {
         path: '/moderator-dashboard',
         name: 'moderator-dashboard',
         builder: (context, state) => const ModeratorDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/privacy-policy',
+        name: 'privacy-policy',
+        builder: (context, state) => const PrivacyPolicyScreen(),
+      ),
+      GoRoute(
+        path: '/contact-support',
+        name: 'contact-support',
+        builder: (context, state) {
+          final extra = state.extra;
+          if (extra is Map<String, String>) {
+            return ContactSupportScreen(
+              mailSubject: extra['subject'],
+              mailBody: extra['body'],
+            );
+          }
+          return const ContactSupportScreen();
+        },
       ),
     ],
   );

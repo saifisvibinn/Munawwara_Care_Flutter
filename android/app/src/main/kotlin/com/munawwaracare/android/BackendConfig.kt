@@ -1,4 +1,4 @@
-package com.munawwaracare.andriod
+package com.munawwaracare.android
 
 /**
  * Must match [Flutter_Munawwara/.env] `API_BASE_URL` and

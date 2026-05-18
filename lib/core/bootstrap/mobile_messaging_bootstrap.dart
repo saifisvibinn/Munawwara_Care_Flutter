@@ -52,6 +52,15 @@ Future<void> bindMobileMessagingServices() async {
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
       globalFcmToken = newToken;
       AppLogger.d('FCM token (refresh): $newToken');
+      final container = CallingScope.riverpod;
+      if (container != null) {
+        final auth = container.read(authProvider);
+        if (auth.isAuthenticated) {
+          unawaited(
+            container.read(authProvider.notifier).updateFcmToken(newToken),
+          );
+        }
+      }
     });
 
     final ReceivePort port = ReceivePort();

@@ -20,7 +20,7 @@ if (hasReleaseKeystore) {
 }
 
 android {
-    namespace = "com.munawwaracare.andriod"
+    namespace = "com.munawwaracare.android"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -35,11 +35,12 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.munawwaracare.andriod"
+        applicationId = "com.munawwaracare.android"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["usesCleartextTraffic"] = "false"
     }
 
     signingConfigs {
@@ -54,7 +55,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
         release {
+            manifestPlaceholders["usesCleartextTraffic"] = "false"
             signingConfig = if (hasReleaseKeystore) {
                 signingConfigs.getByName("release")
             } else {

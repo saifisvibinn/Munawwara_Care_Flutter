@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/legal_support_section.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/locale_prefs.dart';
 import '../../../core/services/callkit_service.dart';
@@ -339,6 +340,17 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           );
                         }),
                       ),
+                    ),
+
+                    SizedBox(height: 28.h),
+
+                    LegalSupportSection(
+                      isDark: isDark,
+                      cardBg: cardBg,
+                      textPrimary: textPrimary,
+                      textMuted: textMuted,
+                      dividerColor: dividerColor,
+                      showPilgrimDeletion: true,
                     ),
 
                     SizedBox(height: 28.h),

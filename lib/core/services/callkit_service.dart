@@ -34,7 +34,7 @@ class CallKitService {
   CallKitService._();
 
   static const MethodChannel _nativeIncomingChannel = MethodChannel(
-    'com.munawwaracare.andriod/incoming_call',
+    'com.munawwaracare.android/incoming_call',
   );
 
   static const _uuid = Uuid();

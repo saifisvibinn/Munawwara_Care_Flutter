@@ -87,7 +87,28 @@ class ApiService {
         path.contains('/auth/pilgrim/') ||
         path.contains('/auth/forgot-password') ||
         path.contains('/auth/reset-password') ||
-        path.contains('/auth/logout');
+        path.contains('/auth/logout') ||
+        path.contains('/auth/fcm-token');
+  }
+
+  /// True when a stored session token exists (for guarded FCM upload).
+  static Future<bool> hasStoredAuthToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    return token != null && token.isNotEmpty;
+  }
+
+  /// Ensures [dio] carries the Bearer token from prefs when missing.
+  static Future<void> ensureAuthHeaderFromPrefs() async {
+    final existing = dio.options.headers['Authorization'];
+    if (existing is String && existing.startsWith('Bearer ')) {
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token != null && token.isNotEmpty) {
+      dio.options.headers['Authorization'] = 'Bearer $token';
+    }
   }
 
   static Dio get dio {

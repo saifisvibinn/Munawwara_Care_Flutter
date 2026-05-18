@@ -1,4 +1,4 @@
-package com.munawwaracare.andriod
+package com.munawwaracare.android
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -21,7 +21,7 @@ import kotlin.concurrent.thread
  *   "${context.packageName}.${CallkitConstants.ACTION_CALL_DECLINE}"
  * where ACTION_CALL_DECLINE = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_DECLINE"
  * So the final action we listen for is:
- *   "com.munawwaracare.andriod.com.hiennv.flutter_callkit_incoming.ACTION_CALL_DECLINE"
+ *   "com.munawwaracare.android.com.hiennv.flutter_callkit_incoming.ACTION_CALL_DECLINE"
  *
  * The data Bundle comes in the intent extra "EXTRA_CALLKIT_INCOMING_DATA".
  * Our callerId is stored inside that Bundle at "EXTRA_CALLKIT_EXTRA" → "callerId".
@@ -33,7 +33,7 @@ class CallDeclineReceiver : BroadcastReceiver() {
 
         // The exact action string constructed by the plugin:
         // "${packageName}.${ACTION_CALL_DECLINE_CONSTANT}"
-        private const val PACKAGE = "com.munawwaracare.andriod"
+        private const val PACKAGE = "com.munawwaracare.android"
         private const val ACTION_DECLINE =
             "$PACKAGE.com.hiennv.flutter_callkit_incoming.ACTION_CALL_DECLINE"
         private const val ACTION_TIMEOUT =

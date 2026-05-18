@@ -15,7 +15,7 @@ param(
     [switch]$Release
 )
 
-$APP_ID      = "com.munawwaracare.andriod"
+$APP_ID      = "com.munawwaracare.android"
 $FLUTTER_DIR = $PSScriptRoot
 $BUILD_MODE  = if ($Release) { "release" } else { "debug" }
 

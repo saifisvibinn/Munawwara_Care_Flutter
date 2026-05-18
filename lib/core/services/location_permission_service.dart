@@ -8,7 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../features/auth/widgets/background_location_disclosure_dialog.dart';
 
-const _oemChannel = MethodChannel('com.munawwaracare.andriod/oem_settings');
+const _oemChannel = MethodChannel('com.munawwaracare.android/oem_settings');
 
 /// Checks if both when-in-use and always-on permissions are granted.
 Future<bool> hasLocationAlwaysPermission() async {

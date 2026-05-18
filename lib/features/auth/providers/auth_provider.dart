@@ -417,8 +417,8 @@ class AuthNotifier extends Notifier<AuthState> {
         fullName: data['full_name'] as String,
       );
 
-      // Request permissions; FCM registration is handled by MyApp auth listener.
       await _requestNotificationPermissions();
+      await _registerFcmTokenAfterLogin();
 
       return true;
     } on DioException catch (e) {
@@ -459,8 +459,8 @@ class AuthNotifier extends Notifier<AuthState> {
         fullName: data['full_name'] as String,
       );
 
-      // Request permissions; FCM registration is handled by MyApp auth listener.
       await _requestNotificationPermissions();
+      await _registerFcmTokenAfterLogin();
 
       return true;
     } on DioException catch (e) {
@@ -639,9 +639,28 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  /// Upload device push token right after login when the JWT is guaranteed valid.
+  Future<void> _registerFcmTokenAfterLogin() async {
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      return;
+    }
+    final fcm = await FirebaseMessaging.instance.getToken();
+    if (fcm == null || fcm.isEmpty) {
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('last_registered_fcm_token');
+    await updateFcmToken(fcm);
+  }
+
   // ── Update FCM Token ────────────────────────────────────────────────────────
   Future<void> updateFcmToken(String fcmToken) async {
+    if (!await ApiService.hasStoredAuthToken()) {
+      AppLogger.d('Skip FCM register — not logged in');
+      return;
+    }
     try {
+      await ApiService.ensureAuthHeaderFromPrefs();
       final prefs = await SharedPreferences.getInstance();
       final lastRegistered = prefs.getString('last_registered_fcm_token');
       if (lastRegistered == fcmToken) {
@@ -649,7 +668,8 @@ class AuthNotifier extends Notifier<AuthState> {
       }
 
       AppLogger.d(
-        'Attempting to register FCM token with backend: ${fcmToken.substring(0, min(20, fcmToken.length))}...',
+        'Attempting to register FCM token with backend: '
+        '${fcmToken.substring(0, min(20, fcmToken.length))}...',
       );
 
       final response = await ApiService.dio.put(
@@ -660,12 +680,18 @@ class AuthNotifier extends Notifier<AuthState> {
       await prefs.setString('last_registered_fcm_token', fcmToken);
 
       AppLogger.i(
-        '✅ FCM token registered with backend successfully. Status: ${response.statusCode}',
+        '✅ FCM token registered with backend successfully. '
+        'Status: ${response.statusCode}',
       );
     } on DioException catch (e) {
+      final code = e.response?.statusCode;
       AppLogger.e(
-        '⚠️ Failed to register FCM token API error: ${e.response?.statusCode} - ${e.response?.data}',
+        '⚠️ Failed to register FCM token API error: $code - ${e.response?.data}',
       );
+      if (code == 401) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('last_registered_fcm_token');
+      }
     } catch (e) {
       AppLogger.e('⚠️ Failed to register FCM token unknown error: $e');
     }

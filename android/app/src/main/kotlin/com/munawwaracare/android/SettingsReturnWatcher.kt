@@ -1,4 +1,4 @@
-package com.munawwaracare.andriod
+package com.munawwaracare.android
 
 import android.app.Activity
 import android.app.ActivityManager

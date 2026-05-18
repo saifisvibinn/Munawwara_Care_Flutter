@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:dio/dio.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -37,7 +38,7 @@ import '../utils/route_id_utils.dart';
 const Duration kUrgentAlertToTtsDelay = Duration(milliseconds: 4200);
 
 const _notificationTrayChannel = MethodChannel(
-  'com.munawwaracare.andriod/notification_tray',
+  'com.munawwaracare.android/notification_tray',
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -581,17 +582,21 @@ class NotificationService {
     if (!_fcmRefreshBound) {
       _fcmRefreshBound = true;
       FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-        unawaited(_uploadFcmToken(newToken));
+        unawaited(_uploadFcmTokenWhenAuthenticated(newToken));
       });
     }
-    final token = await FirebaseMessaging.instance.getToken();
-    if (token != null) {
-      await _uploadFcmToken(token);
-    }
-    return token;
+    return FirebaseMessaging.instance.getToken();
   }
 
-  static Future<void> _uploadFcmToken(String token) async {
+  /// Uploads FCM token only when the user has a logged-in session.
+  static Future<void> _uploadFcmTokenWhenAuthenticated(String token) async {
+    if (!await ApiService.hasStoredAuthToken()) {
+      AppLogger.d(
+        '[NotificationService] Skip FCM upload — no auth session',
+      );
+      return;
+    }
+    await ApiService.ensureAuthHeaderFromPrefs();
     try {
       final prefs = await SharedPreferences.getInstance();
       final lastRegistered = prefs.getString('last_registered_fcm_token');
@@ -603,7 +608,17 @@ class NotificationService {
         data: {'fcm_token': token},
       );
       await prefs.setString('last_registered_fcm_token', token);
-      AppLogger.i('[NotificationService] FCM token refreshed and uploaded');
+      AppLogger.i('[NotificationService] FCM token uploaded to backend');
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      AppLogger.e(
+        '[NotificationService] FCM token upload failed (HTTP $code): '
+        '${e.response?.data}',
+      );
+      if (code == 401) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('last_registered_fcm_token');
+      }
     } catch (e) {
       AppLogger.e('[NotificationService] FCM token upload failed: $e');
     }

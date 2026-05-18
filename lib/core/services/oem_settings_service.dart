@@ -80,7 +80,7 @@ class OemSettingsService {
   static const _prefAutostartAck = 'device_care_autostart_ack_v1';
   static const _prefBatteryManualAck = 'device_care_battery_manual_ack_v1';
   static const _prefLockScreenCallAck = 'device_care_lock_screen_call_ack_v1';
-  static const _channel = MethodChannel('com.munawwaracare.andriod/oem_settings');
+  static const _channel = MethodChannel('com.munawwaracare.android/oem_settings');
 
   static DeviceCareActionKind? _pendingReturnKind;
 

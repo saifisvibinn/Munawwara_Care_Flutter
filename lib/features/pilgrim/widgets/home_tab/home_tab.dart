@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/safety_disclaimer_banner.dart';
 import '../../../shared/widgets/moderator_avatar.dart';
 import '../../providers/pilgrim_provider.dart';
 import '../sos/sos_button.dart';
@@ -698,6 +699,7 @@ class _HomeBody extends StatelessWidget {
                   ],
                 ),
               ),
+            SafetyDisclaimerBanner(isDark: isDark),
           ],
         ),
       ),

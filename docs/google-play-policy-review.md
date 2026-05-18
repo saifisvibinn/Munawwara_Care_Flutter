@@ -2,7 +2,7 @@
 
 **Document purpose:** Pre-submission review for Google Play Console policy compliance.  
 **App:** Munawwara Care (Flutter Android) + Node.js backend (`mc_backend_app`) + moderator web (`mc_mod_front`).  
-**Last updated:** May 17, 2026
+**Last updated:** May 18, 2026
 
 ---
 
@@ -12,14 +12,14 @@
 |------|------------|---------|
 | Background location | 🔴 Critical | Core pilgrim safety feature; must match disclosure, Data safety, and Play video |
 | Data Safety form | 🔴 Critical | Not completed yet |
-| Account deletion (pilgrims) | 🔴 High | No in-app deletion; email-only may fail User Data policy |
+| Account deletion (pilgrims) | 🟢 Fixed in app | In-app request via Settings → Request account deletion (mailto) |
 | Privacy Policy accuracy | 🔴 High | Live policy claims crash/diagnostics not in app; update before production |
 | Trademark / brand (Munawwara) | 🔴 High | Developer does not own brand; freelancer build for client |
-| `applicationId` typo | 🟡 Medium | Change `andriod` → `android` before production |
-| `usesCleartextTraffic="true"` | 🟡 Medium | Release should be HTTPS-only |
-| `SYSTEM_ALERT_WINDOW` | 🟡 Medium | Declared; no app code usage found — candidate for removal |
-| `BATTERY_STATS` | 🟡 Medium | Declared; app uses `battery_plus` instead — candidate for removal |
-| Group delete vs pilgrim PII | 🟡 Medium | Group deletion does not delete pilgrim user records |
+| `applicationId` typo | 🟢 Fixed | `com.munawwaracare.android` (re-register Firebase Android app) |
+| `usesCleartextTraffic` | 🟢 Fixed | `false` in release; `true` in debug only |
+| `SYSTEM_ALERT_WINDOW` | 🟢 Fixed | Removed from manifest |
+| `BATTERY_STATS` | 🟢 Fixed | Removed from manifest |
+| Group delete vs pilgrim PII | 🟡 Documented | Group delete unassigns pilgrims; moderators use **Delete pilgrim account** for full removal — document on privacy site |
 | Children / minors | 🟡 Medium | Not primary audience; minors possible with parents — declare 13+ on Play |
 | Store listing assets | 🟡 Medium | Screenshots / feature graphic not ready yet |
 | UGC / communication policy | 🟡 Low–Medium | Moderator-only messaging; still need Terms + support contact |
@@ -34,8 +34,8 @@
 | Field | Value |
 |-------|--------|
 | **Play Store title** | Munawwara Care |
-| **Package name (current)** | `com.munawwaracare.andriod` (typo: **andriod**) |
-| **Package name (confirmed)** | `com.munawwaracare.android` — change **before first production upload** |
+| **Package name** | `com.munawwaracare.android` |
+| **Package name (previous)** | `com.munawwaracare.andriod` (typo; replaced May 2026) |
 | **Version** | `1.0.0` (versionName) / `1` (versionCode) |
 | **Developer account** | Individual, Egypt |
 | **Category** | Travel + Health (primary/secondary TBD in Console) |
@@ -387,18 +387,18 @@ The published policy at https://saifisvibinn.github.io/munawwara-privacy/ should
 
 1. Complete **Play Data safety** form (location, audio, personal info, health, device IDs — **not** crash analytics unless added).
 2. **Update Privacy Policy** at https://saifisvibinn.github.io/munawwara-privacy/ (remove false crash/diagnostics claim; align with app).
-3. Add **in-app account deletion request** → munawwaracare@gmail.com + link Privacy Policy.
+3. ~~Add **in-app account deletion request**~~ — done (pilgrim Settings).
 4. Align **background location** disclosure, in-app UX, Data safety, and store listing.
 5. Resolve **brand/trademark** authorization with Munawwara Care.
-6. Change **`applicationId`** to `com.munawwaracare.android` **before** production upload.
+6. ~~Change **`applicationId`**~~ — done (`com.munawwaracare.android`).
 7. Prepare **store screenshots** and feature graphic.
 
 ### 🟡 Warnings
 
-1. Remove or justify **`SYSTEM_ALERT_WINDOW`** and **`BATTERY_STATS`**.
-2. Set **`usesCleartextTraffic="false"`** for release builds.
-3. Document **group delete** vs pilgrim delete in privacy policy.
-4. Add **munawwaracare@gmail.com** in-app and on store listing.
+1. ~~Remove **`SYSTEM_ALERT_WINDOW`** and **`BATTERY_STATS`**~~ — removed from manifest.
+2. ~~Release **`usesCleartextTraffic="false"`**~~ — done.
+3. Document **group delete** vs **Delete pilgrim account** on privacy policy site (see checklist below).
+4. ~~**munawwaracare@gmail.com** in-app~~ — done (Settings); add on store listing.
 5. Play Console: **not for children** (13+); operator policy for any minors.
 6. Restrict **Agora / Google API keys** in client.
 7. Confirm **MongoDB Atlas** region for privacy policy.
@@ -420,14 +420,33 @@ The published policy at https://saifisvibinn.github.io/munawwara-privacy/ should
 
 | # | Item | Status |
 |---|------|--------|
-| 1 | Privacy Policy content updated on GitHub Pages | **Pending** |
-| 2 | Privacy Policy + support email linked **in-app** | **Pending** |
+| 1 | Privacy Policy content updated on GitHub Pages | **Pending** — see external checklist below |
+| 2 | Privacy Policy + support email linked **in-app** | **Done** — pilgrim & moderator Settings |
 | 3 | Store assets (512 icon, feature graphic, screenshots) | **Not ready** |
-| 4 | Data Safety form | **Not done** |
-| 5 | `applicationId` → `com.munawwaracare.android` | **Confirmed** — implement in code |
+| 4 | Data Safety form | **Not done** (Play Console) |
+| 5 | `applicationId` → `com.munawwaracare.android` | **Done** — add new app in Firebase Console + download `google-services.json` |
 | 6 | MongoDB Atlas + Firebase regions | **Unknown** |
 | 7 | Play test credentials in App access | **Pending** |
 | 8 | Written brand authorization from Munawwara Care | **Pending** |
+| 9 | SOS / safety disclaimers in-app | **Done** — home tab banner + updated copy |
+| 10 | Unused manifest permissions removed | **Done** |
+
+---
+
+## External privacy policy checklist (GitHub Pages)
+
+Update https://saifisvibinn.github.io/munawwara-privacy/ manually:
+
+1. **Remove** crash/diagnostics claims (no Analytics/Crashlytics in app).
+2. **Add** service providers: Agora, GCP Cloud Run, MongoDB Atlas, Redis, GCS, Translation/TTS, FCM, Gmail SMTP.
+3. **Clarify** messages are **moderator-sent** (not pilgrim-to-pilgrim chat).
+4. **List** data: medical history, visa, hotel/room/bus, battery %, device binding, background location, call metadata.
+5. **Account deletion:**
+   - **Pilgrims:** in-app *Request account deletion* or email **munawwaracare@gmail.com**.
+   - **Moderators:** removed by organization admin.
+   - **Delete group** removes pilgrims from the group only; accounts remain until a moderator uses **Delete pilgrim account**.
+6. **Disclaimer:** not medical advice; not a substitute for local emergency services; SOS alerts the group moderator.
+7. Put **munawwaracare@gmail.com** in the deletion section (not only elsewhere).
 
 ---
 

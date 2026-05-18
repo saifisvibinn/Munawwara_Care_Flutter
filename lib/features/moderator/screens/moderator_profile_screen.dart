@@ -9,6 +9,7 @@ import '../../../core/widgets/custom_dialog.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/legal_support_section.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/services/locale_prefs.dart';
@@ -277,6 +278,17 @@ class _ModeratorProfileScreenState
                           );
                         }),
                       ),
+                    ),
+
+                    SizedBox(height: 28.h),
+
+                    LegalSupportSection(
+                      isDark: isDark,
+                      cardBg: cardBg,
+                      textPrimary: textPrimary,
+                      textMuted: textMuted,
+                      dividerColor: dividerColor,
+                      showModeratorDeletionNote: true,
                     ),
 
                     SizedBox(height: 32.h),

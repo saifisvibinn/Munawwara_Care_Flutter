@@ -74,6 +74,7 @@ dependencies:
   just_audio: ^0.10.5
   audio_session: ^0.2.3
   wakelock_plus: ^1.5.2
+  webview_flutter: ^4.13.1
 dependency_overrides:
   # Local copy of flutter_callkit_incoming with native Android HTTP decline fix.
   # The BroadcastReceiver now posts to /call-history/decline when the pilgrim

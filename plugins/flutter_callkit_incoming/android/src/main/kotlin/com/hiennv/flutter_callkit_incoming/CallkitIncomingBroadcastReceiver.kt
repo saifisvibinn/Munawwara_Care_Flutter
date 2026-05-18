@@ -104,7 +104,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     sendEventFlutter(CallkitConstants.ACTION_CALL_INCOMING, data)
                     addCall(context, Data.fromBundle(data))
                     // ── Start IncomingCallService (Core-Telecom) ──
-                    startCallService(context, "com.munawwaracare.andriod.ACTION_INCOMING_CALL", data)
+                    startCallService(context, "com.munawwaracare.android.ACTION_INCOMING_CALL", data)
                 } catch (error: Exception) {
                     Log.e(TAG, null, error)
                 }
@@ -161,7 +161,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     // ── Signal IncomingCallService to fire HTTP decline ──
                     startCallService(
                         context,
-                        "com.munawwaracare.andriod.ACTION_DECLINE_CALL",
+                        "com.munawwaracare.android.ACTION_DECLINE_CALL",
                         data,
                         putNoAnswerExtra = false,
                     )
@@ -201,7 +201,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     // ── Signal IncomingCallService to fire HTTP decline ──
                     startCallService(
                         context,
-                        "com.munawwaracare.andriod.ACTION_DECLINE_CALL",
+                        "com.munawwaracare.android.ACTION_DECLINE_CALL",
                         data,
                         putNoAnswerExtra = true,
                     )

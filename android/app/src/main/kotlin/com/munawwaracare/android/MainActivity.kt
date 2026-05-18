@@ -1,4 +1,4 @@
-package com.munawwaracare.andriod
+package com.munawwaracare.android
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,11 +14,11 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     companion object {
         private const val INCOMING_CALL_CHANNEL =
-            "com.munawwaracare.andriod/incoming_call"
+            "com.munawwaracare.android/incoming_call"
         private const val OEM_SETTINGS_CHANNEL =
-            "com.munawwaracare.andriod/oem_settings"
+            "com.munawwaracare.android/oem_settings"
         private const val NOTIFICATION_TRAY_CHANNEL =
-            "com.munawwaracare.andriod/notification_tray"
+            "com.munawwaracare.android/notification_tray"
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

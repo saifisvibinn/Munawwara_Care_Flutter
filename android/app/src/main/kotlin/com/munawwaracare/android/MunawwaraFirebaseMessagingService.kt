@@ -1,4 +1,4 @@
-package com.munawwaracare.andriod
+package com.munawwaracare.android
 
 import com.google.firebase.messaging.RemoteMessage
 import io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService
