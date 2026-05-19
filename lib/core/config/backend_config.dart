@@ -4,7 +4,7 @@
 /// Keep in sync with [Flutter_Munawwara/.env] `API_BASE_URL` and
 /// [BackendConfig.kt] on Android.
 const String kDefaultProductionApiBaseUrl =
-    'https://mc-backend-44890250266.europe-west3.run.app/api';
+    String.fromEnvironment('API_BASE_URL');
 
 /// SharedPreferences key (no `flutter.` prefix — Dart plugin adds it on Android).
 const String kNativeApiBaseUrlPrefsKey = 'api_base_url';

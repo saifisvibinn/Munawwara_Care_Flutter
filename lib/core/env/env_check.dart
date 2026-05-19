@@ -12,9 +12,12 @@ Future<void> verifyEnv() async {
     'GOOGLE_MAPS_API_KEY',
   ];
 
-  final missingRequired = requiredKeys
-      .where((k) => (dotenv.env[k] ?? '').trim().isEmpty)
-      .toList();
+  final missingRequired = requiredKeys.where((k) {
+    if (k == 'API_BASE_URL') {
+      return ApiService.baseUrl.isEmpty;
+    }
+    return (dotenv.env[k] ?? '').trim().isEmpty;
+  }).toList();
   final missingOptional = optionalKeys
       .where((k) => (dotenv.env[k] ?? '').trim().isEmpty)
       .toList();
