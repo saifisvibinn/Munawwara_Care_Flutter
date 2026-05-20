@@ -391,12 +391,29 @@ class IncomingCallService : Service() {
         callScope = null
     }
 
+    /** Removes the duplicate tray entry; does not stop the service or Core-Telecom. */
+    private fun removeForegroundNotification() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "📞 removeForegroundNotification: ${e.message}")
+        }
+    }
+
     private fun scheduleLingerStop() {
-        Log.i(TAG, "📞 Delaying stopSelf by ${LINGER_MS}ms to prevent FCM throttle")
+        Log.i(
+            TAG,
+            "📞 Tray removed; delaying stopSelf by ${LINGER_MS}ms to prevent FCM throttle",
+        )
+        removeForegroundNotification()
         lingerJob?.cancel()
         lingerJob = CoroutineScope(Dispatchers.IO).launch {
             delay(LINGER_MS)
-            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
     }
@@ -406,12 +423,8 @@ class IncomingCallService : Service() {
      * This removes our duplicate FGS notification without cancelling Core-Telecom work.
      */
     private fun dismissForegroundNotificationOnly() {
-        try {
-            Log.i(TAG, "📞 Duplicate FGS dismiss requested, but keeping FGS to prevent OS kill")
-            // Intentionally not calling stopForeground to maintain process life.
-        } catch (e: Exception) {
-            Log.w(TAG, "📞 dismissForegroundNotificationOnly: ${e.message}")
-        }
+        Log.i(TAG, "📞 Duplicate FGS dismiss — removing tray only (service stays alive)")
+        removeForegroundNotification()
     }
 
     /**

@@ -64,6 +64,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _isInitializingDashboard = true;
   // Bottom nav
+  static const int _qiblaTabIndex = 2;
   int _currentTab = 0;
 
   // Notifier to trigger chat scroll-to-bottom on tab switch
@@ -1551,7 +1552,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         profileGender: pilgrimState.profile?.gender,
         areas: ref.watch(suggestedAreaProvider).areas,
       ),
-      const QiblaCompassScreen(),
+      QiblaCompassScreen(
+        enableAlignmentHaptics: _currentTab == _qiblaTabIndex,
+      ),
       pilgrimState.groupInfo != null
           ? GroupInboxScreen(
               groupId: pilgrimState.groupInfo!.groupId,

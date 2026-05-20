@@ -13,7 +13,14 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 
 class QiblaCompassScreen extends StatefulWidget {
-  const QiblaCompassScreen({super.key});
+  const QiblaCompassScreen({
+    super.key,
+    this.enableAlignmentHaptics = true,
+  });
+
+  /// When false, compass still updates but alignment haptics are suppressed
+  /// (e.g. another bottom-nav tab is selected in an [IndexedStack]).
+  final bool enableAlignmentHaptics;
 
   @override
   State<QiblaCompassScreen> createState() => _QiblaCompassScreenState();
@@ -147,6 +154,14 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen>
   }
 
   @override
+  void didUpdateWidget(covariant QiblaCompassScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enableAlignmentHaptics) {
+      _wasAligned = false;
+    }
+  }
+
+  @override
   void dispose() {
     _figure8Ctrl.dispose();
     _pulseCtrl.dispose();
@@ -201,7 +216,11 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen>
 
   void _handleAlignmentFeedback() {
     final aligned = _isAligned();
-    if (aligned && !_wasAligned) HapticFeedback.lightImpact();
+    if (widget.enableAlignmentHaptics &&
+        aligned &&
+        !_wasAligned) {
+      HapticFeedback.lightImpact();
+    }
     _wasAligned = aligned;
   }
 
