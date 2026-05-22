@@ -114,7 +114,7 @@ Record of work already done in the codebase. Re-verify in Play Console / product
 | Kotlin package + method channels + CallKit receivers | Renamed to `com.munawwaracare.android` |
 | `google-services.json` | Firebase project `munawwaracare-5353a`, package `com.munawwaracare.android` |
 | `usesCleartextTraffic` | `false` in release; `true` in debug only |
-| Removed permissions | `BATTERY_STATS`, `SYSTEM_ALERT_WINDOW`, `CALL_PHONE`; duplicate `FOREGROUND_SERVICE` deduped |
+| Removed permissions | `BATTERY_STATS`, `SYSTEM_ALERT_WINDOW`, `CALL_PHONE`; duplicate `FOREGROUND_SERVICE` deduped; `USE_EXACT_ALARM`, `SCHEDULE_EXACT_ALARM` (meetpoints/reminders use server + FCM) |
 | `<queries>` | https, http, mailto, common browsers (for optional external links) |
 
 ### In-app legal & UX (pilgrim + moderator Settings)

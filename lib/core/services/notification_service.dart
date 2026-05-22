@@ -1285,9 +1285,6 @@ class NotificationService {
             .requestNotificationsPermission();
         AppLogger.i('📱 Notification permission: $notifGranted');
 
-        // Request exact alarms permission (for scheduling)
-        await androidPlugin.requestExactAlarmsPermission();
-
         // ── CRITICAL: Request Full-Screen Intent Permission ──────────────────
         // This is REQUIRED on Android 10+ (API 29+) to show full-screen call UI
         // Without this, incoming calls will only show as regular notifications
