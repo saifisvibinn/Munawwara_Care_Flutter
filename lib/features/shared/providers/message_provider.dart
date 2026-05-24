@@ -125,9 +125,12 @@ class MessageNotifier extends Notifier<MessageState> {
       }
       parsed.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       if (parsed.isEmpty) return;
-      state = state.copyWith(messages: parsed);
+      final groupId = parsed.first.groupId;
+      state = state.copyWith(
+        messages: _mergeMessageLists(state.messages, parsed, groupId),
+      );
       await ChatPopupDedup.mergeKnownMessageIds(
-        parsed.map((m) => m.id),
+        state.messages.map((m) => m.id),
       );
     } catch (_) {}
   }
@@ -154,6 +157,24 @@ class MessageNotifier extends Notifier<MessageState> {
     return state.messages.every((message) => message.groupId == groupId);
   }
 
+  /// Keeps in-memory messages (e.g. just sent) that are not yet in [incoming].
+  List<GroupMessage> _mergeMessageLists(
+    List<GroupMessage> current,
+    List<GroupMessage> incoming,
+    String groupId,
+  ) {
+    if (incoming.isEmpty) {
+      return current.where((m) => m.groupId == groupId).toList();
+    }
+    final incomingIds = incoming.map((m) => m.id).toSet();
+    final localOnly = current.where(
+      (m) => m.groupId == groupId && !incomingIds.contains(m.id),
+    );
+    final merged = [...incoming, ...localOnly];
+    merged.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return merged;
+  }
+
   Future<void> loadMessages(
     String groupId, {
     bool force = false,
@@ -170,6 +191,9 @@ class MessageNotifier extends Notifier<MessageState> {
         previousGroupId != null && previousGroupId != normalizedGroupId;
     final mustClearMessages = switchingGroup || hasWrongGroupMessages;
     final hasLoadedGroup = _hasLoadedGroupMessages(normalizedGroupId);
+    final hasVisibleMessages = state.messages.any(
+      (message) => message.groupId == normalizedGroupId,
+    );
 
     if (mustClearMessages) {
       state = state.copyWith(
@@ -177,19 +201,22 @@ class MessageNotifier extends Notifier<MessageState> {
         isLoading: true,
         error: null,
       );
-    } else if (force || !hasLoadedGroup) {
-      state = state.copyWith(isLoading: true, error: null);
+    } else if (force) {
+      state = state.copyWith(
+        isLoading: !hasVisibleMessages,
+        error: null,
+      );
+    } else if (!hasLoadedGroup) {
+      state = state.copyWith(
+        isLoading: !hasVisibleMessages,
+        error: null,
+      );
     } else {
       state = state.copyWith(error: null);
     }
 
     await _hydrateMessagesFromCache(normalizedGroupId);
     if (loadGeneration != _loadGeneration) return;
-
-    final hasLocalMessages = state.messages.isNotEmpty;
-    if ((force || !hasLocalMessages) && !state.isLoading) {
-      state = state.copyWith(isLoading: true);
-    }
 
     try {
       final res = await ApiService.dio.get(
@@ -205,7 +232,7 @@ class MessageNotifier extends Notifier<MessageState> {
       // oldest first (chronological / chat order)
       raw.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       state = state.copyWith(
-        messages: raw,
+        messages: _mergeMessageLists(state.messages, raw, normalizedGroupId),
         isLoading: false,
         updateLoadedGroup: true,
         loadedGroupId: normalizedGroupId,

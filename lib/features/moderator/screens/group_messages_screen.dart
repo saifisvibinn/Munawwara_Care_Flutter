@@ -505,8 +505,8 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   Widget build(BuildContext context) {
     final msgState = ref.watch(messageProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final showLoading =
-        msgState.isLoading || (!_initialLoadDone && msgState.messages.isEmpty);
+    final showLoading = msgState.messages.isEmpty &&
+        (msgState.isLoading || !_initialLoadDone);
 
     // Scroll to bottom when new socket messages arrive
     ref.listen(messageProvider, (prev, next) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
@@ -18,6 +19,7 @@ import '../../../../core/theme/app_dropdown_theme.dart';
 import '../../../../core/widgets/custom_dialog.dart';
 import '../../../../core/widgets/standard_snackbar.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../providers/moderator_provider.dart';
 import '../../models/provisioning_models.dart';
 import '../../models/pilgrim_field_options.dart';
 import '../../screens/manage_pilgrims_screen.dart';
@@ -26,14 +28,15 @@ import 'create_pilgrim_card.dart';
 import 'provisioning_tracker_list.dart';
 
 class ProvisioningTab extends ConsumerStatefulWidget {
-  const ProvisioningTab({super.key});
+  const ProvisioningTab({super.key, this.isTabActive = true});
+
+  final bool isTabActive;
 
   @override
   ConsumerState<ProvisioningTab> createState() => _ProvisioningTabState();
 }
 
 class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
-  bool _isLoadingGroups = false;
   bool _isLoadingStatus = false;
   bool _isLoadingResources = false;
   bool _isProvisioning = false;
@@ -41,7 +44,6 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
   final ScreenshotController _screenshotController = ScreenshotController();
 
   String? _selectedGroupId;
-  List<GroupOption> _groups = const [];
 
   List<String> _ethnicityOptions = PilgrimFieldOptions.fallback().ethnicities;
   List<PilgrimLanguageOption> _languageOptions =
@@ -63,8 +65,65 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
   @override
   void initState() {
     super.initState();
-    _loadGroups();
     _loadPilgrimFieldOptions();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _ensureSelectedGroup(_groupsFromModerator(ref.read(moderatorProvider)));
+      unawaited(_refreshGroupsFromProvider());
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant ProvisioningTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isTabActive && widget.isTabActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_refreshGroupsFromProvider());
+      });
+    }
+  }
+
+  List<GroupOption> _groupsFromModerator(ModeratorState mod) {
+    final seen = <String>{};
+    return mod.groups
+        .where((g) => g.id.isNotEmpty && seen.add(g.id))
+        .map(
+          (g) => GroupOption(
+            id: g.id,
+            name: g.groupName.isNotEmpty
+                ? g.groupName
+                : 'provisioning_unnamed_group'.tr(),
+          ),
+        )
+        .toList();
+  }
+
+  void _ensureSelectedGroup(List<GroupOption> groups) {
+    if (!mounted) return;
+    if (_selectedGroupId == null && groups.isNotEmpty) {
+      setState(() => _selectedGroupId = groups.first.id);
+      return;
+    }
+    if (_selectedGroupId != null &&
+        !groups.any((g) => g.id == _selectedGroupId)) {
+      setState(
+        () => _selectedGroupId = groups.isNotEmpty ? groups.first.id : null,
+      );
+    }
+  }
+
+  Future<void> _refreshGroupsFromProvider() async {
+    await ref.read(moderatorProvider.notifier).syncAfterMutation();
+    if (!mounted) return;
+    final groups = _groupsFromModerator(ref.read(moderatorProvider));
+    _ensureSelectedGroup(groups);
+    if (_selectedGroupId != null) {
+      await Future.wait([
+        _loadResourceOptions(),
+        _loadProvisioningStatus(),
+      ]);
+    }
   }
 
   Future<void> _loadPilgrimFieldOptions() async {
@@ -89,53 +148,6 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
         _ethnicityOptions = fb.ethnicities;
         _languageOptions = fb.languages;
       });
-    }
-  }
-
-  Future<void> _loadGroups() async {
-    setState(() {
-      _isLoadingGroups = true;
-    });
-
-    try {
-      final resp = await ApiService.dio.get('/groups/dashboard');
-      final raw = resp.data;
-      final data = raw is Map<String, dynamic>
-          ? (raw['data'] as List<dynamic>? ?? const [])
-          : (raw as List<dynamic>? ?? const []);
-
-      final groups = data
-          .whereType<Map>()
-          .map((g) {
-            final map = Map<String, dynamic>.from(g);
-            return GroupOption(
-              id: map['_id']?.toString() ?? map['id']?.toString() ?? '',
-              name: map['group_name']?.toString() ?? 'provisioning_unnamed_group'.tr(),
-            );
-          })
-          .where((g) => g.id.isNotEmpty)
-          .toList();
-
-      if (mounted) {
-        setState(() {
-          final seen = <String>{};
-          _groups = groups.where((g) => seen.add(g.id)).toList();
-          if (_selectedGroupId == null && _groups.isNotEmpty) {
-            _selectedGroupId = _groups.first.id;
-          } else if (_selectedGroupId != null &&
-              !_groups.any((g) => g.id == _selectedGroupId)) {
-            _selectedGroupId = _groups.isNotEmpty ? _groups.first.id : null;
-          }
-        });
-      }
-
-      if (_selectedGroupId != null) {
-        await Future.wait([_loadResourceOptions(), _loadProvisioningStatus()]);
-      }
-    } on DioException catch (_) {
-      // Error handled by StandardSnackBar if needed, or ignored for background loads
-    } finally {
-      if (mounted) setState(() => _isLoadingGroups = false);
     }
   }
 
@@ -237,6 +249,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
 
     try {
       await ApiService.dio.post('/auth/groups/$groupId/provision-pilgrim', data: data);
+      await ref.read(moderatorProvider.notifier).syncAfterMutation(groupId: groupId);
       await _loadProvisioningStatus();
       if (mounted) {
         setState(() => _createPilgrimFormGeneration++);
@@ -259,7 +272,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
       return;
     }
 
-    final group = _groups.where((g) => g.id == _selectedGroupId).firstOrNull;
+    final group = _currentGroups().where((g) => g.id == _selectedGroupId).firstOrNull;
     final groupName = group?.name ?? 'provisioning_fallback_group'.tr();
     final modName = ref.read(authProvider).fullName ?? 'provisioning_fallback_moderator'.tr();
 
@@ -295,7 +308,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
       _bulkCaptureProgress = 0;
     });
 
-    final group = _groups.where((g) => g.id == _selectedGroupId).firstOrNull;
+    final group = _currentGroups().where((g) => g.id == _selectedGroupId).firstOrNull;
     final groupName = group?.name ?? 'provisioning_fallback_group'.tr();
     final modName = ref.read(authProvider).fullName ?? 'provisioning_fallback_moderator'.tr();
     final theme = Theme.of(context);
@@ -379,7 +392,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
       if (token != null) {
         await _loadProvisioningStatus();
         final newItem = item.copyWith(token: token);
-        final group = _groups.where((g) => g.id == _selectedGroupId).firstOrNull;
+        final group = _currentGroups().where((g) => g.id == _selectedGroupId).firstOrNull;
         final modName = ref.read(authProvider).fullName ?? 'provisioning_fallback_moderator'.tr();
         _showCredentialDialog(newItem, group?.name ?? 'provisioning_fallback_group'.tr(), modName);
       }
@@ -407,6 +420,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
 
     try {
       await ApiService.dio.delete('/auth/groups/$groupId/pilgrims/${item.pilgrimId}');
+      await ref.read(moderatorProvider.notifier).syncAfterMutation(groupId: groupId);
       await _loadProvisioningStatus();
       if (mounted) StandardSnackBar.showSuccess(context, 'provisioning_pilgrim_removed'.tr());
     } on DioException catch (e) {
@@ -415,7 +429,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
   }
 
   Future<void> _handleShareQr(ProvisioningItem item) async {
-    final group = _groups.where((g) => g.id == _selectedGroupId).firstOrNull;
+    final group = _currentGroups().where((g) => g.id == _selectedGroupId).firstOrNull;
     final modName = ref.read(authProvider).fullName ?? 'provisioning_fallback_moderator'.tr();
     
     _showCredentialDialog(item, group?.name ?? 'provisioning_fallback_group'.tr(), modName);
@@ -532,8 +546,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
 
   Future<void> _onPullRefresh() async {
     await Future.wait([
-      _loadGroups(),
-      _loadProvisioningStatus(),
+      _refreshGroupsFromProvider(),
       _loadPilgrimFieldOptions(),
     ]);
   }
@@ -558,7 +571,11 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
   EdgeInsets _provisionPanelPadding() =>
       EdgeInsets.fromLTRB(20.w, 22.h, 20.w, 22.h);
 
-  Widget _buildProvisionTabBody(BuildContext context) {
+  Widget _buildProvisionTabBody(
+    BuildContext context, {
+    required List<GroupOption> groups,
+    required bool isLoadingGroups,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return RefreshIndicator(
       color: AppColors.primary,
@@ -568,7 +585,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
         children: [
           _buildHeader(context, isDark),
           SizedBox(height: 20.h),
-          _buildGroupSelector(isDark),
+          _buildGroupSelector(isDark, groups: groups, isLoadingGroups: isLoadingGroups),
           SizedBox(height: 20.h),
           CreatePilgrimCard(
             key: ValueKey(
@@ -588,9 +605,13 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
     );
   }
 
-  Widget _buildTrackerTabBody(BuildContext context) {
+  Widget _buildTrackerTabBody(
+    BuildContext context, {
+    required List<GroupOption> groups,
+    required bool isLoadingGroups,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final groupName = _groups
+    final groupName = groups
         .firstWhere(
           (g) => g.id == _selectedGroupId,
           orElse: () => GroupOption(
@@ -616,7 +637,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
         children: [
           _buildHeader(context, isDark),
           SizedBox(height: 24.h),
-          _buildGroupSelector(isDark),
+          _buildGroupSelector(isDark, groups: groups, isLoadingGroups: isLoadingGroups),
           SizedBox(height: 24.h),
           ProvisioningSummaryCards(summary: _summary, isDark: isDark),
           SizedBox(height: 24.h),
@@ -675,8 +696,19 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
     );
   }
 
+  List<GroupOption> _currentGroups() =>
+      _groupsFromModerator(ref.read(moderatorProvider));
+
   @override
   Widget build(BuildContext context) {
+    final modState = ref.watch(moderatorProvider);
+    final groups = _groupsFromModerator(modState);
+    final isLoadingGroups = modState.isLoading && groups.isEmpty;
+
+    ref.listen<ModeratorState>(moderatorProvider, (previous, next) {
+      _ensureSelectedGroup(_groupsFromModerator(next));
+    });
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final pageBg =
         isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
@@ -729,8 +761,16 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
             ),
             body: TabBarView(
               children: [
-                _buildProvisionTabBody(context),
-                _buildTrackerTabBody(context),
+                _buildProvisionTabBody(
+                  context,
+                  groups: groups,
+                  isLoadingGroups: isLoadingGroups,
+                ),
+                _buildTrackerTabBody(
+                  context,
+                  groups: groups,
+                  isLoadingGroups: isLoadingGroups,
+                ),
                 const ManagePilgrimsScreen(),
               ],
             ),
@@ -820,7 +860,11 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
     );
   }
 
-  Widget _buildGroupSelector(bool isDark) {
+  Widget _buildGroupSelector(
+    bool isDark, {
+    required List<GroupOption> groups,
+    required bool isLoadingGroups,
+  }) {
     final outline = isDark ? AppColors.dividerDark : AppColors.dividerLight;
     return Container(
       decoration: BoxDecoration(
@@ -846,7 +890,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
             'group_select'.tr(),
             style: AppDropdownTheme.menuItemStyle(isDark),
           ),
-          items: _groups
+          items: groups
               .map(
                 (g) => DropdownMenuItem(
                   value: g.id,
@@ -857,7 +901,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
                 ),
               )
               .toList(),
-          onChanged: _isLoadingGroups
+          onChanged: isLoadingGroups
               ? null
               : (v) async {
                   setState(() {
@@ -872,7 +916,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
           dropdownColor: AppDropdownTheme.menuBackground(isDark),
           borderRadius: AppDropdownTheme.menuBorderRadius(),
           elevation: AppDropdownTheme.menuElevation(),
-          icon: _isLoadingGroups
+          icon: isLoadingGroups
               ? SizedBox(
                   width: 16.w,
                   height: 16.w,

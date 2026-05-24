@@ -492,7 +492,7 @@ class _IndividualMessagesScreenState
           children: [
             _buildHeader(isDark),
             Expanded(
-              child: msgState.isLoading
+              child: threadMsgs.isEmpty && msgState.isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
                         color: AppColors.primary,

@@ -305,12 +305,10 @@ Future<void> bindMobileMessagingServices() async {
   await NativeCallCoordinator.recoverAcceptedCallOnStartup();
 
   final container = CallingScope.riverpod;
-  if (container != null && globalFcmToken != null) {
+  if (container != null) {
     final auth = container.read(authProvider);
     if (auth.isAuthenticated) {
-      await container.read(authProvider.notifier).updateFcmToken(
-            globalFcmToken!,
-          );
+      await container.read(authProvider.notifier).ensureFcmTokenRegistered();
     }
   }
 

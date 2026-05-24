@@ -24,6 +24,17 @@
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
     <!-- Required for Firebase Cloud Messaging -->
     <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
+    <!-- Not a calendar/alarm app; strip if merged from dependencies. -->
+    <uses-permission
+        android:name="android.permission.USE_EXACT_ALARM"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        tools:node="remove" />
+    <!-- Voice-only Agora; strip screen-sharing module merge. -->
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"
+        tools:node="remove" />
     <application
         android:label="Munawwara Care"
         android:name=".CallDeclineApplication"
@@ -115,6 +126,14 @@
                 <action android:name="com.munawwaracare.android.com.hiennv.flutter_callkit_incoming.ACTION_CALL_TIMEOUT" />
             </intent-filter>
         </receiver>
+
+        <!-- Agora full-screen-sharing (unused; voice calls only). -->
+        <activity
+            android:name="io.agora.rtc2.extensions.MediaProjectionMgr$LocalScreenCaptureAssistantActivity"
+            tools:node="remove" />
+        <service
+            android:name="io.agora.rtc2.extensions.MediaProjectionMgr$LocalScreenSharingService"
+            tools:node="remove" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -1,4 +1,5 @@
-import 'package:dio/dio.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -8,102 +9,12 @@ import 'package:easy_localization/easy_localization.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dropdown_theme.dart';
+import '../providers/manage_pilgrims_provider.dart';
 import '../providers/moderator_provider.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
 import '../../auth/providers/auth_provider.dart';
-
-// ── Data Models ──────────────────────────────────────────────────────────────
-
-class _PilgrimItem {
-  final String id;
-  final String fullName;
-  final String phoneNumber;
-  final String? nationalId;
-  final int? age;
-  final String language;
-  final String ethnicity;
-  final bool isOnline;
-  final String? currentGroupId;
-  final String? currentGroupName;
-  final String? limboReason; // manual | group_deleted
-  final String? limboGroupName;
-  final String? hotelName;
-  final String? roomNumber;
-  final String? busInfo;
-  final String? visaStatus;
-  final String? visaNumber;
-  final String? medicalHistory;
-
-  const _PilgrimItem({
-    required this.id,
-    required this.fullName,
-    required this.phoneNumber,
-    this.nationalId,
-    this.age,
-    required this.language,
-    required this.ethnicity,
-    required this.isOnline,
-    this.currentGroupId,
-    this.currentGroupName,
-    this.limboReason,
-    this.limboGroupName,
-    this.hotelName,
-    this.roomNumber,
-    this.busInfo,
-    this.visaStatus,
-    this.visaNumber,
-    this.medicalHistory,
-  });
-
-  factory _PilgrimItem.fromMap(Map<String, dynamic> m) {
-    final g = m['current_group'] as Map<String, dynamic>?;
-    return _PilgrimItem(
-      id: m['_id']?.toString() ?? '',
-      fullName: m['full_name']?.toString() ?? '',
-      phoneNumber: m['phone_number']?.toString() ?? '',
-      nationalId: m['national_id']?.toString(),
-      age: m['age'] as int?,
-      language: m['language']?.toString() ?? 'en',
-      ethnicity: m['ethnicity']?.toString() ?? 'Other',
-      isOnline: m['is_online'] == true,
-      currentGroupId: g?['group_id']?.toString(),
-      currentGroupName: g?['group_name']?.toString(),
-      limboReason: m['limbo_reason']?.toString(),
-      limboGroupName: m['limbo_group_name']?.toString(),
-      hotelName: m['hotel_name']?.toString(),
-      roomNumber: m['room_number']?.toString(),
-      busInfo: m['bus_info']?.toString(),
-      visaStatus: m['visa']?['status']?.toString(),
-      visaNumber: m['visa']?['visa_number']?.toString(),
-      medicalHistory: m['medical_history']?.toString(),
-    );
-  }
-
-  bool get isAssigned => currentGroupId != null;
-
-  PilgrimInGroup toPilgrimInGroup() => PilgrimInGroup(
-        id: id,
-        fullName: fullName,
-        phoneNumber: phoneNumber,
-        nationalId: nationalId,
-        isOnline: isOnline,
-        lastUpdated: DateTime.now(), // Fake or not available here
-        batteryPercent: null,
-        lat: null,
-        lng: null,
-        hotelName: hotelName,
-        roomNumber: roomNumber,
-        busInfo: busInfo,
-        visaNumber: visaNumber,
-        visaStatus: visaStatus,
-        language: language,
-        ethnicity: ethnicity,
-        medicalHistory: medicalHistory,
-        age: age,
-      );
-}
 
 class _GroupOption {
   final String id;
@@ -122,10 +33,6 @@ class ManagePilgrimsScreen extends ConsumerStatefulWidget {
 }
 
 class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
-  List<_PilgrimItem> _all = [];
-  List<_GroupOption> _groups = [];
-  bool _isLoading = true;
-  String? _error;
   String _filter = 'all'; // all | assigned | unassigned
   String _unassignedSubFilter = 'all'; // all | manual | deleted
   String _search = '';
@@ -135,52 +42,32 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_refresh());
     });
-    try {
-      final results = await Future.wait([
-        ApiService.dio.get('/groups/my-pilgrims'),
-        ApiService.dio.get('/groups/dashboard'),
-      ]);
-
-      final pilgrimsRaw =
-          (results[0].data['data'] as List<dynamic>? ?? []);
-      final groupsRaw =
-          ((results[1].data['data'] ?? results[1].data) as List<dynamic>? ?? []);
-
-      setState(() {
-        _all = pilgrimsRaw
-            .whereType<Map<String, dynamic>>()
-            .map(_PilgrimItem.fromMap)
-            .where((p) => p.id.isNotEmpty)
-            .toList();
-        _groups = groupsRaw
-            .whereType<Map>()
-            .map((g) => _GroupOption(
-                  id: g['_id']?.toString() ?? g['id']?.toString() ?? '',
-                  name: g['group_name']?.toString() ?? 'Unnamed Group',
-                ))
-            .where((g) => g.id.isNotEmpty)
-            .toList();
-        _selectedPilgrimIds.removeWhere(
-          (id) => !_all.any((p) => p.id == id),
-        );
-        _bulkSelectionMode = false;
-      });
-    } on DioException catch (e) {
-      setState(() => _error = ApiService.parseError(e));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
   }
-  List<_PilgrimItem> get _filtered {
-    return _all.where((p) {
+
+  List<_GroupOption> _groupsFromModerator() {
+    return ref
+        .read(moderatorProvider)
+        .groups
+        .map((g) => _GroupOption(id: g.id, name: g.groupName))
+        .where((g) => g.id.isNotEmpty)
+        .toList();
+  }
+
+  Future<void> _refresh() async {
+    await ref.read(managePilgrimsProvider.notifier).refresh();
+    if (!mounted) return;
+    setState(() {
+      final all = ref.read(managePilgrimsProvider).pilgrims;
+      _selectedPilgrimIds.removeWhere((id) => !all.any((p) => p.id == id));
+      _bulkSelectionMode = false;
+    });
+  }
+
+  List<ManagedPilgrimItem> _filtered(List<ManagedPilgrimItem> all) {
+    return all.where((p) {
       bool matchFilter = false;
       if (_filter == 'all') {
         matchFilter = true;
@@ -278,7 +165,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
     );
   }
 
-  void _enterBulkSelection(_PilgrimItem pilgrim) {
+  void _enterBulkSelection(ManagedPilgrimItem pilgrim) {
     setState(() {
       _bulkSelectionMode = true;
       _selectedPilgrimIds.add(pilgrim.id);
@@ -303,51 +190,49 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
   }
 
   Future<void> _assignToGroup(
-      _PilgrimItem pilgrim, _GroupOption group) async {
-    try {
-      await ApiService.dio.post(
-        '/groups/${group.id}/add-pilgrim',
-        data: {'user_id': pilgrim.id},
-      );
-      if (!mounted) return;
+      ManagedPilgrimItem pilgrim, _GroupOption group) async {
+    final (ok, err) = await ref
+        .read(moderatorProvider.notifier)
+        .addPilgrimToGroup(group.id, userId: pilgrim.id);
+    if (!mounted) return;
+    if (ok) {
       StandardSnackBar.showSuccess(
         context,
-        'group_move_success_msg'.tr(namedArgs: {'name': pilgrim.fullName, 'groupName': group.name}),
+        'group_move_success_msg'.tr(
+          namedArgs: {'name': pilgrim.fullName, 'groupName': group.name},
+        ),
       );
-      await _load();
-    } on DioException catch (e) {
-      if (!mounted) return;
-      StandardSnackBar.showError(context, ApiService.parseError(e));
+      await _refresh();
+    } else {
+      StandardSnackBar.showError(context, err ?? 'error_generic'.tr());
     }
   }
 
-  Future<void> _removeFromGroup(_PilgrimItem pilgrim) async {
+  Future<void> _removeFromGroup(ManagedPilgrimItem pilgrim) async {
     final gid = pilgrim.currentGroupId;
     if (gid == null) return;
-    try {
-      await ApiService.dio.post(
-        '/groups/$gid/remove-pilgrim',
-        data: {'user_id': pilgrim.id},
-      );
-      if (!mounted) return;
+    final (ok, err) = await ref
+        .read(moderatorProvider.notifier)
+        .removePilgrimFromGroup(gid, pilgrim.id);
+    if (!mounted) return;
+    if (ok) {
       StandardSnackBar.showWarning(
         context,
         'group_remove_success_msg'.tr(namedArgs: {'name': pilgrim.fullName}),
       );
-      await _load();
-    } on DioException catch (e) {
-      if (!mounted) return;
-      StandardSnackBar.showError(context, ApiService.parseError(e));
+      await _refresh();
+    } else {
+      StandardSnackBar.showError(context, err ?? 'error_generic'.tr());
     }
   }
 
-  void _showActions(_PilgrimItem pilgrim, bool isDark) {
+  void _showActions(ManagedPilgrimItem pilgrim, bool isDark) {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => _ActionsSheet(
         pilgrim: pilgrim,
-        groups: _groups,
+        groups: _groupsFromModerator(),
         isDark: isDark,
         onAssign: () {
           Navigator.pop(context);
@@ -373,7 +258,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
     );
   }
 
-  Future<void> _confirmDeletePilgrim(_PilgrimItem pilgrim) async {
+  Future<void> _confirmDeletePilgrim(ManagedPilgrimItem pilgrim) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bodyColor =
         isDark ? Colors.white70 : AppColors.textMutedLight;
@@ -406,7 +291,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
         context,
         'provisioning_pilgrim_removed'.tr(),
       );
-      await _load();
+      await _refresh();
     } else {
       StandardSnackBar.showError(
         context,
@@ -415,8 +300,10 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
     }
   }
 
-  void _showAssignGroupDialog(_PilgrimItem pilgrim) {
-    final available = _groups.where((g) => g.id != pilgrim.currentGroupId).toList();
+  void _showAssignGroupDialog(ManagedPilgrimItem pilgrim) {
+    final available = _groupsFromModerator()
+        .where((g) => g.id != pilgrim.currentGroupId)
+        .toList();
     
     if (available.isEmpty) {
       _showNoAssignableGroupsDialog('assign_to_group_title');
@@ -525,28 +412,25 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
   }
 
   Future<void> _bulkMoveToGroup(
-    List<_PilgrimItem> pilgrims,
+    List<ManagedPilgrimItem> pilgrims,
     _GroupOption group,
   ) async {
     const batch = 4;
     var ok = 0;
     final errors = <String>[];
+    final notifier = ref.read(moderatorProvider.notifier);
     for (var i = 0; i < pilgrims.length; i += batch) {
       final end =
           i + batch > pilgrims.length ? pilgrims.length : i + batch;
       final slice = pilgrims.sublist(i, end);
       await Future.wait(
         slice.map((p) async {
-          try {
-            await ApiService.dio.post(
-              '/groups/${group.id}/add-pilgrim',
-              data: {'user_id': p.id},
-            );
+          final (success, err) =
+              await notifier.addPilgrimToGroup(group.id, userId: p.id);
+          if (success) {
             ok++;
-          } on DioException catch (e) {
-            errors.add('${p.fullName}: ${ApiService.parseError(e)}');
-          } catch (e) {
-            errors.add('${p.fullName}: $e');
+          } else {
+            errors.add('${p.fullName}: ${err ?? 'error_generic'.tr()}');
           }
         }),
       );
@@ -567,7 +451,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
         _selectedPilgrimIds.clear();
         _bulkSelectionMode = false;
       });
-      await _load();
+      await _refresh();
     } else if (ok > 0) {
       StandardSnackBar.showWarning(
         context,
@@ -582,7 +466,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
         _selectedPilgrimIds.clear();
         _bulkSelectionMode = false;
       });
-      await _load();
+      await _refresh();
     } else {
       StandardSnackBar.showError(
         context,
@@ -592,17 +476,19 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
   }
 
   bool _allSelectedInSameGroup(
-    List<_PilgrimItem> pilgrims,
+    List<ManagedPilgrimItem> pilgrims,
     String groupId,
   ) =>
       pilgrims.isNotEmpty &&
       pilgrims.every((p) => p.currentGroupId == groupId);
 
   void _showBulkMoveGroupDialog() {
-    final selected = _all.where((p) => _selectedPilgrimIds.contains(p.id)).toList();
+    final all = ref.read(managePilgrimsProvider).pilgrims;
+    final selected =
+        all.where((p) => _selectedPilgrimIds.contains(p.id)).toList();
     if (selected.isEmpty) return;
 
-    final available = _groups
+    final available = _groupsFromModerator()
         .where((g) => !_allSelectedInSameGroup(selected, g.id))
         .toList();
 
@@ -754,7 +640,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
     );
   }
 
-  void _showEditProfileDialog(_PilgrimItem pilgrim) {
+  void _showEditProfileDialog(ManagedPilgrimItem pilgrim) {
     StandardDialog.show(
       context: context,
       barrierDismissible: false,
@@ -762,12 +648,12 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
       title: 'manage_edit_logistics_title',
       contentWidget: _EditLogisticsContent(
         pilgrim: pilgrim,
-        onSaved: _load,
+        onSaved: _refresh,
       ),
     );
   }
 
-  void _showProfileSheet(_PilgrimItem pilgrim, bool isDark) {
+  void _showProfileSheet(ManagedPilgrimItem pilgrim, bool isDark) {
     final currentUserId = ref.read(authProvider).userId ?? '';
     final gId = pilgrim.currentGroupId ?? 'limbo';
     showPilgrimProfileSheet(context, pilgrim.toPilgrimInGroup(), gId, currentUserId);
@@ -775,17 +661,22 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final manageState = ref.watch(managePilgrimsProvider);
+    final all = manageState.pilgrims;
+    final isLoading = manageState.isLoading;
+    final error = manageState.error;
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
     final textMuted =
         isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
     final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
-    final filtered = _filtered;
+    final filtered = _filtered(all);
 
     return SafeArea(
       child: RefreshIndicator(
         color: AppColors.primary,
-        onRefresh: _load,
+        onRefresh: _refresh,
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(
@@ -869,7 +760,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
                     Row(
                       children: [
                         _FilterChip(
-                          label: 'manage_filter_all'.tr(args: ['${_all.length}']),
+                          label: 'manage_filter_all'.tr(args: ['${all.length}']),
                           selected: _filter == 'all',
                           onTap: () => setState(() => _filter = 'all'),
                           isDark: isDark,
@@ -877,7 +768,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
                         SizedBox(width: 8.w),
                         _FilterChip(
                           label:
-                              'manage_filter_unassigned'.tr(args: ['${_all.where((p) => !p.isAssigned).length}']),
+                              'manage_filter_unassigned'.tr(args: ['${all.where((p) => !p.isAssigned).length}']),
                           selected: _filter == 'unassigned',
                           onTap: () =>
                               setState(() => _filter = 'unassigned'),
@@ -887,7 +778,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
                         SizedBox(width: 8.w),
                         _FilterChip(
                           label:
-                              'manage_filter_assigned'.tr(args: ['${_all.where((p) => p.isAssigned).length}']),
+                              'manage_filter_assigned'.tr(args: ['${all.where((p) => p.isAssigned).length}']),
                           selected: _filter == 'assigned',
                           onTap: () =>
                               setState(() => _filter = 'assigned'),
@@ -942,8 +833,8 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
                         ),
                       ),
                     ],
-                    if (!_isLoading &&
-                        _error == null &&
+                    if (!isLoading &&
+                        error == null &&
                         filtered.isNotEmpty &&
                         _bulkSelectionMode) ...[
                       SizedBox(height: 12.h),
@@ -1040,11 +931,11 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
             ),
 
             // Body
-            if (_isLoading)
+            if (isLoading && all.isEmpty)
               const SliverFillRemaining(
                 child: Center(child: CircularProgressIndicator()),
               )
-            else if (_error != null)
+            else if (error != null && all.isEmpty)
               SliverFillRemaining(
                 child: Center(
                   child: Column(
@@ -1053,14 +944,14 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
                       Icon(Symbols.error_circle_rounded,
                           color: Colors.red.shade400, size: 48.w),
                       SizedBox(height: 12.h),
-                      Text(_error!,
+                      Text(error,
                           style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 14.sp,
                               color: textMuted)),
                       SizedBox(height: 12.h),
                       TextButton.icon(
-                        onPressed: _load,
+                        onPressed: _refresh,
                         icon: const Icon(Symbols.refresh),
                         label: Text('alerts_retry'.tr()),
                       ),
@@ -1130,7 +1021,7 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
 // ── Pilgrim Card ─────────────────────────────────────────────────────────────
 
 class _PilgrimCard extends StatelessWidget {
-  final _PilgrimItem pilgrim;
+  final ManagedPilgrimItem pilgrim;
   final bool isDark;
   final VoidCallback onAction;
   final bool selectionMode;
@@ -1400,7 +1291,7 @@ class _PilgrimCard extends StatelessWidget {
 // ── Actions Sheet ────────────────────────────────────────────────────────────
 
 class _ActionsSheet extends StatelessWidget {
-  final _PilgrimItem pilgrim;
+  final ManagedPilgrimItem pilgrim;
   final List<_GroupOption> groups;
   final bool isDark;
   final VoidCallback onAssign;
@@ -1592,7 +1483,7 @@ class _BusOption {
 }
 
 class _EditLogisticsContent extends ConsumerStatefulWidget {
-  final _PilgrimItem pilgrim;
+  final ManagedPilgrimItem pilgrim;
   final VoidCallback onSaved;
   const _EditLogisticsContent({required this.pilgrim, required this.onSaved});
 

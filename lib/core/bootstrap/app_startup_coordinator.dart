@@ -81,8 +81,8 @@ class AppStartupCoordinator {
     await bindMobileMessagingServices();
 
     auth = ref.read(authProvider);
-    if (auth.isAuthenticated && globalFcmToken != null) {
-      await ref.read(authProvider.notifier).updateFcmToken(globalFcmToken!);
+    if (auth.isAuthenticated) {
+      await ref.read(authProvider.notifier).ensureFcmTokenRegistered();
     }
 
     AppLogger.i('[Startup] coordinator done in ${sw.elapsedMilliseconds}ms');

@@ -359,6 +359,20 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  /// Permissions + FCM run after navigation so login never stalls on slow GMS.
+  void _schedulePostLoginSetup() {
+    unawaited(_runPostLoginSetup());
+  }
+
+  Future<void> _runPostLoginSetup() async {
+    try {
+      await _requestNotificationPermissions();
+      await _registerFcmTokenAfterLogin();
+    } catch (e, st) {
+      AppLogger.e('AuthNotifier post-login setup failed: $e\n$st');
+    }
+  }
+
   Future<void> _persistSession(
     String token,
     String role,
@@ -416,8 +430,7 @@ class AuthNotifier extends Notifier<AuthState> {
         fullName: data['full_name'] as String,
       );
 
-      await _requestNotificationPermissions();
-      await _registerFcmTokenAfterLogin();
+      _schedulePostLoginSetup();
 
       return true;
     } on DioException catch (e) {
@@ -458,8 +471,7 @@ class AuthNotifier extends Notifier<AuthState> {
         fullName: data['full_name'] as String,
       );
 
-      await _requestNotificationPermissions();
-      await _registerFcmTokenAfterLogin();
+      _schedulePostLoginSetup();
 
       return true;
     } on DioException catch (e) {
@@ -635,12 +647,32 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  /// Ensures the backend has a current FCM token (calls, TTS, chat pushes).
+  Future<void> ensureFcmTokenRegistered() async {
+    if (!state.isAuthenticated) return;
+    await _registerFcmTokenAfterLogin();
+  }
+
   /// Upload device push token right after login when the JWT is guaranteed valid.
   Future<void> _registerFcmTokenAfterLogin() async {
     if (!Platform.isAndroid && !Platform.isIOS) {
       return;
     }
-    final fcm = await FirebaseMessaging.instance.getToken();
+    String? fcm;
+    try {
+      fcm = await FirebaseMessaging.instance.getToken().timeout(
+        const Duration(seconds: 12),
+        onTimeout: () {
+          AppLogger.w(
+            'AuthNotifier: FCM getToken timed out — continuing without upload',
+          );
+          return null;
+        },
+      );
+    } catch (e) {
+      AppLogger.w('AuthNotifier: FCM getToken failed: $e');
+      return;
+    }
     if (fcm == null || fcm.isEmpty) {
       return;
     }

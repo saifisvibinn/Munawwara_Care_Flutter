@@ -130,7 +130,7 @@ features/<feature>/
 |---|---|---|
 | `auth` | LoginScreen, SplashScreen | authProvider (JWT, role, profile) |
 | `pilgrim` | PilgrimDashboardScreen, GroupInboxScreen, QiblaCompassScreen, MeccaHotspotsScreen, PilgrimProfileScreen | pilgrimProvider, suggestedAreaProvider |
-| `moderator` | ModeratorDashboardScreen, GroupManagementScreen, ManagePilgrimsScreen, SystemRemindersScreen | moderatorProvider |
+| `moderator` | ModeratorDashboardScreen, GroupManagementScreen, ManagePilgrimsScreen, SystemRemindersScreen | moderatorProvider, managePilgrimsProvider |
 | `calling` | VoiceCallScreen, CallHistoryScreen | callProvider, missedCallsUnreadProvider |
 | `notifications` | AlertsTab (embedded) | notificationProvider |
 | `shared` | — | messageProvider, suggestedAreaProvider |
@@ -153,6 +153,8 @@ missedCallsUnreadProvider → StateProvider<int>
 State classes are **immutable** — notifiers emit new instances via `copyWith`.
 
 `AppDataCache` (SharedPreferences) provides **offline hydration**: every notifier calls `hydrateFromCache()` on startup so the UI renders instantly from cached data, then patches from the network.
+
+Post-mutation sync uses `moderatorProvider.notifier.syncAfterMutation()` (always `force: true`). See [`docs/data-sync.md`](../docs/data-sync.md).
 
 ### 3.5 Real-time Communication
 

@@ -979,18 +979,6 @@ class CallNotifier extends Notifier<CallState> {
     }
 
     final callerId = _pendingFromId ?? '';
-    if (callerId.isNotEmpty) {
-      final allowed = await CallKitService.verifyIncomingCallActive(
-        callerId: callerId,
-        callRecordId: recordId,
-      );
-      if (!allowed) {
-        AppLogger.w(
-          '[CallProvider] call-offer rejected — not active on server',
-        );
-        return;
-      }
-    }
 
     AppLogger.i(
       '[CallProvider] ✓ Incoming call from $callerName ($callerId) on $channelName',
@@ -1003,7 +991,7 @@ class CallNotifier extends Notifier<CallState> {
       callerRole: callerRole,
       callRecordId: recordId,
       callerGender: callerGender,
-      // Already verified active at line ~899 above — skip redundant HTTP call.
+      // Socket call-offer is authoritative; avoid fail-closed check-active race.
       skipServerVerify: true,
     );
 

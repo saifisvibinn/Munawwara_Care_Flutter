@@ -379,6 +379,16 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
     }
   }
 
+  /// Refreshes dashboard data after writes. Always bypasses the 10s throttle.
+  Future<void> syncAfterMutation({String? groupId}) async {
+    if (groupId != null) {
+      final ok = await refreshGroup(groupId);
+      if (!ok) await loadDashboard(force: true, silently: true);
+    } else {
+      await loadDashboard(force: true, silently: true);
+    }
+  }
+
   Future<void> _loadDashboardImpl(bool silently) async {
     if (!silently) state = state.copyWith(isLoading: true, clearError: true);
     try {
@@ -526,19 +536,23 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
 
   // ── Group management ──────────────────────────────────────────────────────
 
-  // Add a pilgrim by email / phone / national ID
+  // Add a pilgrim by user_id or email / phone / national ID
   Future<(bool, String?)> addPilgrimToGroup(
-    String groupId,
-    String identifier,
-  ) async {
+    String groupId, {
+    String? userId,
+    String? identifier,
+  }) async {
+    if (userId == null && (identifier == null || identifier.trim().isEmpty)) {
+      return (false, 'Invalid pilgrim identifier');
+    }
     try {
       await ApiService.dio.post(
         '/groups/$groupId/add-pilgrim',
-        data: {'identifier': identifier.trim()},
+        data: userId != null
+            ? {'user_id': userId}
+            : {'identifier': identifier!.trim()},
       );
-      // Refresh this group; fall back to full dashboard reload
-      final ok = await refreshGroup(groupId);
-      if (!ok) await loadDashboard();
+      await syncAfterMutation(groupId: groupId);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));
@@ -557,14 +571,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
         '/groups/$groupId/remove-pilgrim',
         data: {'user_id': pilgrimId},
       );
-      // Optimistic local update
-      final groups = state.groups.map((g) {
-        if (g.id != groupId) return g;
-        return g.copyWith(
-          pilgrims: g.pilgrims.where((p) => p.id != pilgrimId).toList(),
-        );
-      }).toList();
-      state = state.copyWith(groups: groups);
+      await syncAfterMutation(groupId: groupId);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));
@@ -577,7 +584,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
   Future<(bool, String?)> deleteManagedPilgrim(String pilgrimId) async {
     try {
       await ApiService.dio.delete('/auth/pilgrims/$pilgrimId');
-      await loadDashboard();
+      await loadDashboard(force: true);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));
@@ -593,8 +600,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
   ) async {
     try {
       await ApiService.dio.put('/auth/pilgrims/$pilgrimId', data: updates);
-      // Refresh groups to reflect changes
-      await loadDashboard();
+      await loadDashboard(force: true);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));
@@ -624,6 +630,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
             ? {'email': normalized.first}
             : {'emails': normalized},
       );
+      await syncAfterMutation(groupId: groupId);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));
@@ -646,7 +653,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
         );
       }).toList();
       state = state.copyWith(groups: groups);
-      await loadDashboard(silently: true);
+      await loadDashboard(force: true, silently: true);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));
@@ -693,6 +700,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
         resp.data as Map<String, dynamic>,
       );
       state = state.copyWith(groups: [...state.groups, created]);
+      await syncAfterMutation();
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));
@@ -708,8 +716,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
         '/groups/join',
         data: {'group_code': code.trim().toUpperCase()},
       );
-      // Refresh dashboard to show the new group
-      await loadDashboard();
+      await loadDashboard(force: true);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));
@@ -730,7 +737,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
       await ApiService.dio.post('/groups/$groupId/leave', data: body);
       final updated = state.groups.where((g) => g.id != groupId).toList();
       state = state.copyWith(groups: updated, selectedGroupIndex: 0);
-      await loadDashboard(silently: true);
+      await loadDashboard(force: true, silently: true);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));
@@ -745,7 +752,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
       await ApiService.dio.delete('/groups/$groupId');
       final updated = state.groups.where((g) => g.id != groupId).toList();
       state = state.copyWith(groups: updated, selectedGroupIndex: 0);
-      await loadDashboard(silently: true);
+      await loadDashboard(force: true, silently: true);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));

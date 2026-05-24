@@ -359,8 +359,8 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     final msgState = ref.watch(messageProvider);
     final filtered = _filterMessages(msgState.messages);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final showLoading =
-        msgState.isLoading || (!_initialLoadDone && filtered.isEmpty);
+    final showLoading = filtered.isEmpty &&
+        (msgState.isLoading || !_initialLoadDone);
 
     // Scroll & highlight driven by provider changes
     ref.listen(messageProvider, (prev, next) {

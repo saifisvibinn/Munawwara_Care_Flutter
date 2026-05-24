@@ -10,7 +10,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'core/bootstrap/app_startup.dart';
-import 'core/bootstrap/mobile_messaging_bootstrap.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/services/api_service.dart';
@@ -85,10 +84,10 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           previous == null ||
           previous.isRestoringSession ||
           !previous.isAuthenticated;
-      if (next.isAuthenticated &&
-          wasRestoringOrUnauthenticated &&
-          globalFcmToken != null) {
-        ref.read(authProvider.notifier).updateFcmToken(globalFcmToken!);
+      if (next.isAuthenticated && wasRestoringOrUnauthenticated) {
+        unawaited(
+          ref.read(authProvider.notifier).ensureFcmTokenRegistered(),
+        );
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {

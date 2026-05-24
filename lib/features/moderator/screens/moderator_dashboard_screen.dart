@@ -106,7 +106,10 @@ class _ModeratorDashboardScreenState
     if (!mounted) return;
     unawaited(() async {
       ref.read(notificationProvider.notifier).refetch();
-      await ref.read(moderatorProvider.notifier).loadDashboard(silently: true);
+      await ref.read(moderatorProvider.notifier).loadDashboard(
+            silently: true,
+            force: true,
+          );
       if (!mounted) return;
       // After dashboard refresh, ensure we are subscribed to all group rooms
       // (important for newly invited moderators).
@@ -194,6 +197,7 @@ class _ModeratorDashboardScreenState
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_checkRequiredPermissions());
+      unawaited(ref.read(authProvider.notifier).ensureFcmTokenRegistered());
       unawaited(_bootstrapDashboard());
     });
   }
@@ -561,7 +565,9 @@ class _ModeratorDashboardScreenState
                           setState(() => _currentTab = 4);
                         },
                       ), // 0: Groups
-                      const PilgrimProvisioningScreen(), // 1: Provisioning
+                      PilgrimProvisioningScreen(
+                        isTabActive: _currentTab == 1,
+                      ), // 1: Provisioning
                       SystemRemindersScreen(isTabActive: _currentTab == 2), // 2
                       const ModeratorProfileScreen(), // 3: Profile
                       const AlertsTab(), // 4: Alerts

@@ -104,6 +104,11 @@ flutter {
     source = "../.."
 }
 
+// Agora voice SDK only — exclude unused screen-sharing artifact.
+configurations.configureEach {
+    exclude(group = "io.agora.rtc", module = "full-screen-sharing")
+}
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     implementation("androidx.core:core-telecom:1.0.0")
