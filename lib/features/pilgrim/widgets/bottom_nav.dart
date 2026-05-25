@@ -24,7 +24,7 @@ class PilgrimBottomNav extends ConsumerWidget {
     required this.unreadMessages,
   });
 
-  // Maps nav-bar slot → tab index in the IndexedStack.
+  // Maps nav-bar slot → tab index in the dashboard PageView.
   static const _tabIndices = [0, 1, 2, 3];
 
   @override

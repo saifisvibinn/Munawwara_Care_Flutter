@@ -9,7 +9,7 @@ Alignment haptics (`HapticFeedback.lightImpact`) fire when the phone points with
 ## Haptics vs compass accuracy
 
 The compass keeps updating in the background while other tabs are shown
-(`IndexedStack` keeps the widget mounted). Only **haptics** are gated via
+(`PageView` + `KeepAliveTab` keeps the widget mounted). Only **haptics** are gated via
 `QiblaCompassScreen.enableAlignmentHaptics`, set from
 `pilgrim_dashboard_screen.dart` when `_currentTab == _qiblaTabIndex` (2).
 

@@ -19,7 +19,7 @@ class QiblaCompassScreen extends StatefulWidget {
   });
 
   /// When false, compass still updates but alignment haptics are suppressed
-  /// (e.g. another bottom-nav tab is selected in an [IndexedStack]).
+  /// (e.g. another bottom-nav tab is selected in the dashboard [PageView]).
   final bool enableAlignmentHaptics;
 
   @override

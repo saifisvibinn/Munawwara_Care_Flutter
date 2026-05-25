@@ -18,6 +18,7 @@ import '../../../core/services/socket_service.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/keep_alive_tab.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
@@ -27,7 +28,7 @@ import '../../../core/router/app_router.dart' show AppRouter;
 import '../../invitations/providers/invitation_provider.dart';
 import '../../invitations/widgets/pending_invitations_section.dart';
 import '../../notifications/providers/notification_provider.dart';
-import '../../notifications/screens/alerts_tab_v2.dart';
+import '../routes/moderator_alerts_reveal_route.dart';
 import '../providers/moderator_provider.dart';
 import 'pilgrim_provisioning_screen.dart';
 import 'create_group_screen.dart';
@@ -61,7 +62,8 @@ class _ModeratorDashboardScreenState
     with RouteAware, WidgetsBindingObserver {
   bool _isInitializingDashboard = true;
   int _currentTab =
-      0; // 0=Groups, 1=Provisioning, 2=Reminders, 3=Profile, 4=Alerts
+      0; // 0=Groups, 1=Provisioning, 2=Reminders, 3=Profile
+  late final PageController _pageController = PageController(initialPage: 0);
   final _searchController = TextEditingController();
   ModeratorGlobalNavBeaconController? _globalNavBeacon;
 
@@ -463,7 +465,38 @@ class _ModeratorDashboardScreenState
     SocketService.offConnected(_onSocketConnected);
     _globalNavBeacon?.dispose();
     _globalNavBeacon = null;
+    _pageController.dispose();
     super.dispose();
+  }
+
+  /// Syncs tab index and rebuilds [isTabActive] children after swipe or tap.
+  void _handlePageChanged(int index) {
+    if (_currentTab == index) return;
+    setState(() => _currentTab = index);
+  }
+
+  /// Swipe uses [PageView] physics; programmatic navigation uses [jumpToPage].
+  void _goToTab(int index, {bool animate = false}) {
+    if (_currentTab == index &&
+        (!_pageController.hasClients ||
+            (_pageController.page?.round() ?? _currentTab) == index)) {
+      return;
+    }
+    if (!_pageController.hasClients) {
+      setState(() => _currentTab = index);
+      return;
+    }
+    if (animate) {
+      unawaited(
+        _pageController.animateToPage(
+          index,
+          duration: dashboardTabAnimDuration,
+          curve: dashboardTabAnimCurve,
+        ),
+      );
+    } else {
+      _pageController.jumpToPage(index);
+    }
   }
 
   @override
@@ -514,7 +547,7 @@ class _ModeratorDashboardScreenState
       canPop: _currentTab == 0,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
         if (!didPop && _currentTab != 0) {
-          setState(() => _currentTab = 0);
+          _goToTab(0);
         }
       },
       child: Scaffold(
@@ -562,22 +595,25 @@ class _ModeratorDashboardScreenState
                     ),
                   ),
                 Expanded(
-                  child: IndexedStack(
-                    index: _currentTab,
+                  child: DashboardTabPageView(
+                    controller: _pageController,
+                    backgroundColor: isDark
+                        ? AppColors.backgroundDark
+                        : const Color(0xfff1f5f3),
+                    onPageChanged: _handlePageChanged,
                     children: [
                       _GroupsHomeTab(
                         searchController: _searchController,
-                        onNotificationTap: () {
-                          unawaited(NotificationService.onAlertsTabOpened());
-                          setState(() => _currentTab = 4);
-                        },
-                      ), // 0: Groups
+                        onNotificationTap: () =>
+                            openModeratorAlertsWithReveal(context),
+                      ),
                       PilgrimProvisioningScreen(
                         isTabActive: _currentTab == 1,
-                      ), // 1: Provisioning
-                      SystemRemindersScreen(isTabActive: _currentTab == 2), // 2
-                      const ModeratorProfileScreen(), // 3: Profile
-                      const AlertsTab(), // 4: Alerts
+                      ),
+                      SystemRemindersScreen(
+                        isTabActive: _currentTab == 2,
+                      ),
+                      const ModeratorProfileScreen(),
                     ],
                   ),
                 ),
@@ -622,7 +658,7 @@ class _ModeratorDashboardScreenState
         ),
         bottomNavigationBar: _ModBottomNav(
           currentIndex: _currentTab,
-          onTap: (i) => setState(() => _currentTab = i),
+          onTap: (index) => _goToTab(index, animate: false),
         ),
       ),
     );
@@ -1180,46 +1216,6 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                                       ),
                                     ),
                                 ],
-                              ),
-                            ),
-                            SizedBox(width: 12.w),
-                            GestureDetector(
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const ModeratorProfileScreen(),
-                                ),
-                              ),
-                              child: Container(
-                                width: 44.w,
-                                height: 44.w,
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? AppColors.iconBgDark
-                                      : AppColors.iconBgLight,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: isDark
-                                        ? AppColors.backgroundDark
-                                        : const Color(0xFFD0D0F0),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.06,
-                                      ),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  Symbols.person,
-                                  size: 22.w,
-                                  color: isDark
-                                      ? AppColors.primary
-                                      : const Color(0xFF8A6A30),
-                                ),
                               ),
                             ),
                           ],

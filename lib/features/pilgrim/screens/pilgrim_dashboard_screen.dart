@@ -26,6 +26,7 @@ import '../../../core/services/socket_service.dart';
 import '../../../core/map/app_map_tiles.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/widgets/keep_alive_tab.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
@@ -66,6 +67,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   // Bottom nav
   static const int _qiblaTabIndex = 2;
   int _currentTab = 0;
+  late final PageController _pageController = PageController(initialPage: 0);
 
   // Notifier to trigger chat scroll-to-bottom on tab switch
   final ValueNotifier<int> _chatScrollNotifier = ValueNotifier<int>(0);
@@ -220,9 +222,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       ref: ref,
       map: map,
       onViewChat: () {
-        setState(() => _currentTab = 3);
+        _goToTab(3);
         ref.read(messageProvider.notifier).markAllRead(groupId);
-        _chatScrollNotifier.value++;
       },
     );
   }
@@ -630,9 +631,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                 ref: ref,
                 map: map,
                 onViewChat: () {
-                  setState(() => _currentTab = 3);
+                  _goToTab(3);
                   ref.read(messageProvider.notifier).markAllRead(groupId);
-                  _chatScrollNotifier.value++;
                 },
               ),
             );
@@ -870,7 +870,90 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     SocketService.off('sos-handling');
     SocketService.off('sos-resolved');
     SocketService.offConnected(_onSocketConnected);
+    _pageController.dispose();
     super.dispose();
+  }
+
+  /// Runs map/chat/home side effects when the visible tab changes.
+  void _applyTabSideEffects(int index) {
+    final chatGid = ref.read(pilgrimProvider).groupInfo?.groupId;
+    if (index == 3 && chatGid != null) {
+      ref.read(messageProvider.notifier).setActiveGroup(chatGid);
+    } else {
+      ref.read(messageProvider.notifier).setActiveGroup(null);
+    }
+    if (index == 0) {
+      unawaited(_loadWeatherAlert(force: true));
+    }
+    if (index == 3) {
+      _chatScrollNotifier.value++;
+    }
+    if (index == 1) {
+      _recenterPilgrimMapOnMe();
+    }
+  }
+
+  void _handlePageChanged(int index) {
+    if (_currentTab == index) return;
+    final previousTab = _currentTab;
+    setState(() {
+      if (previousTab == 1 && index != 1) {
+        _pilgrimMapAwaitingFirstFix = false;
+      }
+      _currentTab = index;
+      if (index == 1 && _myLatLng == null) {
+        _pilgrimMapAwaitingFirstFix = true;
+      }
+    });
+    _applyTabSideEffects(index);
+  }
+
+  void _openProfileScreen() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<void>(
+        builder: (ctx) => Scaffold(
+          backgroundColor: isDark
+              ? AppColors.backgroundDark
+              : const Color(0xfff1f5f3),
+          body: const SafeArea(child: PilgrimProfileScreen()),
+        ),
+      ),
+    );
+  }
+
+  /// Swipe uses [PageView] physics; programmatic navigation uses [jumpToPage].
+  void _goToTab(int index, {bool animate = false}) {
+    if (_currentTab == index &&
+        (!_pageController.hasClients ||
+            (_pageController.page?.round() ?? _currentTab) == index)) {
+      return;
+    }
+    if (!_pageController.hasClients) {
+      final previousTab = _currentTab;
+      setState(() {
+        if (previousTab == 1 && index != 1) {
+          _pilgrimMapAwaitingFirstFix = false;
+        }
+        _currentTab = index;
+        if (index == 1 && _myLatLng == null) {
+          _pilgrimMapAwaitingFirstFix = true;
+        }
+      });
+      _applyTabSideEffects(index);
+      return;
+    }
+    if (animate) {
+      unawaited(
+        _pageController.animateToPage(
+          index,
+          duration: dashboardTabAnimDuration,
+          curve: dashboardTabAnimCurve,
+        ),
+      );
+    } else {
+      _pageController.jumpToPage(index);
+    }
   }
 
   void _stopSosHelpTimers() {
@@ -1571,7 +1654,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                 ref.read(missedCallsUnreadProvider.notifier).refresh();
               });
         },
-        onSettingsTap: () => setState(() => _currentTab = 4),
+        onSettingsTap: _openProfileScreen,
         onGroupCardTap: () {
           if (pilgrimState.groupInfo != null) {
             final hasModerator = pilgrimState.groupInfo!.moderators.isNotEmpty;
@@ -1624,14 +1707,13 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               icon: Symbols.chat_bubble,
               label: 'pilgrim_no_group',
             ),
-      const PilgrimProfileScreen(),
     ];
 
     return PopScope(
       canPop: _currentTab == 0,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
-          setState(() => _currentTab = 0);
+          _goToTab(0);
           ref.read(messageProvider.notifier).setActiveGroup(null);
         }
       },
@@ -1677,40 +1759,21 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                   ),
                 ),
               ),
-            Expanded(child: IndexedStack(index: _currentTab, children: tabs)),
+            Expanded(
+              child: DashboardTabPageView(
+                controller: _pageController,
+                backgroundColor: isDark
+                    ? AppColors.backgroundDark
+                    : const Color(0xfff1f5f3),
+                onPageChanged: _handlePageChanged,
+                children: tabs,
+              ),
+            ),
           ],
         ),
         bottomNavigationBar: PilgrimBottomNav(
           currentIndex: _currentTab,
-          onTap: (i) {
-            final leavingMap = _currentTab == 1 && i != 1;
-            setState(() {
-              if (leavingMap) {
-                _pilgrimMapAwaitingFirstFix = false;
-              }
-              _currentTab = i;
-              if (i == 1 && _myLatLng == null) {
-                _pilgrimMapAwaitingFirstFix = true;
-              }
-            });
-            final chatGid = ref.read(pilgrimProvider).groupInfo?.groupId;
-            if (i == 3 && chatGid != null) {
-              ref.read(messageProvider.notifier).setActiveGroup(chatGid);
-            } else {
-              ref.read(messageProvider.notifier).setActiveGroup(null);
-            }
-            // Refresh weather when switching to Home tab
-            if (i == 0) {
-              _loadWeatherAlert(force: true);
-            }
-            // Reload + mark read + scroll when opening Chat tab
-            if (i == 3) {
-              _chatScrollNotifier.value++;
-            }
-            if (i == 1) {
-              _recenterPilgrimMapOnMe();
-            }
-          },
+          onTap: (index) => _goToTab(index, animate: false),
           unreadMessages: ref.watch(messageProvider).unreadCount,
         ),
       ),
