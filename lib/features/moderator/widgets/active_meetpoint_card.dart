@@ -26,21 +26,24 @@ class ActiveMeetpointCard extends StatelessWidget {
         DateTime.now().isAfter(
           activeMp.meetpointTime!.add(SuggestedArea.meetpointExpiryWindow),
         );
+    final accent = isDark
+        ? const Color(0xFFE05050)
+        : const Color(0xFFC0392B);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: EdgeInsets.only(bottom: 16.h),
         padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
-          color: const Color(0xFFDC2626).withValues(alpha: 0.08),
+          color: accent.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(color: const Color(0xFFDC2626).withValues(alpha: 0.2)),
+          border: Border.all(color: accent.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
             Container(
               padding: EdgeInsets.all(10.w),
-              decoration: const BoxDecoration(color: Color(0xFFDC2626), shape: BoxShape.circle),
+              decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
               child: Icon(Symbols.crisis_alert, color: Colors.white, size: 20.w, fill: 1),
             ),
             SizedBox(width: 12.w),
@@ -57,7 +60,7 @@ class ActiveMeetpointCard extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                           fontSize: 10.sp,
                           letterSpacing: 0.5,
-                          color: const Color(0xFFDC2626),
+                          color: accent,
                         ),
                       ),
                     ],
@@ -79,7 +82,7 @@ class ActiveMeetpointCard extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: 'Lexend',
                         fontSize: 11.sp,
-                        color: const Color(0xFFDC2626),
+                        color: accent,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -88,7 +91,7 @@ class ActiveMeetpointCard extends StatelessWidget {
             ),
             IconButton(
               onPressed: onDelete,
-              icon: Icon(Symbols.delete, color: const Color(0xFFDC2626), size: 22.w),
+              icon: Icon(Symbols.delete, color: accent, size: 22.w),
               tooltip: 'area_delete_meetpoint_confirm_title'.tr(),
             ),
           ],
