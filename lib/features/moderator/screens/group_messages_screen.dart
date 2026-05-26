@@ -23,6 +23,7 @@ import '../../shared/services/message_realtime_binder.dart';
 import '../providers/moderator_provider.dart';
 import '../../shared/widgets/group_chat_theme.dart';
 import '../../shared/widgets/message_widgets.dart';
+import '../../../core/services/offline_retry_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Moderator Group Messages  (send + view + delete)
@@ -613,126 +614,172 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
       urgent: msg.isUrgent,
       highlightNew: false,
     );
+    final isSending = msg.sendStatus == 'sending';
+    final isFailed = msg.sendStatus == 'failed';
 
     return GestureDetector(
-      onLongPress: () => _openMessageActions(msg),
-      child: Container(
-        margin: EdgeInsets.only(bottom: 10.h),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(14.r),
-          border: Border.all(color: borderColor, width: borderWidth),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.035),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(14.w, 10.h, 40.w, 12.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (msg.recipientId != null)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 6.h),
-                      child: Builder(
-                        builder: (context) {
-                          final modState = ref.watch(moderatorProvider);
-                          final pilgrim =
-                              modState.currentGroup?.pilgrims.firstWhere(
-                            (p) => p.id == msg.recipientId,
-                            orElse: () => PilgrimInGroup(
-                              id: '',
-                              fullName: 'msg_private_indicator'.tr(),
-                            ),
-                          );
-                          return PrivateIndicator(
-                            isForPilgrim: false,
-                            recipientName: pilgrim?.fullName,
-                          );
-                        },
-                      ),
-                    ),
-                  if (msg.recipientId == null)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 6.h),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          _modGroupScopeChip(isDark: isDark),
-                          if (msg.isUrgent) ...[
-                            SizedBox(width: 8.w),
-                            const UrgentBadge(),
-                          ],
-                        ],
-                      ),
-                    )
-                  else if (msg.isUrgent)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 6.h),
-                      child: const UrgentBadge(),
-                    ),
-                  if (msg.replySnapshot != null)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 8.h),
-                      child: MessageReplyQuote(
-                        snapshot: msg.replySnapshot!,
-                        isDark: isDark,
-                      ),
-                    ),
-                  if (msg.type == 'text') _buildTextBody(msg, isDark),
-                  if (msg.type == 'voice') _buildVoiceBody(msg, isDark),
-                  if (msg.type == 'tts') _buildTtsBody(msg, isDark),
-                  if (msg.type == 'meetpoint') _buildMeetpointBody(msg, isDark),
-                  SizedBox(height: 6.h),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        msg.sender?.fullName ?? 'you'.tr(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 11.sp,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      Text(
-                        _formatDate(msg.createdAt),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 11.sp,
-                          color: AppColors.textMutedLight,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+      onLongPress: isSending ? null : () => _openMessageActions(msg),
+      child: Opacity(
+        opacity: isSending ? 0.6 : 1.0,
+        child: Container(
+          margin: EdgeInsets.only(bottom: 10.h),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(14.r),
+            border: Border.all(color: borderColor, width: borderWidth),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.035),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
               ),
-            ),
-            Positioned(
-              top: 4.h,
-              right: 4.w,
-              child: IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.all(4.w),
-                constraints: BoxConstraints.tightFor(width: 32.w, height: 32.w),
-                onPressed: () => _deleteMessage(msg),
-                icon: Icon(
-                  Symbols.delete_outline,
-                  size: 18.w,
-                  color: Colors.red.shade400,
+            ],
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(14.w, 10.h, 40.w, 12.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (msg.recipientId != null)
+                      Padding(
+                        padding: EdgeInsets.only(bottom: 6.h),
+                        child: Builder(
+                          builder: (context) {
+                            final modState = ref.watch(moderatorProvider);
+                            final pilgrim =
+                                modState.currentGroup?.pilgrims.firstWhere(
+                              (p) => p.id == msg.recipientId,
+                              orElse: () => PilgrimInGroup(
+                                id: '',
+                                fullName: 'msg_private_indicator'.tr(),
+                              ),
+                            );
+                            return PrivateIndicator(
+                              isForPilgrim: false,
+                              recipientName: pilgrim?.fullName,
+                            );
+                          },
+                        ),
+                      ),
+                    if (msg.recipientId == null)
+                      Padding(
+                        padding: EdgeInsets.only(bottom: 6.h),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            _modGroupScopeChip(isDark: isDark),
+                            if (msg.isUrgent) ...[
+                              SizedBox(width: 8.w),
+                              const UrgentBadge(),
+                            ],
+                          ],
+                        ),
+                      )
+                    else if (msg.isUrgent)
+                      Padding(
+                        padding: EdgeInsets.only(bottom: 6.h),
+                        child: const UrgentBadge(),
+                      ),
+                    if (msg.replySnapshot != null)
+                      Padding(
+                        padding: EdgeInsets.only(bottom: 8.h),
+                        child: MessageReplyQuote(
+                          snapshot: msg.replySnapshot!,
+                          isDark: isDark,
+                        ),
+                      ),
+                    if (msg.type == 'text') _buildTextBody(msg, isDark),
+                    if (msg.type == 'voice') _buildVoiceBody(msg, isDark),
+                    if (msg.type == 'tts') _buildTtsBody(msg, isDark),
+                    if (msg.type == 'meetpoint') _buildMeetpointBody(msg, isDark),
+                    SizedBox(height: 6.h),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          msg.sender?.fullName ?? 'you'.tr(),
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        Text(
+                          _formatDate(msg.createdAt),
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 11.sp,
+                            color: AppColors.textMutedLight,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              Positioned(
+                top: 4.h,
+                right: 4.w,
+                child: isSending
+                    ? Container(
+                        width: 32.w,
+                        height: 32.w,
+                        padding: EdgeInsets.all(8.w),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.w,
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : isFailed
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.all(4.w),
+                                constraints: BoxConstraints.tightFor(width: 32.w, height: 32.w),
+                                onPressed: () {
+                                  _snack('Retrying connection...');
+                                  ref.read(offlineRetryServiceProvider).processQueue();
+                                },
+                                icon: Icon(
+                                  Symbols.refresh,
+                                  size: 18.w,
+                                  color: Colors.orange.shade800,
+                                ),
+                              ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.all(4.w),
+                                constraints: BoxConstraints.tightFor(width: 32.w, height: 32.w),
+                                onPressed: () => _deleteMessage(msg),
+                                icon: Icon(
+                                  Symbols.delete_outline,
+                                  size: 18.w,
+                                  color: Colors.red.shade400,
+                                ),
+                              ),
+                            ],
+                          )
+                        : IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.all(4.w),
+                            constraints: BoxConstraints.tightFor(width: 32.w, height: 32.w),
+                            onPressed: () => _deleteMessage(msg),
+                            icon: Icon(
+                              Symbols.delete_outline,
+                              size: 18.w,
+                              color: Colors.red.shade400,
+                            ),
+                          ),
+              ),
+            ],
+          ),
         ),
       ),
     );

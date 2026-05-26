@@ -20,6 +20,7 @@ import '../../shared/models/message_model.dart';
 import '../../shared/providers/message_provider.dart';
 import '../../shared/widgets/group_chat_theme.dart';
 import '../../shared/widgets/message_widgets.dart';
+import '../../../core/services/offline_retry_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Moderator Individual Messages  (send + view + delete)
@@ -628,94 +629,140 @@ class _IndividualMessagesScreenState
       cardBg = isDark ? const Color(0xFF2D1515) : const Color(0xFFFEF2F2);
       borderColor = const Color(0xFFFECACA);
     }
+    final isSending = msg.sendStatus == 'sending';
+    final isFailed = msg.sendStatus == 'failed';
 
     return GestureDetector(
-      onLongPress: () => _openMessageActions(msg),
-      child: Container(
-        margin: EdgeInsets.only(bottom: 12.h),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(color: borderColor, width: 1.2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(14.w, 10.h, 40.w, 12.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(bottom: 6.h),
-                    child: const PrivateIndicator(isForPilgrim: false),
-                  ),
-                  if (msg.isUrgent)
+      onLongPress: isSending ? null : () => _openMessageActions(msg),
+      child: Opacity(
+        opacity: isSending ? 0.6 : 1.0,
+        child: Container(
+          margin: EdgeInsets.only(bottom: 12.h),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(color: borderColor, width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(14.w, 10.h, 40.w, 12.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Padding(
                       padding: EdgeInsets.only(bottom: 6.h),
-                      child: const UrgentBadge(),
+                      child: const PrivateIndicator(isForPilgrim: false),
                     ),
-                  if (msg.replySnapshot != null)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 8.h),
-                      child: MessageReplyQuote(
-                        snapshot: msg.replySnapshot!,
-                        isDark: isDark,
+                    if (msg.isUrgent)
+                      Padding(
+                        padding: EdgeInsets.only(bottom: 6.h),
+                        child: const UrgentBadge(),
                       ),
-                    ),
-                  if (msg.type == 'text') _buildTextBody(msg, isDark),
-                  if (msg.type == 'voice') _buildVoiceBody(msg, isDark),
-                  if (msg.type == 'tts') _buildTtsBody(msg, isDark),
-                  SizedBox(height: 6.h),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        msg.sender?.fullName ?? 'you'.tr(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 11.sp,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.primary,
+                    if (msg.replySnapshot != null)
+                      Padding(
+                        padding: EdgeInsets.only(bottom: 8.h),
+                        child: MessageReplyQuote(
+                          snapshot: msg.replySnapshot!,
+                          isDark: isDark,
                         ),
                       ),
-                      Text(
-                        _formatDate(msg.createdAt),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 11.sp,
-                          color: AppColors.textMutedLight,
+                    if (msg.type == 'text') _buildTextBody(msg, isDark),
+                    if (msg.type == 'voice') _buildVoiceBody(msg, isDark),
+                    if (msg.type == 'tts') _buildTtsBody(msg, isDark),
+                    SizedBox(height: 6.h),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          msg.sender?.fullName ?? 'you'.tr(),
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.primary,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              top: 4.h,
-              right: 4.w,
-              child: IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.all(4.w),
-                constraints: BoxConstraints.tightFor(width: 32.w, height: 32.w),
-                onPressed: () => _deleteMessage(msg),
-                icon: Icon(
-                  Symbols.delete_outline,
-                  size: 18.w,
-                  color: Colors.red.shade400,
+                        Text(
+                          _formatDate(msg.createdAt),
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 11.sp,
+                            color: AppColors.textMutedLight,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              Positioned(
+                top: 4.h,
+                right: 4.w,
+                child: isSending
+                    ? Container(
+                        width: 32.w,
+                        height: 32.w,
+                        padding: EdgeInsets.all(8.w),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.w,
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : isFailed
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.all(4.w),
+                                constraints: BoxConstraints.tightFor(width: 32.w, height: 32.w),
+                                onPressed: () {
+                                  _snack('Retrying connection...');
+                                  ref.read(offlineRetryServiceProvider).processQueue();
+                                },
+                                icon: Icon(
+                                  Symbols.refresh,
+                                  size: 18.w,
+                                  color: Colors.orange.shade800,
+                                ),
+                              ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.all(4.w),
+                                constraints: BoxConstraints.tightFor(width: 32.w, height: 32.w),
+                                onPressed: () => _deleteMessage(msg),
+                                icon: Icon(
+                                  Symbols.delete_outline,
+                                  size: 18.w,
+                                  color: Colors.red.shade400,
+                                ),
+                              ),
+                            ],
+                          )
+                        : IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.all(4.w),
+                            constraints: BoxConstraints.tightFor(width: 32.w, height: 32.w),
+                            onPressed: () => _deleteMessage(msg),
+                            icon: Icon(
+                              Symbols.delete_outline,
+                              size: 18.w,
+                              color: Colors.red.shade400,
+                            ),
+                          ),
+              ),
+            ],
+          ),
         ),
       ),
     );

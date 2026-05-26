@@ -28,6 +28,7 @@ import '../../../core/services/socket_service.dart';
 import '../../../core/map/app_map_tiles.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/providers/connectivity_provider.dart';
 import '../../../core/widgets/keep_alive_tab.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -415,6 +416,32 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       }
     });
     ref.listenManual(pilgrimProvider, (prev, next) {
+      if (prev?.sosActive == true &&
+          next.sosActive == true &&
+          prev?.activeSosId != next.activeSosId) {
+        final oldId = prev?.activeSosId;
+        final newId = next.activeSosId;
+        if (oldId != null &&
+            oldId.isNotEmpty &&
+            newId != null &&
+            newId.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            try {
+              final prefs = await SharedPreferences.getInstance();
+              final oldKey = _prefsKey(oldId);
+              final newKey = _prefsKey(newId);
+              final data = prefs.getStringList(oldKey);
+              if (data != null) {
+                await prefs.setStringList(newKey, data);
+                await prefs.remove(oldKey);
+                AppLogger.d(
+                  '[Dashboard] Migrated SOS UI state from $oldId to $newId',
+                );
+              }
+            } catch (_) {}
+          });
+        }
+      }
       if (prev?.sosActive != true && next.sosActive) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -1601,6 +1628,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   @override
   Widget build(BuildContext context) {
     final pilgrimState = ref.watch(pilgrimProvider);
+    final isOnline = ref.watch(connectivityProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_isInitializingDashboard) {
@@ -1782,7 +1810,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             : const Color(0xfff1f5f3),
         body: Column(
           children: [
-            if (pilgrimState.usingOfflineSnapshot)
+            if (pilgrimState.usingOfflineSnapshot || !isOnline)
               Material(
                 color: AppColors.primary.withValues(alpha: 0.14),
                 child: SafeArea(

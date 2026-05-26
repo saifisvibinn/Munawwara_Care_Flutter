@@ -86,6 +86,8 @@ class MessageSender {
 
 class GroupMessage {
   final String id;
+  final String? clientMessageId;
+  final String sendStatus; // 'sending' | 'sent' | 'failed'
   final String groupId;
   final String? recipientId; // null → broadcast to whole group
   final MessageSender? sender;
@@ -104,6 +106,8 @@ class GroupMessage {
 
   const GroupMessage({
     required this.id,
+    this.clientMessageId,
+    this.sendStatus = 'sent',
     required this.groupId,
     this.recipientId,
     this.sender,
@@ -122,6 +126,45 @@ class GroupMessage {
 
   bool get isFromModerator => senderModel == 'User';
   bool get isBroadcast => recipientId == null;
+
+  GroupMessage copyWith({
+    String? id,
+    String? clientMessageId,
+    String? sendStatus,
+    String? groupId,
+    String? recipientId,
+    MessageSender? sender,
+    String? senderModel,
+    String? type,
+    String? content,
+    String? mediaUrl,
+    String? audioUrl,
+    String? originalText,
+    bool? isUrgent,
+    int? duration,
+    Map<String, dynamic>? meetpointData,
+    DateTime? createdAt,
+    MessageReplySnapshot? replySnapshot,
+  }) =>
+      GroupMessage(
+        id: id ?? this.id,
+        clientMessageId: clientMessageId ?? this.clientMessageId,
+        sendStatus: sendStatus ?? this.sendStatus,
+        groupId: groupId ?? this.groupId,
+        recipientId: recipientId ?? this.recipientId,
+        sender: sender ?? this.sender,
+        senderModel: senderModel ?? this.senderModel,
+        type: type ?? this.type,
+        content: content ?? this.content,
+        mediaUrl: mediaUrl ?? this.mediaUrl,
+        audioUrl: audioUrl ?? this.audioUrl,
+        originalText: originalText ?? this.originalText,
+        isUrgent: isUrgent ?? this.isUrgent,
+        duration: duration ?? this.duration,
+        meetpointData: meetpointData ?? this.meetpointData,
+        createdAt: createdAt ?? this.createdAt,
+        replySnapshot: replySnapshot ?? this.replySnapshot,
+      );
 
   factory GroupMessage.fromJson(Map<String, dynamic> j) {
     try {
@@ -150,7 +193,9 @@ class GroupMessage {
       }
 
       return GroupMessage(
-        id: mongoIdString(j['_id']),
+        id: mongoIdString(j['_id'] ?? j['id']),
+        clientMessageId: j['client_message_id']?.toString() ?? j['clientMessageId']?.toString(),
+        sendStatus: j['send_status']?.toString() ?? j['sendStatus']?.toString() ?? 'sent',
         groupId: mongoIdString(j['group_id']),
         recipientId: mongoIdString(j['recipient_id']).isEmpty
             ? null
@@ -175,6 +220,39 @@ class GroupMessage {
       rethrow;
     }
   }
+
+  Map<String, dynamic> toJson() => {
+        '_id': id,
+        'client_message_id': clientMessageId,
+        'send_status': sendStatus,
+        'group_id': groupId,
+        'recipient_id': recipientId,
+        'sender_model': senderModel,
+        'type': type,
+        'content': content,
+        'media_url': mediaUrl,
+        'audio_url': audioUrl,
+        'original_text': originalText,
+        'is_urgent': isUrgent,
+        'duration': duration,
+        'meetpoint_data': meetpointData,
+        'created_at': createdAt.toUtc().toIso8601String(),
+        'reply_snapshot': replySnapshot == null
+            ? null
+            : {
+                'message_id': replySnapshot!.messageId,
+                'sender_name': replySnapshot!.senderName,
+                'preview_text': replySnapshot!.previewText,
+                'message_type': replySnapshot!.messageType,
+              },
+        'sender_id': sender == null
+            ? null
+            : {
+                '_id': sender!.id,
+                'full_name': sender!.fullName,
+                'role': sender!.role,
+              },
+      };
 }
 
 /// Text suitable for the system clipboard (voice → empty).

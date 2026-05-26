@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/app_data_cache.dart';
 import '../../../core/services/secure_session_store.dart';
+import '../../../core/services/offline_retry_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/route_id_utils.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -431,6 +433,79 @@ class MessageNotifier extends Notifier<MessageState> {
     );
   }
 
+  // ── Send Helpers ────────────────────────────────────────────────────────────
+
+  GroupMessage _createOptimisticMessage({
+    required String tempId,
+    required String groupId,
+    required String type,
+    required String content,
+    required bool isUrgent,
+    String? recipientId,
+    String? mediaUrl,
+    int duration = 0,
+    String? replyToMessageId,
+  }) {
+    final myId = ref.read(authProvider).userId ?? '';
+    final myName = ref.read(authProvider).fullName ?? 'Me';
+
+    MessageReplySnapshot? replySnapshot;
+    if (replyToMessageId != null && replyToMessageId.isNotEmpty) {
+      try {
+        final refMsg = state.messages.firstWhere((m) => m.id == replyToMessageId);
+        replySnapshot = MessageReplySnapshot(
+          messageId: refMsg.id,
+          senderName: refMsg.sender?.fullName ?? 'Unknown',
+          previewText: messagePlainTextForCopy(refMsg),
+          messageType: refMsg.type,
+        );
+      } catch (_) {}
+    }
+
+    return GroupMessage(
+      id: tempId,
+      clientMessageId: tempId,
+      sendStatus: 'sending',
+      groupId: groupId,
+      recipientId: recipientId,
+      senderModel: 'User',
+      sender: MessageSender(id: myId, fullName: myName),
+      type: type,
+      content: content,
+      mediaUrl: mediaUrl,
+      isUrgent: isUrgent,
+      duration: duration,
+      createdAt: DateTime.now(),
+      replySnapshot: replySnapshot,
+    );
+  }
+
+  void _updateMessageInState(String clientMessageId, {GroupMessage? replacement, String? sendStatus}) {
+    final updated = state.messages.map((m) {
+      if (m.clientMessageId == clientMessageId || m.id == clientMessageId) {
+        if (replacement != null) return replacement;
+        if (sendStatus != null) return m.copyWith(sendStatus: sendStatus);
+      }
+      return m;
+    }).toList();
+
+    state = state.copyWith(messages: updated);
+
+    if (state.loadedGroupId != null) {
+      final data = updated.map((m) => m.toJson()).toList();
+      _writeMessagesCache(state.loadedGroupId!, {'data': data});
+    }
+  }
+
+  void onQueuedMessageSent(String clientMessageId, GroupMessage returnedMsg) {
+    _updateMessageInState(clientMessageId, replacement: returnedMsg);
+    ChatPopupDedup.mergeKnownMessageIds([returnedMsg.id]);
+  }
+
+  void onQueuedMessageFailed(String clientMessageId) {
+    _updateMessageInState(clientMessageId, sendStatus: 'failed');
+  }
+
   // ── Send Text / TTS ────────────────────────────────────────────────────────
 
   Future<bool> sendTextMessage({
@@ -440,7 +515,21 @@ class MessageNotifier extends Notifier<MessageState> {
     bool isTts = false,
     String? replyToMessageId,
   }) async {
-    state = state.copyWith(isSending: true);
+    final tempId = const Uuid().v4();
+    final optMsg = _createOptimisticMessage(
+      tempId: tempId,
+      groupId: groupId,
+      type: isTts ? 'tts' : 'text',
+      content: content,
+      isUrgent: isUrgent,
+      replyToMessageId: replyToMessageId,
+    );
+
+    state = state.copyWith(
+      messages: [...state.messages, optMsg],
+      isSending: false,
+    );
+
     try {
       final response = await ApiService.dio.post(
         '/messages',
@@ -450,25 +539,41 @@ class MessageNotifier extends Notifier<MessageState> {
           'content': content,
           if (isTts) 'original_text': content,
           'is_urgent': isUrgent,
+          'client_message_id': tempId,
           if (replyToMessageId != null && replyToMessageId.isNotEmpty)
             'reply_to': replyToMessageId,
         },
         options: Options(receiveTimeout: _kMessageSendReceiveTimeout),
       );
+
       final msg = GroupMessage.fromJson(
         response.data['data'] as Map<String, dynamic>,
       );
-      if (state.messages.any((m) => m.id == msg.id)) {
-        state = state.copyWith(isSending: false);
-      } else {
-        state = state.copyWith(
-          messages: [...state.messages, msg],
-          isSending: false,
-        );
-      }
+
+      onQueuedMessageSent(tempId, msg);
       return true;
+    } on DioException catch (e) {
+      if (ApiService.isOfflineFailure(e)) {
+        onQueuedMessageFailed(tempId);
+        unawaited(ref.read(offlineRetryServiceProvider).enqueueAction(
+              actionId: tempId,
+              type: 'send_message',
+              payload: {
+                'group_id': groupId,
+                'type': isTts ? 'tts' : 'text',
+                'content': content,
+                'is_urgent': isUrgent,
+                'client_message_id': tempId,
+                if (replyToMessageId != null && replyToMessageId.isNotEmpty)
+                  'reply_to': replyToMessageId,
+              },
+            ));
+        return true;
+      }
+      onQueuedMessageFailed(tempId);
+      return false;
     } catch (_) {
-      state = state.copyWith(isSending: false);
+      onQueuedMessageFailed(tempId);
       return false;
     }
   }
@@ -481,7 +586,22 @@ class MessageNotifier extends Notifier<MessageState> {
     bool isTts = false,
     String? replyToMessageId,
   }) async {
-    state = state.copyWith(isSending: true);
+    final tempId = const Uuid().v4();
+    final optMsg = _createOptimisticMessage(
+      tempId: tempId,
+      groupId: groupId,
+      type: isTts ? 'tts' : 'text',
+      content: content,
+      isUrgent: isUrgent,
+      recipientId: recipientId,
+      replyToMessageId: replyToMessageId,
+    );
+
+    state = state.copyWith(
+      messages: [...state.messages, optMsg],
+      isSending: false,
+    );
+
     try {
       final response = await ApiService.dio.post(
         '/messages/individual',
@@ -492,25 +612,42 @@ class MessageNotifier extends Notifier<MessageState> {
           'content': content,
           if (isTts) 'original_text': content,
           'is_urgent': isUrgent,
+          'client_message_id': tempId,
           if (replyToMessageId != null && replyToMessageId.isNotEmpty)
             'reply_to': replyToMessageId,
         },
         options: Options(receiveTimeout: _kMessageSendReceiveTimeout),
       );
+
       final msg = GroupMessage.fromJson(
         response.data['data'] as Map<String, dynamic>,
       );
-      if (state.messages.any((m) => m.id == msg.id)) {
-        state = state.copyWith(isSending: false);
-      } else {
-        state = state.copyWith(
-          messages: [...state.messages, msg],
-          isSending: false,
-        );
-      }
+
+      onQueuedMessageSent(tempId, msg);
       return true;
+    } on DioException catch (e) {
+      if (ApiService.isOfflineFailure(e)) {
+        onQueuedMessageFailed(tempId);
+        unawaited(ref.read(offlineRetryServiceProvider).enqueueAction(
+              actionId: tempId,
+              type: 'send_individual_message',
+              payload: {
+                'group_id': groupId,
+                'recipient_id': recipientId,
+                'type': isTts ? 'tts' : 'text',
+                'content': content,
+                'is_urgent': isUrgent,
+                'client_message_id': tempId,
+                if (replyToMessageId != null && replyToMessageId.isNotEmpty)
+                  'reply_to': replyToMessageId,
+              },
+            ));
+        return true;
+      }
+      onQueuedMessageFailed(tempId);
+      return false;
     } catch (_) {
-      state = state.copyWith(isSending: false);
+      onQueuedMessageFailed(tempId);
       return false;
     }
   }
@@ -524,13 +661,30 @@ class MessageNotifier extends Notifier<MessageState> {
     int durationSeconds = 0,
     String? replyToMessageId,
   }) async {
-    state = state.copyWith(isSending: true);
+    final tempId = const Uuid().v4();
+    final optMsg = _createOptimisticMessage(
+      tempId: tempId,
+      groupId: groupId,
+      type: 'voice',
+      content: '[Voice Message]',
+      isUrgent: isUrgent,
+      mediaUrl: filePath,
+      duration: durationSeconds,
+      replyToMessageId: replyToMessageId,
+    );
+
+    state = state.copyWith(
+      messages: [...state.messages, optMsg],
+      isSending: false,
+    );
+
     try {
       final formData = FormData.fromMap({
         'group_id': groupId,
         'type': 'voice',
         'is_urgent': isUrgent.toString(),
         'duration': durationSeconds.toString(),
+        'client_message_id': tempId,
         if (replyToMessageId != null && replyToMessageId.isNotEmpty)
           'reply_to': replyToMessageId,
         'file': await MultipartFile.fromFile(
@@ -538,26 +692,42 @@ class MessageNotifier extends Notifier<MessageState> {
           filename: 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
         ),
       });
+
       final response = await ApiService.dio.post(
         '/messages',
         data: formData,
         options: Options(receiveTimeout: _kMessageSendReceiveTimeout),
       );
+
       final msg = GroupMessage.fromJson(
         response.data['data'] as Map<String, dynamic>,
       );
-      if (state.messages.any((m) => m.id == msg.id)) {
-        state = state.copyWith(isSending: false);
-      } else {
-        state = state.copyWith(
-          messages: [...state.messages, msg],
-          isSending: false,
-        );
-      }
+
+      onQueuedMessageSent(tempId, msg);
       return true;
-    } catch (e, st) {
-      AppLogger.e('sendVoiceMessage failed', e, st);
-      state = state.copyWith(isSending: false);
+    } on DioException catch (e) {
+      if (ApiService.isOfflineFailure(e)) {
+        onQueuedMessageFailed(tempId);
+        unawaited(ref.read(offlineRetryServiceProvider).enqueueAction(
+              actionId: tempId,
+              type: 'send_message',
+              payload: {
+                'group_id': groupId,
+                'type': 'voice',
+                'file_path': filePath,
+                'duration': durationSeconds,
+                'is_urgent': isUrgent,
+                'client_message_id': tempId,
+                if (replyToMessageId != null && replyToMessageId.isNotEmpty)
+                  'reply_to': replyToMessageId,
+              },
+            ));
+        return true;
+      }
+      onQueuedMessageFailed(tempId);
+      return false;
+    } catch (_) {
+      onQueuedMessageFailed(tempId);
       return false;
     }
   }
@@ -570,7 +740,24 @@ class MessageNotifier extends Notifier<MessageState> {
     int durationSeconds = 0,
     String? replyToMessageId,
   }) async {
-    state = state.copyWith(isSending: true);
+    final tempId = const Uuid().v4();
+    final optMsg = _createOptimisticMessage(
+      tempId: tempId,
+      groupId: groupId,
+      type: 'voice',
+      content: '[Voice Message]',
+      isUrgent: isUrgent,
+      recipientId: recipientId,
+      mediaUrl: filePath,
+      duration: durationSeconds,
+      replyToMessageId: replyToMessageId,
+    );
+
+    state = state.copyWith(
+      messages: [...state.messages, optMsg],
+      isSending: false,
+    );
+
     try {
       final formData = FormData.fromMap({
         'group_id': groupId,
@@ -578,6 +765,7 @@ class MessageNotifier extends Notifier<MessageState> {
         'type': 'voice',
         'is_urgent': isUrgent.toString(),
         'duration': durationSeconds.toString(),
+        'client_message_id': tempId,
         if (replyToMessageId != null && replyToMessageId.isNotEmpty)
           'reply_to': replyToMessageId,
         'file': await MultipartFile.fromFile(
@@ -585,26 +773,43 @@ class MessageNotifier extends Notifier<MessageState> {
           filename: 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
         ),
       });
+
       final response = await ApiService.dio.post(
         '/messages/individual',
         data: formData,
         options: Options(receiveTimeout: _kMessageSendReceiveTimeout),
       );
+
       final msg = GroupMessage.fromJson(
         response.data['data'] as Map<String, dynamic>,
       );
-      if (state.messages.any((m) => m.id == msg.id)) {
-        state = state.copyWith(isSending: false);
-      } else {
-        state = state.copyWith(
-          messages: [...state.messages, msg],
-          isSending: false,
-        );
-      }
+
+      onQueuedMessageSent(tempId, msg);
       return true;
-    } catch (e, st) {
-      AppLogger.e('sendIndividualVoiceMessage failed', e, st);
-      state = state.copyWith(isSending: false);
+    } on DioException catch (e) {
+      if (ApiService.isOfflineFailure(e)) {
+        onQueuedMessageFailed(tempId);
+        unawaited(ref.read(offlineRetryServiceProvider).enqueueAction(
+              actionId: tempId,
+              type: 'send_individual_message',
+              payload: {
+                'group_id': groupId,
+                'recipient_id': recipientId,
+                'type': 'voice',
+                'file_path': filePath,
+                'duration': durationSeconds,
+                'is_urgent': isUrgent,
+                'client_message_id': tempId,
+                if (replyToMessageId != null && replyToMessageId.isNotEmpty)
+                  'reply_to': replyToMessageId,
+              },
+            ));
+        return true;
+      }
+      onQueuedMessageFailed(tempId);
+      return false;
+    } catch (_) {
+      onQueuedMessageFailed(tempId);
       return false;
     }
   }

@@ -35,6 +35,10 @@ class SocketService {
   /// Use [onConnected] / [offConnected] to manage these.
   static final List<void Function()> _onConnectCallbacks = [];
 
+  /// Callbacks that fire every time the socket disconnects.
+  /// Use [onDisconnected] / [offDisconnected] to manage these.
+  static final List<void Function()> _onDisconnectCallbacks = [];
+
   /// Reserved engine events that must not go through [on]/[off].
   static const _reserved = {
     'connect',
@@ -105,6 +109,13 @@ class SocketService {
 
     _socket!.onDisconnect((_) {
       AppLogger.d('[SocketService] Disconnected');
+      for (final cb in List.of(_onDisconnectCallbacks)) {
+        try {
+          cb();
+        } catch (e) {
+          AppLogger.d('[SocketService] onDisconnected callback error: $e');
+        }
+      }
     });
 
     _socket!.onConnectError((err) {
@@ -176,6 +187,18 @@ class SocketService {
   /// Remove a previously registered connect callback.
   static void offConnected(void Function() callback) {
     _onConnectCallbacks.remove(callback);
+  }
+
+  /// Register a callback that fires every time the socket disconnects.
+  static void onDisconnected(void Function() callback) {
+    if (!_onDisconnectCallbacks.contains(callback)) {
+      _onDisconnectCallbacks.add(callback);
+    }
+  }
+
+  /// Remove a previously registered disconnect callback.
+  static void offDisconnected(void Function() callback) {
+    _onDisconnectCallbacks.remove(callback);
   }
 
   // ── State ─────────────────────────────────────────────────────────────────

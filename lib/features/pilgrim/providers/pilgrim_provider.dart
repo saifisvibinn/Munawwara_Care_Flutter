@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/app_data_cache.dart';
 import '../../../core/services/secure_session_store.dart';
+import '../../../core/services/offline_retry_service.dart';
 
 // ── Pilgrim Profile Model ─────────────────────────────────────────────────────
 
@@ -411,6 +414,19 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
           'battery_percent': batteryPercent,
         },
       );
+    } on DioException catch (e) {
+      if (ApiService.isOfflineFailure(e)) {
+        if (state.sosActive) {
+          unawaited(ref.read(offlineRetryServiceProvider).enqueueAction(
+            type: 'update_location',
+            payload: {
+              'latitude': latitude,
+              'longitude': longitude,
+              'battery_percent': batteryPercent,
+            },
+          ));
+        }
+      }
     } catch (_) {
       // Silent — location updates should not disrupt UX
     }
@@ -418,6 +434,7 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
 
   Future<bool> triggerSOS() async {
     state = state.copyWith(isSosLoading: true, clearError: true);
+    final tempId = const Uuid().v4();
     try {
       final response = await ApiService.dio.post('/pilgrim/sos');
       final body = response.data as Map<String, dynamic>?;
@@ -431,6 +448,21 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
       );
       return true;
     } on DioException catch (e) {
+      if (ApiService.isOfflineFailure(e)) {
+        state = state.copyWith(
+          isSosLoading: false,
+          sosActive: true,
+          activeSosId: tempId,
+        );
+        unawaited(ref.read(offlineRetryServiceProvider).enqueueAction(
+          actionId: tempId,
+          type: 'trigger_sos',
+          payload: {
+            'temp_sos_id': tempId,
+          },
+        ));
+        return true;
+      }
       state = state.copyWith(
         isSosLoading: false,
         error: ApiService.parseError(e),
@@ -475,6 +507,12 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
     state = state.copyWith(sosActive: false, clearSosId: true);
   }
 
+  void updateActiveSosId(String realSosId) {
+    if (state.sosActive && state.activeSosId != realSosId) {
+      state = state.copyWith(activeSosId: realSosId);
+    }
+  }
+
   /// Notifies the server that the active SOS was cancelled (socket or HTTP).
   Future<bool> cancelSosRemote({String? sosId}) async {
     final payload = <String, dynamic>{};
@@ -485,6 +523,19 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
       await ApiService.dio.post('/pilgrim/sos/cancel', data: payload);
       return true;
     } on DioException catch (e) {
+      if (ApiService.isOfflineFailure(e)) {
+        final removed = await ref.read(offlineRetryServiceProvider).cancelPendingSos(sosId);
+        if (removed) {
+          return true;
+        }
+        unawaited(ref.read(offlineRetryServiceProvider).enqueueAction(
+          type: 'cancel_sos',
+          payload: {
+            'sos_id': sosId,
+          },
+        ));
+        return true;
+      }
       state = state.copyWith(error: ApiService.parseError(e));
       return false;
     } catch (_) {

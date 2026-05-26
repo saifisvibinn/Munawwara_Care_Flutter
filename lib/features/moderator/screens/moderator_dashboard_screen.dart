@@ -17,6 +17,7 @@ import '../../../core/utils/app_logger.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/providers/connectivity_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/keep_alive_tab.dart';
 import '../../../core/widgets/standard_snackbar.dart';
@@ -542,6 +543,7 @@ class _ModeratorDashboardScreenState
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final moderatorState = ref.watch(moderatorProvider);
+    final isOnline = ref.watch(connectivityProvider);
 
     if (_isInitializingDashboard) {
       return Scaffold(
@@ -590,7 +592,7 @@ class _ModeratorDashboardScreenState
           children: [
             Column(
               children: [
-                if (moderatorState.usingOfflineSnapshot)
+                if (moderatorState.usingOfflineSnapshot || !isOnline)
                   Material(
                     color: AppColors.primary.withValues(alpha: 0.14),
                     child: SafeArea(
