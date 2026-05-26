@@ -9,7 +9,6 @@ import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/backend_config.dart';
-import '../../core/router/app_router.dart';
 import '../../core/services/callkit_service.dart';
 import 'call_navigation.dart';
 import '../../core/services/secure_session_store.dart';
@@ -127,6 +126,11 @@ PendingDecline? consumePendingDeclined() {
   return p;
 }
 
+/// Drops queued native decline before a new outgoing ring (SOS callback).
+void clearQueuedNativeDecline() {
+  _pendingDeclined = null;
+}
+
 abstract final class NativeCallCoordinator {
   /// Subscribe to CallKit **before** async Firebase init so cold-start accept
   /// events are not dropped.
@@ -154,16 +158,22 @@ abstract final class NativeCallCoordinator {
           unawaited(_clearPendingAcceptFile());
           final c = CallingScope.riverpod;
           if (c != null) {
+            final notifier = c.read(callProvider.notifier);
             final currentState = c.read(callProvider);
             if (currentState.status == CallStatus.ringing) {
-              c.read(callProvider.notifier).declineCall();
+              notifier.declineCall();
+            } else if (currentState.status == CallStatus.calling ||
+                currentState.status == CallStatus.connecting ||
+                currentState.status == CallStatus.connected) {
+              AppLogger.w(
+                '❌ Ignoring stale CallKit decline while '
+                '${currentState.status} (outgoing/active session)',
+              );
             } else if (declineCallerId.isNotEmpty) {
               AppLogger.w(
                 '❌ Decline via HTTP fallback (cold-start, state=${currentState.status})',
               );
-              c
-                  .read(callProvider.notifier)
-                  .declineCallFromCallerId(declineCallerId);
+              notifier.declineCallFromCallerId(declineCallerId);
             }
           } else if (declineCallerId.isNotEmpty) {
             _pendingDeclined = PendingDecline(callerId: declineCallerId);
@@ -208,10 +218,25 @@ abstract final class NativeCallCoordinator {
           AppLogger.i('📵 Call ENDED from native call screen');
           final endedCallerId = await _resolveCallerIdFromEvent(event);
           final c = CallingScope.riverpod;
-          if (endedCallerId.isNotEmpty && c != null) {
+          if (c != null) {
+            final notifier = c.read(callProvider.notifier);
             final currentState = c.read(callProvider);
-            if (currentState.status == CallStatus.ringing) {
-              c.read(callProvider.notifier).declineCall();
+            switch (currentState.status) {
+              case CallStatus.ringing:
+                notifier.declineCall();
+              case CallStatus.calling:
+                if (notifier.shouldIgnoreStaleCallKitTeardown()) {
+                  AppLogger.w(
+                    '📵 Ignoring stale CallKit end during outgoing grace',
+                  );
+                } else {
+                  unawaited(notifier.cancelOutgoingRing());
+                }
+              case CallStatus.connecting:
+              case CallStatus.connected:
+                notifier.endCall();
+              default:
+                break;
             }
           } else if (endedCallerId.isNotEmpty && c == null) {
             if (_pendingAcceptedCall == null) {
@@ -280,13 +305,30 @@ abstract final class NativeCallCoordinator {
     }
   }
 
-  /// FCM foreground: `call_declined` / `call_cancel` from backend.
+  /// FCM foreground: call control (`call_declined`, `call_cancel`, `call_ended`, `call_answered`).
   static void handleForegroundCallControl(Map<String, dynamic> data) {
     final dataType = CallKitService.fcmCallControlType(data);
     if (dataType == null) return;
 
-    AppLogger.w('📵 FCM call_declined/call_cancel — stopping call');
-    final endReason = dataType == 'call_cancel' ? 'cancelled' : 'declined';
+    if (dataType == 'call_answered') {
+      AppLogger.w('📞 FCM call_answered received foreground');
+      final c = CallingScope.riverpod;
+      if (c != null) {
+        final notifier = c.read(callProvider.notifier);
+        notifier.handleFcmCallAnswered(
+          answererId: data['callerId']?.toString(),
+          callRecordId: data['callRecordId']?.toString(),
+        );
+      }
+      return;
+    }
+
+    AppLogger.w('📵 FCM $dataType — stopping call');
+    final endReason = switch (dataType) {
+      'call_cancel' => 'cancelled',
+      'call_ended' => 'ended',
+      _ => 'declined',
+    };
     if (dataType == 'call_cancel') {
       unawaited(
         CallKitService.dismissNativeIncoming(
@@ -297,9 +339,16 @@ abstract final class NativeCallCoordinator {
     }
     final c = CallingScope.riverpod;
     if (c != null) {
+      final notifier = c.read(callProvider.notifier);
       final cs = c.read(callProvider);
-      if (cs.status == CallStatus.calling || cs.status == CallStatus.ringing) {
-        c.read(callProvider.notifier).stopLocalCallSession(endReason: endReason);
+      if (cs.isInCall) {
+        if (notifier.shouldIgnoreStaleCallControlFcm(dataType)) {
+          AppLogger.w(
+            '📵 Ignoring stale FCM $dataType during outgoing grace',
+          );
+          return;
+        }
+        notifier.stopLocalCallSession(endReason: endReason);
         return;
       }
     }
@@ -433,7 +482,7 @@ void _tryPushVoiceCall({required int attemptsLeft}) {
     AppLogger.d('📞 VoiceCallScreen already active — skipping push');
     return;
   }
-  final pushed = openVoiceCallScreen();
+  final pushed = openVoiceCallScreen(bypassNavigatingGuard: true);
   if (pushed != null) {
     unawaited(
       pushed.then((_) {
@@ -443,14 +492,11 @@ void _tryPushVoiceCall({required int attemptsLeft}) {
     AppLogger.i(
       '📞 Navigated to VoiceCallScreen (attempt ${16 - attemptsLeft})',
     );
-  } else if (AppRouter.navigatorKey.currentState != null) {
-    _navigatingToCall = false;
-    AppLogger.d('📞 VoiceCallScreen push skipped (navigator ready)');
-  } else {
-    Future.delayed(const Duration(milliseconds: 400), () {
-      _tryPushVoiceCall(attemptsLeft: attemptsLeft - 1);
-    });
+    return;
   }
+  Future.delayed(const Duration(milliseconds: 400), () {
+    _tryPushVoiceCall(attemptsLeft: attemptsLeft - 1);
+  });
 }
 
 Future<void> _sendBackgroundDecline(

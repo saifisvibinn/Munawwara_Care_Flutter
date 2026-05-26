@@ -10,6 +10,7 @@ The displayed version comes from `pubspec.yaml` (`version: name+build`) via
 
 | Location | Widget / screen |
 |----------|-----------------|
+| Splash | `AppVersionLabel` at the bottom of `SplashScreen` |
 | Login | `AppVersionLabel` at the bottom of `LoginScreen` |
 | Settings → About | `AboutScreen` under the app name |
 | Settings list | **About** row in `LegalSupportSection` (pilgrim + moderator profiles) |

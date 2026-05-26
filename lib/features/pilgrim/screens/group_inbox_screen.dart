@@ -16,6 +16,8 @@ import '../../../core/services/tts_cloud_api.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/services/speech_service.dart';
 import '../../../core/widgets/standard_snackbar.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../shared/helpers/message_visibility.dart';
 import '../../shared/models/message_model.dart';
 import '../../shared/helpers/chat_popup_dedup.dart';
 import '../../shared/providers/message_provider.dart';
@@ -228,9 +230,13 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   }
 
   List<GroupMessage> _filterMessages(List<GroupMessage> all) {
+    final myId = ref.read(authProvider).userId ?? '';
     return switch (_filter) {
-      'private' => all.where((m) => m.recipientId != null).toList(),
-      _ => all,
+      'private' => all
+          .where((m) => m.recipientId != null)
+          .where((m) => isMessageVisibleToUser(m, myId))
+          .toList(),
+      _ => all.where((m) => isMessageVisibleToUser(m, myId)).toList(),
     };
   }
 

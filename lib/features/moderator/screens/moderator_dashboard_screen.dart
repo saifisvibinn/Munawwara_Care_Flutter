@@ -23,7 +23,8 @@ import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../calling/providers/call_provider.dart';
-import '../../calling/call_navigation.dart';
+import '../../calling/screens/voice_call_screen.dart';
+import '../../calling/native_call_coordinator.dart' show isNavigatingToCall;
 import '../../../core/router/app_router.dart' show AppRouter;
 import '../../invitations/providers/invitation_provider.dart';
 import '../../invitations/widgets/pending_invitations_section.dart';
@@ -44,6 +45,7 @@ import '../services/moderator_sos_engagement_store.dart';
 import '../services/sos_alert_coordinator.dart';
 import '../../shared/services/message_realtime_binder.dart';
 import '../providers/moderator_sos_engagement_provider.dart';
+import '../../shared/helpers/message_visibility.dart';
 import '../../shared/providers/message_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -196,9 +198,31 @@ class _ModeratorDashboardScreenState
     });
     ref.listenManual(callProvider, (prev, next) {
       if (next.status == CallStatus.connected &&
-          prev?.status == CallStatus.ringing &&
-          mounted) {
-        openVoiceCallScreen(context: context);
+          (prev?.status == CallStatus.ringing || prev?.status == CallStatus.connecting) &&
+          mounted &&
+          !isNavigatingToCall &&
+          !VoiceCallScreen.isActive) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
+        );
+      }
+      if (next.status == CallStatus.calling &&
+          prev?.status != CallStatus.calling &&
+          mounted &&
+          !isNavigatingToCall &&
+          !VoiceCallScreen.isActive) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
+        );
+      }
+      if (next.status == CallStatus.connecting &&
+          (prev?.status == CallStatus.calling || prev?.status == CallStatus.ringing) &&
+          mounted &&
+          !isNavigatingToCall &&
+          !VoiceCallScreen.isActive) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
+        );
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -412,11 +436,19 @@ class _ModeratorDashboardScreenState
               return;
             }
 
+            final currentUserId = ref.read(authProvider).userId ?? '';
+            if (!isRawMessageVisibleToUser(
+              map,
+              currentUserId,
+              isModerator: true,
+            )) {
+              return;
+            }
+
             // Append to message provider so chat is up-to-date if viewed
             ref.read(messageProvider.notifier).appendMessage(map);
 
             // Ignore own messages — don't badge for what we sent
-            final currentUserId = ref.read(authProvider).userId ?? '';
             final senderRaw = map['sender_id'];
             final senderId = (senderRaw is Map)
                 ? senderRaw['_id']?.toString()

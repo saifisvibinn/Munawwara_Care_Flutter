@@ -16,6 +16,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../models/message_model.dart';
 import '../providers/message_provider.dart';
 import 'chat_popup_dedup.dart';
+import 'message_visibility.dart';
 
 class ChatNotificationHelper {
   /// Same heuristic as pilgrim inbox — skip translate when script matches UI.
@@ -103,6 +104,20 @@ class ChatNotificationHelper {
     if (!context.mounted) return;
 
     try {
+      final myId = ref.read(authProvider).userId ?? '';
+      final isModerator =
+          ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
+      if (!isRawMessageVisibleToUser(
+        map,
+        myId,
+        isModerator: isModerator,
+      )) {
+        AppLogger.d(
+          '[ChatNotificationHelper] Skipping popup (private, not for user)',
+        );
+        return;
+      }
+
       final prefs = await SharedPreferences.getInstance();
       if (!context.mounted) return;
       final targetLang = context.locale.languageCode;
@@ -141,8 +156,7 @@ class ChatNotificationHelper {
       final msg = GroupMessage.fromJson(map);
 
       // Don't show popup for our own messages
-      final myId = ref.read(authProvider).userId;
-      if (msg.sender?.id == myId) return;
+      if (myId.isNotEmpty && msg.sender?.id == myId) return;
 
       if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
         AppLogger.d(

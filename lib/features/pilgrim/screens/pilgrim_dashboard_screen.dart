@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/helpers/chat_notification_helper.dart';
+import '../../shared/helpers/message_visibility.dart';
 import '../../shared/services/message_realtime_binder.dart';
 import '../../shared/helpers/deferred_urgent_chat_popup.dart';
 import '../../../core/bootstrap/app_startup_coordinator.dart';
@@ -33,11 +34,13 @@ import '../../auth/providers/auth_provider.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../calling/providers/call_provider.dart';
 import '../../calling/providers/missed_calls_unread_provider.dart';
-import '../../calling/call_navigation.dart';
+import '../../calling/screens/voice_call_screen.dart';
+import '../../calling/native_call_coordinator.dart' show isNavigatingToCall;
 import '../../notifications/providers/notification_provider.dart';
 import '../../shared/providers/message_provider.dart';
 import '../../shared/providers/suggested_area_provider.dart';
 import '../providers/pilgrim_provider.dart';
+import '../services/pilgrim_sos_coordinator.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/home_tab/home_cards.dart';
 import '../widgets/home_tab/home_tab.dart';
@@ -210,6 +213,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   Future<void> _flushDeferredUrgentChatPopup() async {
     final map = DeferredUrgentChatPopup.takePending();
     if (map == null || !mounted) return;
+    final myId = ref.read(authProvider).userId ?? '';
+    if (!isRawMessageVisibleToUser(map, myId)) return;
     final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
     final gid = map['group_id']?.toString();
     if (groupId == null || gid != groupId) return;
@@ -292,10 +297,47 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     await _checkRequiredPermissions();
   }
 
+  /// Moderator marked SOS resolved — show friendly card, then allow new SOS.
+  void _applyModeratorResolvedUi({String? sosIdForPrefs}) {
+    if (!mounted) return;
+
+    _stopSosHelpTimers();
+    _sosCallbackModeratorId = null;
+    _hasModeratorCalledForThisSos = false;
+    _sosResolvedUiTimer?.cancel();
+    _sosResolvedUiTimer = null;
+
+    setState(() {
+      _sosHomePhase = SosHomePhase.helpSession;
+      _sosHelpStatusKey = 'sos_status_resolved_friendly';
+      _sosModeratorName = '';
+      _showResolvedSosCard = true;
+    });
+
+    final clearId =
+        sosIdForPrefs?.trim() ??
+        ref.read(pilgrimProvider).activeSosId?.trim();
+    if (clearId != null && clearId.isNotEmpty) {
+      unawaited(_clearPersistedSosUi(sosId: clearId));
+    }
+
+    ref.read(pilgrimProvider.notifier).cancelSOS();
+
+    _sosResolvedUiTimer = Timer(const Duration(seconds: 30), () {
+      if (!mounted) return;
+      setState(() {
+        _showResolvedSosCard = false;
+        _sosHomePhase = SosHomePhase.idle;
+        _sosHelpStatusKey = 'sos_status_notifying';
+      });
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    PilgrimSosCoordinator.onModeratorResolvedUi = _applyModeratorResolvedUi;
 
     // SOS hold progress ring (fills in 3 s)
     _sosHoldController = AnimationController(
@@ -328,15 +370,33 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       }
 
       if (next.status == CallStatus.connected &&
-          prev?.status == CallStatus.ringing &&
-          mounted) {
-        openVoiceCallScreen(context: context);
+          (prev?.status == CallStatus.ringing || prev?.status == CallStatus.connecting) &&
+          mounted &&
+          !isNavigatingToCall &&
+          !VoiceCallScreen.isActive) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
+        );
       }
       if (next.status == CallStatus.calling &&
           prev?.status != CallStatus.calling &&
-          mounted) {
-        openVoiceCallScreen(context: context);
+          mounted &&
+          !isNavigatingToCall &&
+          !VoiceCallScreen.isActive) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
+        );
       }
+      if (next.status == CallStatus.connecting &&
+          (prev?.status == CallStatus.calling || prev?.status == CallStatus.ringing) &&
+          mounted &&
+          !isNavigatingToCall &&
+          !VoiceCallScreen.isActive) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
+        );
+      }
+
       if (next.status == CallStatus.ended && prev != null) {
         final wasInVoice =
             prev.status == CallStatus.calling ||
@@ -371,6 +431,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         });
       }
       if (prev?.sosActive == true && next.sosActive == false) {
+        if (_showResolvedSosCard) {
+          return;
+        }
         _stopSosHelpTimers();
         _sosResolvedUiTimer?.cancel();
         _sosResolvedUiTimer = null;
@@ -477,6 +540,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
 
   Future<void> _finishPilgrimWarmup() async {
     await _restoreSosUiIfNeeded();
+    if (await PilgrimSosCoordinator.consumePendingModeratorResolved()) {
+      _applyModeratorResolvedUi();
+    }
     final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
     if (groupId != null) {
       ref.read(messageProvider.notifier).fetchUnreadCount(groupId);
@@ -590,6 +656,13 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
             if (groupId == null) {
               AppLogger.w('[PilgrimDashboard] groupInfo.groupId is null');
+              return;
+            }
+            final myId = ref.read(authProvider).userId ?? '';
+            if (!isRawMessageVisibleToUser(map, myId)) {
+              AppLogger.d(
+                '[PilgrimDashboard] Ignoring private message for another pilgrim',
+              );
               return;
             }
             // Append the single message without a full reload (no spinner)
@@ -764,38 +837,19 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           if (!mounted) return;
           try {
             final map = Map<String, dynamic>.from(data as Map);
-            final sid = map['sos_id']?.toString().trim();
-            final active = ref.read(pilgrimProvider).activeSosId?.trim();
-            if (sid != null &&
-                sid.isNotEmpty &&
-                active != null &&
-                active.isNotEmpty &&
-                sid != active) {
+            if (!ref.read(pilgrimProvider).sosActive) return;
+
+            final myGroup = ref.read(pilgrimProvider).groupInfo?.groupId;
+            final evtGroup = map['group_id']?.toString();
+            if (myGroup != null &&
+                evtGroup != null &&
+                evtGroup.isNotEmpty &&
+                evtGroup != myGroup) {
               return;
             }
 
-            _stopSosHelpTimers();
-            _sosCallbackModeratorId = null;
-            _hasModeratorCalledForThisSos = false;
-            _sosResolvedUiTimer?.cancel();
-            _sosResolvedUiTimer = null;
-            ref.read(pilgrimProvider.notifier).cancelSOS();
-            if (!mounted) return;
-            setState(() {
-              _sosHomePhase = SosHomePhase.helpSession;
-              _sosHelpStatusKey = 'sos_status_resolved_friendly';
-              _sosModeratorName = '';
-              _showResolvedSosCard = true;
-            });
-            unawaited(_clearPersistedSosUi(sosId: active));
-            _sosResolvedUiTimer = Timer(const Duration(seconds: 30), () {
-              if (!mounted) return;
-              setState(() {
-                _showResolvedSosCard = false;
-                _sosHomePhase = SosHomePhase.idle;
-                _sosHelpStatusKey = 'sos_status_notifying';
-              });
-            });
+            final sid = map['sos_id']?.toString().trim();
+            _applyModeratorResolvedUi(sosIdForPrefs: sid);
           } catch (e) {
             AppLogger.e('[PilgrimDashboard] sos-resolved handler error: $e');
           }
@@ -856,6 +910,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     SocketService.off('sos-handling');
     SocketService.off('sos-resolved');
     SocketService.offConnected(_onSocketConnected);
+    if (PilgrimSosCoordinator.onModeratorResolvedUi == _applyModeratorResolvedUi) {
+      PilgrimSosCoordinator.onModeratorResolvedUi = null;
+    }
     _pageController.dispose();
     super.dispose();
   }
@@ -1606,6 +1663,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           if (to == null || to.isEmpty) return;
           if (!ref.read(pilgrimProvider).sosActive) return;
           if (ref.read(callProvider).isInCall) return;
+          if (ref.read(callProvider).cooldownSeconds > 0) return;
           await ref.read(callProvider.notifier).startCall(
                 remoteUserId: to,
                 remoteUserName: 'call_support_display_name'.tr(),

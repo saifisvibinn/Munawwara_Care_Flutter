@@ -128,10 +128,10 @@ class PilgrimHomeTab extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10.r),
                     child: Image.asset(
-                      'assets/static/logo.jpeg',
+                      'assets/static/inapp_icon.png',
                       width: 34.w,
                       height: 34.w,
-                      fit: BoxFit.cover,
+                      fit: BoxFit.contain,
                     ),
                   ),
                   SizedBox(width: 10.w),

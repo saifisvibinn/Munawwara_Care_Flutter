@@ -30,6 +30,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../features/pilgrim/screens/group_inbox_screen.dart';
 import '../../features/moderator/screens/group_messages_screen.dart';
 import '../../features/moderator/services/sos_alert_coordinator.dart';
+import '../../features/pilgrim/services/pilgrim_sos_coordinator.dart';
 import '../../features/notifications/screens/alerts_tab_v2.dart';
 import '../../features/calling/calling_scope.dart';
 import '../../features/calling/data/call_history_api.dart';
@@ -334,7 +335,8 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   final handled = await CallKitService.handleFcmMessage(message);
   if (handled) {
     if (callControlType == 'call_cancel' ||
-        callControlType == 'call_declined') {
+        callControlType == 'call_declined' ||
+        callControlType == 'call_ended') {
       return;
     }
     // ── CRITICAL: Keep this isolate alive while the call is ringing ─────────
@@ -404,6 +406,10 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     await SosAlertCoordinator.handleCancelledFromMap(
       Map<String, dynamic>.from(message.data),
     );
+    return;
+  }
+  if (fcmType == 'sos_resolved') {
+    await PilgrimSosCoordinator.persistPendingModeratorResolved();
     return;
   }
 

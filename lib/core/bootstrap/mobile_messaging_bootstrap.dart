@@ -12,6 +12,9 @@ import '../../features/calling/calling_scope.dart';
 import '../../features/calling/native_call_coordinator.dart';
 import '../../features/moderator/models/sos_moderator_payload.dart';
 import '../../features/moderator/services/sos_alert_coordinator.dart';
+import '../../features/pilgrim/providers/pilgrim_provider.dart';
+import '../../features/pilgrim/services/pilgrim_sos_coordinator.dart';
+import '../../features/shared/helpers/message_visibility.dart';
 import '../../features/shared/providers/message_provider.dart';
 import '../../features/shared/services/message_realtime_binder.dart';
 import '../router/app_router.dart';
@@ -39,6 +42,16 @@ Future<void> refreshChatFromFcmData(Map<String, dynamic> data) async {
 
   final c = CallingScope.riverpod;
   if (c == null) return;
+
+  final myId = c.read(authProvider).userId ?? '';
+  final isModerator = c.read(authProvider).role?.toLowerCase() != 'pilgrim';
+  if (!isRawMessageVisibleToUser(
+    data,
+    myId,
+    isModerator: isModerator,
+  )) {
+    return;
+  }
 
   AppLogger.i(
     '[FCM] Foreground chat refresh for group=$groupId (socket fallback)',
@@ -137,7 +150,9 @@ Future<void> bindMobileMessagingServices() async {
       final dataType = msg.data['type']?.toString() ?? '';
       final callControlType = CallKitService.fcmCallControlType(msg.data);
       if (callControlType == 'call_declined' ||
-          callControlType == 'call_cancel') {
+          callControlType == 'call_cancel' ||
+          callControlType == 'call_ended' ||
+          callControlType == 'call_answered') {
         NativeCallCoordinator.handleForegroundCallControl(msg.data);
         return;
       }
@@ -178,6 +193,17 @@ Future<void> bindMobileMessagingServices() async {
         await SosAlertCoordinator.handleCancelledFromMap(
           Map<String, dynamic>.from(msg.data),
         );
+        return;
+      }
+      if (fcmType == 'sos_resolved') {
+        final c = CallingScope.riverpod;
+        final role = c?.read(authProvider).role?.toLowerCase() ?? '';
+        if (role == 'pilgrim') {
+          AppLogger.i('[FCM] sos_resolved — pilgrim help request closed');
+          await PilgrimSosCoordinator.persistPendingModeratorResolved();
+          c?.read(pilgrimProvider.notifier).cancelSOS();
+          PilgrimSosCoordinator.onModeratorResolvedUi?.call();
+        }
         return;
       }
       if (notifType == 'sos_alert') {

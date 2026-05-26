@@ -7,7 +7,9 @@ import '../../../core/services/app_data_cache.dart';
 import '../../../core/services/secure_session_store.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/route_id_utils.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../helpers/chat_popup_dedup.dart';
+import '../helpers/message_visibility.dart';
 import '../models/message_model.dart';
 
 /// Server may run translation + Cloud TTS before responding; avoid false
@@ -309,6 +311,16 @@ class MessageNotifier extends Notifier<MessageState> {
   /// Returns false when the message was already present or could not be parsed.
   bool appendMessage(Map<String, dynamic> json) {
     try {
+      final myId = ref.read(authProvider).userId ?? '';
+      final isModerator =
+          ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
+      if (!isRawMessageVisibleToUser(
+        json,
+        myId,
+        isModerator: isModerator,
+      )) {
+        return false;
+      }
       final msg = GroupMessage.fromJson(json);
       if (state.messages.any((m) => m.id == msg.id)) {
         return false;

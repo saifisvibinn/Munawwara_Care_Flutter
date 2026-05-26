@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_version_label.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/bootstrap/app_startup_coordinator.dart';
 import '../../../core/utils/app_logger.dart';
@@ -262,17 +263,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'splash_version'.tr().toUpperCase(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.5,
-                        color: isDark
-                            ? AppColors.textMutedDark
-                            : AppColors.textMutedLight,
-                      ),
+                    AppVersionLabel(
+                      textColor: isDark
+                          ? AppColors.textMutedDark
+                          : AppColors.textMutedLight,
+                      fontSize: 10,
                     ),
                     SizedBox(height: 12.h),
                     Container(

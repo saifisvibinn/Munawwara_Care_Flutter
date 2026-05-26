@@ -170,207 +170,212 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
     final showPeerName = displayName.isNotEmpty;
     final initials = showPeerName ? callPeerInitials(displayName) : '';
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: DecoratedBox(
-        decoration: BoxDecoration(gradient: c.backgroundGradient),
-        child: Stack(
-          children: [
-            Positioned(
-              top: -80.h,
-              right: -40.w,
-              child: _BlurOrb(
-                color: AppColors.primary.withValues(
-                  alpha: isDark ? 0.12 : 0.18,
+    final canPop = call.status == CallStatus.ended || call.status == CallStatus.idle;
+
+    return PopScope(
+      canPop: canPop,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: DecoratedBox(
+          decoration: BoxDecoration(gradient: c.backgroundGradient),
+          child: Stack(
+            children: [
+              Positioned(
+                top: -80.h,
+                right: -40.w,
+                child: _BlurOrb(
+                  color: AppColors.primary.withValues(
+                    alpha: isDark ? 0.12 : 0.18,
+                  ),
+                  size: 220,
                 ),
-                size: 220,
               ),
-            ),
-            Positioned(
-              bottom: 40.h,
-              left: -60.w,
-              child: _BlurOrb(
-                color: AppColors.accentGold.withValues(
-                  alpha: isDark ? 0.06 : 0.1,
+              Positioned(
+                bottom: 40.h,
+                left: -60.w,
+                child: _BlurOrb(
+                  color: AppColors.accentGold.withValues(
+                    alpha: isDark ? 0.06 : 0.1,
+                  ),
+                  size: 180,
                 ),
-                size: 180,
               ),
-            ),
-            SafeArea(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 20.w,
-                      vertical: 10.h,
-                    ),
-                    child: Center(
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 14.w,
-                          vertical: 8.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: c.chipFill,
-                          borderRadius: BorderRadius.circular(20.r),
-                          border: Border.all(color: c.chipBorder),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Symbols.wifi_calling_3,
-                              size: 17.sp,
-                              color: AppColors.primary,
-                            ),
-                            SizedBox(width: 8.w),
-                            Text(
-                              'call_internet'.tr(),
-                              style: TextStyle(
-                                color: c.textSecondary,
-                                fontSize: 12.sp,
-                                fontFamily: 'Lexend',
-                                fontWeight: FontWeight.w600,
+              SafeArea(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20.w,
+                        vertical: 10.h,
+                      ),
+                      child: Center(
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 14.w,
+                            vertical: 8.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: c.chipFill,
+                            borderRadius: BorderRadius.circular(20.r),
+                            border: Border.all(color: c.chipBorder),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Symbols.wifi_calling_3,
+                                size: 17.sp,
+                                color: AppColors.primary,
                               ),
-                            ),
-                          ],
+                              SizedBox(width: 8.w),
+                              Text(
+                                'call_internet'.tr(),
+                                style: TextStyle(
+                                  color: c.textSecondary,
+                                  fontSize: 12.sp,
+                                  fontFamily: 'Lexend',
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  SizedBox(height: 12.h),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        const Spacer(flex: 2),
-                        if (call.displayPeerAsSupportBranding)
-                          _SupportBrandingAvatar(palette: c)
-                        else if (call.isGroupRingingOut)
-                          _AvatarRing(initials: initials, palette: c)
-                        else
-                          _PilgrimPeerAvatar(
-                            gender: _cachedGender ?? call.remotePeerGender,
+                    SizedBox(height: 12.h),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Spacer(flex: 2),
+                          if (call.displayPeerAsSupportBranding)
+                            _SupportBrandingAvatar(palette: c)
+                          else if (call.isGroupRingingOut)
+                            _AvatarRing(initials: initials, palette: c)
+                          else
+                            _PilgrimPeerAvatar(
+                              gender: _cachedGender ?? call.remotePeerGender,
+                              palette: c,
+                            ),
+                          SizedBox(height: 22.h),
+                          Opacity(
+                            opacity: showPeerName ? 1 : 0,
+                            child: Text(
+                              showPeerName ? displayName : ' ',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 24.sp,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'Lexend',
+                                color: c.textPrimary,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 10.h),
+                          _StatusChip(
+                            call: call,
                             palette: c,
+                            endedMessage: call.status == CallStatus.ended
+                                ? _endReasonLabel(call.endReason)
+                                : null,
                           ),
-                        SizedBox(height: 22.h),
-                        Opacity(
-                          opacity: showPeerName ? 1 : 0,
-                          child: Text(
-                            showPeerName ? displayName : ' ',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 24.sp,
-                              fontWeight: FontWeight.w700,
-                              fontFamily: 'Lexend',
-                              color: c.textPrimary,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 10.h),
-                        _StatusChip(
-                          call: call,
-                          palette: c,
-                          endedMessage: call.status == CallStatus.ended
-                              ? _endReasonLabel(call.endReason)
-                              : null,
-                        ),
-                        const Spacer(flex: 3),
-                        if (call.status == CallStatus.calling ||
-                            call.status == CallStatus.ringing ||
-                            call.status == CallStatus.connecting ||
-                            call.status == CallStatus.connected) ...[
-                          Container(
-                            margin: EdgeInsets.symmetric(horizontal: 28.w),
-                            padding: EdgeInsets.symmetric(
-                              vertical: 18.h,
-                              horizontal: 12.w,
-                            ),
-                            decoration: BoxDecoration(
-                              color: c.panelFill,
-                              borderRadius: BorderRadius.circular(22.r),
-                              border: Border.all(color: c.panelBorder),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                _ControlTile(
-                                  icon: call.isMuted
-                                      ? Symbols.mic_off
-                                      : Symbols.mic,
-                                  label: call.isMuted
-                                      ? 'call_unmute'.tr()
-                                      : 'call_mute'.tr(),
-                                  active: call.isMuted,
-                                  palette: c,
-                                  onTap: () => ref
-                                      .read(callProvider.notifier)
-                                      .toggleMute(),
-                                ),
-                                _ControlTile(
-                                  icon: call.isSpeakerOn
-                                      ? Symbols.volume_up
-                                      : Symbols.hearing,
-                                  label: call.isSpeakerOn
-                                      ? 'call_speaker'.tr()
-                                      : 'call_earpiece'.tr(),
-                                  active: call.isSpeakerOn,
-                                  palette: c,
-                                  onTap: () => ref
-                                      .read(callProvider.notifier)
-                                      .toggleSpeaker(),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 28.h),
-                        ],
-                        if (call.status != CallStatus.ended) ...[
-                          GestureDetector(
-                            onTap: () {
-                              _queue.clear();
-                              final notifier = ref.read(callProvider.notifier);
-                              if (call.status == CallStatus.calling) {
-                                notifier.cancelOutgoingRing();
-                              } else if (call.status == CallStatus.ringing) {
-                                notifier.declineCall();
-                              } else {
-                                notifier.endCall();
-                              }
-                            },
-                            child: Container(
-                              width: 76.w,
-                              height: 76.w,
+                          const Spacer(flex: 3),
+                          if (call.status == CallStatus.calling ||
+                              call.status == CallStatus.ringing ||
+                              call.status == CallStatus.connecting ||
+                              call.status == CallStatus.connected) ...[
+                            Container(
+                              margin: EdgeInsets.symmetric(horizontal: 28.w),
+                              padding: EdgeInsets.symmetric(
+                                vertical: 18.h,
+                                horizontal: 12.w,
+                              ),
                               decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: AppColors.error,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.error.withValues(
-                                      alpha: 0.35,
-                                    ),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8),
+                                color: c.panelFill,
+                                borderRadius: BorderRadius.circular(22.r),
+                                border: Border.all(color: c.panelBorder),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  _ControlTile(
+                                    icon: call.isMuted
+                                        ? Symbols.mic_off
+                                        : Symbols.mic,
+                                    label: call.isMuted
+                                        ? 'call_unmute'.tr()
+                                        : 'call_mute'.tr(),
+                                    active: call.isMuted,
+                                    palette: c,
+                                    onTap: () => ref
+                                        .read(callProvider.notifier)
+                                        .toggleMute(),
+                                  ),
+                                  _ControlTile(
+                                    icon: call.isSpeakerOn
+                                        ? Symbols.volume_up
+                                        : Symbols.hearing,
+                                    label: call.isSpeakerOn
+                                        ? 'call_speaker'.tr()
+                                        : 'call_earpiece'.tr(),
+                                    active: call.isSpeakerOn,
+                                    palette: c,
+                                    onTap: () => ref
+                                        .read(callProvider.notifier)
+                                        .toggleSpeaker(),
                                   ),
                                 ],
                               ),
-                              child: Icon(
-                                Symbols.call_end,
-                                color: Colors.white,
-                                size: 34.sp,
-                                fill: 1,
+                            ),
+                            SizedBox(height: 28.h),
+                          ],
+                          if (call.status != CallStatus.ended) ...[
+                            GestureDetector(
+                              onTap: () {
+                                _queue.clear();
+                                final notifier = ref.read(callProvider.notifier);
+                                if (call.status == CallStatus.calling) {
+                                  notifier.cancelOutgoingRing();
+                                } else if (call.status == CallStatus.ringing) {
+                                  notifier.declineCall();
+                                } else {
+                                  notifier.endCall();
+                                }
+                              },
+                              child: Container(
+                                width: 76.w,
+                                height: 76.w,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.error,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.error.withValues(
+                                        alpha: 0.35,
+                                      ),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Symbols.call_end,
+                                  color: Colors.white,
+                                  size: 34.sp,
+                                  fill: 1,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
+                          SizedBox(height: 48.h),
                         ],
-                        SizedBox(height: 48.h),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -52,10 +52,17 @@ class CallKitService {
   /// FCM may send call control under [type] or [notification_type].
   static String? fcmCallControlType(Map<String, dynamic> data) {
     final type = data['type']?.toString() ?? '';
-    if (type == 'call_declined' || type == 'call_cancel') return type;
+    if (type == 'call_declined' ||
+        type == 'call_cancel' ||
+        type == 'call_ended' ||
+        type == 'call_answered') {
+      return type;
+    }
     final notificationType = data['notification_type']?.toString() ?? '';
     if (notificationType == 'call_declined' ||
-        notificationType == 'call_cancel') {
+        notificationType == 'call_cancel' ||
+        notificationType == 'call_ended' ||
+        notificationType == 'call_answered') {
       return notificationType;
     }
     return null;
@@ -731,6 +738,17 @@ class CallKitService {
         await CallKitService.instance.endCurrentCall();
       } catch (e) {
         AppLogger.e('📞 call_declined endCurrentCall failed: $e');
+      }
+      return true;
+    }
+
+    if (controlType == 'call_ended') {
+      AppLogger.i('📞 FCM call_ended detected — stopping active call');
+      await persistPendingOutgoingStop('ended');
+      try {
+        await CallKitService.instance.endCurrentCall();
+      } catch (e) {
+        AppLogger.e('📞 call_ended endCurrentCall failed: $e');
       }
       return true;
     }

@@ -138,6 +138,50 @@ class CallSignaling {
     AppLogger.e('[CallSignaling] HTTP call-cancel gave up: $lastError');
   }
 
+  /// Places outgoing 1:1 call on the server.
+  ///
+  /// [preferHttpOnly] — pilgrim SOS callback: always REST (socket may be ghost).
+  /// Otherwise socket when connected, REST when not.
+  static Future<String?> placeOutgoingOffer({
+    required String remoteUserId,
+    required String channelName,
+    bool preferHttpOnly = false,
+  }) async {
+    Future<String?> offerViaHttp() async {
+      try {
+        final resp = await ApiService.dio.post(
+          '/call-history/offer',
+          data: {
+            'to': remoteUserId,
+            'channelName': channelName,
+          },
+        );
+        final recordId = resp.data != null && resp.data is Map
+            ? resp.data['callRecordId']?.toString()
+            : null;
+        AppLogger.i(
+          '[CallSignaling] HTTP call-offer OK → $remoteUserId ($channelName) recordId=$recordId',
+        );
+        return recordId ?? "http_success";
+      } catch (e) {
+        AppLogger.e('[CallSignaling] HTTP call-offer failed: $e');
+        return null;
+      }
+    }
+
+    if (preferHttpOnly) {
+      return offerViaHttp();
+    }
+    if (!SocketService.isConnected) {
+      return offerViaHttp();
+    }
+    emitWhenConnected('call-offer', {
+      'to': remoteUserId,
+      'channelName': channelName,
+    });
+    return "socket";
+  }
+
   static Future<void> notifyGroupCancelHttp(
     String callerId, {
     String? callRecordId,

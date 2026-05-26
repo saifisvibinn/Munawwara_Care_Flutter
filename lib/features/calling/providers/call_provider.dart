@@ -144,6 +144,14 @@ class CallNotifier extends Notifier<CallState> {
 
   /// Resume reconcile must not tear down a call-offer still being registered.
   static const int _ghostReconcileOutgoingGraceSeconds = 20;
+
+  /// Ignore stale CallKit/FCM teardown right after placing an outgoing call.
+  static const int _outgoingCallKitGraceSeconds = 5;
+
+  /// Ring poll must see server `active` once, or wait this long, before ending.
+  static const int _ringPollInactiveGraceSeconds = 5;
+
+  bool _ringPollSawServerActive = false;
   static const int _ghostReconcileActiveRetries = 3;
   static const Duration _ghostReconcileRetryDelay =
       Duration(milliseconds: 400);
@@ -287,27 +295,56 @@ class CallNotifier extends Notifier<CallState> {
       final channelName = 'call_${DateTime.now().millisecondsSinceEpoch}';
       _outgoingChannelName = channelName;
       AppLogger.i(
-        '[CallProvider] → Emitting call-offer to $remoteUserId on $channelName',
+        '[CallProvider] → Placing call-offer to $remoteUserId on $channelName',
       );
-      CallSignaling.emitWhenConnected('call-offer', {
-        'to': remoteUserId,
-        'channelName': channelName,
-      });
+      final placedResult = await CallSignaling.placeOutgoingOffer(
+        remoteUserId: remoteUserId,
+        channelName: channelName,
+        preferHttpOnly: isPilgrimCaller,
+      );
+      if (placedResult == null) {
+        AppLogger.e(
+          '[CallProvider] call-offer failed (HTTP + socket unavailable)',
+        );
+        await forceIdleCallSession(endReason: 'error');
+        return;
+      }
+      final callRecordId = (placedResult == 'socket' || placedResult == 'http_success')
+          ? null
+          : placedResult;
       if (!isPilgrimCaller) {
         unawaited(SosAlertCoordinator.afterModeratorPlacedCall(remoteUserId));
       }
       // Start polling so we detect decline even when the pilgrim's app is killed
       // and the HTTP decline from the background isolate fails for any reason.
-      _startRingPoll(remoteUserId);
+      _startRingPoll(remoteUserId, callRecordId: callRecordId);
       _startSessionWatchdog();
     } catch (e) {
       await forceIdleCallSession(endReason: 'error');
     }
   }
 
+  /// Stale native/FCM events from a prior incoming ring must not tear down a
+  /// new SOS callback placed seconds ago.
+  bool shouldIgnoreStaleCallKitTeardown() {
+    if (state.status != CallStatus.calling) return false;
+    final started = _outgoingCallStartedAt;
+    if (started == null) return false;
+    return DateTime.now().difference(started) <
+        const Duration(seconds: _outgoingCallKitGraceSeconds);
+  }
+
+  /// Stale `call_declined` / `call_cancel` FCM from the previous leg.
+  bool shouldIgnoreStaleCallControlFcm(String? dataType) {
+    if (state.status != CallStatus.calling) return false;
+    if (dataType == 'call_ended') return false;
+    return shouldIgnoreStaleCallKitTeardown();
+  }
+
   // ── Ring poll: moderator polls backend every 3 s while outgoing call rings ──
-  void _startRingPoll(String remoteUserId) {
+  void _startRingPoll(String remoteUserId, {String? callRecordId}) {
     _stopRingPoll();
+    _ringPollSawServerActive = false;
     // Capture the caller's own user ID from SharedPreferences for the query.
     // The endpoint expects callerId = the person WHO INITIATED the call.
     _ringPollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
@@ -321,11 +358,28 @@ class CallNotifier extends Notifier<CallState> {
         if (myId == null) return;
         final resp = await ApiService.dio.get(
           '/call-history/check-active',
-          queryParameters: {'callerId': myId},
+          queryParameters: {
+            'callerId': myId,
+            if (callRecordId != null && callRecordId.isNotEmpty) 'callRecordId': callRecordId,
+          },
         );
         final active = resp.data['active'] as bool? ?? false;
         final status = resp.data['status']?.toString() ?? 'none';
         AppLogger.d('[RingPoll] active=$active status=$status myId=$myId');
+        if (active) {
+          _ringPollSawServerActive = true;
+          return;
+        }
+        final started = _outgoingCallStartedAt;
+        final withinGrace = started != null &&
+            DateTime.now().difference(started) <
+                const Duration(seconds: _ringPollInactiveGraceSeconds);
+        if (!_ringPollSawServerActive && withinGrace) {
+          AppLogger.d(
+            '[RingPoll] Server inactive during grace — waiting for call row',
+          );
+          return;
+        }
         // If the call is no longer ringing/in-progress on the backend, treat it
         // as declined (covers killed-app decline + timeout).
         if (!active && state.status == CallStatus.calling) {
@@ -455,6 +509,15 @@ class CallNotifier extends Notifier<CallState> {
   Future<bool> prepareForOutgoingCall() async {
     if (_outgoingCleanupInFlight != null) {
       await _outgoingCleanupInFlight;
+    }
+
+    clearQueuedNativeDecline();
+    await CallKitService.consumePendingOutgoingStop();
+    try {
+      await CallKitService.instance.endAllCalls();
+      await CallKitService.instance.clearLocalCallTracking();
+    } catch (e) {
+      AppLogger.w('[CallProvider] prepareForOutgoing CallKit cleanup: $e');
     }
 
     CallSignaling.clearPendingOutgoingEmits();
@@ -630,31 +693,39 @@ class CallNotifier extends Notifier<CallState> {
     }
   }
 
+  /// Best-effort peer id for signaling when [CallState.remoteUserId] was cleared.
+  Future<String?> _resolveRemotePeerId() async {
+    final fromState = state.remoteUserId;
+    if (fromState != null && fromState.isNotEmpty) return fromState;
+    final pending = _pendingFromId;
+    if (pending != null && pending.isNotEmpty) return pending;
+    return _readPersistedOutgoingReceiverId();
+  }
+
   /// Decline an incoming call.
   void declineCall() {
-    final remoteId = state.remoteUserId;
-    if (remoteId != null) {
-      CallSignaling.emitWhenConnected('call-declined', {'to': remoteId});
-      CallSignaling.notifyDeclineHttp(remoteId, SocketService.connectedUserId);
-    }
-    unawaited(forceIdleCallSession(endReason: 'declined'));
+    unawaited(_declineCallInternal(noAnswer: false));
   }
 
   /// Incoming ring timed out (CallKit) — server records **missed**, not declined.
   void declineCallAsNoAnswer() {
-    final remoteId = state.remoteUserId;
-    if (remoteId != null) {
+    unawaited(_declineCallInternal(noAnswer: true));
+  }
+
+  Future<void> _declineCallInternal({required bool noAnswer}) async {
+    final remoteId = await _resolveRemotePeerId();
+    if (remoteId != null && remoteId.isNotEmpty) {
       CallSignaling.emitWhenConnected('call-declined', {
         'to': remoteId,
-        'noAnswer': true,
+        if (noAnswer) 'noAnswer': true,
       });
       CallSignaling.notifyDeclineHttp(
         remoteId,
         SocketService.connectedUserId,
-        noAnswer: true,
+        noAnswer: noAnswer,
       );
     }
-    unawaited(forceIdleCallSession(endReason: 'missed'));
+    await forceIdleCallSession(endReason: noAnswer ? 'missed' : 'declined');
   }
 
   /// Decline a call when we only have the caller id (killed-state fallback).
@@ -678,12 +749,15 @@ class CallNotifier extends Notifier<CallState> {
 
   /// End an in-progress call.
   void endCall() {
+    unawaited(_endCallInternal());
+  }
+
+  Future<void> _endCallInternal() async {
     _stopRingPoll();
-    final remoteId = state.remoteUserId;
-    if (remoteId != null) {
+    final remoteId = await _resolveRemotePeerId();
+    if (remoteId != null && remoteId.isNotEmpty) {
       CallSignaling.emitWhenConnected('call-end', {'to': remoteId});
     }
-    // If moderator ended an active call, signal "responding" to the pilgrim
     final isMod = ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
     final wasActive =
         state.status == CallStatus.connected ||
@@ -691,7 +765,7 @@ class CallNotifier extends Notifier<CallState> {
     if (isMod && wasActive && remoteId != null && remoteId.isNotEmpty) {
       unawaited(SosAlertCoordinator.afterModeratorEndedCall(remoteId));
     }
-    unawaited(forceIdleCallSession(endReason: 'ended'));
+    await forceIdleCallSession(endReason: 'ended');
   }
 
   /// Caller cancelled while still ringing — notify callee only via `call-cancel`.
@@ -822,12 +896,19 @@ class CallNotifier extends Notifier<CallState> {
 
   Future<void> checkPendingDeclinedCall() async {
     final pending = consumePendingDeclined();
-    if (pending != null && pending.callerId.isNotEmpty) {
-      AppLogger.i(
-        '[CallProvider] Found pending declined call for caller=${pending.callerId} noAnswer=${pending.noAnswer}',
+    if (pending == null || pending.callerId.isEmpty) return;
+    if (state.isInCall) {
+      AppLogger.w(
+        '[CallProvider] Dropping queued native decline while in-call '
+        '(caller=${pending.callerId})',
       );
-      declineCallFromCallerId(pending.callerId, noAnswer: pending.noAnswer);
+      return;
     }
+    AppLogger.i(
+      '[CallProvider] Found pending declined call for caller=${pending.callerId} '
+      'noAnswer=${pending.noAnswer}',
+    );
+    declineCallFromCallerId(pending.callerId, noAnswer: pending.noAnswer);
   }
 
   /// Reconcile native / persisted call state after the process was killed.
@@ -902,6 +983,12 @@ class CallNotifier extends Notifier<CallState> {
     final on = !state.isSpeakerOn;
     state = state.copyWith(isSpeakerOn: on);
     await AgoraRtcService.instance.setSpeakerOn(on);
+  }
+
+  /// Public wrapper to handle incoming answered events from the FCM fallback path.
+  void handleFcmCallAnswered({String? answererId, String? callRecordId}) {
+    AppLogger.i('[CallProvider] handleFcmCallAnswered: answerer=$answererId record=$callRecordId');
+    _onAnswer({'from': answererId});
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -1110,6 +1197,13 @@ class CallNotifier extends Notifier<CallState> {
     if (!callerStillActive) {
       return true;
     }
+    final peerId = state.remoteUserId ?? _pendingFromId ?? '';
+    if ((state.status == CallStatus.calling ||
+            state.status == CallStatus.ringing) &&
+        peerId.isNotEmpty &&
+        peerId == callerId) {
+      return true;
+    }
     return false;
   }
 
@@ -1259,6 +1353,9 @@ class CallNotifier extends Notifier<CallState> {
     }
 
     var to = remoteId;
+    if (to == null || to.isEmpty) {
+      to = _pendingFromId;
+    }
     if (to == null || to.isEmpty) {
       to = await _readPersistedOutgoingReceiverId();
     }

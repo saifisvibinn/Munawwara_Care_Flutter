@@ -8,8 +8,8 @@ import 'screens/voice_call_screen.dart';
 ///
 /// Returns the push [Future] when navigation starts, or `null` if skipped or
 /// no [Navigator] is available.
-Future<void>? openVoiceCallScreen({BuildContext? context}) {
-  if (VoiceCallScreen.isActive || isNavigatingToCall) {
+Future<void>? openVoiceCallScreen({BuildContext? context, bool bypassNavigatingGuard = false}) {
+  if (VoiceCallScreen.isActive || (isNavigatingToCall && !bypassNavigatingGuard)) {
     return null;
   }
   final NavigatorState? nav = context != null
