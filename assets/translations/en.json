@@ -1108,5 +1108,6 @@
   "report_description": "Provide details about the issue...",
   "report_submit_success": "Report submitted successfully!",
   "btn_submit": "Submit",
-  "error_general": "An error occurred. Please try again."
+  "error_general": "An error occurred. Please try again.",
+  "rate_already_submitted_today": "You have already rated the app today. Thank you for your support!"
 }

@@ -1117,5 +1117,6 @@
   "report_description": "Berikan detail tentang masalah...",
   "report_submit_success": "Laporan berhasil dikirim!",
   "btn_submit": "Kirim",
-  "error_general": "Terjadi kesalahan. Silakan coba lagi."
+  "error_general": "Terjadi kesalahan. Silakan coba lagi.",
+  "rate_already_submitted_today": "Anda sudah menilai aplikasi hari ini. Terima kasih atas dukungan Anda!"
 }

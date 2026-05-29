@@ -1116,5 +1116,6 @@
   "report_description": "يرجى تقديم تفاصيل عن المشكلة...",
   "report_submit_success": "تم تقديم البلاغ بنجاح!",
   "btn_submit": "إرسال",
-  "error_general": "حدث خطأ. يرجى المحاولة مرة أخرى."
+  "error_general": "حدث خطأ. يرجى المحاولة مرة أخرى.",
+  "rate_already_submitted_today": "لقد قمت بتقييم التطبيق اليوم بالفعل. شكراً لدعمك!"
 }

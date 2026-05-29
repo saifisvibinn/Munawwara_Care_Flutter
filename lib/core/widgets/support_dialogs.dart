@@ -11,6 +11,7 @@ class SupportDialogs {
 
   static const String _keyHasRated = 'support_has_rated';
   static const String _keyLastPromptTime = 'support_last_rate_prompt_time';
+  static const String _keyLastSubmitTime = 'support_last_submit_rating_time';
 
   /// Check if the contextual rating dialog should be shown.
   static Future<bool> shouldShowContextualRating() async {
@@ -37,6 +38,24 @@ class SupportDialogs {
     }
   }
 
+  /// Check if the user is allowed to rate manually (limit to once every 24 hours).
+  static Future<bool> canRateManually() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastSubmitMillis = prefs.getInt(_keyLastSubmitTime) ?? 0;
+      if (lastSubmitMillis > 0) {
+        final lastSubmit = DateTime.fromMillisecondsSinceEpoch(lastSubmitMillis);
+        final difference = DateTime.now().difference(lastSubmit);
+        if (difference.inHours < 24) {
+          return false;
+        }
+      }
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+
   /// Mark that a rating prompt has occurred just now (for cooldown).
   static Future<void> markRatingPrompted() async {
     try {
@@ -53,11 +72,31 @@ class SupportDialogs {
     } catch (_) {}
   }
 
+  /// Mark that the user has submitted a rating just now.
+  static Future<void> markRatingSubmitted() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_keyLastSubmitTime, DateTime.now().millisecondsSinceEpoch);
+    } catch (_) {}
+  }
+
   static void showRating(BuildContext context, {bool isContextual = false}) async {
     if (isContextual) {
       final shouldShow = await shouldShowContextualRating();
       if (!shouldShow) return;
       await markRatingPrompted();
+    } else {
+      // Manual trigger: limit to once every 24 hours
+      final canRate = await canRateManually();
+      if (!canRate) {
+        if (context.mounted) {
+          StandardSnackBar.showWarning(
+            context,
+            'rate_already_submitted_today'.tr(),
+          );
+        }
+        return;
+      }
     }
 
     if (!context.mounted) return;
@@ -123,6 +162,7 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
 
       // Mark the user as having successfully rated so they don't get contextual prompts anymore
       await SupportDialogs.markHasRated();
+      await SupportDialogs.markRatingSubmitted();
 
       if (mounted) {
         Navigator.pop(context);

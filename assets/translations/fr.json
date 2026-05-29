@@ -1117,5 +1117,6 @@
   "report_description": "Fournissez des détails sur le problème...",
   "report_submit_success": "Rapport soumis avec succès !",
   "btn_submit": "Soumettre",
-  "error_general": "Une erreur est survenue. Veuillez réessayer."
+  "error_general": "Une erreur est survenue. Veuillez réessayer.",
+  "rate_already_submitted_today": "Vous avez déjà évalué l'application aujourd'hui. Merci pour votre soutien !"
 }

@@ -1117,5 +1117,6 @@
   "report_description": "Sorunla ilgili ayrıntıları sağlayın...",
   "report_submit_success": "Rapor başarıyla gönderildi!",
   "btn_submit": "Gönder",
-  "error_general": "Bir hata oluştu. Lütfen tekrar deneyin."
+  "error_general": "Bir hata oluştu. Lütfen tekrar deneyin.",
+  "rate_already_submitted_today": "Uygulamayı bugün zaten değerlendirdiniz. Desteğiniz için teşekkür ederiz!"
 }

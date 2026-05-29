@@ -7,6 +7,7 @@ import '../../../core/config/legal_config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_version_label.dart';
 import '../../../core/widgets/custom_dialog.dart';
+import '../../../core/widgets/support_dialogs.dart';
 
 /// App info, version, support, and account-deletion entry points.
 class AboutScreen extends StatelessWidget {
@@ -109,6 +110,30 @@ class AboutScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
+                  _AboutRow(
+                    icon: Icons.report_problem_outlined,
+                    label: 'settings_report_issue'.tr(),
+                    textPrimary: textPrimary,
+                    textMuted: textMuted,
+                    onTap: () => SupportDialogs.showReport(context),
+                  ),
+                  _DividerLine(color: dividerColor),
+                  _AboutRow(
+                    icon: Icons.rate_review_outlined,
+                    label: 'settings_send_feedback'.tr(),
+                    textPrimary: textPrimary,
+                    textMuted: textMuted,
+                    onTap: () => SupportDialogs.showFeedback(context),
+                  ),
+                  _DividerLine(color: dividerColor),
+                  _AboutRow(
+                    icon: Icons.star_rate_rounded,
+                    label: 'settings_rate_app'.tr(),
+                    textPrimary: textPrimary,
+                    textMuted: textMuted,
+                    onTap: () => SupportDialogs.showRating(context),
+                  ),
+                  _DividerLine(color: dividerColor),
                   _AboutRow(
                     icon: Icons.mail_outline_rounded,
                     label: 'legal_contact_support'.tr(),
