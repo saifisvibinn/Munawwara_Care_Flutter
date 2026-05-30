@@ -135,6 +135,14 @@ class AboutScreen extends StatelessWidget {
                   ),
                   _DividerLine(color: dividerColor),
                   _AboutRow(
+                    icon: Icons.help_outline_rounded,
+                    label: 'settings_faq'.tr(),
+                    textPrimary: textPrimary,
+                    textMuted: textMuted,
+                    onTap: () => context.push('/faq'),
+                  ),
+                  _DividerLine(color: dividerColor),
+                  _AboutRow(
                     icon: Icons.mail_outline_rounded,
                     label: 'legal_contact_support'.tr(),
                     textPrimary: textPrimary,

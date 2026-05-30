@@ -11,6 +11,7 @@ import '../../features/legal/screens/privacy_policy_screen.dart';
 import '../../features/legal/data/support_api.dart';
 import '../../features/legal/screens/about_screen.dart';
 import '../../features/legal/screens/contact_support_screen.dart';
+import '../../features/legal/screens/faq_screen.dart';
 
 class AppRouter {
   /// Global navigator key — used by CallKit accept handler to push
@@ -68,6 +69,11 @@ class AppRouter {
           final showDeletion = state.extra as bool? ?? true;
           return AboutScreen(showAccountDeletion: showDeletion);
         },
+      ),
+      GoRoute(
+        path: '/faq',
+        name: 'faq',
+        builder: (context, state) => const FaqScreen(),
       ),
       GoRoute(
         path: '/contact-support',
