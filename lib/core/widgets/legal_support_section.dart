@@ -5,7 +5,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/app_colors.dart';
-import 'support_dialogs.dart';
 
 /// Privacy policy and About entry for profile settings.
 class LegalSupportSection extends ConsumerWidget {

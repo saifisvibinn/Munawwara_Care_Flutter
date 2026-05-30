@@ -1,8 +1,7 @@
 <#
 .SYNOPSIS
-    Automates the process of cleaning, building a release App Bundle (AAB),
-    a release APK, copying them to the Desktop as Munawwara-Care.aab and
-    Munawwara-Care.apk, and displaying their SHA-1 keys.
+    Automates the process of cleaning (optional), building a release/debug APK/AAB (optional),
+    copying them to the Desktop, and optionally deploying to connected devices.
 .EXAMPLE
     .\build_and_export.ps1
 #>
@@ -24,6 +23,49 @@ if (Test-Path (Join-Path $ROOT_DIR "Munawwara_Care_Flutter")) {
     Fail "Could not find Flutter project directory. Please run this script from the workspace root or the Munawwara_Care_Flutter directory."
 }
 
+# 1.5 Interactive Configuration (Optimized for 8GB RAM performance)
+Write-Host "`n================================================================" -ForegroundColor Cyan
+Write-Host "            FLUTTER BUILD OPTIMIZATION MENU (8GB RAM)" -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
+Write-Host "Select build target:" -ForegroundColor White
+Write-Host "  [1] Release APK - arm64 only (Small ~90MB, recommended for testing)" -ForegroundColor White
+Write-Host "  [2] Release APK - Fat (~297MB, works on all devices)" -ForegroundColor White
+Write-Host "  [3] Release AAB only (For Play Store release upload)" -ForegroundColor White
+Write-Host "  [4] Both Release APK (Fat) & AAB" -ForegroundColor White
+Write-Host "  [5] Debug APK - arm64 only (Fastest build - recommended for quick local testing)" -ForegroundColor White
+$choice = Read-Host "Enter option [1-5] (Default: 1)"
+
+$buildMode = "release"
+$targetPlatform = $null
+if ($choice -eq "2") {
+    $buildApk = $true
+    $buildAab = $false
+} elseif ($choice -eq "3") {
+    $buildApk = $false
+    $buildAab = $true
+} elseif ($choice -eq "4") {
+    $buildApk = $true
+    $buildAab = $true
+} elseif ($choice -eq "5") {
+    $buildApk = $true
+    $buildAab = $false
+    $buildMode = "debug"
+    $targetPlatform = "android-arm64"
+} else {
+    # Option 1 (Default): Release APK - arm64 only
+    $buildApk = $true
+    $buildAab = $false
+    $targetPlatform = "android-arm64"
+}
+
+$cleanChoice = Read-Host "Do you want to perform a clean build? (y/N) (Default: N - recommended for fast build)"
+if ($cleanChoice -eq "y" -or $cleanChoice -eq "yes") {
+    $cleanBuild = $true
+} else {
+    $cleanBuild = $false
+}
+Write-Host "================================================================" -ForegroundColor Cyan
+
 # 2. Tool checks
 Step "Checking tools..."
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
@@ -31,34 +73,39 @@ if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
 }
 Good "Flutter found"
 
-# 3. Clean
-Step "Cleaning previous build files and caches..."
-$gradlew = Join-Path $FLUTTER_DIR "android\gradlew.bat"
-if (Test-Path $gradlew) {
-    Step "Stopping Gradle daemons to release file locks..."
-    & $gradlew -p (Join-Path $FLUTTER_DIR "android") --stop 2>&1 | Out-Null
-    Good "Gradle daemons stopped"
-}
+# 3. Clean (Optional)
+if ($cleanBuild) {
+    Step "Cleaning previous build files and caches..."
+    $gradlew = Join-Path $FLUTTER_DIR "android\gradlew.bat"
+    if (Test-Path $gradlew) {
+        Step "Stopping Gradle daemons to release file locks..."
+        & $gradlew -p (Join-Path $FLUTTER_DIR "android") --stop 2>&1 | Out-Null
+        Good "Gradle daemons stopped"
+    }
 
-# Kill any java processes holding lint-cache locks to prevent building errors
-Get-Process -Name "java" -ErrorAction SilentlyContinue | Where-Object {
-    $_.Path -like "*gradle*" -or $_.MainWindowTitle -eq ""
-} | Stop-Process -Force -ErrorAction SilentlyContinue
+    # Kill any java processes holding lint-cache locks to prevent building errors
+    Get-Process -Name "java" -ErrorAction SilentlyContinue | Where-Object {
+        $_.Path -like "*gradle*" -or $_.MainWindowTitle -eq ""
+    } | Stop-Process -Force -ErrorAction SilentlyContinue
 
-# Remove build directory manually for a fresh start
-$buildDir = Join-Path $FLUTTER_DIR "build"
-if (Test-Path $buildDir) {
-    Remove-Item -Recurse -Force $buildDir -ErrorAction SilentlyContinue
-}
-$androidGradleDir = Join-Path $FLUTTER_DIR "android\.gradle"
-if (Test-Path $androidGradleDir) {
-    Remove-Item -Recurse -Force $androidGradleDir -ErrorAction SilentlyContinue
-}
+    # Remove build directory manually for a fresh start
+    $buildDir = Join-Path $FLUTTER_DIR "build"
+    if (Test-Path $buildDir) {
+        Remove-Item -Recurse -Force $buildDir -ErrorAction SilentlyContinue
+    }
+    $androidGradleDir = Join-Path $FLUTTER_DIR "android\.gradle"
+    if (Test-Path $androidGradleDir) {
+        Remove-Item -Recurse -Force $androidGradleDir -ErrorAction SilentlyContinue
+    }
 
-# Run flutter clean
-Set-Location $FLUTTER_DIR
-flutter clean
-Good "Clean complete"
+    # Run flutter clean
+    Set-Location $FLUTTER_DIR
+    flutter clean
+    Good "Clean complete"
+} else {
+    Step "Skipping clean (reusing caches to save CPU & RAM)..."
+    Set-Location $FLUTTER_DIR
+}
 
 # 4. Fetch Dependencies
 Step "Fetching dependencies..."
@@ -66,7 +113,7 @@ flutter pub get
 if ($LASTEXITCODE -ne 0) { Fail "flutter pub get failed" }
 Good "Dependencies synced successfully"
 
-# 4b. Warn if .env uses a LAN backend (calls/API fail off Wi-Fi)
+# 4b. Warn if .env uses a LAN backend
 $envFile = Join-Path $FLUTTER_DIR ".env"
 if (Test-Path $envFile) {
     $apiLine = Get-Content $envFile | Where-Object {
@@ -86,20 +133,30 @@ if (Test-Path $pubspecPath) {
 }
 
 # 5. Build AAB (App Bundle)
-Step "Building release App Bundle (AAB)..."
-flutter build appbundle --release
-if ($LASTEXITCODE -ne 0) { Fail "Flutter AAB build failed" }
-$AAB_SOURCE = Join-Path $FLUTTER_DIR "build\app\outputs\bundle\release\app-release.aab"
-if (-not (Test-Path $AAB_SOURCE)) { Fail "AAB not found at: $AAB_SOURCE" }
-Good "App Bundle built successfully"
+$AAB_SOURCE = $null
+if ($buildAab) {
+    Step "Building release App Bundle (AAB)..."
+    flutter build appbundle --release
+    if ($LASTEXITCODE -ne 0) { Fail "Flutter AAB build failed" }
+    $AAB_SOURCE = Join-Path $FLUTTER_DIR "build\app\outputs\bundle\release\app-release.aab"
+    if (-not (Test-Path $AAB_SOURCE)) { Fail "AAB not found at: $AAB_SOURCE" }
+    Good "App Bundle built successfully"
+}
 
 # 6. Build APK
-Step "Building release APK..."
-flutter build apk --release
-if ($LASTEXITCODE -ne 0) { Fail "Flutter APK build failed" }
-$APK_SOURCE = Join-Path $FLUTTER_DIR "build\app\outputs\flutter-apk\app-release.apk"
-if (-not (Test-Path $APK_SOURCE)) { Fail "APK not found at: $APK_SOURCE" }
-Good "APK built successfully"
+$APK_SOURCE = $null
+if ($buildApk) {
+    Step "Building $buildMode APK..."
+    if ($targetPlatform) {
+        flutter build apk --$buildMode --target-platform $targetPlatform
+    } else {
+        flutter build apk --$buildMode
+    }
+    if ($LASTEXITCODE -ne 0) { Fail "Flutter APK build failed" }
+    $APK_SOURCE = Join-Path $FLUTTER_DIR "build\app\outputs\flutter-apk\app-$buildMode.apk"
+    if (-not (Test-Path $APK_SOURCE)) { Fail "APK not found at: $APK_SOURCE" }
+    Good "APK built successfully"
+}
 
 # 7. Export to Desktop
 Step "Exporting artifacts to Desktop..."
@@ -109,28 +166,90 @@ if (-not $DesktopPath) {
 }
 
 $AAB_DEST = Join-Path $DesktopPath "Munawwara-Care.aab"
-$APK_DEST = Join-Path $DesktopPath "Munawwara-Care.apk"
-
-Copy-Item -Path $AAB_SOURCE -Destination $AAB_DEST -Force
-if (Test-Path $AAB_DEST) {
-    Good "Copied AAB to Desktop: $AAB_DEST"
+$APK_DEST = if ($buildMode -eq "debug") {
+    if ($targetPlatform -eq "android-arm64") {
+        Join-Path $DesktopPath "Munawwara-Care-Debug-arm64.apk"
+    } else {
+        Join-Path $DesktopPath "Munawwara-Care-Debug.apk"
+    }
 } else {
-    Fail "Failed to copy AAB to Desktop"
+    if ($targetPlatform -eq "android-arm64") {
+        Join-Path $DesktopPath "Munawwara-Care-arm64.apk"
+    } else {
+        Join-Path $DesktopPath "Munawwara-Care.apk"
+    }
 }
 
-Copy-Item -Path $APK_SOURCE -Destination $APK_DEST -Force
-if (Test-Path $APK_DEST) {
-    Good "Copied APK to Desktop: $APK_DEST"
-} else {
-    Fail "Failed to copy APK to Desktop"
+if ($buildAab -and (Test-Path $AAB_SOURCE)) {
+    Copy-Item -Path $AAB_SOURCE -Destination $AAB_DEST -Force
+    if (Test-Path $AAB_DEST) {
+        Good "Copied AAB to Desktop: $AAB_DEST"
+    } else {
+        Fail "Failed to copy AAB to Desktop"
+    }
+}
+
+if ($buildApk -and (Test-Path $APK_SOURCE)) {
+    Copy-Item -Path $APK_SOURCE -Destination $APK_DEST -Force
+    if (Test-Path $APK_DEST) {
+        Good "Copied APK to Desktop: $APK_DEST"
+    } else {
+        Fail "Failed to copy APK to Desktop"
+    }
+}
+
+# 7.5 Optional Deployment to Connected Devices
+if ($buildApk -and (Get-Command adb -ErrorAction SilentlyContinue)) {
+    $adbOut = adb devices 2>&1
+    $deviceLines = $adbOut | Select-String -Pattern "^\S+\s+device$"
+    if ($deviceLines.Count -gt 0) {
+        $deviceIds = @($deviceLines | ForEach-Object { ($_ -split "\s+")[0] })
+        Write-Host ""
+        $deployChoice = Read-Host "Found $($deviceIds.Count) connected device(s). Do you want to deploy and launch the APK? (y/N)"
+        if ($deployChoice -eq "y" -or $deployChoice -eq "yes") {
+            $APP_ID = "com.munawwaracare.android"
+            foreach ($device in $deviceIds) {
+                Step "[$device] Uninstalling old version..."
+                adb -s $device uninstall $APP_ID 2>&1 | Out-Null
+                
+                Step "[$device] Installing APK..."
+                adb -s $device install -r -d $APK_DEST
+                if ($LASTEXITCODE -eq 0) {
+                    Good "[$device] Install successful"
+                    
+                    Step "[$device] Granting permissions..."
+                    $perms = @(
+                        "android.permission.RECORD_AUDIO",
+                        "android.permission.POST_NOTIFICATIONS",
+                        "android.permission.READ_PHONE_STATE",
+                        "android.permission.USE_FULL_SCREEN_INTENT"
+                    )
+                    foreach ($perm in $perms) {
+                        adb -s $device shell pm grant $APP_ID $perm 2>&1 | Out-Null
+                    }
+                    
+                    Step "[$device] Launching app..."
+                    adb -s $device shell monkey -p $APP_ID -c android.intent.category.LAUNCHER 1 2>&1 | Out-Null
+                    Good "[$device] App launched"
+                } else {
+                    Warn "[$device] Install failed"
+                }
+            }
+        }
+    }
 }
 
 # 8. SHA-1 Fingerprint & File Hash Extraction
 Step "Extracting SHA-1 keys and file hashes..."
 
-# Compute File Hashing
-$apkFileHash = (Get-FileHash -Path $APK_DEST -Algorithm SHA1).Hash.ToLower()
-$aabFileHash = (Get-FileHash -Path $AAB_DEST -Algorithm SHA1).Hash.ToLower()
+$apkFileHash = ""
+$aabFileHash = ""
+if ($buildApk -and (Test-Path $APK_DEST)) {
+    $apkFileHash = (Get-FileHash -Path $APK_DEST -Algorithm SHA1).Hash.ToLower()
+}
+if ($buildAab -and (Test-Path $AAB_DEST)) {
+    $aabFileHash = (Get-FileHash -Path $AAB_DEST -Algorithm SHA1).Hash.ToLower()
+}
 
 # Extract Keystore details from key.properties
 $keyPropsPath = Join-Path $FLUTTER_DIR "android\key.properties"
@@ -218,8 +337,8 @@ Write-Host "`n================================================================" 
 Write-Host " BUILD AND EXPORT SUMMARY" -ForegroundColor Green
 Write-Host "================================================================" -ForegroundColor Green
 Write-Host "Artifacts copied to your Desktop:"
-Write-Host "  * Munawwara-Care.aab" -ForegroundColor White
-Write-Host "  * Munawwara-Care.apk" -ForegroundColor White
+if ($buildAab -and (Test-Path $AAB_DEST)) { Write-Host "  * Munawwara-Care.aab" -ForegroundColor White }
+if ($buildApk -and (Test-Path $APK_DEST)) { Write-Host "  * $(Split-Path $APK_DEST -Leaf)" -ForegroundColor White }
 Write-Host ""
 
 if ($sha1Fingerprint) {
@@ -233,6 +352,6 @@ if ($sha1Fingerprint) {
 
 Write-Host "FILE HASHES (SHA-1)" -ForegroundColor Green
 Write-Host "  (Used for checking file integrity / download verification)"
-Write-Host "  Munawwara-Care.apk: $apkFileHash" -ForegroundColor Yellow
-Write-Host "  Munawwara-Care.aab: $aabFileHash" -ForegroundColor Yellow
+if ($buildApk -and (Test-Path $APK_DEST)) { Write-Host "  $(Split-Path $APK_DEST -Leaf): $apkFileHash" -ForegroundColor Yellow }
+if ($buildAab -and (Test-Path $AAB_DEST)) { Write-Host "  Munawwara-Care.aab: $aabFileHash" -ForegroundColor Yellow }
 Write-Host "================================================================" -ForegroundColor Green
