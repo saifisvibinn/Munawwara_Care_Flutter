@@ -305,6 +305,23 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                   value: pilgrim.visaNumber ?? 'profile_not_provided'.tr(),
                   isDark: isDark,
                 ),
+                _ProfileInfoRow(
+                  icon: Symbols.tag,
+                  label: 'Tashera Number',
+                  value: pilgrim.tasheraNumber ?? 'profile_not_provided'.tr(),
+                  isDark: isDark,
+                ),
+
+                SizedBox(height: 24.h),
+
+                // Insurance Details
+                _SectionTitle(title: 'Insurance Details', isDark: isDark),
+                _ProfileInfoRow(
+                  icon: Symbols.health_and_safety,
+                  label: 'Insurance Company',
+                  value: pilgrim.insuranceCompany?.name ?? 'profile_not_provided'.tr(),
+                  isDark: isDark,
+                ),
 
                 SizedBox(height: 24.h),
 
@@ -343,6 +360,12 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                   icon: Symbols.badge,
                   label: 'profile_national_id'.tr(),
                   value: pilgrim.nationalId ?? 'profile_not_provided'.tr(),
+                  isDark: isDark,
+                ),
+                _ProfileInfoRow(
+                  icon: Symbols.phone,
+                  label: 'Alternative Phone',
+                  value: pilgrim.alternativePhoneNumber ?? 'profile_not_provided'.tr(),
                   isDark: isDark,
                 ),
                 _ProfileInfoRow(

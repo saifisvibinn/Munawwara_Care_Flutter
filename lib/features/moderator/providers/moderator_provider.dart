@@ -7,6 +7,7 @@ import '../../../core/services/api_service.dart';
 import '../../../core/services/app_data_cache.dart';
 import '../../../core/services/caller_gender_cache.dart';
 import '../../../core/services/secure_session_store.dart';
+import '../../pilgrim/models/insurance_company.dart';
 
 // ── Pilgrim-in-group model ────────────────────────────────────────────────────
 class PilgrimInGroup {
@@ -30,6 +31,9 @@ class PilgrimInGroup {
   final String? visaStatus;
   final String language;
   final String ethnicity;
+  final String? alternativePhoneNumber;
+  final String? tasheraNumber;
+  final InsuranceCompany? insuranceCompany;
 
   const PilgrimInGroup({
     required this.id,
@@ -52,6 +56,9 @@ class PilgrimInGroup {
     this.visaStatus,
     this.language = 'en',
     this.ethnicity = 'Other',
+    this.alternativePhoneNumber,
+    this.tasheraNumber,
+    this.insuranceCompany,
   });
 
   factory PilgrimInGroup.fromJson(Map<String, dynamic> j) {
@@ -80,6 +87,11 @@ class PilgrimInGroup {
       ethnicity: j['ethnicity']?.toString() ?? 'Other',
       hasSOS:
           j['has_sos'] == true || j['sos_active'] == true || j['sos'] == true,
+      alternativePhoneNumber: j['alternative_phone_number']?.toString(),
+      tasheraNumber: j['tashera_number']?.toString(),
+      insuranceCompany: j['insurance_company_id'] != null
+          ? InsuranceCompany.fromJson(Map<String, dynamic>.from(j['insurance_company_id']))
+          : null,
     );
   }
 
@@ -90,6 +102,9 @@ class PilgrimInGroup {
     int? batteryPercent,
     DateTime? lastUpdated,
     bool? isOnline,
+    String? alternativePhoneNumber,
+    String? tasheraNumber,
+    InsuranceCompany? insuranceCompany,
   }) => PilgrimInGroup(
     id: id,
     fullName: fullName,
@@ -111,6 +126,9 @@ class PilgrimInGroup {
     visaStatus: visaStatus,
     language: language,
     ethnicity: ethnicity,
+    alternativePhoneNumber: alternativePhoneNumber ?? this.alternativePhoneNumber,
+    tasheraNumber: tasheraNumber ?? this.tasheraNumber,
+    insuranceCompany: insuranceCompany ?? this.insuranceCompany,
   );
 
   bool get hasLocation => lat != null && lng != null;

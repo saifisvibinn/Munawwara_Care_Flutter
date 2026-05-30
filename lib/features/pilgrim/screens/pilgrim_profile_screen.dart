@@ -427,6 +427,15 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                               textMuted: textMuted,
                               valueColor: _getVisaColor(authState.visaStatus),
                             ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.assignment_turned_in_rounded,
+                              label: 'Tashera Number',
+                              value: authState.tasheraNumber ?? 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
                             SizedBox(height: 12.h),
                           ],
                         ),
@@ -507,6 +516,74 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                               icon: Icons.public_rounded,
                               label: 'ethnic_other'.tr(), // Ethnicity
                               value: authState.ethnicity ?? 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.phone_android_rounded,
+                              label: 'Alternative Phone',
+                              value: authState.alternativePhoneNumber ?? 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            SizedBox(height: 12.h),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: 16.h),
+
+                    // ── Insurance Details (Retractable) ──────────────────────
+                    Theme(
+                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(16.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: isDark ? 0.3 : 0.06,
+                              ),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ExpansionTile(
+                          shape: const RoundedRectangleBorder(side: BorderSide.none),
+                          collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                          tilePadding: EdgeInsets.symmetric(horizontal: 16.w),
+                          title: Text(
+                            'Insurance Details',
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14.sp,
+                              color: textPrimary,
+                            ),
+                          ),
+                          leading: Icon(Icons.health_and_safety_rounded, color: AppColors.primary, size: 22.sp),
+                          children: [
+                            _InfoTile(
+                              icon: Icons.health_and_safety_rounded,
+                              label: 'Insurance Company',
+                              value: authState.insuranceCompany?.name ?? 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.local_hospital_rounded,
+                              label: 'Covered Hospitals',
+                              value: authState.insuranceCompany != null && authState.insuranceCompany!.hospitals.isNotEmpty
+                                  ? '${authState.insuranceCompany!.hospitals.length} covered hospitals (view on Map)'
+                                  : 'No hospitals listed',
                               isDark: isDark,
                               textPrimary: textPrimary,
                               textMuted: textMuted,

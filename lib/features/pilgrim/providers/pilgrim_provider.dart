@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/app_data_cache.dart';
 import '../../../core/services/secure_session_store.dart';
+import '../models/insurance_company.dart';
 
 // ── Pilgrim Profile Model ─────────────────────────────────────────────────────
 
@@ -15,6 +16,9 @@ class PilgrimProfile {
   final String? medicalHistory;
   final int? age;
   final String? gender;
+  final String? alternativePhoneNumber;
+  final String? tasheraNumber;
+  final InsuranceCompany? insuranceCompany;
 
   const PilgrimProfile({
     required this.id,
@@ -25,6 +29,9 @@ class PilgrimProfile {
     this.medicalHistory,
     this.age,
     this.gender,
+    this.alternativePhoneNumber,
+    this.tasheraNumber,
+    this.insuranceCompany,
   });
 
   factory PilgrimProfile.fromJson(Map<String, dynamic> j) => PilgrimProfile(
@@ -36,6 +43,13 @@ class PilgrimProfile {
     medicalHistory: j['medical_history']?.toString(),
     age: j['age'] as int?,
     gender: j['gender']?.toString(),
+    alternativePhoneNumber: j['alternative_phone_number']?.toString(),
+    tasheraNumber: j['tashera_number']?.toString(),
+    insuranceCompany: j['insurance_company_id'] != null
+        ? InsuranceCompany.fromJson(
+            Map<String, dynamic>.from(j['insurance_company_id']),
+          )
+        : null,
   );
 
   String get firstName => fullName.split(' ').first;

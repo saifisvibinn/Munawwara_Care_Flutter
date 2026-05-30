@@ -23,6 +23,7 @@ import '../../providers/moderator_provider.dart';
 import '../../models/provisioning_models.dart';
 import '../../models/pilgrim_field_options.dart';
 import '../../screens/manage_pilgrims_screen.dart';
+import '../../../pilgrim/models/insurance_company.dart';
 import 'provisioning_summary.dart';
 import 'create_pilgrim_card.dart';
 import 'provisioning_tracker_list.dart';
@@ -50,6 +51,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
       PilgrimFieldOptions.fallback().languages;
   List<HotelOption> _hotels = const [];
   List<BusOption> _buses = const [];
+  List<InsuranceCompany> _insurances = const [];
   List<ProvisioningItem> _items = const [];
   ProvisioningSummary _summary = const ProvisioningSummary();
 
@@ -157,6 +159,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
       setState(() {
         _hotels = const [];
         _buses = const [];
+        _insurances = const [];
       });
       return;
     }
@@ -172,6 +175,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
 
       final hotelsRaw = (payload['hotels'] as List<dynamic>? ?? const []);
       final busesRaw = (payload['buses'] as List<dynamic>? ?? const []);
+      final insurancesRaw = (payload['insurances'] as List<dynamic>? ?? const []);
 
       if (!mounted) return;
       setState(() {
@@ -202,6 +206,10 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
             busNumber: map['bus_number']?.toString() ?? '-',
             destination: map['destination']?.toString() ?? '',
           );
+        }).toList();
+
+        _insurances = insurancesRaw.whereType<Map>().map((i) {
+          return InsuranceCompany.fromJson(Map<String, dynamic>.from(i));
         }).toList();
       });
     } on DioException catch (_) {
@@ -595,6 +603,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
             isProvisioning: _isProvisioning,
             hotels: _hotels,
             buses: _buses,
+            insurances: _insurances,
             isLoadingResources: _isLoadingResources,
             ethnicityOptions: _ethnicityOptions,
             languageOptions: _languageOptions,

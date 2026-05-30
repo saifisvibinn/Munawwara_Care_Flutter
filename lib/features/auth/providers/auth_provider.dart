@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../pilgrim/models/insurance_company.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/app_data_cache.dart';
 import '../../../core/services/notification_service.dart';
@@ -39,6 +40,9 @@ class AuthState {
   final String? nationalId;
   final String? language;
   final String? ethnicity;
+  final String? alternativePhoneNumber;
+  final String? tasheraNumber;
+  final InsuranceCompany? insuranceCompany;
 
   const AuthState({
     this.isLoading = false,
@@ -62,6 +66,9 @@ class AuthState {
     this.nationalId,
     this.language,
     this.ethnicity,
+    this.alternativePhoneNumber,
+    this.tasheraNumber,
+    this.insuranceCompany,
   });
 
   bool get isAuthenticated => token != null;
@@ -88,6 +95,9 @@ class AuthState {
     String? nationalId,
     String? language,
     String? ethnicity,
+    String? alternativePhoneNumber,
+    String? tasheraNumber,
+    InsuranceCompany? insuranceCompany,
     bool clearError = false,
     bool clearPhoneNumber = false,
     bool clearEmail = false,
@@ -119,6 +129,10 @@ class AuthState {
       nationalId: nationalId ?? this.nationalId,
       language: language ?? this.language,
       ethnicity: ethnicity ?? this.ethnicity,
+      alternativePhoneNumber:
+          alternativePhoneNumber ?? this.alternativePhoneNumber,
+      tasheraNumber: tasheraNumber ?? this.tasheraNumber,
+      insuranceCompany: insuranceCompany ?? this.insuranceCompany,
     );
   }
 }
@@ -247,6 +261,13 @@ class AuthNotifier extends Notifier<AuthState> {
         nationalId: data['national_id']?.toString(),
         language: data['language']?.toString(),
         ethnicity: data['ethnicity']?.toString(),
+        alternativePhoneNumber: data['alternative_phone_number']?.toString(),
+        tasheraNumber: data['tashera_number']?.toString(),
+        insuranceCompany: data['insurance_company_id'] != null
+            ? InsuranceCompany.fromJson(
+                Map<String, dynamic>.from(data['insurance_company_id']),
+              )
+            : null,
       );
 
       if (data['full_name'] != null) {
@@ -315,6 +336,15 @@ class AuthNotifier extends Notifier<AuthState> {
       nationalId: data['national_id']?.toString() ?? state.nationalId,
       language: data['language']?.toString() ?? state.language,
       ethnicity: data['ethnicity']?.toString() ?? state.ethnicity,
+      alternativePhoneNumber: data['alternative_phone_number']?.toString() ??
+          state.alternativePhoneNumber,
+      tasheraNumber:
+          data['tashera_number']?.toString() ?? state.tasheraNumber,
+      insuranceCompany: data['insurance_company_id'] != null
+          ? InsuranceCompany.fromJson(
+              Map<String, dynamic>.from(data['insurance_company_id']),
+            )
+          : state.insuranceCompany,
     );
   }
 
@@ -531,6 +561,13 @@ class AuthNotifier extends Notifier<AuthState> {
         nationalId: data['national_id']?.toString(),
         language: data['language']?.toString(),
         ethnicity: data['ethnicity']?.toString(),
+        alternativePhoneNumber: data['alternative_phone_number']?.toString(),
+        tasheraNumber: data['tashera_number']?.toString(),
+        insuranceCompany: data['insurance_company_id'] != null
+            ? InsuranceCompany.fromJson(
+                Map<String, dynamic>.from(data['insurance_company_id']),
+              )
+            : null,
       );
       if (data['full_name'] != null) {
         await SecureSessionStore.setFullName(data['full_name'] as String);

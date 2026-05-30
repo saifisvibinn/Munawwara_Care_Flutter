@@ -15,6 +15,7 @@ import '../../../core/widgets/standard_snackbar.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../pilgrim/models/insurance_company.dart';
 
 class _GroupOption {
   final String id;
@@ -1495,19 +1496,34 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
   bool _isLoading = false;
   List<_HotelOption> _hotels = [];
   List<_BusOption> _buses = [];
+  List<InsuranceCompany> _insurances = [];
+
+  final _alternativePhoneCtrl = TextEditingController();
+  final _tasheraNumberCtrl = TextEditingController();
 
   String? _selectedHotelId;
   String? _selectedRoomId;
   String? _selectedBusId;
+  String? _selectedInsuranceCompanyId;
   String _selectedVisaStatus = 'unknown';
 
   @override
   void initState() {
     super.initState();
     _selectedVisaStatus = widget.pilgrim.visaStatus ?? 'unknown';
+    _alternativePhoneCtrl.text = widget.pilgrim.alternativePhoneNumber ?? '';
+    _tasheraNumberCtrl.text = widget.pilgrim.tasheraNumber ?? '';
+    _selectedInsuranceCompanyId = widget.pilgrim.insuranceCompany?.id;
     if (widget.pilgrim.currentGroupId != null) {
       _loadResources();
     }
+  }
+
+  @override
+  void dispose() {
+    _alternativePhoneCtrl.dispose();
+    _tasheraNumberCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadResources() async {
@@ -1524,6 +1540,7 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
 
       final hotelsRaw = (payload['hotels'] as List<dynamic>? ?? []);
       final busesRaw = (payload['buses'] as List<dynamic>? ?? []);
+      final insurancesRaw = (payload['insurances'] as List<dynamic>? ?? []);
 
       _hotels = hotelsRaw.map((h) {
         final map = h as Map<String, dynamic>;
@@ -1551,6 +1568,10 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
           busNumber: map['bus_number']?.toString() ?? '-',
           destination: map['destination']?.toString() ?? '',
         );
+      }).toList();
+
+      _insurances = insurancesRaw.map((i) {
+        return InsuranceCompany.fromJson(Map<String, dynamic>.from(i as Map));
       }).toList();
 
       // Match current values if they exist in options
@@ -1597,6 +1618,10 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
     if (_selectedBusId != null && !_buses.any((b) => b.id == _selectedBusId)) {
       _selectedBusId = null;
     }
+    if (_selectedInsuranceCompanyId != null &&
+        !_insurances.any((i) => i.id == _selectedInsuranceCompanyId)) {
+      _selectedInsuranceCompanyId = null;
+    }
     const validVisa = {'pending', 'issued', 'rejected', 'expired', 'unknown'};
     if (!validVisa.contains(_selectedVisaStatus)) {
       _selectedVisaStatus = 'unknown';
@@ -1615,7 +1640,10 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
       'bus_info': bus == null ? null : '${bus.busNumber} - ${bus.destination}',
       'visa': {
         'status': _selectedVisaStatus,
-      }
+      },
+      'alternative_phone_number': _alternativePhoneCtrl.text.trim().isEmpty ? null : _alternativePhoneCtrl.text.trim(),
+      'tashera_number': _tasheraNumberCtrl.text.trim().isEmpty ? null : _tasheraNumberCtrl.text.trim(),
+      'insurance_company_id': _selectedInsuranceCompanyId,
     };
 
     final (success, err) = await ref.read(moderatorProvider.notifier).updatePilgrimDetails(widget.pilgrim.id, updates);
@@ -1792,6 +1820,71 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
                         )
                         .toList(),
                     onChanged: (v) => setState(() => _selectedVisaStatus = v!),
+                  ),
+                  SizedBox(height: 12.h),
+                  TextFormField(
+                    controller: _alternativePhoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    decoration: AppDropdownTheme.formFieldDecoration(
+                      isDark: isDark,
+                      labelText: 'Alternative Phone',
+                      prefixIcon: Icon(Symbols.phone),
+                    ),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 14.sp,
+                      color: isDark ? Colors.white : AppColors.textDark,
+                    ),
+                  ),
+                  SizedBox(height: 12.h),
+                  TextFormField(
+                    controller: _tasheraNumberCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: AppDropdownTheme.formFieldDecoration(
+                      isDark: isDark,
+                      labelText: 'Tashera Number',
+                      prefixIcon: Icon(Symbols.tag),
+                    ),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 14.sp,
+                      color: isDark ? Colors.white : AppColors.textDark,
+                    ),
+                  ),
+                  SizedBox(height: 12.h),
+                  DropdownButtonFormField<String?>(
+                    initialValue: _selectedInsuranceCompanyId,
+                    isExpanded: true,
+                    decoration: AppDropdownTheme.formFieldDecoration(
+                      isDark: isDark,
+                      labelText: 'Insurance Company',
+                      prefixIcon: Icon(Symbols.health_and_safety),
+                    ),
+                    icon: AppDropdownTheme.menuTrailingIcon(),
+                    dropdownColor: AppDropdownTheme.menuBackground(isDark),
+                    borderRadius: AppDropdownTheme.menuBorderRadius(),
+                    elevation: AppDropdownTheme.menuElevation(),
+                    menuMaxHeight: AppDropdownTheme.menuMaxHeight(),
+                    style: AppDropdownTheme.valueStyle(isDark, fontSize: 13),
+                    items: [
+                      DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text(
+                          'No Insurance',
+                          style: AppDropdownTheme.menuItemStyle(isDark, fontSize: 13),
+                        ),
+                      ),
+                      ..._insurances.map(
+                        (i) => DropdownMenuItem<String?>(
+                          value: i.id,
+                          child: Text(
+                            i.name,
+                            style: AppDropdownTheme.menuItemStyle(isDark, fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: (v) => setState(() => _selectedInsuranceCompanyId = v),
                   ),
                   SizedBox(height: 24.h),
                   Row(

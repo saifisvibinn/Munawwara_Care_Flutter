@@ -8,12 +8,14 @@ import '../../../../core/theme/app_dropdown_theme.dart';
 import '../../models/provisioning_models.dart';
 import '../../models/pilgrim_field_options.dart';
 import 'provisioning_form_theme.dart';
+import '../../../pilgrim/models/insurance_company.dart';
 
 class CreatePilgrimCard extends StatefulWidget {
   final bool isDark;
   final bool isProvisioning;
   final List<HotelOption> hotels;
   final List<BusOption> buses;
+  final List<InsuranceCompany> insurances;
   final bool isLoadingResources;
   final List<String> ethnicityOptions;
   final List<PilgrimLanguageOption> languageOptions;
@@ -25,6 +27,7 @@ class CreatePilgrimCard extends StatefulWidget {
     required this.isProvisioning,
     required this.hotels,
     required this.buses,
+    required this.insurances,
     required this.isLoadingResources,
     required this.ethnicityOptions,
     required this.languageOptions,
@@ -39,6 +42,8 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _alternativePhoneCtrl = TextEditingController();
+  final _tasheraNumberCtrl = TextEditingController();
   final _ageCtrl = TextEditingController();
   final _nationalIdCtrl = TextEditingController();
   final _medicalHistoryCtrl = TextEditingController();
@@ -49,12 +54,15 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
   String? _selectedHotelId;
   String? _selectedRoomId;
   String? _selectedBusId;
+  String? _selectedInsuranceCompanyId;
   Set<String> _genderSelection = {'male'};
 
   @override
   void dispose() {
     _fullNameCtrl.dispose();
     _phoneCtrl.dispose();
+    _alternativePhoneCtrl.dispose();
+    _tasheraNumberCtrl.dispose();
     _ageCtrl.dispose();
     _nationalIdCtrl.dispose();
     _medicalHistoryCtrl.dispose();
@@ -65,7 +73,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
   void didUpdateWidget(covariant CreatePilgrimCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     final hotelsBusesChanged =
-        oldWidget.hotels != widget.hotels || oldWidget.buses != widget.buses;
+        oldWidget.hotels != widget.hotels || oldWidget.buses != widget.buses || oldWidget.insurances != widget.insurances;
     final optionsChanged = oldWidget.ethnicityOptions != widget.ethnicityOptions ||
         oldWidget.languageOptions != widget.languageOptions;
 
@@ -74,6 +82,8 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
           widget.hotels.any((h) => h.id == _selectedHotelId);
       final busOk = _selectedBusId == null ||
           widget.buses.any((b) => b.id == _selectedBusId);
+      final insuranceOk = _selectedInsuranceCompanyId == null ||
+          widget.insurances.any((i) => i.id == _selectedInsuranceCompanyId);
       var roomOk = true;
       if (_selectedRoomId != null) {
         final h =
@@ -83,7 +93,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
             .toList();
         roomOk = rooms.any((r) => r.id == _selectedRoomId);
       }
-      if (!hotelOk || !roomOk || !busOk) {
+      if (!hotelOk || !roomOk || !busOk || !insuranceOk) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           setState(() {
@@ -94,6 +104,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
               _selectedRoomId = null;
             }
             if (!busOk) _selectedBusId = null;
+            if (!insuranceOk) _selectedInsuranceCompanyId = null;
           });
         });
       }
@@ -135,6 +146,9 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
     final data = {
       'full_name': _fullNameCtrl.text.trim(),
       'phone_number': _phoneCtrl.text.trim(),
+      'alternative_phone_number': _alternativePhoneCtrl.text.trim().isEmpty ? null : _alternativePhoneCtrl.text.trim(),
+      'tashera_number': _tasheraNumberCtrl.text.trim().isEmpty ? null : _tasheraNumberCtrl.text.trim(),
+      'insurance_company_id': _selectedInsuranceCompanyId,
       'national_id': _nationalIdCtrl.text.trim(),
       'medical_history': _medicalHistoryCtrl.text.trim(),
       'age': int.tryParse(_ageCtrl.text.trim()),
@@ -272,6 +286,18 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                         validator: (v) => (v == null || v.trim().isEmpty)
                             ? 'provisioning_required'.tr()
                             : null,
+                      ),
+                      SizedBox(height: g),
+                      TextFormField(
+                        controller: _alternativePhoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.next,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'Alternative Phone (Optional)',
+                          prefixIcon: _prefix(Symbols.phone, textMuted),
+                        ),
                       ),
                     ],
                   ),
@@ -687,6 +713,52 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                           hintText: 'reg_passport'.tr(),
                           prefixIcon: _prefix(Symbols.badge, textMuted),
                         ),
+                      ),
+                      SizedBox(height: g),
+                      TextFormField(
+                        controller: _tasheraNumberCtrl,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'Tashera Number (Optional)',
+                          prefixIcon: _prefix(Symbols.tag, textMuted),
+                        ),
+                      ),
+                      SizedBox(height: g),
+                      DropdownButtonFormField<String?>(
+                        isExpanded: true,
+                        initialValue: _selectedInsuranceCompanyId,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'Insurance Company',
+                          prefixIcon: _prefix(Symbols.health_and_safety, textMuted),
+                        ),
+                        icon: AppDropdownTheme.menuTrailingIcon(),
+                        dropdownColor: AppDropdownTheme.menuBackground(widget.isDark),
+                        borderRadius: AppDropdownTheme.menuBorderRadius(),
+                        elevation: AppDropdownTheme.menuElevation(),
+                        style: AppDropdownTheme.valueStyle(widget.isDark),
+                        items: [
+                          DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text(
+                              'No Insurance',
+                              style: AppDropdownTheme.menuItemStyle(widget.isDark),
+                            ),
+                          ),
+                          ...widget.insurances.map(
+                            (ins) => DropdownMenuItem<String?>(
+                              value: ins.id,
+                              child: Text(
+                                ins.name,
+                                style: AppDropdownTheme.menuItemStyle(widget.isDark),
+                              ),
+                            ),
+                          ),
+                        ],
+                        onChanged: (v) => setState(() => _selectedInsuranceCompanyId = v),
                       ),
                       SizedBox(height: g),
                       TextFormField(

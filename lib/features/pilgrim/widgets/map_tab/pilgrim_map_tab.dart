@@ -18,6 +18,8 @@ import '../../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../../providers/pilgrim_provider.dart';
 import 'pilgrim_area_marker.dart';
 import 'suggestions_cycle_button.dart';
+import '../../../../core/utils/open_maps_navigation.dart';
+import '../../models/insurance_company.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pilgrim Map Tab
@@ -47,6 +49,9 @@ class PilgrimMapTab extends StatelessWidget {
     final fabBottom = 14.h;
     final fabStride = 44.w + 10.h;
 
+    final insuranceCompany = pilgrimState.profile?.insuranceCompany;
+    final hospitals = insuranceCompany?.hospitals ?? const [];
+
     LatLng offsetIfTooCloseToMe(LatLng p) {
       final me = myLocation;
       if (me == null) return p;
@@ -64,6 +69,115 @@ class PilgrimMapTab extends StatelessWidget {
     void centerOnMe() {
       final target = myLocation ?? AppMapTiles.fallbackMapCenter;
       mapController.move(target, AppMapTiles.clampMapZoom(15));
+    }
+
+    void showHospitalInfo(BuildContext ctx, HospitalLocation hospital) {
+      showModalBottomSheet(
+        context: ctx,
+        backgroundColor: Colors.transparent,
+        builder: (dialogCtx) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+          ),
+          padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 32.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+              SizedBox(height: 16.h),
+              Container(
+                width: 56.w,
+                height: 56.w,
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50.withValues(alpha: 0.8),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.local_hospital_rounded,
+                  color: Colors.red.shade600,
+                  size: 28.w,
+                ),
+              ),
+              SizedBox(height: 12.h),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Text(
+                  'Covered Hospital',
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10.sp,
+                    color: Colors.red.shade700,
+                  ),
+                ),
+              ),
+              SizedBox(height: 12.h),
+              Text(
+                hospital.name,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 17.sp,
+                  color: isDark ? Colors.white : AppColors.textDark,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (hospital.address != null && hospital.address!.isNotEmpty) ...[
+                SizedBox(height: 8.h),
+                Text(
+                  hospital.address!,
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 13.sp,
+                    color: AppColors.textMutedLight,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              SizedBox(height: 24.h),
+              SizedBox(
+                width: double.infinity,
+                height: 50.h,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(dialogCtx);
+                    OpenMapsNavigation.confirmAndLaunch(
+                      ctx,
+                      hospital.latitude,
+                      hospital.longitude,
+                    );
+                  },
+                  icon: Icon(Symbols.navigation, size: 20.w, color: Colors.white, fill: 1),
+                  label: Text(
+                    'External Navigate',
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15.sp,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     return Stack(
@@ -85,6 +199,34 @@ class PilgrimMapTab extends StatelessWidget {
             // Areas, meetpoints & moderator beacons — clustered when overlapping
             AppMapMarkerCluster.layer(
               markers: [
+                for (var hospital in hospitals)
+                  Marker(
+                    point: LatLng(hospital.latitude, hospital.longitude),
+                    width: 44.w,
+                    height: 44.w,
+                    child: GestureDetector(
+                      onTap: () => showHospitalInfo(context, hospital),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.red.shade600, width: 2.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.local_hospital_rounded,
+                          color: Colors.red.shade600,
+                          size: 22.w,
+                        ),
+                      ),
+                    ),
+                  ),
                 for (var area in areas)
                   Marker(
                     point: LatLng(area.latitude, area.longitude),

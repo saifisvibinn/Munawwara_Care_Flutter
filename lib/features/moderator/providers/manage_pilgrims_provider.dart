@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/api_service.dart';
 import 'moderator_provider.dart';
+import '../../pilgrim/models/insurance_company.dart';
 
 /// Pilgrim row for Manage Pilgrims (`GET /groups/my-pilgrims`).
 class ManagedPilgrimItem {
@@ -24,6 +25,9 @@ class ManagedPilgrimItem {
   final String? visaStatus;
   final String? visaNumber;
   final String? medicalHistory;
+  final String? alternativePhoneNumber;
+  final String? tasheraNumber;
+  final InsuranceCompany? insuranceCompany;
 
   const ManagedPilgrimItem({
     required this.id,
@@ -44,6 +48,9 @@ class ManagedPilgrimItem {
     this.visaStatus,
     this.visaNumber,
     this.medicalHistory,
+    this.alternativePhoneNumber,
+    this.tasheraNumber,
+    this.insuranceCompany,
   });
 
   factory ManagedPilgrimItem.fromMap(Map<String, dynamic> m) {
@@ -67,6 +74,11 @@ class ManagedPilgrimItem {
       visaStatus: m['visa']?['status']?.toString(),
       visaNumber: m['visa']?['visa_number']?.toString(),
       medicalHistory: m['medical_history']?.toString(),
+      alternativePhoneNumber: m['alternative_phone_number']?.toString(),
+      tasheraNumber: m['tashera_number']?.toString(),
+      insuranceCompany: m['insurance_company_id'] != null
+          ? InsuranceCompany.fromJson(Map<String, dynamic>.from(m['insurance_company_id']))
+          : null,
     );
   }
 
@@ -88,6 +100,9 @@ class ManagedPilgrimItem {
         ethnicity: ethnicity,
         medicalHistory: medicalHistory,
         age: age,
+        alternativePhoneNumber: alternativePhoneNumber,
+        tasheraNumber: tasheraNumber,
+        insuranceCompany: insuranceCompany,
       );
 }
 
