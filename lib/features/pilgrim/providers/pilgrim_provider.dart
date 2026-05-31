@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/app_data_cache.dart';
 import '../../../core/services/secure_session_store.dart';
+import '../helpers/user_ref.dart';
 
 // ── Pilgrim Profile Model ─────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ class GroupInfo {
   final String groupName;
   final int pilgrimCount;
   final List<ModeratorInfo> moderators;
+  final String? createdBy;
   final String? hotelName;
   final String? roomNumber;
   final String? busNumber;
@@ -69,6 +71,7 @@ class GroupInfo {
     required this.groupName,
     required this.pilgrimCount,
     required this.moderators,
+    this.createdBy,
     this.hotelName,
     this.roomNumber,
     this.busNumber,
@@ -102,13 +105,25 @@ class GroupInfo {
       return null;
     }
 
+    final createdById = parseUserRefId(j['created_by']);
+    var moderators = (j['moderators'] as List<dynamic>? ?? [])
+        .map((m) => ModeratorInfo.fromJson(m as Map<String, dynamic>))
+        .toList();
+    if (createdById != null &&
+        !moderators.any((m) => m.id == createdById) &&
+        j['created_by'] is Map<String, dynamic>) {
+      moderators = [
+        ModeratorInfo.fromJson(j['created_by'] as Map<String, dynamic>),
+        ...moderators,
+      ];
+    }
+
     return GroupInfo(
       groupId: j['group_id']?.toString() ?? '',
       groupName: j['group_name']?.toString() ?? '',
       pilgrimCount: j['pilgrim_count'] as int? ?? 0,
-      moderators: (j['moderators'] as List<dynamic>? ?? [])
-          .map((m) => ModeratorInfo.fromJson(m as Map<String, dynamic>))
-          .toList(),
+      moderators: moderators,
+      createdBy: createdById,
       hotelName: firstString(['hotel_name', 'hotelName']),
       roomNumber: firstString(['room_number', 'room_no', 'roomNumber']),
       busNumber: firstString(['bus_number', 'bus_no', 'busNumber']),

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../helpers/moderator_navigation.dart';
+import '../../providers/pilgrim_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Weather Alert Model
@@ -10,11 +12,12 @@ import '../../../../core/theme/app_colors.dart';
 
 class WeatherAlert {
   final int temperatureC;
-  final String condition;
-  /// One compact line or few lines on the dashboard card (localized).
-  final String cardTip;
-  /// Fuller guidance for the detail sheet (localized).
-  final String detailTip;
+  /// easy_localization key, e.g. `weather_sunny`.
+  final String conditionKey;
+  /// Dashboard card tip key (`weather_card_*`).
+  final String cardTipKey;
+  /// Detail sheet body key (`weather_reminder_*`).
+  final String detailTipKey;
   final IconData icon;
   final Color iconColor;
   final bool isLoading;
@@ -22,9 +25,9 @@ class WeatherAlert {
 
   const WeatherAlert({
     required this.temperatureC,
-    required this.condition,
-    required this.cardTip,
-    required this.detailTip,
+    required this.conditionKey,
+    required this.cardTipKey,
+    required this.detailTipKey,
     required this.icon,
     required this.iconColor,
     required this.isLoading,
@@ -33,9 +36,9 @@ class WeatherAlert {
 
   const WeatherAlert.loading()
     : temperatureC = 0,
-      condition = '',
-      cardTip = '',
-      detailTip = '',
+      conditionKey = '',
+      cardTipKey = '',
+      detailTipKey = '',
       icon = Icons.wb_sunny,
       iconColor = AppColors.primary,
       isLoading = true,
@@ -123,7 +126,7 @@ void showWeatherDetailBottomSheet(BuildContext context, WeatherAlert alert) {
                         Text(
                           alert.isLoading
                               ? 'weather_loading'.tr()
-                              : alert.condition,
+                              : alert.conditionKey.tr(),
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 16.sp,
@@ -152,7 +155,7 @@ void showWeatherDetailBottomSheet(BuildContext context, WeatherAlert alert) {
               ),
               SizedBox(height: 10.h),
               SelectableText(
-                alert.detailTip.trim(),
+                alert.detailTipKey.tr(),
                 style: (bodyStyle ?? const TextStyle()).copyWith(
                   fontFamily: 'Lexend',
                   height: 1.45,
@@ -294,55 +297,79 @@ class WeatherCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: Column(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  alert.isLoading
-                      ? '...'
-                      : alert.isError
-                      ? '--'
-                      : '${alert.temperatureC}\u00b0C',
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 22.sp,
-                    fontWeight: FontWeight.w900,
-                    color: isDark ? Colors.white : AppColors.textDark,
-                    height: 1.05,
-                  ),
-                ),
-                SizedBox(height: 2.h),
-                Text(
-                  alert.isLoading
-                      ? 'weather_loading'.tr()
-                      : alert.isError
-                      ? 'weather_unavailable'.tr()
-                      : alert.condition,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? AppColors.primary : AppColors.primaryDark,
-                  ),
-                ),
-                SizedBox(height: 2.h),
                 Expanded(
-                  child: Text(
-                    alert.isLoading
-                        ? 'weather_loading_hint_short'.tr()
-                        : alert.cardTip,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 10.sp,
-                      height: 1.25,
-                      color: muted,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        alert.isLoading
+                            ? '...'
+                            : alert.isError
+                            ? '--'
+                            : '${alert.temperatureC}\u00b0C',
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 22.sp,
+                          fontWeight: FontWeight.w900,
+                          color: isDark ? Colors.white : AppColors.textDark,
+                          height: 1.05,
+                        ),
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        alert.isLoading
+                            ? 'weather_loading'.tr()
+                            : alert.isError
+                            ? 'weather_unavailable'.tr()
+                            : alert.conditionKey.tr(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w800,
+                          color: isDark
+                              ? AppColors.primary
+                              : AppColors.primaryDark,
+                        ),
+                      ),
+                      SizedBox(height: 2.h),
+                      Expanded(
+                        child: Text(
+                          alert.isLoading
+                              ? 'weather_loading_hint_short'.tr()
+                              : alert.isError
+                              ? 'weather_card_error_short'.tr()
+                              : alert.cardTipKey.tr(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 10.sp,
+                            height: 1.25,
+                            color: muted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!alert.isLoading && !alert.isError)
+                  Container(
+                    padding: EdgeInsets.all(5.w),
+                    decoration: BoxDecoration(
+                      color: alert.iconColor.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      alert.icon,
+                      color: alert.iconColor,
+                      size: 18.w,
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -388,106 +415,55 @@ class WeatherCard extends StatelessWidget {
 
 class GroupCard extends StatelessWidget {
   final String groupName;
-  final String moderatorName;
+  final List<ModeratorInfo> moderators;
+  final String? createdBy;
   final String hotelName;
   final String busNumber;
   final String checkIn;
-  final List<String> moderatorInitials;
-  final int pilgrimCount;
   final VoidCallback onTap;
 
   const GroupCard({
     super.key,
     required this.groupName,
-    required this.moderatorName,
+    required this.moderators,
+    this.createdBy,
     required this.hotelName,
     required this.busNumber,
     required this.checkIn,
-    required this.moderatorInitials,
-    required this.pilgrimCount,
     required this.onTap,
   });
 
-  Widget _buildAvatarCircles(List<String> initials, int totalCount) {
-    final List<Widget> list = [];
-    // Draw first 2 initials
-    for (int i = 0; i < initials.length && i < 2; i++) {
-      list.add(
-        Container(
-          width: 24.w,
-          height: 24.w,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: Color(0xFFF97316),
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            initials[i],
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      );
-    }
-    // Draw remaining member count circle (+N)
-    final remaining = totalCount - initials.length;
-    if (remaining > 0) {
-      if (initials.isNotEmpty) {
-        list.add(SizedBox(width: 2.w));
-      }
-      list.add(
-        Container(
-          width: 24.w,
-          height: 24.w,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: Color(0xFF2E3E5C), // Premium navy blue circle
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            '+$remaining',
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 9.sp,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      );
-    }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: list,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final noRecordsText = 'no_records_available'.tr();
+    final sorted = sortedGroupModerators(moderators, createdBy: createdBy);
+
+    final cardBg = isDark ? const Color(0xFF1D2641) : Colors.white;
+    final labelColor =
+        isDark ? const Color(0xFF94A3B8) : AppColors.textMutedDark;
+    final valueColor = isDark ? Colors.white : AppColors.textDark;
+    final valueMutedColor =
+        isDark ? const Color(0xFF64748B) : AppColors.textMutedDark;
 
     final labelStyle = TextStyle(
       fontFamily: 'Lexend',
       fontSize: 10.sp,
       fontWeight: FontWeight.w800,
-      color: const Color(0xFF94A3B8), // slate label
+      color: labelColor,
       letterSpacing: 0.5,
     );
     final valueStyle = TextStyle(
       fontFamily: 'Lexend',
       fontSize: 14.sp,
       fontWeight: FontWeight.w800,
-      color: Colors.white,
+      color: valueColor,
     );
     final valueItalicStyle = TextStyle(
       fontFamily: 'Lexend',
       fontSize: 14.sp,
       fontWeight: FontWeight.w500,
-      color: const Color(0xFF64748B),
+      color: valueMutedColor,
       fontStyle: FontStyle.italic,
     );
 
@@ -495,13 +471,16 @@ class GroupCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 10.h), // Tighter padding for a sleeker card
+        padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 10.h),
         decoration: BoxDecoration(
-          color: const Color(0xFF1D2641), // Premium navy blue background matching mockup
+          color: cardBg,
           borderRadius: BorderRadius.circular(24.r),
+          border: isDark
+              ? null
+              : Border.all(color: AppColors.dividerLight),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
+              color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.06),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),
@@ -510,104 +489,76 @@ class GroupCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Row 1: Orange header and avatar circles
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'home_my_group'.tr().toUpperCase(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 10.sp,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFFF97316),
-                    letterSpacing: 0.8,
-                  ),
-                ),
-                _buildAvatarCircles(moderatorInitials, pilgrimCount),
-              ],
+            Text(
+              'home_my_group'.tr().toUpperCase(),
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 10.sp,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary,
+                letterSpacing: 0.8,
+              ),
             ),
-            SizedBox(height: 0.h),
-            // Row 2: Group name
+            SizedBox(height: 4.h),
             Text(
               groupName,
               style: TextStyle(
                 fontFamily: 'Lexend',
-                fontSize: 20.sp, // Slightly more compact font size
+                fontSize: 20.sp,
                 fontWeight: FontWeight.w800,
-                color: Colors.white,
+                color: valueColor,
               ),
             ),
-            SizedBox(height: 8.h), // Tighter spacing
-            // Divider
-            const Divider(color: Colors.white12, height: 1),
-            SizedBox(height: 8.h), // Tighter spacing
-            // Details Grid
+            SizedBox(height: 10.h),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('group_moderator_section'.tr().toUpperCase(), style: labelStyle),
-                      SizedBox(height: 1.h),
-                      Text(
-                        moderatorName.isNotEmpty ? moderatorName : noRecordsText,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: valueStyle,
-                      ),
-                    ],
+                  child: _GroupCardModeratorSummary(
+                    moderators: sorted,
+                    noRecordsText: noRecordsText,
+                    labelStyle: labelStyle,
+                    valueStyle: valueStyle,
+                    valueMutedColor: valueMutedColor,
+                    isDark: isDark,
                   ),
                 ),
+                SizedBox(width: 12.w),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('group_hotel_name'.tr().toUpperCase(), style: labelStyle),
-                      SizedBox(height: 1.h),
-                      Text(
-                        hotelName.isNotEmpty ? hotelName : 'Not set',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: hotelName.isNotEmpty ? valueStyle : valueItalicStyle,
-                      ),
-                    ],
+                  child: _GroupCardInfoCell(
+                    label: 'group_hotel_name'.tr().toUpperCase(),
+                    value: hotelName.isNotEmpty ? hotelName : 'Not set',
+                    hasValue: hotelName.isNotEmpty,
+                    labelStyle: labelStyle,
+                    valueStyle: valueStyle,
+                    valueItalicStyle: valueItalicStyle,
                   ),
                 ),
               ],
             ),
-            SizedBox(height: 8.h), // Tighter spacing
+            SizedBox(height: 8.h),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('BUS', style: labelStyle),
-                      SizedBox(height: 1.h),
-                      Text(
-                        busNumber.isNotEmpty ? busNumber : 'Not set',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: busNumber.isNotEmpty ? valueStyle : valueItalicStyle,
-                      ),
-                    ],
+                  child: _GroupCardInfoCell(
+                    label: 'CHECK-IN',
+                    value: checkIn.isNotEmpty ? checkIn : 'Not set',
+                    hasValue: checkIn.isNotEmpty,
+                    labelStyle: labelStyle,
+                    valueStyle: valueStyle,
+                    valueItalicStyle: valueItalicStyle,
                   ),
                 ),
+                SizedBox(width: 12.w),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('CHECK-IN', style: labelStyle),
-                      SizedBox(height: 1.h),
-                      Text(
-                        checkIn.isNotEmpty ? checkIn : 'Not set',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: checkIn.isNotEmpty ? valueStyle : valueItalicStyle,
-                      ),
-                    ],
+                  child: _GroupCardInfoCell(
+                    label: 'BUS',
+                    value: busNumber.isNotEmpty ? busNumber : 'Not set',
+                    hasValue: busNumber.isNotEmpty,
+                    labelStyle: labelStyle,
+                    valueStyle: valueStyle,
+                    valueItalicStyle: valueItalicStyle,
                   ),
                 ),
               ],
@@ -616,9 +567,9 @@ class GroupCard extends StatelessWidget {
             // Pill button at the bottom
             Container(
               width: double.infinity,
-              padding: EdgeInsets.symmetric(vertical: 8.h), // Sleeker pill button padding
+              padding: EdgeInsets.symmetric(vertical: 8.h),
               decoration: BoxDecoration(
-                color: const Color(0x1AFFF7ED), // Semi-translucent light orange background
+                color: AppColors.primary.withValues(alpha: isDark ? 0.1 : 0.12),
                 borderRadius: BorderRadius.circular(16.r),
               ),
               child: Text(
@@ -628,13 +579,154 @@ class GroupCard extends StatelessWidget {
                   fontFamily: 'Lexend',
                   fontSize: 14.sp,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFFFF8533),
+                  color: AppColors.primaryDark,
                 ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _GroupCardModeratorSummary extends StatelessWidget {
+  const _GroupCardModeratorSummary({
+    required this.moderators,
+    required this.noRecordsText,
+    required this.labelStyle,
+    required this.valueStyle,
+    required this.valueMutedColor,
+    required this.isDark,
+  });
+
+  final List<ModeratorInfo> moderators;
+  final String noRecordsText;
+  final TextStyle labelStyle;
+  final TextStyle valueStyle;
+  final Color valueMutedColor;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    if (moderators.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('group_moderator_section'.tr().toUpperCase(), style: labelStyle),
+          SizedBox(height: 6.h),
+          Text(
+            noRecordsText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: valueStyle.copyWith(
+              fontWeight: FontWeight.w500,
+              fontStyle: FontStyle.italic,
+              color: valueMutedColor,
+            ),
+          ),
+        ],
+      );
+    }
+
+    final leader = moderators.first;
+    final coModCount = moderators.length - 1;
+    final initial = leader.fullName.isNotEmpty
+        ? leader.fullName[0].toUpperCase()
+        : '?';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('group_moderator_section'.tr().toUpperCase(), style: labelStyle),
+        SizedBox(height: 6.h),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 13.r,
+              backgroundColor: AppColors.primary.withValues(
+                alpha: isDark ? 0.22 : 0.12,
+              ),
+              child: Text(
+                initial,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11.sp,
+                  color: AppColors.primaryDark,
+                ),
+              ),
+            ),
+            SizedBox(width: 6.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    leader.fullName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: valueStyle,
+                  ),
+                  if (coModCount > 0)
+                    Padding(
+                      padding: EdgeInsets.only(top: 2.h),
+                      child: Text(
+                        'home_co_moderators_count'.tr(
+                          namedArgs: {'count': coModCount.toString()},
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 10.sp,
+                          fontWeight: FontWeight.w600,
+                          color: valueMutedColor,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _GroupCardInfoCell extends StatelessWidget {
+  const _GroupCardInfoCell({
+    required this.label,
+    required this.value,
+    required this.hasValue,
+    required this.labelStyle,
+    required this.valueStyle,
+    required this.valueItalicStyle,
+  });
+
+  final String label;
+  final String value;
+  final bool hasValue;
+  final TextStyle labelStyle;
+  final TextStyle valueStyle;
+  final TextStyle valueItalicStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: labelStyle),
+        SizedBox(height: 6.h),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: hasValue ? valueStyle : valueItalicStyle,
+        ),
+      ],
     );
   }
 }

@@ -6,7 +6,9 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/safety_disclaimer_banner.dart';
+import '../../helpers/moderator_navigation.dart';
 import '../../providers/pilgrim_provider.dart';
+import '../moderator_navigate_button.dart';
 import '../sos/sos_button.dart';
 import '../sos/sos_help_session_panel.dart';
 import '../sos/sos_home_phase.dart';
@@ -425,6 +427,11 @@ class _HomeBody extends StatelessWidget {
     final muted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
     final showHelp = pilgrimState.sosActive || showResolvedSosCard;
     final g = group;
+    final activeBeacons = activeNavBeaconsForGroup(
+      beacons: navBeacons,
+      moderators: g?.moderators ?? const [],
+      createdBy: g?.createdBy,
+    );
 
     return Container(
       width: double.infinity,
@@ -440,22 +447,20 @@ class _HomeBody extends StatelessWidget {
             // ── Group Card (Full Width) ──────────────────────────────────────
             GroupCard(
               groupName: g?.groupName ?? 'card_no_group'.tr(),
-              moderatorName: g != null && g.moderators.isNotEmpty
-                  ? g.moderators.first.fullName
-                  : '',
+              moderators: g?.moderators ?? const [],
+              createdBy: g?.createdBy,
               hotelName: g?.hotelName ?? '',
               busNumber: g?.busNumber ?? '',
               checkIn: g?.checkIn ?? '',
-              moderatorInitials: g != null
-                  ? g.moderators
-                      .map((m) => m.fullName.isNotEmpty
-                          ? m.fullName[0].toUpperCase()
-                          : '?')
-                      .toList()
-                  : const [],
-              pilgrimCount: g?.pilgrimCount ?? 0,
               onTap: onGroupCardTap,
             ),
+            if (activeBeacons.isNotEmpty) ...[
+              SizedBox(height: 8.h),
+              ModeratorNavigateBeaconList(
+                beacons: activeBeacons,
+                onNavigate: onNavigateToModerator,
+              ),
+            ],
             SizedBox(height: 10.h), // Tighter spacing
 
             // ── Animated Switcher for help mode vs normal side-by-side mode ──
