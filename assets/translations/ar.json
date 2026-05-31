@@ -534,6 +534,8 @@
   "home_my_group": "مجموعتي",
   "home_tap_details": "انقر لعرض التفاصيل",
   "home_explore": "استكشاف",
+  "home_explore_nearby": "مواقع قريبة",
+  "home_explore_tap": "عرض المناطق",
   "explore_nearby_title": "استكشاف القريب",
   "explore_search_hint": "ابحث عن أماكن قريبة…",
   "explore_osm_note": "أماكن من قاعدة بيانات التطبيق.",

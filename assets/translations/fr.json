@@ -437,6 +437,8 @@
   "home_my_group": "Mon groupe",
   "home_tap_details": "Appuyez pour voir les détails",
   "home_explore": "Explorer",
+  "home_explore_nearby": "Sites à proximité",
+  "home_explore_tap": "Voir les zones",
   "explore_nearby_title": "Explorer à proximité",
   "explore_search_hint": "Rechercher des lieux proches…",
   "explore_osm_note": "Lieux depuis la base de données de l’app.",

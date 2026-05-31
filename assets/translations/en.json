@@ -537,6 +537,8 @@
   "home_my_group": "My Group",
   "home_tap_details": "Tap to view details",
   "home_explore": "Explore",
+  "home_explore_nearby": "Nearby sites",
+  "home_explore_tap": "View areas",
   "explore_nearby_title": "Explore nearby",
   "explore_search_hint": "Search nearby places...",
   "explore_osm_note": "Places from the in-app database.",

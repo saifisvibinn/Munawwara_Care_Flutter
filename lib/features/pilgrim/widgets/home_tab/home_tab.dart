@@ -514,22 +514,24 @@ class _HomeBody extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         // 1. Weather and Explore cards side-by-side matching screenshot
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: WeatherCard(
-                                alert: weatherAlert,
-                                onTapOpenDetail: onWeatherTap,
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: WeatherCard(
+                                  alert: weatherAlert,
+                                  onTapOpenDetail: onWeatherTap,
+                                ),
                               ),
-                            ),
-                            SizedBox(width: 12.w),
-                            Expanded(
-                              child: ExploreCard(
-                                onTap: onHotspotsTap,
+                              SizedBox(width: 12.w),
+                              Expanded(
+                                child: ExploreCard(
+                                  onTap: onHotspotsTap,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                         SizedBox(height: 14.h),
 
