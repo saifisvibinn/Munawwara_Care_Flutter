@@ -12,9 +12,13 @@ import '../../../core/theme/app_colors.dart';
 
 void showGroupDetailsBottomSheet(
   BuildContext context, {
+  required String groupName,
+  required int pilgrimCount,
+  required List<String> moderatorInitials,
   String? moderatorName,
   double? moderatorLat,
   double? moderatorLng,
+  String? distanceStr,
   String? hotelName,
   String? roomNumber,
   String? busNumber,
@@ -25,34 +29,77 @@ void showGroupDetailsBottomSheet(
 }) {
   final theme = Theme.of(context);
   final isDark = theme.brightness == Brightness.dark;
-  final titleStyle = theme.textTheme.titleLarge?.copyWith(
-    fontFamily: 'Lexend',
-    fontWeight: FontWeight.w800,
-    color: isDark ? Colors.white : AppColors.textDark,
-  );
 
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    showDragHandle: true,
+    backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFFFF7ED),
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28.r)),
     ),
     builder: (ctx) {
       return Padding(
-        padding: EdgeInsets.fromLTRB(22.w, 8.h, 22.w, 20.h),
+        padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 20.h),
         child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('group_details_title'.tr(), style: titleStyle),
+              // Pull indicator handle
+              Center(
+                child: Container(
+                  width: 36.w,
+                  height: 4.h,
+                  margin: EdgeInsets.only(bottom: 16.h),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white30 : Colors.black12,
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                ),
+              ),
+              // Header Row: Title and X Close Button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'group_details_title'.tr(),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 22.sp,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : AppColors.textDark,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: Container(
+                      padding: EdgeInsets.all(6.w),
+                      decoration: BoxDecoration(
+                        color: isDark 
+                            ? Colors.white.withValues(alpha: 0.1) 
+                            : Colors.black.withValues(alpha: 0.05),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.close,
+                        size: 18.w,
+                        color: isDark ? Colors.white70 : AppColors.textMutedDark,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               SizedBox(height: 18.h),
               _GroupDetailsBody(
+                groupName: groupName,
+                pilgrimCount: pilgrimCount,
+                moderatorInitials: moderatorInitials,
                 moderatorName: moderatorName,
                 moderatorLat: moderatorLat,
                 moderatorLng: moderatorLng,
+                distanceStr: distanceStr,
                 hotelName: hotelName,
                 roomNumber: roomNumber,
                 busNumber: busNumber,
@@ -71,9 +118,13 @@ void showGroupDetailsBottomSheet(
 }
 
 class _GroupDetailsBody extends StatelessWidget {
+  final String groupName;
+  final int pilgrimCount;
+  final List<String> moderatorInitials;
   final String? moderatorName;
   final double? moderatorLat;
   final double? moderatorLng;
+  final String? distanceStr;
   final String? hotelName;
   final String? roomNumber;
   final String? busNumber;
@@ -83,9 +134,13 @@ class _GroupDetailsBody extends StatelessWidget {
   final int? daysRemaining;
 
   const _GroupDetailsBody({
+    required this.groupName,
+    required this.pilgrimCount,
+    required this.moderatorInitials,
     this.moderatorName,
     this.moderatorLat,
     this.moderatorLng,
+    this.distanceStr,
     this.hotelName,
     this.roomNumber,
     this.busNumber,
@@ -106,248 +161,486 @@ class _GroupDetailsBody extends StatelessWidget {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  Widget _buildAvatarCircles(List<String> initials, int totalCount) {
+    final List<Widget> list = [];
+    // Draw first 2 moderator initials
+    for (int i = 0; i < initials.length && i < 2; i++) {
+      list.add(
+        Container(
+          width: 26.w,
+          height: 26.w,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF97316), // Premium Orange
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            initials[i],
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      );
+    }
+    // Draw +N remaining members circle
+    final remaining = totalCount - initials.length;
+    if (remaining > 0) {
+      if (initials.isNotEmpty) {
+        list.add(SizedBox(width: 2.w));
+      }
+      list.add(
+        Container(
+          width: 26.w,
+          height: 26.w,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            color: Color(0xFF2E3E5C), // Premium Deep Blue
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            '+$remaining',
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 10.sp,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: list,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final noRecordsText = 'no_records_available'.tr();
-    final hotelText = hotelName?.trim().isNotEmpty == true
-        ? hotelName!
-        : noRecordsText;
-    final roomText = roomNumber?.trim().isNotEmpty == true
-        ? roomNumber!
-        : noRecordsText;
-    final busText = busNumber?.trim().isNotEmpty == true
-        ? busNumber!
-        : noRecordsText;
-    final driverText = driverName?.trim().isNotEmpty == true
-        ? driverName!
-        : noRecordsText;
-    final checkInText = checkIn?.trim().isNotEmpty == true
-        ? checkIn!
-        : noRecordsText;
-    final checkOutText = checkOut?.trim().isNotEmpty == true
-        ? checkOut!
-        : noRecordsText;
-    final daysRemainingText = daysRemaining != null
-        ? daysRemaining.toString()
-        : noRecordsText;
+    final hotelText = hotelName?.trim().isNotEmpty == true ? hotelName! : noRecordsText;
+    final roomText = roomNumber?.trim().isNotEmpty == true ? roomNumber! : noRecordsText;
+    final busText = busNumber?.trim().isNotEmpty == true ? busNumber! : noRecordsText;
+    final driverText = driverName?.trim().isNotEmpty == true ? driverName! : noRecordsText;
+    final checkInText = checkIn?.trim().isNotEmpty == true ? checkIn! : '—';
+    final checkOutText = checkOut?.trim().isNotEmpty == true ? checkOut! : '—';
+    final daysRemainingText = daysRemaining != null ? daysRemaining.toString() : '—';
+
+    // Theme values for colored cards
+    final modBg = isDark ? const Color(0xFF13251A) : const Color(0xFFEAF6ED);
+    final modTitle = isDark ? const Color(0xFF8CE3A3) : const Color(0xFF2D6A4F);
+    final modText = isDark ? Colors.white : const Color(0xFF1B4332);
+    final modAvatarBg = isDark ? const Color(0xFF1B3B2B) : const Color(0xFFD8F3DC);
+
+    final hotelBg = isDark ? const Color(0xFF112233) : const Color(0xFFE5F2FF);
+    final hotelTitle = isDark ? const Color(0xFF8CC5FF) : const Color(0xFF1A5F7A);
+    final hotelTextCol = isDark ? Colors.white : const Color(0xFF1A365D);
+    final hotelAvatarBg = isDark ? const Color(0xFF1A3355) : const Color(0xFFCCE4FF);
+
+    final transportBg = isDark ? const Color(0xFF2D2214) : const Color(0xFFFFF2E5);
+    final transportTitle = isDark ? const Color(0xFFFFD1A9) : const Color(0xFFB05C1A);
+    final transportTextCol = isDark ? Colors.white : const Color(0xFF5C2D12);
+    final transportAvatarBg = isDark ? const Color(0xFF402E1D) : const Color(0xFFFFE6D5);
+
+    final stayBg = isDark ? const Color(0xFF2E1719) : const Color(0xFFFFEBEA);
+    final stayTitle = isDark ? const Color(0xFFFF9EA6) : const Color(0xFFC0392B);
+    final stayAvatarBg = isDark ? const Color(0xFF4A2326) : const Color(0xFFFFD1CF);
+
+    final labelStyle = TextStyle(
+      fontFamily: 'Lexend',
+      fontSize: 12.sp,
+      fontWeight: FontWeight.w600,
+      color: isDark ? Colors.white60 : Colors.black45,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionCard(
-          isDark: isDark,
-          title: 'group_hotel_info'.tr(),
-          icon: Symbols.hotel,
-          tint: const Color(0xFFF3ECE0),
-          iconTint: const Color(0xFFDCECF9),
-          children: [
-            _SectionLine(label: 'group_hotel_name'.tr(), value: hotelText),
-            _SectionLine(label: 'group_room_number'.tr(), value: roomText),
-          ],
-        ),
-        SizedBox(height: 12.h),
-        _SectionCard(
-          isDark: isDark,
-          title: 'group_moderator_section'.tr(),
-          icon: Symbols.location_on,
-          tint: const Color(0xFFEAF6ED),
-          iconTint: const Color(0xFFCFEBD7),
-          children: [
-            _SectionLine(
-              label: 'group_moderator_name'.tr(),
-              value: moderatorName?.isNotEmpty == true
-                  ? moderatorName!
-                  : noRecordsText,
-            ),
-            if (_hasModeratorLocation) ...[
-              _SectionLine(
-                label: 'group_current_location'.tr(),
-                value:
-                    '${moderatorLat!.toStringAsFixed(5)}, ${moderatorLng!.toStringAsFixed(5)}',
-              ),
-              SizedBox(height: 8.h),
-              GestureDetector(
-                onTap: _openModeratorLocation,
-                child: Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(vertical: 10.h),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF7DB8E3), Color(0xFF72AFDA)],
-                    ),
-                    borderRadius: BorderRadius.circular(14.r),
-                  ),
-                  child: Text(
-                    'group_view_on_map'.tr(),
-                    textAlign: TextAlign.center,
+        // ── Active Group Header Card ─────────────────────────────────────────
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1D2641), // Matching mockup dark blue
+            borderRadius: BorderRadius.circular(20.r),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'ACTIVE GROUP',
                     style: TextStyle(
                       fontFamily: 'Lexend',
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 10.sp,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFFF97316),
+                      letterSpacing: 0.8,
                     ),
                   ),
-                ),
+                  SizedBox(height: 2.h),
+                  Text(
+                    groupName,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 22.sp,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
+              _buildAvatarCircles(moderatorInitials, pilgrimCount),
             ],
-          ],
-        ),
-        SizedBox(height: 12.h),
-        _SectionCard(
-          isDark: isDark,
-          title: 'group_transport_details'.tr(),
-          icon: Symbols.directions_bus,
-          tint: const Color(0xFFF8F1D9),
-          iconTint: const Color(0xFFF2E4AE),
-          children: [
-            _SectionLine(label: 'group_bus_number'.tr(), value: busText),
-            _SectionLine(label: 'group_driver_name'.tr(), value: driverText),
-          ],
-        ),
-        SizedBox(height: 12.h),
-        _SectionCard(
-          isDark: isDark,
-          title: 'group_stay_duration'.tr(),
-          icon: Symbols.calendar_month,
-          tint: const Color(0xFFE3F0FB),
-          iconTint: const Color(0xFFC5E1F8),
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _StayColumn(
-                    title: 'group_checkin'.tr(),
-                    value: checkInText,
-                    alignStart: true,
-                  ),
-                ),
-                Expanded(
-                  child: _StayColumn(
-                    title: 'group_days_remaining'.tr(),
-                    value: daysRemainingText,
-                  ),
-                ),
-                Expanded(
-                  child: _StayColumn(
-                    title: 'group_checkout'.tr(),
-                    value: checkOutText,
-                    alignStart: false,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  final bool isDark;
-  final String title;
-  final IconData icon;
-  final Color tint;
-  final Color iconTint;
-  final List<Widget> children;
-
-  const _SectionCard({
-    required this.isDark,
-    required this.title,
-    required this.icon,
-    required this.tint,
-    required this.iconTint,
-    required this.children,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(14.w, 14.h, 14.w, 14.h),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : tint,
-        borderRadius: BorderRadius.circular(22.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        ),
+        SizedBox(height: 14.h),
+
+        // ── Card 1: Moderator Card ───────────────────────────────────────────
+        Container(
+          padding: EdgeInsets.all(14.w),
+          decoration: BoxDecoration(
+            color: modBg,
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(
+              color: isDark ? const Color(0xFF1B3D2B) : const Color(0xFFD0ECDA),
+            ),
+          ),
+          child: Row(
             children: [
               Container(
                 width: 44.w,
                 height: 44.w,
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.iconBgDark : iconTint,
+                  color: modAvatarBg,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 22.w, color: AppColors.primary),
+                child: Icon(
+                  Symbols.person,
+                  size: 22.w,
+                  color: modTitle,
+                  fill: 1,
+                ),
               ),
-              SizedBox(width: 10.w),
+              SizedBox(width: 12.w),
               Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : AppColors.textDark,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'group_moderator_section'.tr(),
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w700,
+                        color: modTitle,
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      moderatorName?.isNotEmpty == true ? moderatorName! : noRecordsText,
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w800,
+                        color: modText,
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      distanceStr?.isNotEmpty == true
+                          ? '$distanceStr · Group leader'
+                          : 'Group leader',
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 12.sp,
+                        color: isDark ? Colors.white60 : Colors.black45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_hasModeratorLocation)
+                GestureDetector(
+                  onTap: _openModeratorLocation,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF97316),
+                      borderRadius: BorderRadius.circular(16.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFF97316).withValues(alpha: 0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Symbols.navigation,
+                          color: Colors.white,
+                          size: 14,
+                          fill: 1,
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          'nav_go'.tr(),
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+            ],
+          ),
+        ),
+        SizedBox(height: 12.h),
+
+        // ── Card 2: Hotel Information Card ───────────────────────────────────
+        Container(
+          padding: EdgeInsets.all(14.w),
+          decoration: BoxDecoration(
+            color: hotelBg,
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(
+              color: isDark ? const Color(0xFF1E354F) : const Color(0xFFD6E9FF),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40.w,
+                    height: 40.w,
+                    decoration: BoxDecoration(
+                      color: hotelAvatarBg,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Symbols.hotel,
+                      size: 20.w,
+                      color: hotelTitle,
+                      fill: 1,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Text(
+                    'group_hotel_info'.tr(),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w800,
+                      color: hotelTitle,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12.h),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('group_hotel_name'.tr(), style: labelStyle),
+                  Text(
+                    hotelText,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w700,
+                      color: hotelTextCol,
+                      fontStyle: hotelName?.trim().isNotEmpty == true ? FontStyle.normal : FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8.h),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('group_room_number'.tr(), style: labelStyle),
+                  Text(
+                    roomText,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w700,
+                      color: hotelTextCol,
+                      fontStyle: roomNumber?.trim().isNotEmpty == true ? FontStyle.normal : FontStyle.italic,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          SizedBox(height: 12.h),
-          ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionLine extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _SectionLine({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: EdgeInsets.only(bottom: 6.h),
-      child: RichText(
-        text: TextSpan(
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontSize: 14.sp,
-            color: isDark ? Colors.white : AppColors.textDark,
-          ),
-          children: [
-            TextSpan(
-              text: '$label: ',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : AppColors.textDark,
-              ),
-            ),
-            TextSpan(
-              text: value,
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                color: isDark ? Colors.white70 : AppColors.textDark,
-              ),
-            ),
-          ],
         ),
-      ),
+        SizedBox(height: 12.h),
+
+        // ── Card 3: Transportation Card ──────────────────────────────────────
+        Container(
+          padding: EdgeInsets.all(14.w),
+          decoration: BoxDecoration(
+            color: transportBg,
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(
+              color: isDark ? const Color(0xFF3F3221) : const Color(0xFFFFECCE),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40.w,
+                    height: 40.w,
+                    decoration: BoxDecoration(
+                      color: transportAvatarBg,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Symbols.directions_bus,
+                      size: 20.w,
+                      color: transportTitle,
+                      fill: 1,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Text(
+                    'group_transport_details'.tr(),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w800,
+                      color: transportTitle,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12.h),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('group_bus_number'.tr(), style: labelStyle),
+                  Text(
+                    busText,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w700,
+                      color: transportTextCol,
+                      fontStyle: busNumber?.trim().isNotEmpty == true ? FontStyle.normal : FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8.h),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('group_driver_name'.tr(), style: labelStyle),
+                  Text(
+                    driverText,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w700,
+                      color: transportTextCol,
+                      fontStyle: driverName?.trim().isNotEmpty == true ? FontStyle.normal : FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 12.h),
+
+        // ── Card 4: Stay Duration Card ───────────────────────────────────────
+        Container(
+          padding: EdgeInsets.all(14.w),
+          decoration: BoxDecoration(
+            color: stayBg,
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(
+              color: isDark ? const Color(0xFF432224) : const Color(0xFFFFDBDA),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40.w,
+                    height: 40.w,
+                    decoration: BoxDecoration(
+                      color: stayAvatarBg,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Symbols.calendar_today,
+                      size: 20.w,
+                      color: stayTitle,
+                      fill: 1,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Text(
+                    'group_stay_duration'.tr(),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w800,
+                      color: stayTitle,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 16.h),
+              // Horizontal stay columns grid
+              Row(
+                children: [
+                  Expanded(
+                    child: _StayColumn(
+                      title: 'group_checkin'.tr(),
+                      value: checkInText,
+                      alignStart: true,
+                    ),
+                  ),
+                  Expanded(
+                    child: _StayColumn(
+                      title: 'group_days_remaining'.tr(),
+                      value: daysRemainingText,
+                    ),
+                  ),
+                  Expanded(
+                    child: _StayColumn(
+                      title: 'group_checkout'.tr(),
+                      value: checkOutText,
+                      alignStart: false,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -377,7 +670,7 @@ class _StayColumn extends StatelessWidget {
           style: TextStyle(
             fontFamily: 'Lexend',
             fontSize: 11.sp,
-            color: AppColors.textMutedLight,
+            color: isDark ? Colors.white54 : Colors.black45,
             fontWeight: FontWeight.w600,
           ),
           textAlign: alignStart == null

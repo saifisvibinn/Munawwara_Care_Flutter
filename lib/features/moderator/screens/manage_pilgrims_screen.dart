@@ -1171,19 +1171,22 @@ class _PilgrimCard extends StatelessWidget {
                               : const Color(0xFFFF8400),
                         ),
                         SizedBox(width: 4.w),
-                        Text(
-                          pilgrim.isAssigned
-                              ? pilgrim.currentGroupName!
-                              : (pilgrim.limboReason == 'group_deleted'
-                                  ? 'manage_deleted_group'.tr(args: [pilgrim.limboGroupName ?? '?'])
-                                  : 'manage_unassigned'.tr()),
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w600,
-                            fontSize: 11.sp,
-                            color: pilgrim.isAssigned
-                                ? Colors.green.shade700
-                                : const Color(0xFFFF8400),
+                        Flexible(
+                          child: Text(
+                            pilgrim.isAssigned
+                                ? pilgrim.currentGroupName!
+                                : (pilgrim.limboReason == 'group_deleted'
+                                    ? 'manage_deleted_group'.tr(args: [pilgrim.limboGroupName ?? '?'])
+                                    : 'manage_unassigned'.tr()),
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11.sp,
+                              color: pilgrim.isAssigned
+                                  ? Colors.green.shade700
+                                  : const Color(0xFFFF8400),
+                            ),
                           ),
                         ),
                       ],

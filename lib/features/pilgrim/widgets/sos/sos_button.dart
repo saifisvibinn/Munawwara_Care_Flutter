@@ -8,6 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class SosButton extends StatefulWidget {
+  final double size;
   final AnimationController pulseController;
   final AnimationController holdController;
   final bool isHolding;
@@ -19,6 +20,7 @@ class SosButton extends StatefulWidget {
 
   const SosButton({
     super.key,
+    this.size = 190,
     required this.pulseController,
     required this.holdController,
     required this.isHolding,
@@ -67,8 +69,8 @@ class _SosButtonState extends State<SosButton>
 
   @override
   Widget build(BuildContext context) {
-    const double size = 190;
-    const double ringStroke = 8;
+    final double size = widget.size;
+    final double ringStroke = (size * 0.042).clamp(4.0, 8.0);
 
     Widget disc = GestureDetector(
       onLongPressDown: (_) => _onDown(),
@@ -188,8 +190,8 @@ class _SosButtonState extends State<SosButton>
                 child: widget.isLoading
                     ? Center(
                         child: SizedBox(
-                          width: 40.w,
-                          height: 40.w,
+                          width: (size * 0.21).clamp(24.0, 40.0).w,
+                          height: (size * 0.21).clamp(24.0, 40.0).w,
                           child: const CircularProgressIndicator(
                             color: Colors.white,
                             strokeWidth: 4,
@@ -197,8 +199,8 @@ class _SosButtonState extends State<SosButton>
                         ),
                       )
                     : widget.isHolding
-                        ? SosHoldingContent(countdown: widget.countdown)
-                        : SosIdleContent(sosActive: widget.sosActive),
+                        ? SosHoldingContent(countdown: widget.countdown, size: size)
+                        : SosIdleContent(sosActive: widget.sosActive, size: size),
               ),
             ],
           ),
@@ -216,7 +218,8 @@ class _SosButtonState extends State<SosButton>
 
 class SosHoldingContent extends StatelessWidget {
   final int countdown;
-  const SosHoldingContent({super.key, required this.countdown});
+  final double size;
+  const SosHoldingContent({super.key, required this.countdown, required this.size});
 
   @override
   Widget build(BuildContext context) {
@@ -228,18 +231,18 @@ class SosHoldingContent extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: 'Lexend',
-            fontSize: 15.sp,
+            fontSize: (size * 0.082).clamp(10.0, 16.0).sp,
             fontWeight: FontWeight.w800,
             color: Colors.white,
             height: 1.2,
           ),
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 6.h),
         Text(
           'sos_hold_seconds'.tr(namedArgs: {'n': '$countdown'}),
           style: TextStyle(
             fontFamily: 'Lexend',
-            fontSize: 13.sp,
+            fontSize: (size * 0.071).clamp(9.0, 14.0).sp,
             fontWeight: FontWeight.w600,
             color: Colors.white.withValues(alpha: 0.75),
           ),
@@ -255,7 +258,8 @@ class SosHoldingContent extends StatelessWidget {
 
 class SosIdleContent extends StatelessWidget {
   final bool sosActive;
-  const SosIdleContent({super.key, required this.sosActive});
+  final double size;
+  const SosIdleContent({super.key, required this.sosActive, required this.size});
 
   @override
   Widget build(BuildContext context) {
@@ -266,21 +270,21 @@ class SosIdleContent extends StatelessWidget {
           'sos_title'.tr(),
           style: TextStyle(
             fontFamily: 'Lexend',
-            fontSize: 48.sp,
+            fontSize: (size * 0.25).clamp(24.0, 48.0).sp,
             fontWeight: FontWeight.w900,
             color: Colors.white,
-            letterSpacing: 4,
+            letterSpacing: (size * 0.02).clamp(1.0, 4.0),
           ),
         ),
-        SizedBox(height: 4.h),
+        SizedBox(height: 2.h),
         Text(
           sosActive ? 'sos_active_text'.tr() : 'sos_hold_label'.tr(),
           style: TextStyle(
             fontFamily: 'Lexend',
-            fontSize: 14.sp,
+            fontSize: (size * 0.08).clamp(8.0, 14.0).sp,
             fontWeight: FontWeight.w800,
             color: Colors.white.withValues(alpha: 0.8),
-            letterSpacing: 1.5,
+            letterSpacing: (size * 0.01).clamp(0.5, 1.5),
           ),
         ),
       ],

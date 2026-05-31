@@ -1,13 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/safety_disclaimer_banner.dart';
-import '../../../shared/widgets/moderator_avatar.dart';
 import '../../providers/pilgrim_provider.dart';
 import '../sos/sos_button.dart';
 import '../sos/sos_help_session_panel.dart';
@@ -177,6 +175,7 @@ class PilgrimHomeTab extends StatelessWidget {
                               ),
                               constraints: BoxConstraints(minWidth: 16.w),
                               child: Text(
+                                // Show dynamic count
                                 missedCallUnreadCount > 9
                                     ? '9+'
                                     : '$missedCallUnreadCount',
@@ -293,7 +292,7 @@ class PilgrimHomeTab extends StatelessWidget {
                                 ),
                               ),
                             if (isGpsEnabled && hasLocPermission)
-                              SizedBox(height: 20.h),
+                              SizedBox(height: 10.h), // Tighter spacing below greetings to prevent scrolling
                           ],
                         ),
                       ),
@@ -425,6 +424,7 @@ class _HomeBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final muted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
     final showHelp = pilgrimState.sosActive || showResolvedSosCard;
+    final g = group;
 
     return Container(
       width: double.infinity,
@@ -433,71 +433,110 @@ class _HomeBody extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(36.r)),
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20.w, 24.h, 20.w, 20.h),
+        padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 12.h), // Compact padding to ensure perfect fit without scroll
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Card Grid ────────────────────────────────────────────────────
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    flex: 5,
-                    child: GroupCard(
-                      groupName: group?.groupName ?? 'card_no_group'.tr(),
-                      onTap: onGroupCardTap,
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    flex: 5,
-                    child: Column(
+            // ── Group Card (Full Width) ──────────────────────────────────────
+            GroupCard(
+              groupName: g?.groupName ?? 'card_no_group'.tr(),
+              moderatorName: g != null && g.moderators.isNotEmpty
+                  ? g.moderators.first.fullName
+                  : '',
+              hotelName: g?.hotelName ?? '',
+              busNumber: g?.busNumber ?? '',
+              checkIn: g?.checkIn ?? '',
+              moderatorInitials: g != null
+                  ? g.moderators
+                      .map((m) => m.fullName.isNotEmpty
+                          ? m.fullName[0].toUpperCase()
+                          : '?')
+                      .toList()
+                  : const [],
+              pilgrimCount: g?.pilgrimCount ?? 0,
+              onTap: onGroupCardTap,
+            ),
+            SizedBox(height: 10.h), // Tighter spacing
+
+            // ── Animated Switcher for help mode vs normal side-by-side mode ──
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 280),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              child: showHelp
+                  ? Column(
+                      key: const ValueKey<String>('show_help_active'),
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: WeatherCard(
-                            alert: weatherAlert,
-                            onTapOpenDetail: onWeatherTap,
+                        // Weather & Explore cards side-by-side
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: WeatherCard(
+                                  alert: weatherAlert,
+                                  onTapOpenDetail: onWeatherTap,
+                                ),
+                              ),
+                              SizedBox(width: 12.w),
+                              Expanded(
+                                child: ExploreCard(
+                                  onTap: onHotspotsTap,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         SizedBox(height: 12.h),
-                        ExploreCard(onTap: onHotspotsTap),
+                        // Full width SOS Help Session Card
+                        Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8.h),
+                          child: SosHelpSessionPanel(
+                            isDark: isDark,
+                            statusKey: sosHelpStatusKey,
+                            moderatorName: sosModeratorName,
+                            onCancelRequest: onCancelSos,
+                            disableCancel:
+                                sosHelpStatusKey == 'sos_status_being_handled',
+                            showCancel:
+                                sosHelpStatusKey != 'sos_status_resolved_friendly',
+                            showCallBack:
+                                sosHelpStatusKey == 'sos_status_callback_available',
+                            onCallBack: onCallBackSos,
+                            cooldownSeconds: callCooldownSeconds,
+                          ),
+                        ),
                       ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 32.h),
+                    )
+                  : Column(
+                      key: const ValueKey<String>('show_help_idle'),
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // 1. Weather and Explore cards side-by-side matching screenshot
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: WeatherCard(
+                                alert: weatherAlert,
+                                onTapOpenDetail: onWeatherTap,
+                              ),
+                            ),
+                            SizedBox(width: 12.w),
+                            Expanded(
+                              child: ExploreCard(
+                                onTap: onHotspotsTap,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 14.h),
 
-            // ── SOS / help session ────────────────────────────────────────────
-            Center(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 280),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeIn,
-                child: showHelp
-                    ? SosHelpSessionPanel(
-                        key: const ValueKey<String>('sos_ui_help'),
-                        isDark: isDark,
-                        statusKey: sosHelpStatusKey,
-                        moderatorName: sosModeratorName,
-                        onCancelRequest: onCancelSos,
-                        disableCancel:
-                            sosHelpStatusKey == 'sos_status_being_handled',
-                        showCancel:
-                            sosHelpStatusKey != 'sos_status_resolved_friendly',
-                        showCallBack:
-                            sosHelpStatusKey == 'sos_status_callback_available',
-                        onCallBack: onCallBackSos,
-                        cooldownSeconds: callCooldownSeconds,
-                      )
-                    : Column(
-                        key: const ValueKey<String>('sos_ui_idle'),
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SosButton(
+                        // 2. Centered large glowing SOS Button sitting directly on the page surface
+                        Center(
+                          child: SosButton(
+                            size: 186.w, // Enlarged premium large size to sit directly on the page background
                             pulseController: sosPulseController,
                             holdController: sosHoldController,
                             isHolding: isSosHolding,
@@ -507,198 +546,25 @@ class _HomeBody extends StatelessWidget {
                             onHoldStart: onSosHoldStart,
                             onHoldEnd: onSosHoldEnd,
                           ),
-                          SizedBox(height: 14.h),
-                          Text(
-                            'sos_idle_subtext'.tr(),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w500,
-                              color: muted,
-                              height: 1.35,
-                            ),
+                        ),
+                        SizedBox(height: 10.h),
+                        // Centered text underneath the SOS button
+                        Text(
+                          'sos_idle_subtext'.tr(),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w500,
+                            color: muted,
+                            height: 1.35,
                           ),
-                        ],
-                      ),
-              ),
+                        ),
+                      ],
+                    ),
             ),
-            SizedBox(height: 32.h),
+            SizedBox(height: 8.h), // Tighter vertical spacing below SOS card
 
-            // ── Navigate to Moderator (only when beacon active) ───────────────
-            if (navBeacons.isNotEmpty)
-              Container(
-                margin: EdgeInsets.only(bottom: 24.h),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.surfaceDark : Colors.white,
-                  borderRadius: BorderRadius.circular(20.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 8.h),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Symbols.my_location,
-                            size: 18.w,
-                            color: AppColors.primary,
-                          ),
-                          SizedBox(width: 8.w),
-                          Text(
-                            'nav_to_moderator'.tr(),
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14.sp,
-                              color: isDark ? Colors.white : AppColors.textDark,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1),
-                    ...(() {
-                      final list = navBeacons.values.toList();
-                      if (myLocation != null) {
-                        list.sort((a, b) {
-                          final dA = Geolocator.distanceBetween(
-                            myLocation!.latitude,
-                            myLocation!.longitude,
-                            a.lat,
-                            a.lng,
-                          );
-                          final dB = Geolocator.distanceBetween(
-                            myLocation!.latitude,
-                            myLocation!.longitude,
-                            b.lat,
-                            b.lng,
-                          );
-                          return dA.compareTo(dB);
-                        });
-                      }
-                      return list.map((beacon) {
-                        double? dist;
-                        if (myLocation != null) {
-                          dist = Geolocator.distanceBetween(
-                            myLocation!.latitude,
-                            myLocation!.longitude,
-                            beacon.lat,
-                            beacon.lng,
-                          );
-                        }
-                        String distStr = '';
-                        if (dist != null) {
-                          distStr = dist < 1000
-                              ? '${dist.toStringAsFixed(0)}m'
-                              : '${(dist / 1000).toStringAsFixed(1)}km';
-                        }
-
-                        return Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 16.w,
-                            vertical: 10.h,
-                          ),
-                          child: Row(
-                            children: [
-                              ModeratorAvatar(
-                                size: 40.w,
-                                initials: beacon.name.isNotEmpty
-                                    ? beacon.name[0]
-                                    : '?',
-                              ),
-                              SizedBox(width: 12.w),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      beacon.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontFamily: 'Lexend',
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14.sp,
-                                        color: isDark
-                                            ? Colors.white
-                                            : AppColors.textDark,
-                                      ),
-                                    ),
-                                    if (distStr.isNotEmpty)
-                                      Text(
-                                        distStr,
-                                        style: TextStyle(
-                                          fontFamily: 'Lexend',
-                                          fontSize: 12.sp,
-                                          color: isDark
-                                              ? Colors.white70
-                                              : AppColors.textMutedDark,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              SizedBox(width: 10.w),
-                              GestureDetector(
-                                onTap: () => onNavigateToModerator(beacon),
-                                child: Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 14.w,
-                                    vertical: 9.h,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary,
-                                    borderRadius: BorderRadius.circular(14.r),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.primary.withValues(
-                                          alpha: 0.35,
-                                        ),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Symbols.navigation,
-                                        color: Colors.white,
-                                        size: 16.w,
-                                      ),
-                                      SizedBox(width: 6.w),
-                                      Text(
-                                        'nav_go'.tr(),
-                                        style: TextStyle(
-                                          fontFamily: 'Lexend',
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13.sp,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList();
-                    })(),
-                    SizedBox(height: 8.h),
-                  ],
-                ),
-              ),
             SafetyDisclaimerBanner(isDark: isDark),
           ],
         ),

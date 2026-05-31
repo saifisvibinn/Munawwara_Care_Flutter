@@ -1722,11 +1722,39 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             final firstModerator = hasModerator
                 ? pilgrimState.groupInfo!.moderators.first
                 : null;
+
+            // Calculate distance to moderator dynamically
+            String? distanceStr;
+            if (_myLatLng != null &&
+                firstModerator != null &&
+                firstModerator.lat != null &&
+                firstModerator.lng != null) {
+              final dist = Geolocator.distanceBetween(
+                _myLatLng!.latitude,
+                _myLatLng!.longitude,
+                firstModerator.lat!,
+                firstModerator.lng!,
+              );
+              distanceStr = dist < 1000
+                  ? '${dist.toStringAsFixed(0)} m'
+                  : '${(dist / 1000).toStringAsFixed(1)} km';
+            }
+
+            final initials = pilgrimState.groupInfo!.moderators
+                .map((m) => m.fullName.isNotEmpty
+                    ? m.fullName[0].toUpperCase()
+                    : '?')
+                .toList();
+
             showGroupDetailsBottomSheet(
               context,
+              groupName: pilgrimState.groupInfo!.groupName,
+              pilgrimCount: pilgrimState.groupInfo!.pilgrimCount,
+              moderatorInitials: initials,
               moderatorName: firstModerator?.fullName,
               moderatorLat: firstModerator?.lat,
               moderatorLng: firstModerator?.lng,
+              distanceStr: distanceStr,
               hotelName: pilgrimState.groupInfo!.hotelName,
               roomNumber: pilgrimState.groupInfo!.roomNumber,
               busNumber: pilgrimState.groupInfo!.busNumber,
