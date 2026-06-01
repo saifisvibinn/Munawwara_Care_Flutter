@@ -36,7 +36,7 @@ Durrah Care is a **Hajj pilgrim management platform**. It connects pilgrims with
 | Live map | Self-location + moderator beacon | All pilgrim locations |
 | Chat | Group + individual | Group + individual |
 | Suggested areas / meetpoints | View + navigate | Create / pin |
-| Qibla compass | Yes | No |
+| Qibla compass (removed) | — | No |
 | Notifications | Yes | Yes |
 
 ---
@@ -129,7 +129,7 @@ features/<feature>/
 | Module | Key screens | Key providers |
 |---|---|---|
 | `auth` | LoginScreen, SplashScreen | authProvider (JWT, role, profile) |
-| `pilgrim` | PilgrimDashboardScreen, GroupInboxScreen, QiblaCompassScreen, MeccaHotspotsScreen, PilgrimProfileScreen | pilgrimProvider, suggestedAreaProvider |
+| `pilgrim` | PilgrimDashboardScreen, GroupInboxScreen, MeccaHotspotsScreen, PilgrimProfileScreen | pilgrimProvider, suggestedAreaProvider |
 | `moderator` | ModeratorDashboardScreen, GroupManagementScreen, ManagePilgrimsScreen, SystemRemindersScreen | moderatorProvider, managePilgrimsProvider |
 | `calling` | VoiceCallScreen, CallHistoryScreen | callProvider, missedCallsUnreadProvider |
 | `notifications` | AlertsTab (embedded) | notificationProvider |
@@ -204,7 +204,7 @@ PilgrimDashboardScreen
 └── _PilgrimDashboardScreenState (ConsumerState)
     ├── [Tab 0] PilgrimHomeTab           widgets/home_tab/home_tab.dart
     ├── [Tab 1] PilgrimMapTab            widgets/map_tab/pilgrim_map_tab.dart
-    ├── [Tab 2] QiblaCompassScreen       screens/qibla_compass_screen.dart
+    ├── [Tab 2] Empty placeholder (was Qibla — see docs/qibla-compass-restore.md)
     ├── [Tab 3] GroupInboxScreen         screens/group_inbox_screen.dart
     ├── [Tab 4] PilgrimProfileScreen     screens/pilgrim_profile_screen.dart
     └── PilgrimBottomNav                 widgets/bottom_nav.dart

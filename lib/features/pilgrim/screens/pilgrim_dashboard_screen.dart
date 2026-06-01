@@ -47,12 +47,12 @@ import '../widgets/home_tab/home_cards.dart';
 import '../widgets/home_tab/home_tab.dart';
 import '../widgets/map_tab/pilgrim_map_tab.dart';
 import '../widgets/sos/sos_home_phase.dart';
+import '../../muslim/screens/islamic_corner_hub_screen.dart';
 import 'group_details_screen.dart';
 import 'group_inbox_screen.dart';
 import 'mecca_hotspots_screen.dart';
 import 'pilgrim_notifications_screen.dart';
 import 'pilgrim_profile_screen.dart';
-import 'qibla_compass_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pilgrim Dashboard Screen
@@ -70,7 +70,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _isInitializingDashboard = true;
   // Bottom nav
-  static const int _qiblaTabIndex = 2;
   int _currentTab = 0;
   late final PageController _pageController = PageController(initialPage: 0);
 
@@ -1759,9 +1758,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         profileGender: pilgrimState.profile?.gender,
         areas: ref.watch(suggestedAreaProvider).areas,
       ),
-      QiblaCompassScreen(
-        enableAlignmentHaptics: _currentTab == _qiblaTabIndex,
-      ),
+      const IslamicCornerHubScreen(),
       pilgrimState.groupInfo != null
           ? GroupInboxScreen(
               groupId: pilgrimState.groupInfo!.groupId,
