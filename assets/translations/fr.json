@@ -709,6 +709,8 @@
   "muslim_dua_cat_business_desc": "Subsistance et travail",
   "muslim_dua_cat_night_prayer_name": "Prière de nuit",
   "muslim_dua_cat_night_prayer_desc": "Tahajjud et qiyam",
+  "muslim_dua_cat_quran_recitation_name": "Récitation du Coran",
+  "muslim_dua_cat_quran_recitation_desc": "Avant et après la lecture du Coran",
   "muslim_hadith_grade_sahih": "Sahih",
   "muslim_hadith_grade_sahih_lighairihi": "Sahih (attribué ailleurs)",
   "muslim_hadith_grade_hasan": "Hasan",

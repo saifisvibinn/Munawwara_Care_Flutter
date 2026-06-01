@@ -7,11 +7,11 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../constants/muslim_colors.dart';
 import '../models/muslim_models.dart';
 import '../providers/muslim_providers.dart';
-import '../screens/azkar_screen.dart';
-import '../screens/duaa_screen.dart';
-import '../screens/hadith_screen.dart';
-import '../screens/prayer_times_screen.dart';
-import '../screens/asma_ul_husna_screen.dart';
+import 'azkar_screen.dart';
+import 'asma_ul_husna_screen.dart';
+import 'duaa_screen.dart';
+import 'hadith_screen.dart';
+import 'prayer_times_screen.dart';
 import '../utils/muslim_localization.dart';
 import '../widgets/muslim_widgets.dart';
 

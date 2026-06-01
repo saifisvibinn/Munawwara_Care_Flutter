@@ -706,6 +706,8 @@
   "muslim_dua_cat_business_desc": "الرزق والعمل اليومي",
   "muslim_dua_cat_night_prayer_name": "قيام الليل",
   "muslim_dua_cat_night_prayer_desc": "تهجد وقيام الليل",
+  "muslim_dua_cat_quran_recitation_name": "تلاوة القرآن",
+  "muslim_dua_cat_quran_recitation_desc": "قبل القراءة وبعدها",
   "muslim_hadith_grade_sahih": "صحيح",
   "muslim_hadith_grade_sahih_lighairihi": "صحيح لغيره",
   "muslim_hadith_grade_hasan": "حسن",

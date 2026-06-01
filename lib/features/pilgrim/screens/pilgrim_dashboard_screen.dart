@@ -1646,7 +1646,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       );
     }
 
-    final notifCount = ref.watch(notificationProvider).unreadCount;
     final missedCallUnread = ref.watch(missedCallsUnreadProvider);
 
     final tabs = [
@@ -1684,7 +1683,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         showResolvedSosCard: _showResolvedSosCard,
         sosHelpStatusKey: _sosHelpStatusKey,
         sosModeratorName: _sosModeratorName,
-        sosHomePhase: _sosHomePhase,
         navBeacons: pilgrimState.navBeacons,
         isGpsEnabled: _isGpsEnabled,
         hasLocPermission: _hasLocPermission,
@@ -1698,19 +1696,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         myLocation: _myLatLng,
         onNavigateToModerator: _navigateToModerator,
         callCooldownSeconds: ref.watch(callProvider).cooldownSeconds,
-        notificationCount: notifCount,
-        onNotificationTap: () {
-          Navigator.of(context)
-              .push(
-                MaterialPageRoute(
-                  builder: (_) => const PilgrimNotificationsScreen(),
-                ),
-              )
-              .then((_) {
-                // Refresh badge when coming back
-                ref.read(notificationProvider.notifier).fetchUnreadCount();
-              });
-        },
         missedCallUnreadCount: missedCallUnread,
         onMissedCallsTap: () {
           unawaited(NotificationService.onAlertsTabOpened());

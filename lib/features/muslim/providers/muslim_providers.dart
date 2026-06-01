@@ -254,19 +254,6 @@ final hadithCollectionsProvider = FutureProvider<List<HadithCollection>>((ref) {
   return ref.watch(ummahApiServiceProvider).fetchHadithCollections();
 });
 
-final hadithByRefProvider =
-    FutureProvider.family<HadithData, ({String collection, int number})>(
-  (ref, refData) {
-    return _fetchHadithWithFallback(
-      ref,
-      () => ref.read(ummahApiServiceProvider).fetchHadith(
-            collection: refData.collection,
-            number: refData.number,
-          ),
-    );
-  },
-);
-
 final asmaUlHusnaProvider = FutureProvider<List<AsmaName>>((ref) async {
   final uid = await SecureSessionStore.getUserId() ?? 'global';
   try {

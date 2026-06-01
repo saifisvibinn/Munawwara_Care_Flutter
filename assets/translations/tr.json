@@ -709,6 +709,8 @@
   "muslim_dua_cat_business_desc": "Geçim ve günlük iş",
   "muslim_dua_cat_night_prayer_name": "Gece namazı",
   "muslim_dua_cat_night_prayer_desc": "Teheccüd ve kıyam",
+  "muslim_dua_cat_quran_recitation_name": "Kur'an Okuma",
+  "muslim_dua_cat_quran_recitation_desc": "Okumadan önce ve sonra",
   "muslim_hadith_grade_sahih": "Sahih",
   "muslim_hadith_grade_sahih_lighairihi": "Sahih (başka raviye mensup)",
   "muslim_hadith_grade_hasan": "Hasen",

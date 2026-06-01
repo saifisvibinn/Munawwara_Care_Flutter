@@ -11,7 +11,6 @@ import '../../providers/pilgrim_provider.dart';
 import '../moderator_navigate_button.dart';
 import '../sos/sos_button.dart';
 import '../sos/sos_help_session_panel.dart';
-import '../sos/sos_home_phase.dart';
 import 'home_cards.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,12 +33,9 @@ class PilgrimHomeTab extends StatelessWidget {
   final bool showResolvedSosCard;
   final String sosHelpStatusKey;
   final String sosModeratorName;
-  final SosHomePhase sosHomePhase;
   final Map<String, ModeratorBeacon> navBeacons;
   final LatLng? myLocation;
   final void Function(ModeratorBeacon) onNavigateToModerator;
-  final int notificationCount;
-  final VoidCallback onNotificationTap;
   final int missedCallUnreadCount;
   final VoidCallback onMissedCallsTap;
   final VoidCallback onSettingsTap;
@@ -74,12 +70,9 @@ class PilgrimHomeTab extends StatelessWidget {
     this.showResolvedSosCard = false,
     required this.sosHelpStatusKey,
     required this.sosModeratorName,
-    required this.sosHomePhase,
     required this.navBeacons,
     this.myLocation,
     required this.onNavigateToModerator,
-    required this.notificationCount,
-    required this.onNotificationTap,
     required this.missedCallUnreadCount,
     required this.onMissedCallsTap,
     required this.onSettingsTap,
@@ -100,6 +93,33 @@ class PilgrimHomeTab extends StatelessWidget {
     final parts = a.split(RegExp(r'\s+'));
     if (parts.length >= 2) return '${parts[0]} ${parts[1]}';
     return a;
+  }
+
+  Widget _homeBody(GroupInfo? group) {
+    return _HomeBody(
+      isDark: isDark,
+      pilgrimState: pilgrimState,
+      group: group,
+      weatherAlert: weatherAlert,
+      sosPulseController: sosPulseController,
+      sosHoldController: sosHoldController,
+      isSosHolding: isSosHolding,
+      sosCountdown: sosCountdown,
+      onSosHoldStart: onSosHoldStart,
+      onSosHoldEnd: onSosHoldEnd,
+      onCancelSos: onCancelSos,
+      onCallBackSos: onCallBackSos,
+      showResolvedSosCard: showResolvedSosCard,
+      sosHelpStatusKey: sosHelpStatusKey,
+      sosModeratorName: sosModeratorName,
+      onGroupCardTap: onGroupCardTap,
+      onHotspotsTap: onHotspotsTap,
+      onWeatherTap: onWeatherTap,
+      navBeacons: navBeacons,
+      myLocation: myLocation,
+      onNavigateToModerator: onNavigateToModerator,
+      callCooldownSeconds: callCooldownSeconds,
+    );
   }
 
   @override
@@ -302,60 +322,10 @@ class PilgrimHomeTab extends StatelessWidget {
                     if (navBeacons.isEmpty)
                       SliverFillRemaining(
                         hasScrollBody: false,
-                        child: _HomeBody(
-                          isDark: isDark,
-                          pilgrimState: pilgrimState,
-                          group: group,
-                          weatherAlert: weatherAlert,
-                          sosPulseController: sosPulseController,
-                          sosHoldController: sosHoldController,
-                          isSosHolding: isSosHolding,
-                          sosCountdown: sosCountdown,
-                          onSosHoldStart: onSosHoldStart,
-                          onSosHoldEnd: onSosHoldEnd,
-                          onCancelSos: onCancelSos,
-                          onCallBackSos: onCallBackSos,
-                          showResolvedSosCard: showResolvedSosCard,
-                          sosHelpStatusKey: sosHelpStatusKey,
-                          sosModeratorName: sosModeratorName,
-                          sosHomePhase: sosHomePhase,
-                          onGroupCardTap: onGroupCardTap,
-                          onHotspotsTap: onHotspotsTap,
-                          onWeatherTap: onWeatherTap,
-                          navBeacons: navBeacons,
-                          myLocation: myLocation,
-                          onNavigateToModerator: onNavigateToModerator,
-                          callCooldownSeconds: callCooldownSeconds,
-                        ),
+                        child: _homeBody(group),
                       )
                     else
-                      SliverToBoxAdapter(
-                        child: _HomeBody(
-                          isDark: isDark,
-                          pilgrimState: pilgrimState,
-                          group: group,
-                          weatherAlert: weatherAlert,
-                          sosPulseController: sosPulseController,
-                          sosHoldController: sosHoldController,
-                          isSosHolding: isSosHolding,
-                          sosCountdown: sosCountdown,
-                          onSosHoldStart: onSosHoldStart,
-                          onSosHoldEnd: onSosHoldEnd,
-                          onCancelSos: onCancelSos,
-                          onCallBackSos: onCallBackSos,
-                          showResolvedSosCard: showResolvedSosCard,
-                          sosHelpStatusKey: sosHelpStatusKey,
-                          sosModeratorName: sosModeratorName,
-                          sosHomePhase: sosHomePhase,
-                          onGroupCardTap: onGroupCardTap,
-                          onHotspotsTap: onHotspotsTap,
-                          onWeatherTap: onWeatherTap,
-                          navBeacons: navBeacons,
-                          myLocation: myLocation,
-                          onNavigateToModerator: onNavigateToModerator,
-                          callCooldownSeconds: callCooldownSeconds,
-                        ),
-                      ),
+                      SliverToBoxAdapter(child: _homeBody(group)),
                   ],
                 ),
               ),
@@ -387,7 +357,6 @@ class _HomeBody extends StatelessWidget {
   final bool showResolvedSosCard;
   final String sosHelpStatusKey;
   final String sosModeratorName;
-  final SosHomePhase sosHomePhase;
   final VoidCallback onGroupCardTap;
   final VoidCallback onHotspotsTap;
   final VoidCallback onWeatherTap;
@@ -412,7 +381,6 @@ class _HomeBody extends StatelessWidget {
     this.showResolvedSosCard = false,
     required this.sosHelpStatusKey,
     required this.sosModeratorName,
-    required this.sosHomePhase,
     required this.onGroupCardTap,
     required this.onHotspotsTap,
     required this.onWeatherTap,
@@ -421,6 +389,24 @@ class _HomeBody extends StatelessWidget {
     required this.onNavigateToModerator,
     this.callCooldownSeconds = 0,
   });
+
+  Widget _weatherAndExploreRow() {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: WeatherCard(
+              alert: weatherAlert,
+              onTapOpenDetail: onWeatherTap,
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Expanded(child: ExploreCard(onTap: onHotspotsTap)),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -473,26 +459,7 @@ class _HomeBody extends StatelessWidget {
                       key: const ValueKey<String>('show_help_active'),
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Weather & Explore cards side-by-side
-                        IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(
-                                child: WeatherCard(
-                                  alert: weatherAlert,
-                                  onTapOpenDetail: onWeatherTap,
-                                ),
-                              ),
-                              SizedBox(width: 12.w),
-                              Expanded(
-                                child: ExploreCard(
-                                  onTap: onHotspotsTap,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        _weatherAndExploreRow(),
                         SizedBox(height: 12.h),
                         // Full width SOS Help Session Card
                         Padding(
@@ -518,29 +485,8 @@ class _HomeBody extends StatelessWidget {
                       key: const ValueKey<String>('show_help_idle'),
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // 1. Weather and Explore cards side-by-side matching screenshot
-                        IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(
-                                child: WeatherCard(
-                                  alert: weatherAlert,
-                                  onTapOpenDetail: onWeatherTap,
-                                ),
-                              ),
-                              SizedBox(width: 12.w),
-                              Expanded(
-                                child: ExploreCard(
-                                  onTap: onHotspotsTap,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        _weatherAndExploreRow(),
                         SizedBox(height: 8.h),
-
-                        // 2. Centered SOS button
                         Center(
                           child: SosButton(
                             size: 186.w,
