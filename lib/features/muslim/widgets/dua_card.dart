@@ -65,10 +65,10 @@ class DuaCard extends ConsumerWidget {
               ),
               SizedBox(height: 10.h),
               Container(
-                padding: EdgeInsets.only(left: 12.w),
+                padding: EdgeInsetsDirectional.only(start: 12.w),
                 decoration: BoxDecoration(
-                  border: Border(
-                    left: BorderSide(
+                  border: BorderDirectional(
+                    start: BorderSide(
                       color: MuslimColors.primary.withValues(alpha: 0.2),
                       width: 2,
                     ),
@@ -97,7 +97,7 @@ class DuaCard extends ConsumerWidget {
               ],
               SizedBox(height: 16.h),
               Align(
-                alignment: Alignment.centerRight,
+                alignment: AlignmentDirectional.centerEnd,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   width: 48.w,

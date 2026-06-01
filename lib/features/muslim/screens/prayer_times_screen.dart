@@ -167,8 +167,8 @@ class _PrayerRow extends ConsumerWidget {
             ? MuslimColors.secondaryFixed.withValues(alpha: 0.15)
             : null,
         border: active
-            ? Border(
-                left: BorderSide(
+            ? BorderDirectional(
+                start: BorderSide(
                   color: MuslimColors.secondaryContainer,
                   width: 4.w,
                 ),
@@ -183,7 +183,7 @@ class _PrayerRow extends ConsumerWidget {
               children: [
                 if (active)
                   Padding(
-                    padding: EdgeInsets.only(right: 10.w),
+                    padding: EdgeInsetsDirectional.only(end: 10.w),
                     child: Icon(
                       Symbols.wb_twilight,
                       color: MuslimColors.secondary,

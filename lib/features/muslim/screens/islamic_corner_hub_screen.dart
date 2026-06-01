@@ -1,4 +1,4 @@
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -400,10 +400,14 @@ class _HubBentoCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16.r),
         child: Stack(
           children: [
-            Positioned(
-              right: -4.w,
+            PositionedDirectional(
+              end: -4.w,
               bottom: -4.h,
-              child: Icon(icon, size: 72.w, color: iconColor.withValues(alpha: 0.08)),
+              child: Icon(
+                icon,
+                size: 72.w,
+                color: iconColor.withValues(alpha: 0.08),
+              ),
             ),
             Padding(
               padding: EdgeInsets.all(16.w),
@@ -446,11 +450,13 @@ class _HubBentoCard extends StatelessWidget {
                 ],
               ),
             ),
-            Positioned(
+            PositionedDirectional(
               top: 12.h,
-              right: 8.w,
+              end: 8.w,
               child: Icon(
-                Symbols.chevron_right,
+                Directionality.of(context) == TextDirection.rtl
+                    ? Symbols.chevron_left
+                    : Symbols.chevron_right,
                 size: 18.w,
                 color: iconColor.withValues(alpha: 0.4),
               ),

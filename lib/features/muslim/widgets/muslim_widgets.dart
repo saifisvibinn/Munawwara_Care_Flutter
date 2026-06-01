@@ -131,14 +131,17 @@ class MuslimScreenScaffold extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
               child: Row(
                 children: [
-                  if (showBack)
+                  if (showBack) ...[
                     IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: Icon(
-                        Icons.arrow_back,
+                        Directionality.of(context) == TextDirection.rtl
+                            ? Icons.arrow_forward
+                            : Icons.arrow_back,
                         color: isDark ? MuslimColors.onSurfaceDark : MuslimColors.primary,
                       ),
-                    )
+                    ),
+                  ]
                   else
                     SizedBox(width: 48.w),
                   Expanded(

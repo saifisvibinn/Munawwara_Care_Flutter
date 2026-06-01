@@ -1,4 +1,4 @@
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -213,7 +213,9 @@ class _CategoryTile extends StatelessWidget {
                 ),
                 SizedBox(width: 4.w),
                 Icon(
-                  Symbols.chevron_right,
+                  Directionality.of(context) == TextDirection.rtl
+                      ? Symbols.chevron_left
+                      : Symbols.chevron_right,
                   size: 20.w,
                   color: MuslimColors.primary.withValues(alpha: 0.45),
                 ),
@@ -225,3 +227,4 @@ class _CategoryTile extends StatelessWidget {
     );
   }
 }
+
