@@ -772,6 +772,18 @@ class CallNotifier extends Notifier<CallState> {
   /// Never emit `call-end` here: the server treats `call-end` during `ringing`
   /// as a missed call and mis-notifies the recipient.
   Future<void> cancelOutgoingRing() async {
+    final started = _outgoingCallStartedAt;
+    if (started != null) {
+      final elapsed = DateTime.now().difference(started);
+      if (elapsed < const Duration(seconds: 3)) {
+        AppLogger.i(
+          '[CallProvider] cancelOutgoingRing ignored — less than 3s elapsed '
+          '(${elapsed.inMilliseconds}ms)',
+        );
+        return;
+      }
+    }
+
     AppLogger.i(
       '[CallProvider] cancelOutgoingRing '
       'remote=${state.remoteUserId} group=${state.isGroupRingingOut}',
