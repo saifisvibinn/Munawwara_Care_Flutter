@@ -204,7 +204,7 @@ class CallkitNotificationManager(
             }
         }
         notificationBuilder?.setSmallIcon(smallIcon)
-        val actionColor = data.getString(CallkitConstants.EXTRA_CALLKIT_ACTION_COLOR, "#4CAF50")
+        val actionColor = data.getString(CallkitConstants.EXTRA_CALLKIT_ACTION_COLOR, "#F97316")
         try {
             notificationBuilder?.color = Color.parseColor(actionColor)
         } catch (_: Exception) {
@@ -567,7 +567,7 @@ class CallkitNotificationManager(
                 missedNotificationId, data
             )
         )
-        val actionColor = data.getString(CallkitConstants.EXTRA_CALLKIT_ACTION_COLOR, "#4CAF50")
+        val actionColor = data.getString(CallkitConstants.EXTRA_CALLKIT_ACTION_COLOR, "#F97316")
         try {
             notificationMissingBuilder?.color = Color.parseColor(actionColor)
         } catch (_: Exception) {
@@ -812,7 +812,7 @@ class CallkitNotificationManager(
                 onGoingNotificationId, data
             )
         )
-        val actionColor = data.getString(CallkitConstants.EXTRA_CALLKIT_ACTION_COLOR, "#4CAF50")
+        val actionColor = data.getString(CallkitConstants.EXTRA_CALLKIT_ACTION_COLOR, "#F97316")
         try {
             notificationOngoingBuilder?.color = Color.parseColor(actionColor)
         } catch (_: Exception) {
@@ -828,9 +828,12 @@ class CallkitNotificationManager(
         callkitSoundPlayerManager?.stop()
 
         context.sendBroadcast(CallkitIncomingActivity.getIntentEnded(context, isAccepted))
-        val notificationId =
-            data.getString(CallkitConstants.EXTRA_CALLKIT_ID, "callkit_incoming").hashCode()
+        val callKitId = data.getString(CallkitConstants.EXTRA_CALLKIT_ID, "callkit_incoming")
+        val notificationId = callKitId.hashCode()
         getNotificationManager().cancel(notificationId)
+        // Foreground ongoing call uses a different id (see getOnGoingCallNotification).
+        val ongoingId = ("ongoing_$callKitId").hashCode()
+        getNotificationManager().cancel(ongoingId)
         targetInComingAvatarDefault?.let {
             targetInComingAvatarDefault?.isCancelled = true
             targetInComingAvatarDefault = null

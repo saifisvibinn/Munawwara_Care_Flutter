@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../shared/widgets/moderator_avatar.dart';
 
 class ModeratorProfileEditScreen extends ConsumerStatefulWidget {
   const ModeratorProfileEditScreen({super.key});
@@ -52,30 +55,12 @@ class _ModeratorProfileEditScreenState
     setState(() => _saving = false);
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('edit_profile_success'.tr()),
-          backgroundColor: AppColors.primary,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.r),
-          ),
-        ),
-      );
+      StandardSnackBar.showSuccess(context, 'edit_profile_success'.tr());
       Navigator.of(context).pop();
     } else {
       final error =
           ref.read(authProvider).error ?? 'edit_profile_error_generic'.tr();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor: Colors.red.shade700,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.r),
-          ),
-        ),
-      );
+      StandardSnackBar.showError(context, error);
     }
   }
 
@@ -145,51 +130,8 @@ class _ModeratorProfileEditScreenState
                       Center(
                         child: Stack(
                           children: [
-                            Container(
-                              width: 88.w,
-                              height: 88.w,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: [
-                                    AppColors.primary,
-                                    AppColors.primaryDark,
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  initials,
-                                  style: TextStyle(
-                                    fontFamily: 'Lexend',
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 30.sp,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // Camera badge (cosmetic)
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: Container(
-                                width: 28.w,
-                                height: 28.w,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: bg, width: 2.5),
-                                ),
-                                child: Icon(
-                                  Icons.camera_alt_rounded,
-                                  color: Colors.white,
-                                  size: 14.sp,
-                                ),
-                              ),
-                            ),
+                            ModeratorAvatar(size: 88.w, initials: initials),
+                            // Camera badge removed per UI request
                           ],
                         ),
                       ),
@@ -238,65 +180,140 @@ class _ModeratorProfileEditScreenState
                       ),
                       SizedBox(height: 10.h),
 
-                      Container(
-                        decoration: BoxDecoration(
-                          color: cardBg,
-                          borderRadius: BorderRadius.circular(16.r),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 
-                                isDark ? 0.3 : 0.06,
+                        Container(
+                          decoration: BoxDecoration(
+                            color: cardBg,
+                            borderRadius: BorderRadius.circular(16.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(
+                                  alpha: isDark ? 0.3 : 0.06,
+                                ),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
                               ),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            // Full Name
-                            _EditField(
-                              controller: _nameCtrl,
-                              label: 'edit_profile_full_name'.tr(),
-                              icon: Icons.person_rounded,
-                              isDark: isDark,
-                              textPrimary: textPrimary,
-                              textMuted: textMuted,
-                              isFirst: true,
-                              hasDivider: true,
-                              validator: (v) {
-                                if (v == null || v.trim().isEmpty) {
-                                  return 'edit_profile_error_name'.tr();
-                                }
-                                return null;
-                              },
-                            ),
-
-                            // Phone Number
-                            _EditField(
-                              controller: _phoneCtrl,
-                              label: 'edit_profile_phone'.tr(),
-                              icon: Icons.phone_rounded,
-                              isDark: isDark,
-                              textPrimary: textPrimary,
-                              textMuted: textMuted,
-                              keyboardType: TextInputType.phone,
-                              hasDivider: authState.email != null,
-                            ),
-
-                            // Email (read-only)
-                            if (authState.email != null)
-                              _ReadOnlyField(
-                                value: authState.email!,
-                                label: 'edit_profile_email'.tr(),
-                                icon: Icons.email_rounded,
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              // Full Name
+                              _ProfileInfoRow(
+                                label: 'edit_profile_full_name'.tr(),
+                                icon: Icons.person_rounded,
                                 isDark: isDark,
                                 textPrimary: textPrimary,
                                 textMuted: textMuted,
+                                hasDivider: true,
+                                child: TextFormField(
+                                  controller: _nameCtrl,
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 14.sp,
+                                    color: textPrimary,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) {
+                                      return 'edit_profile_error_name'.tr();
+                                    }
+                                    return null;
+                                  },
+                                ),
                               ),
-                          ],
+
+                              // Phone Number
+                              _ProfileInfoRow(
+                                label: 'edit_profile_phone'.tr(),
+                                icon: Icons.phone_rounded,
+                                isDark: isDark,
+                                textPrimary: textPrimary,
+                                textMuted: textMuted,
+                                hasDivider: true,
+                                child: TextFormField(
+                                  controller: _phoneCtrl,
+                                  keyboardType: TextInputType.phone,
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 14.sp,
+                                    color: textPrimary,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
+                              ),
+
+                              // Email (read-only)
+                              if (authState.email != null)
+                                _ProfileInfoRow(
+                                  label: 'edit_profile_email'.tr(),
+                                  icon: Icons.email_rounded,
+                                  isDark: isDark,
+                                  textPrimary: textPrimary,
+                                  textMuted: textMuted,
+                                  hasDivider: true,
+                                  trailing: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 7.w,
+                                      vertical: 3.h,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? AppColors.iconBgDark
+                                          : AppColors.iconBgLight,
+                                      borderRadius: BorderRadius.circular(6.r),
+                                    ),
+                                    child: Text(
+                                      'edit_profile_email_verified'.tr(),
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontSize: 10.sp,
+                                        color: textMuted,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    authState.email!,
+                                    style: TextStyle(
+                                      fontFamily: 'Lexend',
+                                      fontSize: 14.sp,
+                                      color: textMuted,
+                                    ),
+                                  ),
+                                ),
+
+                              // Reset Password (action)
+                              _ProfileInfoRow(
+                                label: 'forgot_password_title'.tr(),
+                                icon: Icons.lock_reset_rounded,
+                                isDark: isDark,
+                                textPrimary: textPrimary,
+                                textMuted: textMuted,
+                                hasDivider: false,
+                                onTap: () => context.push('/forgot-password'),
+                                trailing: Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 20.sp,
+                                  color: textMuted,
+                                ),
+                                child: Text(
+                                  '••••••••',
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 14.sp,
+                                    color: textMuted,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
 
                       SizedBox(height: 32.h),
 
@@ -381,181 +398,94 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-class _EditField extends StatelessWidget {
-  const _EditField({
-    required this.controller,
+class _ProfileInfoRow extends StatelessWidget {
+  const _ProfileInfoRow({
     required this.label,
     required this.icon,
     required this.isDark,
     required this.textPrimary,
     required this.textMuted,
-    this.isFirst = false,
-    this.hasDivider = false,
-    this.keyboardType,
-    this.validator,
+    required this.child,
+    this.hasDivider = true,
+    this.trailing,
+    this.onTap,
   });
 
-  final TextEditingController controller;
   final String label;
   final IconData icon;
   final bool isDark;
   final Color textPrimary;
   final Color textMuted;
-  final bool isFirst;
+  final Widget child;
   final bool hasDivider;
-  final TextInputType? keyboardType;
-  final String? Function(String?)? validator;
+  final Widget? trailing;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final dividerColor = isDark
-        ? const Color(0xFF383018)
-        : const Color(0xFFE2E2F0);
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(16.w, isFirst ? 6.h : 0, 16.w, 0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 38.w,
-                height: 38.w,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10.r),
-                ),
-                child: Icon(icon, color: AppColors.primary, size: 18.sp),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: TextFormField(
-                  controller: controller,
-                  keyboardType: keyboardType,
-                  validator: validator,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 14.sp,
-                    color: textPrimary,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: label,
-                    labelStyle: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 12.sp,
-                      color: textMuted,
-                    ),
-                    border: InputBorder.none,
-                    errorStyle: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 11.sp,
-                    ),
-                    contentPadding: EdgeInsets.symmetric(vertical: 14.h),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (hasDivider)
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: dividerColor,
-            indent: 16.w,
-            endIndent: 16.w,
-          ),
-      ],
-    );
-  }
-}
+    final dividerColor = isDark ? AppColors.dividerDark : AppColors.dividerLight;
 
-class _ReadOnlyField extends StatelessWidget {
-  const _ReadOnlyField({
-    required this.value,
-    required this.label,
-    required this.icon,
-    required this.isDark,
-    required this.textPrimary,
-    required this.textMuted,
-  });
-
-  final String value;
-  final String label;
-  final IconData icon;
-  final bool isDark;
-  final Color textPrimary;
-  final Color textMuted;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 6.h),
-      child: Row(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16.r),
+      child: Column(
         children: [
-          Container(
-            width: 38.w,
-            height: 38.w,
-            decoration: BoxDecoration(
-              color: textMuted.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10.r),
-            ),
-            child: Icon(icon, color: textMuted, size: 18.sp),
-          ),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SizedBox(height: 14.h),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 11.sp,
-                    color: textMuted,
+                // Icon Container
+                Container(
+                  width: 38.w,
+                  height: 38.w,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  child: Icon(icon, color: AppColors.primary, size: 18.sp),
+                ),
+                SizedBox(width: 12.w),
+
+                // Label and Value
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 11.sp,
+                          color: textMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(height: 2.h),
+                      child,
+                    ],
                   ),
                 ),
-                SizedBox(height: 2.h),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        value,
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 14.sp,
-                          color: textMuted,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 7.w,
-                        vertical: 3.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: textMuted.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6.r),
-                      ),
-                      child: Text(
-                        'edit_profile_email_verified'.tr(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 10.sp,
-                          color: textMuted,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 14.h),
+
+                // Optional Trailing
+                if (trailing != null) ...[
+                  SizedBox(width: 12.w),
+                  trailing!,
+                ],
               ],
             ),
           ),
+          if (hasDivider)
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: dividerColor,
+              indent: 66.w, // Align with the start of the text
+              endIndent: 16.w,
+            ),
         ],
       ),
     );
   }
 }
-

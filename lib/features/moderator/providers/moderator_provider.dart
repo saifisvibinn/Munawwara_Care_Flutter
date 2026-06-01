@@ -1,10 +1,15 @@
 import 'package:dio/dio.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_munawwara/core/utils/app_logger.dart';
 
 import '../../../core/services/api_service.dart';
+import '../../../core/services/app_data_cache.dart';
+import '../../../core/services/caller_gender_cache.dart';
+import '../../../core/services/secure_session_store.dart';
+import '../../pilgrim/models/insurance_company.dart';
 
 // ── Pilgrim-in-group model ────────────────────────────────────────────────────
-
 class PilgrimInGroup {
   final String id;
   final String fullName;
@@ -17,9 +22,18 @@ class PilgrimInGroup {
   final double? lng;
   final int? batteryPercent;
   final DateTime? lastUpdated;
-  // Set to true when an SOS notification is received via push (FCM)
   final bool hasSOS;
   final bool isOnline;
+  final String? hotelName;
+  final String? roomNumber;
+  final String? busInfo;
+  final String? visaNumber;
+  final String? visaStatus;
+  final String language;
+  final String ethnicity;
+  final String? alternativePhoneNumber;
+  final String? tasheraNumber;
+  final InsuranceCompany? insuranceCompany;
 
   const PilgrimInGroup({
     required this.id,
@@ -35,6 +49,16 @@ class PilgrimInGroup {
     this.lastUpdated,
     this.hasSOS = false,
     this.isOnline = false,
+    this.hotelName,
+    this.roomNumber,
+    this.busInfo,
+    this.visaNumber,
+    this.visaStatus,
+    this.language = 'en',
+    this.ethnicity = 'Other',
+    this.alternativePhoneNumber,
+    this.tasheraNumber,
+    this.insuranceCompany,
   });
 
   factory PilgrimInGroup.fromJson(Map<String, dynamic> j) {
@@ -54,6 +78,20 @@ class PilgrimInGroup {
           ? DateTime.tryParse(j['last_updated'].toString())
           : null,
       isOnline: j['is_online'] == true,
+      hotelName: j['hotel_name']?.toString(),
+      roomNumber: j['room_number']?.toString(),
+      busInfo: j['bus_info']?.toString(),
+      visaNumber: j['visa']?['visa_number']?.toString(),
+      visaStatus: j['visa']?['status']?.toString(),
+      language: j['language']?.toString() ?? 'en',
+      ethnicity: j['ethnicity']?.toString() ?? 'Other',
+      hasSOS:
+          j['has_sos'] == true || j['sos_active'] == true || j['sos'] == true,
+      alternativePhoneNumber: j['alternative_phone_number']?.toString(),
+      tasheraNumber: j['tashera_number']?.toString(),
+      insuranceCompany: j['insurance_company_id'] != null
+          ? InsuranceCompany.fromJson(Map<String, dynamic>.from(j['insurance_company_id']))
+          : null,
     );
   }
 
@@ -64,6 +102,9 @@ class PilgrimInGroup {
     int? batteryPercent,
     DateTime? lastUpdated,
     bool? isOnline,
+    String? alternativePhoneNumber,
+    String? tasheraNumber,
+    InsuranceCompany? insuranceCompany,
   }) => PilgrimInGroup(
     id: id,
     fullName: fullName,
@@ -78,6 +119,16 @@ class PilgrimInGroup {
     lastUpdated: lastUpdated ?? this.lastUpdated,
     hasSOS: hasSOS ?? this.hasSOS,
     isOnline: isOnline ?? this.isOnline,
+    hotelName: hotelName,
+    roomNumber: roomNumber,
+    busInfo: busInfo,
+    visaNumber: visaNumber,
+    visaStatus: visaStatus,
+    language: language,
+    ethnicity: ethnicity,
+    alternativePhoneNumber: alternativePhoneNumber ?? this.alternativePhoneNumber,
+    tasheraNumber: tasheraNumber ?? this.tasheraNumber,
+    insuranceCompany: insuranceCompany ?? this.insuranceCompany,
   );
 
   bool get hasLocation => lat != null && lng != null;
@@ -100,15 +151,22 @@ class PilgrimInGroup {
     return BatteryStatus.low;
   }
 
-  /// Human-readable "last seen" text
+  /// Human-readable "last seen" text (localized).
   String get lastSeenText {
-    if (isOnline) return 'Active now';
-    if (lastUpdated == null) return 'Offline';
+    if (isOnline) return 'pilgrim_last_seen_active_now'.tr();
+    if (lastUpdated == null) return 'profile_offline'.tr();
     final diff = DateTime.now().difference(lastUpdated!);
-    if (diff.inMinutes < 1) return 'Updated just now';
-    if (diff.inMinutes < 60) return 'Updated ${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return 'Updated ${diff.inHours}h ago';
-    return 'Updated ${diff.inDays}d ago';
+    if (diff.inMinutes < 1) {
+      return 'pilgrim_last_seen_updated_just_now'.tr();
+    }
+    if (diff.inMinutes < 60) {
+      return 'pilgrim_last_seen_updated_minutes'
+          .tr(args: ['${diff.inMinutes}']);
+    }
+    if (diff.inHours < 24) {
+      return 'pilgrim_last_seen_updated_hours'.tr(args: ['${diff.inHours}']);
+    }
+    return 'pilgrim_last_seen_updated_days'.tr(args: ['${diff.inDays}']);
   }
 }
 
@@ -143,6 +201,10 @@ class ModeratorGroup {
   final String groupName;
   final String groupCode;
   final String createdBy;
+  final DateTime? checkInDate;
+  final DateTime? checkOutDate;
+  final DateTime? createdAt;
+  final int unreadCount;
   final List<GroupModerator> moderators;
   final List<PilgrimInGroup> pilgrims;
 
@@ -151,38 +213,64 @@ class ModeratorGroup {
     required this.groupName,
     required this.groupCode,
     required this.createdBy,
+    this.checkInDate,
+    this.checkOutDate,
+    this.createdAt,
+    this.unreadCount = 0,
     required this.moderators,
     required this.pilgrims,
   });
 
-  factory ModeratorGroup.fromJson(Map<String, dynamic> j) => ModeratorGroup(
-    id: j['_id']?.toString() ?? '',
-    groupName: j['group_name']?.toString() ?? '',
-    groupCode: j['group_code']?.toString() ?? '',
-    createdBy: j['created_by']?.toString() ?? '',
-    moderators: (j['moderator_ids'] as List<dynamic>? ?? [])
-        .whereType<Map<String, dynamic>>()
-        .map(GroupModerator.fromJson)
-        .toList(),
-    pilgrims: (j['pilgrims'] as List<dynamic>? ?? [])
-        .map((p) => PilgrimInGroup.fromJson(p as Map<String, dynamic>))
-        .toList(),
-  );
+  factory ModeratorGroup.fromJson(Map<String, dynamic> j) {
+    DateTime? parseDate(dynamic val) {
+      if (val == null || val.toString().isEmpty) return null;
+      return DateTime.tryParse(val.toString());
+    }
+
+    return ModeratorGroup(
+      id: j['_id']?.toString() ?? '',
+      groupName: j['group_name']?.toString() ?? '',
+      groupCode: j['group_code']?.toString() ?? '',
+      createdBy: j['created_by']?.toString() ?? '',
+      checkInDate: parseDate(j['check_in_date']),
+      checkOutDate: parseDate(j['check_out_date']),
+      createdAt: parseDate(j['createdAt']),
+      unreadCount: (j['unread_count'] as num?)?.toInt() ?? 0,
+      moderators: (j['moderator_ids'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(GroupModerator.fromJson)
+          .toList(),
+      pilgrims: (j['pilgrims'] as List<dynamic>? ?? [])
+          .map((p) => PilgrimInGroup.fromJson(p as Map<String, dynamic>))
+          .toList(),
+    );
+  }
 
   ModeratorGroup copyWith({
     List<PilgrimInGroup>? pilgrims,
     List<GroupModerator>? moderators,
     String? groupName,
-  }) => ModeratorGroup(
-    id: id,
-    groupName: groupName ?? this.groupName,
-    groupCode: groupCode,
-    createdBy: createdBy,
-    moderators: moderators ?? this.moderators,
-    pilgrims: pilgrims ?? this.pilgrims,
-  );
+    DateTime? checkInDate,
+    DateTime? checkOutDate,
+    DateTime? createdAt,
+    int? unreadCount,
+  }) {
+    return ModeratorGroup(
+      id: id,
+      groupName: groupName ?? this.groupName,
+      groupCode: groupCode,
+      createdBy: createdBy,
+      checkInDate: checkInDate ?? this.checkInDate,
+      checkOutDate: checkOutDate ?? this.checkOutDate,
+      createdAt: createdAt ?? this.createdAt,
+      unreadCount: unreadCount ?? this.unreadCount,
+      moderators: moderators ?? this.moderators,
+      pilgrims: pilgrims ?? this.pilgrims,
+    );
+  }
 
   int get totalPilgrims => pilgrims.length;
+  int get moderatorCount => moderators.length;
   int get onlineCount => pilgrims.where((p) => p.isOnline).length;
   int get sosCount => pilgrims.where((p) => p.hasSOS).length;
   int get batteryLowCount =>
@@ -199,6 +287,7 @@ class ModeratorState {
   final bool showSosOnly;
   final String searchQuery;
   final bool isBroadcastingSOS;
+  final bool usingOfflineSnapshot;
 
   const ModeratorState({
     this.isLoading = false,
@@ -208,6 +297,7 @@ class ModeratorState {
     this.showSosOnly = false,
     this.searchQuery = '',
     this.isBroadcastingSOS = false,
+    this.usingOfflineSnapshot = false,
   });
 
   ModeratorState copyWith({
@@ -219,6 +309,8 @@ class ModeratorState {
     bool? showSosOnly,
     String? searchQuery,
     bool? isBroadcastingSOS,
+    bool? usingOfflineSnapshot,
+    bool clearOfflineSnapshot = false,
   }) => ModeratorState(
     isLoading: isLoading ?? this.isLoading,
     error: clearError ? null : (error ?? this.error),
@@ -227,6 +319,9 @@ class ModeratorState {
     showSosOnly: showSosOnly ?? this.showSosOnly,
     searchQuery: searchQuery ?? this.searchQuery,
     isBroadcastingSOS: isBroadcastingSOS ?? this.isBroadcastingSOS,
+    usingOfflineSnapshot: clearOfflineSnapshot
+        ? false
+        : (usingOfflineSnapshot ?? this.usingOfflineSnapshot),
   );
 
   ModeratorGroup? get currentGroup => groups.isEmpty
@@ -251,15 +346,117 @@ class ModeratorState {
 // ── Notifier ──────────────────────────────────────────────────────────────────
 
 class ModeratorNotifier extends Notifier<ModeratorState> {
+  DateTime? _lastDashboardLoad;
+  Future<void>? _dashboardLoadInFlight;
+  int _dashboardLoadGeneration = 0;
+
   @override
   ModeratorState build() => const ModeratorState();
 
+  Future<String?> _userId() => SecureSessionStore.getUserId();
+
+  /// Drops a group from the offline dashboard cache after delete/leave.
+  Future<void> _removeGroupFromDashboardCache(String groupId) async {
+    final uid = await _userId();
+    if (uid == null) return;
+    final cached = AppDataCache.jsonMap(
+      await AppDataCache.readData(uid, AppDataCache.moderatorDashboardFile),
+    );
+    if (cached == null) return;
+    final list = cached['data'] as List<dynamic>? ?? [];
+    final filtered = <dynamic>[];
+    for (final item in list) {
+      final gm = AppDataCache.jsonMap(item);
+      if (gm == null) continue;
+      final id = gm['_id']?.toString() ?? gm['id']?.toString();
+      if (id != groupId) filtered.add(item);
+    }
+    await AppDataCache.write(
+      uid,
+      AppDataCache.moderatorDashboardFile,
+      {'data': filtered},
+    );
+  }
+
+  Future<void> hydrateFromCache() async {
+    final uid = await _userId();
+    if (uid == null) return;
+    final m = AppDataCache.jsonMap(
+      await AppDataCache.readData(uid, AppDataCache.moderatorDashboardFile),
+    );
+    if (m == null) return;
+    final list = m['data'] as List<dynamic>? ?? [];
+    final groups = <ModeratorGroup>[];
+    for (final item in list) {
+      final gm = AppDataCache.jsonMap(item);
+      if (gm == null) continue;
+      try {
+        groups.add(ModeratorGroup.fromJson(gm));
+      } catch (_) {}
+    }
+    if (groups.isEmpty) return;
+    state = state.copyWith(groups: groups);
+    await CallerGenderCache.syncFromGroups(groups);
+  }
+
   // Load all groups + their pilgrims
-  Future<void> loadDashboard() async {
-    state = state.copyWith(isLoading: true, clearError: true);
+  Future<void> loadDashboard({bool silently = false, bool force = false}) async {
+    final now = DateTime.now();
+    if (!force &&
+        _lastDashboardLoad != null &&
+        now.difference(_lastDashboardLoad!).inSeconds < 10) {
+      return;
+    }
+
+    final generation = ++_dashboardLoadGeneration;
+
+    if (_dashboardLoadInFlight != null && !force) {
+      await _dashboardLoadInFlight;
+      return;
+    }
+
+    _lastDashboardLoad = now;
+    final loadFuture = _loadDashboardImpl(silently, generation);
+    _dashboardLoadInFlight = loadFuture;
+    try {
+      await loadFuture;
+    } finally {
+      if (_dashboardLoadInFlight == loadFuture) {
+        _dashboardLoadInFlight = null;
+      }
+    }
+  }
+
+  /// Refreshes dashboard data after writes. Always bypasses the 10s throttle.
+  Future<void> syncAfterMutation({String? groupId}) async {
+    if (groupId != null) {
+      final ok = await refreshGroup(groupId);
+      if (!ok) await loadDashboard(force: true, silently: true);
+    } else {
+      await loadDashboard(force: true, silently: true);
+    }
+  }
+
+  Future<void> _loadDashboardImpl(bool silently, int generation) async {
+    if (generation != _dashboardLoadGeneration) return;
+    if (!silently) state = state.copyWith(isLoading: true, clearError: true);
     try {
       final resp = await ApiService.dio.get('/groups/dashboard');
-      final data = resp.data['data'] as List<dynamic>? ?? [];
+      if (generation != _dashboardLoadGeneration) return;
+      final respBody = resp.data;
+      final body = respBody is Map
+          ? Map<String, dynamic>.from(respBody)
+          : <String, dynamic>{'data': respBody is List ? respBody : []};
+      final uid = await _userId();
+      if (uid != null) {
+        await AppDataCache.write(
+          uid,
+          AppDataCache.moderatorDashboardFile,
+          body,
+        );
+      }
+      if (generation != _dashboardLoadGeneration) return;
+      final data = body['data'] as List<dynamic>? ?? [];
       final groups = data
           .map((g) => ModeratorGroup.fromJson(g as Map<String, dynamic>))
           .toList();
@@ -267,11 +464,40 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
         isLoading: false,
         groups: groups,
         clearError: true,
+        clearOfflineSnapshot: true,
       );
+      await CallerGenderCache.syncFromGroups(groups);
     } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
+      if (generation != _dashboardLoadGeneration) return;
+      final code = e.response?.statusCode;
+      if (code == 401) {
+        if (!silently) {
+          state = state.copyWith(
+            isLoading: false,
+            error: ApiService.parseError(e),
+          );
+        }
+        return;
+      }
+      final uid = await _userId();
+      if (uid != null) await hydrateFromCache();
+      if (generation != _dashboardLoadGeneration) return;
+      final hasData = state.groups.isNotEmpty;
+      if (!silently) {
+        state = state.copyWith(
+          isLoading: false,
+          error: hasData ? null : ApiService.parseError(e),
+          usingOfflineSnapshot: hasData,
+        );
+      } else if (hasData) {
+        // Only mark offline snapshot after a confirmed failed network attempt.
+        state = state.copyWith(usingOfflineSnapshot: true);
+      }
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      if (generation != _dashboardLoadGeneration) return;
+      if (!silently) {
+        state = state.copyWith(isLoading: false, error: e.toString());
+      }
     }
   }
 
@@ -284,6 +510,26 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
       state = state.copyWith(showSosOnly: !state.showSosOnly);
 
   void updateSearch(String q) => state = state.copyWith(searchQuery: q);
+
+  void incrementUnreadCount(String groupId) {
+    final groups = state.groups.map((g) {
+      if (g.id == groupId) {
+        return g.copyWith(unreadCount: g.unreadCount + 1);
+      }
+      return g;
+    }).toList();
+    state = state.copyWith(groups: groups);
+  }
+
+  void clearUnreadCount(String groupId) {
+    final groups = state.groups.map((g) {
+      if (g.id == groupId) {
+        return g.copyWith(unreadCount: 0);
+      }
+      return g;
+    }).toList();
+    state = state.copyWith(groups: groups);
+  }
 
   // Mark a specific pilgrim as having active SOS (called from FCM handler)
   void markPilgrimSOS(String pilgrimId, {bool active = true}) {
@@ -344,19 +590,23 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
 
   // ── Group management ──────────────────────────────────────────────────────
 
-  // Add a pilgrim by email / phone / national ID
+  // Add a pilgrim by user_id or email / phone / national ID
   Future<(bool, String?)> addPilgrimToGroup(
-    String groupId,
-    String identifier,
-  ) async {
+    String groupId, {
+    String? userId,
+    String? identifier,
+  }) async {
+    if (userId == null && (identifier == null || identifier.trim().isEmpty)) {
+      return (false, 'Invalid pilgrim identifier');
+    }
     try {
       await ApiService.dio.post(
         '/groups/$groupId/add-pilgrim',
-        data: {'identifier': identifier.trim()},
+        data: userId != null
+            ? {'user_id': userId}
+            : {'identifier': identifier!.trim()},
       );
-      // Refresh this group; fall back to full dashboard reload
-      final ok = await refreshGroup(groupId);
-      if (!ok) await loadDashboard();
+      await syncAfterMutation(groupId: groupId);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));
@@ -375,14 +625,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
         '/groups/$groupId/remove-pilgrim',
         data: {'user_id': pilgrimId},
       );
-      // Optimistic local update
-      final groups = state.groups.map((g) {
-        if (g.id != groupId) return g;
-        return g.copyWith(
-          pilgrims: g.pilgrims.where((p) => p.id != pilgrimId).toList(),
-        );
-      }).toList();
-      state = state.copyWith(groups: groups);
+      await syncAfterMutation(groupId: groupId);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));
@@ -391,13 +634,57 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
     }
   }
 
-  // Invite a new moderator by email (sends email invite)
-  Future<(bool, String?)> inviteModerator(String groupId, String email) async {
+  /// Permanently deletes a pilgrim from Manage Pilgrims (assigned or unassigned).
+  Future<(bool, String?)> deleteManagedPilgrim(String pilgrimId) async {
     try {
+      await ApiService.dio.delete('/auth/pilgrims/$pilgrimId');
+      await loadDashboard(force: true);
+      return (true, null);
+    } on DioException catch (e) {
+      return (false, ApiService.parseError(e));
+    } catch (e) {
+      return (false, e.toString());
+    }
+  }
+
+  // Update a pilgrim's details (hotel, room, etc.)
+  Future<(bool, String?)> updatePilgrimDetails(
+    String pilgrimId,
+    Map<String, dynamic> updates,
+  ) async {
+    try {
+      await ApiService.dio.put('/auth/pilgrims/$pilgrimId', data: updates);
+      await loadDashboard(force: true);
+      return (true, null);
+    } on DioException catch (e) {
+      return (false, ApiService.parseError(e));
+    } catch (e) {
+      return (false, e.toString());
+    }
+  }
+
+  // Invite one or more moderators by email (sends email invites)
+  Future<(bool, String?)> inviteModerators(
+    String groupId,
+    List<String> emails,
+  ) async {
+    try {
+      final normalized = emails
+          .map((e) => e.trim().toLowerCase())
+          .where((e) => e.isNotEmpty)
+          .toSet()
+          .toList();
+      if (normalized.isEmpty) {
+        return (false, 'email_invalid');
+      }
+
       await ApiService.dio.post(
         '/groups/$groupId/invite',
-        data: {'email': email.trim()},
+        data: normalized.length == 1
+            ? {'email': normalized.first}
+            : {'emails': normalized},
       );
+      await syncAfterMutation(groupId: groupId);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));
@@ -420,6 +707,7 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
         );
       }).toList();
       state = state.copyWith(groups: groups);
+      await loadDashboard(force: true, silently: true);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));
@@ -441,23 +729,70 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
       state = state.copyWith(groups: groups);
       return true;
     } catch (e) {
-      // ignore: avoid_print
-      print('[ModeratorProvider] refreshGroup($groupId) failed: $e');
+      AppLogger.e('[ModeratorProvider] refreshGroup($groupId) failed: $e');
       return false;
     }
   }
 
   // Create a new group — returns (success, errorMessage)
-  Future<(bool, String?)> createGroup(String groupName) async {
+  Future<(bool, String?)> createGroup(
+    String groupName, {
+    DateTime? checkInDate,
+    DateTime? checkOutDate,
+  }) async {
     try {
-      final resp = await ApiService.dio.post(
-        '/groups/create',
-        data: {'group_name': groupName.trim()},
-      );
+      final data = <String, dynamic>{'group_name': groupName.trim()};
+      if (checkInDate != null) {
+        data['check_in_date'] = checkInDate.toIso8601String();
+      }
+      if (checkOutDate != null) {
+        data['check_out_date'] = checkOutDate.toIso8601String();
+      }
+
+      final resp = await ApiService.dio.post('/groups/create', data: data);
       final created = ModeratorGroup.fromJson(
         resp.data as Map<String, dynamic>,
       );
       state = state.copyWith(groups: [...state.groups, created]);
+      await syncAfterMutation();
+      return (true, null);
+    } on DioException catch (e) {
+      return (false, ApiService.parseError(e));
+    } catch (e) {
+      return (false, e.toString());
+    }
+  }
+
+  // Join a group using a code
+  Future<(bool, String?)> joinGroup(String code) async {
+    try {
+      await ApiService.dio.post(
+        '/groups/join',
+        data: {'group_code': code.trim().toUpperCase()},
+      );
+      await loadDashboard(force: true);
+      return (true, null);
+    } on DioException catch (e) {
+      return (false, ApiService.parseError(e));
+    } catch (e) {
+      return (false, e.toString());
+    }
+  }
+
+  // Leave a group — returns (success, errorMessage)
+  Future<(bool, String?)> leaveGroup(
+    String groupId, {
+    String? newCreatorId,
+  }) async {
+    try {
+      final body = newCreatorId != null
+          ? {'new_creator_id': newCreatorId}
+          : null;
+      await ApiService.dio.post('/groups/$groupId/leave', data: body);
+      final updated = state.groups.where((g) => g.id != groupId).toList();
+      state = state.copyWith(groups: updated, selectedGroupIndex: 0);
+      await _removeGroupFromDashboardCache(groupId);
+      await loadDashboard(force: true, silently: true);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));
@@ -472,6 +807,8 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
       await ApiService.dio.delete('/groups/$groupId');
       final updated = state.groups.where((g) => g.id != groupId).toList();
       state = state.copyWith(groups: updated, selectedGroupIndex: 0);
+      await _removeGroupFromDashboardCache(groupId);
+      await loadDashboard(force: true, silently: true);
       return (true, null);
     } on DioException catch (e) {
       return (false, ApiService.parseError(e));

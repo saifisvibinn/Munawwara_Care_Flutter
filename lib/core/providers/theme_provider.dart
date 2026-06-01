@@ -19,8 +19,11 @@ class ThemeNotifier extends Notifier<ThemeMode> {
 
   Future<void> setMode(ThemeMode mode) async {
     state = mode;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kThemeKey, _toString(mode));
+    // Persist without blocking the frame — avoids any perceived lag on
+    // toggle before MaterialApp + bottom chrome rebuild.
+    SharedPreferences.getInstance().then(
+      (prefs) => prefs.setString(_kThemeKey, _toString(mode)),
+    );
   }
 
   Future<void> toggle() async {

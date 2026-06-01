@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../../core/services/api_service.dart';
+import '../../../core/services/app_data_cache.dart';
+import '../../../core/services/secure_session_store.dart';
+import '../models/insurance_company.dart';
 
 // ── Pilgrim Profile Model ─────────────────────────────────────────────────────
 
@@ -14,6 +16,9 @@ class PilgrimProfile {
   final String? medicalHistory;
   final int? age;
   final String? gender;
+  final String? alternativePhoneNumber;
+  final String? tasheraNumber;
+  final InsuranceCompany? insuranceCompany;
 
   const PilgrimProfile({
     required this.id,
@@ -24,6 +29,9 @@ class PilgrimProfile {
     this.medicalHistory,
     this.age,
     this.gender,
+    this.alternativePhoneNumber,
+    this.tasheraNumber,
+    this.insuranceCompany,
   });
 
   factory PilgrimProfile.fromJson(Map<String, dynamic> j) => PilgrimProfile(
@@ -35,19 +43,23 @@ class PilgrimProfile {
     medicalHistory: j['medical_history']?.toString(),
     age: j['age'] as int?,
     gender: j['gender']?.toString(),
+    alternativePhoneNumber: j['alternative_phone_number']?.toString(),
+    tasheraNumber: j['tashera_number']?.toString(),
+    insuranceCompany: j['insurance_company_id'] != null
+        ? InsuranceCompany.fromJson(
+            Map<String, dynamic>.from(j['insurance_company_id']),
+          )
+        : null,
   );
 
   String get firstName => fullName.split(' ').first;
 
-  /// Display ID like "#7821-KSA" derived from national_id or object id tail
-  String get displayId {
-    if (nationalId != null && nationalId!.length >= 4) {
-      return '#${nationalId!.substring(nationalId!.length - 4)}-KSA';
+  String get shortName {
+    final parts = fullName.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return '${parts[0]} ${parts[1]}';
     }
-    if (id.length >= 4) {
-      return '#${id.substring(id.length - 4).toUpperCase()}';
-    }
-    return '#----';
+    return fullName;
   }
 }
 
@@ -58,22 +70,68 @@ class GroupInfo {
   final String groupName;
   final int pilgrimCount;
   final List<ModeratorInfo> moderators;
+  final String? hotelName;
+  final String? roomNumber;
+  final String? busNumber;
+  final String? driverName;
+  final String? checkIn;
+  final String? checkOut;
+  final int? daysRemaining;
 
   const GroupInfo({
     required this.groupId,
     required this.groupName,
     required this.pilgrimCount,
     required this.moderators,
+    this.hotelName,
+    this.roomNumber,
+    this.busNumber,
+    this.driverName,
+    this.checkIn,
+    this.checkOut,
+    this.daysRemaining,
   });
 
-  factory GroupInfo.fromJson(Map<String, dynamic> j) => GroupInfo(
-    groupId: j['group_id']?.toString() ?? '',
-    groupName: j['group_name']?.toString() ?? '',
-    pilgrimCount: j['pilgrim_count'] as int? ?? 0,
-    moderators: (j['moderators'] as List<dynamic>? ?? [])
-        .map((m) => ModeratorInfo.fromJson(m as Map<String, dynamic>))
-        .toList(),
-  );
+  factory GroupInfo.fromJson(Map<String, dynamic> j) {
+    String? firstString(List<String> keys) {
+      for (final key in keys) {
+        final value = j[key];
+        if (value == null) continue;
+        final text = value.toString().trim();
+        if (text.isNotEmpty) return text;
+      }
+      return null;
+    }
+
+    int? firstInt(List<String> keys) {
+      for (final key in keys) {
+        final value = j[key];
+        if (value is int) return value;
+        if (value is num) return value.toInt();
+        if (value is String) {
+          final parsed = int.tryParse(value);
+          if (parsed != null) return parsed;
+        }
+      }
+      return null;
+    }
+
+    return GroupInfo(
+      groupId: j['group_id']?.toString() ?? '',
+      groupName: j['group_name']?.toString() ?? '',
+      pilgrimCount: j['pilgrim_count'] as int? ?? 0,
+      moderators: (j['moderators'] as List<dynamic>? ?? [])
+          .map((m) => ModeratorInfo.fromJson(m as Map<String, dynamic>))
+          .toList(),
+      hotelName: firstString(['hotel_name', 'hotelName']),
+      roomNumber: firstString(['room_number', 'room_no', 'roomNumber']),
+      busNumber: firstString(['bus_number', 'bus_no', 'busNumber']),
+      driverName: firstString(['driver_name', 'driverName']),
+      checkIn: firstString(['checkin_date', 'check_in', 'checkIn']),
+      checkOut: firstString(['checkout_date', 'check_out', 'checkOut']),
+      daysRemaining: firstInt(['days_remaining', 'stay_days', 'daysRemaining']),
+    );
+  }
 }
 
 class ModeratorInfo {
@@ -127,8 +185,12 @@ class PilgrimState {
   final bool isSharingLocation;
   final int? batteryLevel;
   final bool sosActive;
+  final String? activeSosId;
   // key = moderatorId, value = active beacon info
   final Map<String, ModeratorBeacon> navBeacons;
+
+  /// True when dashboard data comes from disk (offline or pre-hydrate).
+  final bool usingOfflineSnapshot;
 
   const PilgrimState({
     this.isLoading = false,
@@ -139,7 +201,9 @@ class PilgrimState {
     this.isSharingLocation = true,
     this.batteryLevel,
     this.sosActive = false,
+    this.activeSosId,
     this.navBeacons = const {},
+    this.usingOfflineSnapshot = false,
   });
 
   PilgrimState copyWith({
@@ -152,8 +216,12 @@ class PilgrimState {
     int? batteryLevel,
     bool? sosActive,
     Map<String, ModeratorBeacon>? navBeacons,
+    String? activeSosId,
     bool clearError = false,
     bool clearGroup = false,
+    bool clearSosId = false,
+    bool? usingOfflineSnapshot,
+    bool clearOfflineSnapshot = false,
   }) => PilgrimState(
     isLoading: isLoading ?? this.isLoading,
     isSosLoading: isSosLoading ?? this.isSosLoading,
@@ -163,20 +231,104 @@ class PilgrimState {
     isSharingLocation: isSharingLocation ?? this.isSharingLocation,
     batteryLevel: batteryLevel ?? this.batteryLevel,
     sosActive: sosActive ?? this.sosActive,
+    activeSosId: clearSosId ? null : (activeSosId ?? this.activeSosId),
     navBeacons: navBeacons ?? this.navBeacons,
+    usingOfflineSnapshot: clearOfflineSnapshot
+        ? false
+        : (usingOfflineSnapshot ?? this.usingOfflineSnapshot),
   );
 }
 
 // ── Pilgrim Notifier ──────────────────────────────────────────────────────────
 
 class PilgrimNotifier extends Notifier<PilgrimState> {
+  static DateTime? _lastDashboardLoad;
+  static DateTime? _lastLocationUpdate;
+
   @override
   PilgrimState build() {
     return const PilgrimState();
   }
 
-  Future<void> loadDashboard() async {
-    state = state.copyWith(isLoading: true, clearError: true);
+  Future<String?> _userId() => SecureSessionStore.getUserId();
+
+  /// Load last-known dashboard from disk (call before network refresh).
+  Future<void> hydrateFromCache() async {
+    final uid = await _userId();
+    if (uid == null) return;
+
+    PilgrimProfile? profile;
+    final pMap = AppDataCache.jsonMap(
+      await AppDataCache.readData(uid, AppDataCache.pilgrimProfileFile),
+    );
+    if (pMap != null) {
+      try {
+        profile = PilgrimProfile.fromJson(pMap);
+      } catch (_) {}
+    }
+
+    GroupInfo? groupInfo;
+    bool clearGroup = false;
+    final gMap = AppDataCache.jsonMap(
+      await AppDataCache.readData(uid, AppDataCache.pilgrimMyGroupFile),
+    );
+    if (gMap != null) {
+      final gid = gMap['group_id']?.toString() ?? '';
+      if (gid.isNotEmpty) {
+        try {
+          groupInfo = GroupInfo.fromJson(gMap);
+        } catch (_) {}
+      } else {
+        clearGroup = true;
+      }
+    }
+
+    if (profile == null && groupInfo == null && !clearGroup) return;
+
+    state = state.copyWith(
+      profile: profile ?? state.profile,
+      groupInfo: clearGroup ? null : (groupInfo ?? state.groupInfo),
+      clearGroup: clearGroup,
+      navBeacons: clearGroup ? const {} : null,
+    );
+  }
+
+  Future<void> _writePilgrimCache(
+    String uid,
+    Map<String, dynamic>? profileData,
+    Map<String, dynamic>? groupData,
+  ) async {
+    if (profileData != null) {
+      await AppDataCache.write(
+        uid,
+        AppDataCache.pilgrimProfileFile,
+        profileData,
+      );
+    }
+    if (groupData != null &&
+        (groupData['group_id']?.toString() ?? '').isNotEmpty) {
+      await AppDataCache.write(uid, AppDataCache.pilgrimMyGroupFile, groupData);
+    } else {
+      await AppDataCache.write(
+        uid,
+        AppDataCache.pilgrimMyGroupFile,
+        <String, dynamic>{'group_id': ''},
+      );
+    }
+  }
+
+  Future<void> loadDashboard({bool force = false, bool silently = false}) async {
+    final now = DateTime.now();
+    if (!force &&
+        _lastDashboardLoad != null &&
+        now.difference(_lastDashboardLoad!).inSeconds < 10) {
+      return; // Throttle to prevent 429 errors
+    }
+    _lastDashboardLoad = now;
+
+    if (!silently) {
+      state = state.copyWith(isLoading: true, clearError: true);
+    }
     try {
       // Parallel fetch: profile + group
       final results = await Future.wait([
@@ -195,6 +347,18 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
       final profileData = results[0].data as Map<String, dynamic>?;
       final groupData = results[1].data as Map<String, dynamic>?;
 
+      final uid = await _userId();
+      if (uid != null && profileData != null) {
+        await _writePilgrimCache(uid, profileData, groupData);
+      }
+
+      final activeSosRaw = profileData?['active_sos_id'];
+      final activeSosStr = activeSosRaw != null &&
+              activeSosRaw.toString().trim().isNotEmpty
+          ? activeSosRaw.toString()
+          : null;
+      final hasActiveSos = activeSosStr != null;
+
       state = state.copyWith(
         isLoading: false,
         profile: profileData != null
@@ -204,9 +368,32 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
             ? GroupInfo.fromJson(groupData)
             : null,
         clearGroup: !(groupData != null && groupData.containsKey('group_id')),
+        navBeacons: !(groupData != null && groupData.containsKey('group_id'))
+            ? const {}
+            : null,
+        clearOfflineSnapshot: true,
+        sosActive: hasActiveSos,
+        activeSosId: activeSosStr,
+        clearSosId: !hasActiveSos,
       );
     } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
+      final code = e.response?.statusCode;
+      if (code == 401) {
+        state = state.copyWith(
+          isLoading: false,
+          error: ApiService.parseError(e),
+        );
+        return;
+      }
+      final uid = await _userId();
+      if (uid != null) await hydrateFromCache();
+      final hasData = state.profile != null || state.groupInfo != null;
+      state = state.copyWith(
+        isLoading: false,
+        error: hasData ? null : ApiService.parseError(e),
+        // Only mark offline snapshot after a confirmed failed network attempt.
+        usingOfflineSnapshot: hasData,
+      );
     }
   }
 
@@ -216,34 +403,46 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
     int? batteryPercent,
   }) async {
     if (!state.isSharingLocation) return;
+
+    final now = DateTime.now();
+    // Update battery locally immediately, but throttle network calls
+    if (batteryPercent != null) {
+      state = state.copyWith(batteryLevel: batteryPercent);
+    }
+
+    if (_lastLocationUpdate != null &&
+        now.difference(_lastLocationUpdate!).inSeconds < 15) {
+      return; // Throttle location updates to at most once every 15 seconds
+    }
+    _lastLocationUpdate = now;
+
     try {
       await ApiService.dio.put(
         '/pilgrim/location',
         data: {
           'latitude': latitude,
           'longitude': longitude,
-          'battery_percent': ?batteryPercent,
+          'battery_percent': batteryPercent,
         },
       );
-      if (batteryPercent != null) {
-        state = state.copyWith(batteryLevel: batteryPercent);
-      }
     } catch (_) {
       // Silent — location updates should not disrupt UX
     }
   }
 
   Future<bool> triggerSOS() async {
-    state = state.copyWith(isSosLoading: true);
+    state = state.copyWith(isSosLoading: true, clearError: true);
     try {
-      await ApiService.dio.post('/pilgrim/sos');
-      state = state.copyWith(isSosLoading: false, sosActive: true);
-      // Auto clear SOS status after 10 s
-      Future.delayed(const Duration(seconds: 10), () {
-        if (state.sosActive) {
-          state = state.copyWith(sosActive: false);
-        }
-      });
+      final response = await ApiService.dio.post('/pilgrim/sos');
+      final body = response.data as Map<String, dynamic>?;
+      final activeSosId = body?['sos_id']?.toString() ??
+          body?['data']?['sos_id']?.toString();
+
+      state = state.copyWith(
+        isSosLoading: false,
+        sosActive: true,
+        activeSosId: activeSosId,
+      );
       return true;
     } on DioException catch (e) {
       state = state.copyWith(
@@ -270,21 +469,41 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
     double? lng,
   ) {
     final updated = Map<String, ModeratorBeacon>.from(state.navBeacons);
-    if (enabled && lat != null && lng != null) {
+    if (!enabled) {
+      updated.remove(modId);
+    } else if (lat != null && lng != null) {
       updated[modId] = ModeratorBeacon(
         id: modId,
         name: modName,
         lat: lat,
         lng: lng,
       );
-    } else {
-      updated.remove(modId);
     }
+    // If enabled but lat/lng is null, we just keep the previous beacon if it exists
+    // rather than removing it, to avoid flicker while moderator is getting GPS fix.
+
     state = state.copyWith(navBeacons: updated);
   }
 
   void cancelSOS() {
-    state = state.copyWith(sosActive: false);
+    state = state.copyWith(sosActive: false, clearSosId: true);
+  }
+
+  /// Notifies the server that the active SOS was cancelled (socket or HTTP).
+  Future<bool> cancelSosRemote({String? sosId}) async {
+    final payload = <String, dynamic>{};
+    if (sosId != null && sosId.isNotEmpty) {
+      payload['sos_id'] = sosId;
+    }
+    try {
+      await ApiService.dio.post('/pilgrim/sos/cancel', data: payload);
+      return true;
+    } on DioException catch (e) {
+      state = state.copyWith(error: ApiService.parseError(e));
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Clear all group-related state when pilgrim is removed from group
@@ -293,24 +512,8 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
       clearGroup: true,
       navBeacons: const {},
       sosActive: false,
+      clearSosId: true,
     );
-  }
-
-  Future<(bool, String?)> joinGroup(String groupCode) async {
-    try {
-      final res = await ApiService.dio.post(
-        '/groups/join',
-        data: {'group_code': groupCode.trim().toUpperCase()},
-      );
-      final data = res.data as Map<String, dynamic>?;
-      // Reload dashboard so groupInfo is populated
-      await loadDashboard();
-      return (true, data?['group']?['group_name']?.toString());
-    } on DioException catch (e) {
-      return (false, ApiService.parseError(e));
-    } catch (e) {
-      return (false, e.toString());
-    }
   }
 }
 

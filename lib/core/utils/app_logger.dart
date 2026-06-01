@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 
 class AppLogger {
@@ -8,16 +9,42 @@ class AppLogger {
       lineLength: 80,
       colors: true,
       printEmojis: true,
-      printTime: true,
+      dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
     ),
   );
 
-  static void v(dynamic message) => _logger.v(message); // Trace/Verbose
-  static void d(dynamic message) => _logger.d(message); // Debug
-  static void i(dynamic message) => _logger.i(message); // Info
-  static void w(dynamic message) => _logger.w(message); // Warning
-  static void e(dynamic message, [dynamic error, StackTrace? stackTrace]) =>
-      _logger.e(message, error: error, stackTrace: stackTrace); // Error
-  static void f(dynamic message, [dynamic error, StackTrace? stackTrace]) =>
-      _logger.f(message, error: error, stackTrace: stackTrace); // Fatal/Wtf
+  static void v(dynamic message) {
+    if (kDebugMode) {
+      _logger.t(message);
+    }
+  }
+
+  static void d(dynamic message) {
+    if (kDebugMode) {
+      _logger.d(message);
+    }
+  }
+  static void i(dynamic message) {
+    if (kDebugMode) {
+      _logger.i(message);
+    }
+  }
+
+  static void w(dynamic message) {
+    if (kDebugMode) {
+      _logger.w(message);
+    }
+  }
+
+  static void e(dynamic message, [dynamic error, StackTrace? stackTrace]) {
+    if (kDebugMode) {
+      _logger.e(message, error: error, stackTrace: stackTrace);
+    }
+  }
+
+  static void f(dynamic message, [dynamic error, StackTrace? stackTrace]) {
+    if (kDebugMode) {
+      _logger.f(message, error: error, stackTrace: stackTrace);
+    }
+  }
 }

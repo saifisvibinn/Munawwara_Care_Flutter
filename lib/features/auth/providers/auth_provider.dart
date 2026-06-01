@@ -1,8 +1,18 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:math';
+
 import 'package:dio/dio.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
+import '../../pilgrim/models/insurance_company.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/app_data_cache.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../core/services/secure_session_store.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/utils/app_logger.dart';
 
@@ -22,9 +32,17 @@ class AuthState {
   final int? age;
   final String? gender;
   final String? medicalHistory;
-  final String?
-  moderatorRequestStatus; // 'pending', 'approved', 'rejected', or null
-  final bool promotedToModeratorPending;
+  final String? hotelName;
+  final String? roomNumber;
+  final String? busInfo;
+  final String? visaNumber;
+  final String? visaStatus;
+  final String? nationalId;
+  final String? language;
+  final String? ethnicity;
+  final String? alternativePhoneNumber;
+  final String? tasheraNumber;
+  final InsuranceCompany? insuranceCompany;
 
   const AuthState({
     this.isLoading = false,
@@ -40,8 +58,17 @@ class AuthState {
     this.age,
     this.gender,
     this.medicalHistory,
-    this.moderatorRequestStatus,
-    this.promotedToModeratorPending = false,
+    this.hotelName,
+    this.roomNumber,
+    this.busInfo,
+    this.visaNumber,
+    this.visaStatus,
+    this.nationalId,
+    this.language,
+    this.ethnicity,
+    this.alternativePhoneNumber,
+    this.tasheraNumber,
+    this.insuranceCompany,
   });
 
   bool get isAuthenticated => token != null;
@@ -60,12 +87,20 @@ class AuthState {
     int? age,
     String? gender,
     String? medicalHistory,
-    String? moderatorRequestStatus,
-    bool? promotedToModeratorPending,
+    String? hotelName,
+    String? roomNumber,
+    String? busInfo,
+    String? visaNumber,
+    String? visaStatus,
+    String? nationalId,
+    String? language,
+    String? ethnicity,
+    String? alternativePhoneNumber,
+    String? tasheraNumber,
+    InsuranceCompany? insuranceCompany,
     bool clearError = false,
     bool clearPhoneNumber = false,
     bool clearEmail = false,
-    bool clearPromotionFlag = false,
     bool clearAge = false,
     bool clearGender = false,
     bool clearMedicalHistory = false,
@@ -86,11 +121,18 @@ class AuthState {
       medicalHistory: clearMedicalHistory
           ? null
           : (medicalHistory ?? this.medicalHistory),
-      moderatorRequestStatus:
-          moderatorRequestStatus ?? this.moderatorRequestStatus,
-      promotedToModeratorPending: clearPromotionFlag
-          ? false
-          : (promotedToModeratorPending ?? this.promotedToModeratorPending),
+      hotelName: hotelName ?? this.hotelName,
+      roomNumber: roomNumber ?? this.roomNumber,
+      busInfo: busInfo ?? this.busInfo,
+      visaNumber: visaNumber ?? this.visaNumber,
+      visaStatus: visaStatus ?? this.visaStatus,
+      nationalId: nationalId ?? this.nationalId,
+      language: language ?? this.language,
+      ethnicity: ethnicity ?? this.ethnicity,
+      alternativePhoneNumber:
+          alternativePhoneNumber ?? this.alternativePhoneNumber,
+      tasheraNumber: tasheraNumber ?? this.tasheraNumber,
+      insuranceCompany: insuranceCompany ?? this.insuranceCompany,
     );
   }
 }
@@ -99,6 +141,11 @@ class AuthState {
 // Uses Riverpod 3.x Notifier API (StateNotifier was removed in v3)
 
 class AuthNotifier extends Notifier<AuthState> {
+  Completer<void>? _remoteValidationCompleter;
+
+  /// Called once from main.dart after the FCM token is obtained.
+  static void setFcmTokenGetter(String? Function() getter) {}
+
   @override
   AuthState build() {
     _restoreSession();
@@ -106,126 +153,254 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   // ── Restore session on startup ──────────────────────────────────────────────
+  /// Phase A: prefs + disk cache only — unblocks splash without network.
   Future<void> _restoreSession() async {
     try {
-      AppLogger.d('AuthNotifier: restoring session');
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-      final role = prefs.getString('user_role');
-      final userId = prefs.getString('user_id');
-      final fullName = prefs.getString('user_full_name');
+      AppLogger.d('AuthNotifier: restoring session (cached)');
+      final token = await SecureSessionStore.getToken();
+      final role = await SecureSessionStore.getRole();
+      final userId = await SecureSessionStore.getUserId();
+      final fullName = await SecureSessionStore.getFullName();
 
-      if (token != null) {
-        ApiService.dio.options.headers['Authorization'] = 'Bearer $token';
-        state = AuthState(
-          isRestoringSession: false,
-          token: token,
-          role: role,
-          userId: userId,
-          fullName: fullName,
-        );
-
-        // Check if role has changed on server (e.g., pilgrim promoted to moderator)
-        await _checkRoleSync();
-      } else {
+      if (token == null || token.isEmpty) {
         state = const AuthState(isRestoringSession: false);
-      }
-      AppLogger.d('AuthNotifier: restore complete');
-    } catch (e, st) {
-      // If shared preferences fails for any reason, we still want to clear the
-      // restoring flag so the UI can proceed. Log the error to console.
-      AppLogger.e('AuthNotifier restoreSession error: $e\n$st');
-      state = const AuthState(isRestoringSession: false);
-    }
-  }
-
-  // ── Check Role Sync ─────────────────────────────────────────────────────────
-  // Verifies if local role matches server role. If not, signs out user.
-  Future<void> _checkRoleSync() async {
-    try {
-      final localRole = state.role;
-      if (localRole == null) return;
-
-      AppLogger.d('Checking role sync: local=$localRole');
-
-      // Fetch fresh profile from server
-      final response = await ApiService.dio.get('/auth/me');
-      final data = response.data as Map<String, dynamic>;
-      final serverRole = data['user_type'] as String?;
-
-      AppLogger.d('Role sync check: local=$localRole, server=$serverRole');
-
-      // If roles don't match, user has been promoted/changed
-      if (serverRole != null && serverRole != localRole) {
-        if (localRole == 'pilgrim' && serverRole == 'moderator') {
-          AppLogger.i(
-            'Role upgraded pilgrim -> moderator. Refreshing session.',
-          );
-          await _refreshSessionAfterPromotion();
-          return;
-        }
-
-        AppLogger.i(
-          'Role mismatch detected ($localRole -> $serverRole). Logging out.',
-        );
-        await logout();
-      }
-    } on DioException catch (e) {
-      final statusCode = e.response?.statusCode;
-
-      // Stale local session: token is invalid/expired or user no longer exists.
-      // Keep auth state consistent by forcing logout and fresh login.
-      if (statusCode == 401 || statusCode == 404) {
-        AppLogger.w(
-          'Role sync failed with status $statusCode. Clearing stale session.',
-        );
-        await logout();
+        AppLogger.d('AuthNotifier: restore complete (no token)');
         return;
       }
 
-      // Other failures are likely transient network/server issues.
-      AppLogger.w('Role sync check failed (network error): ${e.message}');
-    } catch (e) {
-      AppLogger.e('Role sync check error: $e');
-    }
-  }
-
-  Future<void> _refreshSessionAfterPromotion() async {
-    try {
-      final response = await ApiService.dio.post('/auth/refresh-session');
-      final data = response.data as Map<String, dynamic>;
-
-      final newToken = data['token'] as String;
-      final newRole = data['role'] as String;
-      final newUserId = data['user_id'] as String;
-      final newFullName = data['full_name'] as String;
-
-      await _persistSession(newToken, newRole, newUserId, newFullName);
-
-      state = state.copyWith(
-        token: newToken,
-        role: newRole,
-        userId: newUserId,
-        fullName: newFullName,
-        moderatorRequestStatus:
-            (data['moderator_request_status'] as String?) ?? 'approved',
-        promotedToModeratorPending: true,
+      ApiService.dio.options.headers['Authorization'] = 'Bearer $token';
+      state = AuthState(
+        isRestoringSession: false,
+        token: token,
+        role: role,
+        userId: userId,
+        fullName: fullName,
       );
-    } on DioException catch (e) {
-      AppLogger.w('Failed to refresh promoted session: ${e.message}');
-      await logout();
-    } catch (e) {
-      AppLogger.e('Failed to refresh promoted session: $e');
-      await logout();
+      await _mergeAuthMeFromCache(userId);
+      await SecureSessionStore.syncNativeMirrorPrefs();
+      AppLogger.d('AuthNotifier: cached session ready — validating in background');
+      _remoteValidationCompleter = Completer<void>();
+      unawaited(
+        _validateSessionRemotely(token, role, userId, fullName).whenComplete(
+          _completeRemoteValidation,
+        ),
+      );
+    } catch (e, st) {
+      AppLogger.e('AuthNotifier restoreSession error: $e\n$st');
+      state = const AuthState(isRestoringSession: false);
+      _completeRemoteValidation();
     }
   }
 
-  Future<void> syncRoleWithServer() async {
-    await _checkRoleSync();
+  void _completeRemoteValidation() {
+    final c = _remoteValidationCompleter;
+    if (c != null && !c.isCompleted) {
+      c.complete();
+    }
+    _remoteValidationCompleter = null;
   }
 
-  void acknowledgeModeratorPromotion() {
-    state = state.copyWith(clearPromotionFlag: true);
+  /// Awaited by splash before navigation when a token exists.
+  Future<void> waitForRemoteSessionValidation() async {
+    final pending = _remoteValidationCompleter;
+    if (pending != null) {
+      await pending.future;
+    }
+  }
+
+  /// Phase B: network validation before splash navigates away.
+  Future<void> _validateSessionRemotely(
+    String token,
+    String? role,
+    String? userId,
+    String? fullName,
+  ) async {
+    try {
+      final response = await ApiService.dio.get('/auth/me');
+      final raw = response.data;
+      final data = raw is Map<String, dynamic>
+          ? raw
+          : (raw is Map
+                ? Map<String, dynamic>.from(raw)
+                : <String, dynamic>{});
+
+      final resolvedRole = (data['role'] ?? data['user_type'] ?? role)
+          ?.toString();
+      final resolvedId = (data['_id'] ?? data['id'] ?? userId)?.toString();
+      final resolvedName = (data['full_name'] ?? fullName)?.toString();
+
+      if (userId != null &&
+          userId.isNotEmpty &&
+          resolvedId != null &&
+          resolvedId.isNotEmpty &&
+          userId != resolvedId) {
+        AppLogger.w(
+          'AuthNotifier: stored user id does not match /auth/me — clearing session',
+        );
+        await _invalidateSessionLocally();
+        return;
+      }
+
+      state = AuthState(
+        isRestoringSession: false,
+        token: token,
+        role: resolvedRole,
+        userId: resolvedId,
+        fullName: resolvedName,
+        email: data['email'] as String?,
+        emailVerified: data['email_verified'] as bool? ?? false,
+        phoneNumber: data['phone_number'] as String?,
+        age: (data['age'] as num?)?.toInt(),
+        gender: data['gender'] as String?,
+        medicalHistory: data['medical_history'] as String?,
+        hotelName: data['hotel_name'] as String?,
+        roomNumber: data['room_number'] as String?,
+        busInfo: data['bus_info'] as String?,
+        visaNumber: data['visa']?['visa_number']?.toString(),
+        visaStatus: data['visa']?['status']?.toString(),
+        nationalId: data['national_id']?.toString(),
+        language: data['language']?.toString(),
+        ethnicity: data['ethnicity']?.toString(),
+        alternativePhoneNumber: data['alternative_phone_number']?.toString(),
+        tasheraNumber: data['tashera_number']?.toString(),
+        insuranceCompany: data['insurance_company_id'] != null
+            ? InsuranceCompany.fromJson(
+                Map<String, dynamic>.from(data['insurance_company_id']),
+              )
+            : null,
+      );
+
+      if (data['full_name'] != null) {
+        await SecureSessionStore.setFullName(data['full_name'] as String);
+      }
+      if (resolvedId != null && resolvedId.isNotEmpty) {
+        await SecureSessionStore.setUserId(resolvedId);
+      }
+      if (resolvedRole != null && resolvedRole.isNotEmpty) {
+        await SecureSessionStore.setRole(resolvedRole);
+      }
+      await SecureSessionStore.syncNativeMirrorPrefs();
+
+      final cacheId = resolvedId ?? userId;
+      if (cacheId != null && cacheId.isNotEmpty) {
+        await AppDataCache.write(cacheId, AppDataCache.authMeFile, data);
+      }
+      AppLogger.d('AuthNotifier: remote session validated');
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      if (code == 401) {
+        AppLogger.w('AuthNotifier: /auth/me 401 during background validate');
+        if (await ApiService.hasStoredAuthToken()) {
+          await _invalidateSessionLocally();
+        }
+        return;
+      }
+      if (code == 404) {
+        AppLogger.w(
+          'AuthNotifier: /auth/me 404 during background validate — clearing session',
+        );
+        await _invalidateSessionLocally();
+        return;
+      }
+      AppLogger.w(
+        'AuthNotifier: /auth/me failed (HTTP $code) — keeping offline session',
+      );
+    } catch (e, st) {
+      AppLogger.e('AuthNotifier validateSessionRemotely error: $e\n$st');
+    }
+  }
+
+  /// Called from [bindMobileMessagingServices] after first frame.
+  Future<void> requestNotificationPermissionsForStartup() =>
+      _requestNotificationPermissions();
+
+  Future<void> _mergeAuthMeFromCache(String? userId) async {
+    if (userId == null || userId.isEmpty) return;
+    final raw = await AppDataCache.readData(userId, AppDataCache.authMeFile);
+    if (raw is! Map) return;
+    final data = Map<String, dynamic>.from(raw);
+    state = state.copyWith(
+      fullName: (data['full_name'] ?? state.fullName)?.toString(),
+      email: data['email'] as String? ?? state.email,
+      emailVerified: data['email_verified'] as bool? ?? state.emailVerified,
+      phoneNumber: data['phone_number'] as String? ?? state.phoneNumber,
+      age: (data['age'] as num?)?.toInt() ?? state.age,
+      gender: data['gender'] as String? ?? state.gender,
+      medicalHistory:
+          data['medical_history'] as String? ?? state.medicalHistory,
+      hotelName: data['hotel_name'] as String? ?? state.hotelName,
+      roomNumber: data['room_number'] as String? ?? state.roomNumber,
+      busInfo: data['bus_info'] as String? ?? state.busInfo,
+      visaNumber: data['visa']?['visa_number']?.toString() ?? state.visaNumber,
+      visaStatus: data['visa']?['status']?.toString() ?? state.visaStatus,
+      nationalId: data['national_id']?.toString() ?? state.nationalId,
+      language: data['language']?.toString() ?? state.language,
+      ethnicity: data['ethnicity']?.toString() ?? state.ethnicity,
+      alternativePhoneNumber: data['alternative_phone_number']?.toString() ??
+          state.alternativePhoneNumber,
+      tasheraNumber:
+          data['tashera_number']?.toString() ?? state.tasheraNumber,
+      insuranceCompany: data['insurance_company_id'] != null
+          ? InsuranceCompany.fromJson(
+              Map<String, dynamic>.from(data['insurance_company_id']),
+            )
+          : state.insuranceCompany,
+    );
+  }
+
+  /// Merge `/auth/me` fields from disk when token exists (e.g. offline cold start).
+  Future<void> hydrateFromCache() async {
+    if (!await ApiService.hasStoredAuthToken()) return;
+    final uid = state.userId ?? await SecureSessionStore.getUserId();
+    await _mergeAuthMeFromCache(uid);
+  }
+
+  /// Clear local auth without calling the server (user record already gone or 401 handled).
+  Future<void> _invalidateSessionLocally() async {
+    try {
+      SocketService.disconnect();
+    } catch (_) {}
+    await ApiService.clearAuthToken();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('last_registered_fcm_token');
+    state = const AuthState(isRestoringSession: false);
+  }
+
+  Future<void> _requestNotificationPermissions() async {
+    if (Platform.isAndroid || Platform.isIOS) {
+      try {
+        await NotificationService.instance.ensureInitialized();
+        AppLogger.d('AuthNotifier: requesting notification permissions');
+        await FirebaseMessaging.instance.requestPermission(
+          alert: true,
+          announcement: false,
+          badge: true,
+          carPlay: false,
+          criticalAlert: false,
+          provisional: false,
+          sound: true,
+        );
+
+        // Request local notification permissions
+        await NotificationService.instance.requestPermissions();
+      } catch (e) {
+        AppLogger.e('AuthNotifier permission request failed: $e');
+      }
+    }
+  }
+
+  /// Permissions + FCM run after navigation so login never stalls on slow GMS.
+  void _schedulePostLoginSetup() {
+    unawaited(_runPostLoginSetup());
+  }
+
+  Future<void> _runPostLoginSetup() async {
+    try {
+      await _requestNotificationPermissions();
+      await _registerFcmTokenAfterLogin();
+    } catch (e, st) {
+      AppLogger.e('AuthNotifier post-login setup failed: $e\n$st');
+    }
   }
 
   Future<void> _persistSession(
@@ -235,59 +410,24 @@ class AuthNotifier extends Notifier<AuthState> {
     String fullName,
   ) async {
     await ApiService.setAuthToken(token);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_role', role);
-    await prefs.setString('user_id', userId);
-    await prefs.setString('user_full_name', fullName);
+    await SecureSessionStore.setSessionProfile(
+      role: role,
+      userId: userId,
+      fullName: fullName,
+    );
+    await SecureSessionStore.syncNativeMirrorPrefs();
+    await ApiService.cacheNativeBridgePrefs();
   }
 
-  // ── Register Pilgrim ────────────────────────────────────────────────────────
-  Future<bool> registerPilgrim({
-    required String fullName,
-    required String nationalId,
-    required String phoneNumber,
-    required String password,
-    String? medicalHistory,
-    int? age,
-    String? gender,
-  }) async {
-    state = state.copyWith(isLoading: true, clearError: true);
-
-    try {
-      final body = <String, dynamic>{
-        'full_name': fullName,
-        'national_id': nationalId,
-        'phone_number': phoneNumber,
-        'password': password,
-      };
-      if (medicalHistory != null && medicalHistory.isNotEmpty) {
-        body['medical_history'] = medicalHistory;
-      }
-      if (age != null) body['age'] = age;
-      if (gender != null) body['gender'] = gender;
-
-      final response = await ApiService.dio.post('/auth/register', data: body);
-      final data = response.data as Map<String, dynamic>;
-
-      await _persistSession(
-        data['token'] as String,
-        data['role'] as String,
-        data['user_id'] as String,
-        data['full_name'] as String,
-      );
-
-      state = state.copyWith(
-        isLoading: false,
-        token: data['token'] as String,
-        role: data['role'] as String,
-        userId: data['user_id'] as String,
-        fullName: data['full_name'] as String,
-      );
-      return true;
-    } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
-      return false;
+  Future<String> _getOrCreateDeviceId() async {
+    final existing = await SecureSessionStore.getDeviceBindingId();
+    if (existing != null && existing.isNotEmpty) {
+      return existing;
     }
+
+    final generated = const Uuid().v4();
+    await SecureSessionStore.setDeviceBindingId(generated);
+    return generated;
   }
 
   // ── Login ───────────────────────────────────────────────────────────────────
@@ -319,6 +459,9 @@ class AuthNotifier extends Notifier<AuthState> {
         userId: data['user_id'] as String,
         fullName: data['full_name'] as String,
       );
+
+      _schedulePostLoginSetup();
+
       return true;
     } on DioException catch (e) {
       state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
@@ -326,8 +469,79 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  Future<bool> loginWithOneTimeToken({required String token}) async {
+    final normalizedToken = token.trim();
+    if (normalizedToken.isEmpty) {
+      state = state.copyWith(error: 'Login code is required');
+      return false;
+    }
+
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      final deviceId = await _getOrCreateDeviceId();
+      final response = await ApiService.dio.post(
+        '/auth/pilgrim/one-time-login',
+        data: {'token': normalizedToken, 'device_id': deviceId},
+      );
+      final data = response.data as Map<String, dynamic>;
+
+      await _persistSession(
+        data['token'] as String,
+        data['role'] as String,
+        data['user_id'] as String,
+        data['full_name'] as String,
+      );
+
+      state = state.copyWith(
+        isLoading: false,
+        token: data['token'] as String,
+        role: data['role'] as String,
+        userId: data['user_id'] as String,
+        fullName: data['full_name'] as String,
+      );
+
+      _schedulePostLoginSetup();
+
+      return true;
+    } on DioException catch (e) {
+      final statusCode = e.response?.statusCode;
+
+      // 410 = code expired, 409 = code already used
+      // These are not auth errors — extract the server message directly
+      // without triggering the global 401 logout interceptor.
+      if (statusCode == 410 || statusCode == 409 || statusCode == 422) {
+        final serverMessage = ApiService.parseError(e);
+        state = state.copyWith(isLoading: false, error: serverMessage);
+        return false;
+      }
+
+      // 401 with no existing session = invalid token (wrong code entered)
+      if (statusCode == 401) {
+        state = state.copyWith(
+          isLoading: false,
+          error: ApiService.parseError(e),
+        );
+        return false;
+      }
+
+      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'One-time login failed. Please try again.',
+      );
+      AppLogger.e('One-time login error: $e');
+      return false;
+    }
+  }
+
   // ── Fetch profile ───────────────────────────────────────────────────────────
-  Future<void> fetchProfile() async {
+  /// Returns `false` when the session is invalid (401/404), after [logout] runs if needed.
+  Future<bool> fetchProfile() async {
+    if (!state.isAuthenticated) return false;
+    await hydrateFromCache();
     try {
       final response = await ApiService.dio.get('/auth/me');
       final data = response.data as Map<String, dynamic>;
@@ -339,15 +553,48 @@ class AuthNotifier extends Notifier<AuthState> {
         age: (data['age'] as num?)?.toInt(),
         gender: data['gender'] as String?,
         medicalHistory: data['medical_history'] as String?,
-        moderatorRequestStatus: data['moderator_request_status'] as String?,
+        hotelName: data['hotel_name'] as String?,
+        roomNumber: data['room_number'] as String?,
+        busInfo: data['bus_info'] as String?,
+        visaNumber: data['visa']?['visa_number']?.toString(),
+        visaStatus: data['visa']?['status']?.toString(),
+        nationalId: data['national_id']?.toString(),
+        language: data['language']?.toString(),
+        ethnicity: data['ethnicity']?.toString(),
+        alternativePhoneNumber: data['alternative_phone_number']?.toString(),
+        tasheraNumber: data['tashera_number']?.toString(),
+        insuranceCompany: data['insurance_company_id'] != null
+            ? InsuranceCompany.fromJson(
+                Map<String, dynamic>.from(data['insurance_company_id']),
+              )
+            : null,
       );
-      // Persist updated full_name to prefs
       if (data['full_name'] != null) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_full_name', data['full_name'] as String);
+        await SecureSessionStore.setFullName(data['full_name'] as String);
       }
-    } on DioException catch (_) {
-      // Silent — profile fetch failures shouldn't disrupt UX
+      final uid = data['_id']?.toString() ?? data['id']?.toString();
+      if (uid != null && uid.isNotEmpty) {
+        await SecureSessionStore.setUserId(uid);
+        await AppDataCache.write(uid, AppDataCache.authMeFile, data);
+      }
+      final r = data['role']?.toString() ?? data['user_type']?.toString();
+      if (r != null && r.isNotEmpty) {
+        await SecureSessionStore.setRole(r);
+      }
+      await SecureSessionStore.syncNativeMirrorPrefs();
+      return true;
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      if (code == 401 || code == 404) {
+        AppLogger.w('fetchProfile: invalid session (HTTP $code)');
+        if (await ApiService.hasStoredAuthToken()) {
+          await logout();
+        }
+        return false;
+      }
+      final uid = state.userId ?? await SecureSessionStore.getUserId();
+      await _mergeAuthMeFromCache(uid);
+      return true;
     }
   }
 
@@ -384,8 +631,7 @@ class AuthNotifier extends Notifier<AuthState> {
       final newGender = userData['gender'] as String?;
       final newMedical = userData['medical_history'] as String?;
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_full_name', newName);
+      await SecureSessionStore.setFullName(newName);
 
       state = state.copyWith(
         isLoading: false,
@@ -403,54 +649,14 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  // ── Update FCM Token ────────────────────────────────────────────────────────
-  Future<void> updateFcmToken(String fcmToken) async {
-    try {
-      // Only hit the backend when the token has actually changed.
-      const lastTokenKey = 'last_registered_fcm_token';
-      final prefs = await SharedPreferences.getInstance();
-      final lastToken = prefs.getString(lastTokenKey);
-      if (lastToken == fcmToken) {
-        AppLogger.d('FCM token unchanged — skipping backend registration');
-        return;
-      }
-
-      await ApiService.dio.put(
-        '/auth/fcm-token',
-        data: {'fcm_token': fcmToken},
-      );
-      await prefs.setString(lastTokenKey, fcmToken);
-      AppLogger.i('✅ FCM token registered with backend');
-    } catch (e) {
-      AppLogger.e('⚠️ Failed to register FCM token: $e');
-    }
-  }
-
-  // ── Add Email ───────────────────────────────────────────────────────────────
-  Future<bool> addEmail(String email) async {
+  // ── Forgot Password ────────────────────────────────────────────────────────
+  Future<bool> requestPasswordReset(String email) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       await ApiService.dio.post(
-        '/auth/add-email',
-        data: {'email': email.trim()},
+        '/auth/forgot-password',
+        data: {'email': email},
       );
-      state = state.copyWith(
-        isLoading: false,
-        email: email.trim(),
-        emailVerified: false,
-      );
-      return true;
-    } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
-      return false;
-    }
-  }
-
-  // ── Send Email Verification ─────────────────────────────────────────────────
-  Future<bool> sendEmailVerification() async {
-    state = state.copyWith(isLoading: true, clearError: true);
-    try {
-      await ApiService.dio.post('/auth/send-email-verification');
       state = state.copyWith(isLoading: false);
       return true;
     } on DioException catch (e) {
@@ -459,35 +665,100 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  // ── Verify Email ────────────────────────────────────────────────────────────
-  Future<bool> verifyEmail(String code) async {
+  Future<String?> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      await ApiService.dio.post(
-        '/auth/verify-email',
-        data: {'code': code.trim()},
+      final response = await ApiService.dio.post(
+        '/auth/reset-password',
+        data: {'email': email, 'code': code, 'new_password': newPassword},
       );
-      state = state.copyWith(isLoading: false, emailVerified: true);
-      return true;
+      state = state.copyWith(isLoading: false);
+      return (response.data as Map<String, dynamic>)['message']?.toString();
     } on DioException catch (e) {
       state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
-      return false;
+      return null;
     }
   }
 
-  // ── Request Moderator Status ────────────────────────────────────────────────
-  Future<bool> requestModerator() async {
-    state = state.copyWith(isLoading: true, clearError: true);
+  /// Ensures the backend has a current FCM token (calls, TTS, chat pushes).
+  Future<void> ensureFcmTokenRegistered() async {
+    if (!state.isAuthenticated) return;
+    await _registerFcmTokenAfterLogin();
+  }
+
+  /// Upload device push token right after login when the JWT is guaranteed valid.
+  Future<void> _registerFcmTokenAfterLogin() async {
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      return;
+    }
+    String? fcm;
     try {
-      await ApiService.dio.post('/auth/request-moderator');
-      state = state.copyWith(
-        isLoading: false,
-        moderatorRequestStatus: 'pending',
+      fcm = await FirebaseMessaging.instance.getToken().timeout(
+        const Duration(seconds: 12),
+        onTimeout: () {
+          AppLogger.w(
+            'AuthNotifier: FCM getToken timed out — continuing without upload',
+          );
+          return null;
+        },
       );
-      return true;
+    } catch (e) {
+      AppLogger.w('AuthNotifier: FCM getToken failed: $e');
+      return;
+    }
+    if (fcm == null || fcm.isEmpty) {
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('last_registered_fcm_token');
+    await updateFcmToken(fcm);
+  }
+
+  // ── Update FCM Token ────────────────────────────────────────────────────────
+  Future<void> updateFcmToken(String fcmToken) async {
+    if (!await ApiService.hasStoredAuthToken()) {
+      AppLogger.d('Skip FCM register — not logged in');
+      return;
+    }
+    try {
+      await ApiService.ensureAuthHeaderFromPrefs();
+      final prefs = await SharedPreferences.getInstance();
+      final lastRegistered = prefs.getString('last_registered_fcm_token');
+      if (lastRegistered == fcmToken) {
+        return;
+      }
+
+      AppLogger.d(
+        'Attempting to register FCM token with backend: '
+        '${fcmToken.substring(0, min(20, fcmToken.length))}...',
+      );
+
+      final response = await ApiService.dio.put(
+        '/auth/fcm-token',
+        data: {'fcm_token': fcmToken},
+      );
+
+      await prefs.setString('last_registered_fcm_token', fcmToken);
+
+      AppLogger.i(
+        '✅ FCM token registered with backend successfully. '
+        'Status: ${response.statusCode}',
+      );
     } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
-      return false;
+      final code = e.response?.statusCode;
+      AppLogger.e(
+        '⚠️ Failed to register FCM token API error: $code - ${e.response?.data}',
+      );
+      if (code == 401) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('last_registered_fcm_token');
+      }
+    } catch (e) {
+      AppLogger.e('⚠️ Failed to register FCM token unknown error: $e');
     }
   }
 

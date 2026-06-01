@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 import '../providers/moderator_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -25,6 +26,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
   final _focusNode = FocusNode();
   bool _isLoading = false;
   String? _fieldError;
+  DateTime? _checkInDate;
+  DateTime? _checkOutDate;
 
   // Shown after success
   bool _created = false;
@@ -65,9 +68,24 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
       return;
     }
     setState(() => _isLoading = true);
+
+    if (_checkInDate != null &&
+        _checkOutDate != null &&
+        _checkOutDate!.isBefore(_checkInDate!)) {
+      setState(() {
+        _fieldError = 'Check-out date cannot be before check-in date'.tr();
+        _isLoading = false;
+      });
+      return;
+    }
+
     final (ok, err) = await ref
         .read(moderatorProvider.notifier)
-        .createGroup(name);
+        .createGroup(
+          name,
+          checkInDate: _checkInDate,
+          checkOutDate: _checkOutDate,
+        );
     if (!mounted) return;
     setState(() => _isLoading = false);
     if (ok) {
@@ -107,11 +125,11 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                       width: 42.w,
                       height: 42.w,
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF272210) : Colors.white,
+                        color: isDark ? AppColors.surfaceDark : Colors.white,
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: isDark
-                              ? const Color(0xFF383018)
+                              ? AppColors.backgroundDark
                               : const Color(0xFFE2E2F0),
                         ),
                         boxShadow: [
@@ -125,7 +143,9 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                       child: Icon(
                         Symbols.arrow_back,
                         size: 20.w,
-                        color: isDark ? Colors.white : AppColors.textDark,
+                        color: isDark
+                            ? AppColors.textLight
+                            : AppColors.textDark,
                       ),
                     ),
                   ),
@@ -160,8 +180,11 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
           width: 64.w,
           height: 64.w,
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.12),
+            color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
             borderRadius: BorderRadius.circular(18.r),
+            border: Border.all(
+              color: isDark ? AppColors.backgroundDark : Colors.transparent,
+            ),
           ),
           child: Icon(Symbols.group_add, size: 32.w, color: AppColors.primary),
         ),
@@ -205,66 +228,46 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
 
         SizedBox(height: 8.h),
 
-        Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF272210) : Colors.white,
-            borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(
-              color: _fieldError != null
-                  ? Colors.red.shade400
-                  : (_focusNode.hasFocus
-                        ? AppColors.primary
-                        : (isDark
-                              ? const Color(0xFF383018)
-                              : const Color(0xFFE2E2F0))),
-              width: _focusNode.hasFocus ? 1.5 : 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _focusNode.hasFocus
-                    ? AppColors.primary.withValues(alpha: 0.08)
-                    : Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: TextField(
-            controller: _nameController,
-            focusNode: _focusNode,
-            onChanged: (_) => setState(() {}),
-            textCapitalization: TextCapitalization.words,
-            style: TextStyle(
+        TextField(
+          controller: _nameController,
+          focusNode: _focusNode,
+          onChanged: (_) => setState(() {}),
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(
+            hintText: 'create_group_name_hint'.tr(),
+            hintStyle: TextStyle(
               fontFamily: 'Lexend',
-              fontSize: 15.sp,
-              color: isDark ? const Color(0xFFE2E8F0) : AppColors.textDark,
+              fontSize: 14.sp,
+              color: AppColors.textMutedLight,
             ),
-            decoration: InputDecoration(
-              hintText: 'create_group_name_hint'.tr(),
-              hintStyle: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 15.sp,
-                color: AppColors.textMutedLight,
-              ),
-              prefixIcon: Padding(
-                padding: EdgeInsets.only(left: 14.w, right: 8.w),
-                child: Icon(
-                  Symbols.group,
-                  size: 22.w,
-                  color: _focusNode.hasFocus
-                      ? AppColors.primary
-                      : AppColors.textMutedLight,
-                ),
-              ),
-              prefixIconConstraints: BoxConstraints(minWidth: 46.w),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(
-                vertical: 16.h,
-                horizontal: 14.w,
+            prefixIcon: Icon(
+              Symbols.group,
+              size: 22.w,
+              color: AppColors.primary,
+            ),
+            filled: true,
+            fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16.r),
+              borderSide: BorderSide(
+                color: isDark
+                    ? AppColors.backgroundDark
+                    : const Color(0xFFE2E2F0),
               ),
             ),
-            onSubmitted: (_) => _submit(),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16.r),
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: 1.5,
+              ),
+            ),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 16.w,
+              vertical: 16.h,
+            ),
           ),
+          onSubmitted: (_) => _submit(),
         ),
 
         if (_fieldError != null) ...[
@@ -289,13 +292,147 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
 
         SizedBox(height: 24.h),
 
+        // ── Duration Dates ──
+        Text(
+          '${'group_stay_duration'.tr()} (${'optional'.tr()})',
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontWeight: FontWeight.w600,
+            fontSize: 13.sp,
+            color: isDark ? const Color(0xFFCBD5E1) : AppColors.textDark,
+          ),
+        ),
+        SizedBox(height: 8.h),
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: _checkInDate ?? DateTime.now(),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                  );
+                  if (date != null) {
+                    setState(() => _checkInDate = date);
+                  }
+                },
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14.w,
+                    vertical: 16.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.surfaceDark : Colors.white,
+                    borderRadius: BorderRadius.circular(16.r),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.backgroundDark
+                          : const Color(0xFFE2E2F0),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Symbols.event,
+                        size: 20.w,
+                        color: AppColors.textMutedLight,
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        _checkInDate != null
+                            ? DateFormat('yyyy-MM-dd').format(_checkInDate!)
+                            : 'group_checkin'.tr(),
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 14.sp,
+                          color: _checkInDate != null
+                              ? (isDark
+                                    ? const Color(0xFFE2E8F0)
+                                    : AppColors.textDark)
+                              : AppColors.textMutedLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: GestureDetector(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate:
+                        _checkOutDate ?? _checkInDate ?? DateTime.now(),
+                    firstDate: _checkInDate ?? DateTime(2020),
+                    lastDate: DateTime(2100),
+                  );
+                  if (date != null) {
+                    setState(() => _checkOutDate = date);
+                  }
+                },
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14.w,
+                    vertical: 16.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.surfaceDark : Colors.white,
+                    borderRadius: BorderRadius.circular(16.r),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.backgroundDark
+                          : const Color(0xFFE2E2F0),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Symbols.event_upcoming,
+                        size: 20.w,
+                        color: AppColors.textMutedLight,
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        _checkOutDate != null
+                            ? DateFormat('yyyy-MM-dd').format(_checkOutDate!)
+                            : 'group_checkout'.tr(),
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 14.sp,
+                          color: _checkOutDate != null
+                              ? (isDark
+                                    ? const Color(0xFFE2E8F0)
+                                    : AppColors.textDark)
+                              : AppColors.textMutedLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        SizedBox(height: 24.h),
+
         // ── Info card ──
         Container(
           padding: EdgeInsets.all(14.w),
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.06),
+            color: isDark
+                ? AppColors.surfaceDark
+                : AppColors.primary.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(14.r),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+            border: Border.all(
+              color: isDark
+                  ? AppColors.primary.withValues(alpha: 0.16)
+                  : AppColors.primary.withValues(alpha: 0.18),
+            ),
           ),
           child: Row(
             children: [
@@ -307,9 +444,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 12.sp,
-                    color: isDark
-                        ? const Color(0xFF86EFAC)
-                        : AppColors.primaryDark,
+                    color: isDark ? AppColors.textLight : AppColors.primaryDark,
                     height: 1.5,
                   ),
                 ),
@@ -326,15 +461,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
           height: 54.h,
           child: ElevatedButton(
             onPressed: _isLoading ? null : _submit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.r),
-              ),
-            ),
+            style: ElevatedButton.styleFrom(),
             child: _isLoading
                 ? SizedBox(
                     width: 22.w,
@@ -381,7 +508,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
             width: 80.w,
             height: 80.w,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.12),
+              color: isDark ? AppColors.surfaceDark : const Color(0xFFEEEEFB),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -477,19 +604,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                     Clipboard.setData(
                       ClipboardData(text: _createdGroupCode ?? ''),
                     );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'create_group_code_copied'.tr(),
-                          style: const TextStyle(fontFamily: 'Lexend'),
-                        ),
-                        behavior: SnackBarBehavior.floating,
-                        backgroundColor: AppColors.primaryDark,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                      ),
-                    );
+                        StandardSnackBar.showSuccess(context, 'create_group_code_copied'.tr());
                   },
                   child: Container(
                     padding: EdgeInsets.symmetric(
@@ -550,14 +665,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
             height: 54.h,
             child: ElevatedButton(
               onPressed: () => Navigator.of(context).pop(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.r),
-                ),
-              ),
+              style: ElevatedButton.styleFrom(),
               child: Text(
                 'create_group_back'.tr(),
                 style: TextStyle(
@@ -573,4 +681,3 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
     );
   }
 }
-

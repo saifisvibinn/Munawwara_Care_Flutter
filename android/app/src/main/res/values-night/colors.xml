@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches AppColors.backgroundDark (#0B1220) -->
+    <color name="splash_background">#FF0B1220</color>
+    <color name="notification_color">#FFF97316</color>
+</resources>

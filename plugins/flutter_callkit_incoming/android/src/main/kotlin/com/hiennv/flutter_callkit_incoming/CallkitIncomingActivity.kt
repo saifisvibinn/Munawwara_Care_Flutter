@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -26,6 +27,8 @@ import android.view.ViewGroup.MarginLayoutParams
 import android.os.PowerManager
 import android.text.TextUtils
 import android.util.Log
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 
 class CallkitIncomingActivity : Activity() {
 
@@ -77,6 +80,9 @@ class CallkitIncomingActivity : Activity() {
 
     private lateinit var ivDeclineCall: ImageView
     private lateinit var tvDecline: TextView
+
+    private lateinit var rippleDecline: RippleRelativeLayout
+    private lateinit var rippleAccept: RippleRelativeLayout
 
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -180,9 +186,9 @@ class CallkitIncomingActivity : Activity() {
 
         try {
             tvNameCaller.setTextColor(Color.parseColor(textColor))
-            tvNumber.setTextColor(Color.parseColor(textColor))
         } catch (error: Exception) {
         }
+        tvNumber.setTextColor(ContextCompat.getColor(this, R.color.call_subtitle))
 
         val isShowLogo = data?.getBoolean(CallkitConstants.EXTRA_CALLKIT_IS_SHOW_LOGO, false)
         ivLogo.visibility = if (isShowLogo == true) View.VISIBLE else View.INVISIBLE
@@ -223,14 +229,12 @@ class CallkitIncomingActivity : Activity() {
         tvDecline.text =
             if (TextUtils.isEmpty(textDecline)) getString(R.string.text_decline) else textDecline
 
-        try {
-            tvAccept.setTextColor(Color.parseColor(textColor))
-            tvDecline.setTextColor(Color.parseColor(textColor))
-        } catch (error: Exception) {
-        }
+        val labelColor = ContextCompat.getColor(this, R.color.call_action_label)
+        tvAccept.setTextColor(labelColor)
+        tvDecline.setTextColor(labelColor)
 
         val backgroundColor =
-            data?.getString(CallkitConstants.EXTRA_CALLKIT_BACKGROUND_COLOR, "#0955fa")
+            data?.getString(CallkitConstants.EXTRA_CALLKIT_BACKGROUND_COLOR, "#0B1220")
         try {
             ivBackground.setBackgroundColor(Color.parseColor(backgroundColor))
         } catch (error: Exception) {
@@ -248,6 +252,48 @@ class CallkitIncomingActivity : Activity() {
             val headers =
                 data?.getSerializable(CallkitConstants.EXTRA_CALLKIT_HEADERS) as HashMap<String, Any?>
             ImageLoaderProvider.loadImage(this@CallkitIncomingActivity, backgroundUrl, headers, R.drawable.transparent, ivBackground)
+        }
+
+        applyBrandedIncomingUi(data)
+    }
+
+    /**
+     * Apply accept / decline / pulse colors from the CallKit bundle so the full-screen UI
+     * matches the app even when merged resources or install caches are stale.
+     */
+    private fun applyBrandedIncomingUi(data: Bundle?) {
+        val acceptPrimary = parseColorHex(
+            data?.getString(CallkitConstants.EXTRA_CALLKIT_ACTION_COLOR),
+            Color.parseColor("#F97316"),
+        )
+        val declinePrimary = ContextCompat.getColor(this, R.color.decline)
+
+        val acceptStart = ColorUtils.blendARGB(acceptPrimary, Color.WHITE, 0.14f)
+        val acceptEnd = ColorUtils.blendARGB(acceptPrimary, Color.BLACK, 0.12f)
+        ivAcceptCall.background = GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(acceptStart, acceptEnd),
+        ).apply { shape = GradientDrawable.OVAL }
+
+        ivDeclineCall.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(declinePrimary)
+        }
+
+        fun haloRgb(base: Int, alpha: Int): Int =
+            Color.argb(alpha, Color.red(base), Color.green(base), Color.blue(base))
+
+        llBackgroundAnimation.setRippleColor(haloRgb(acceptPrimary, 0x38))
+        rippleDecline.setRippleColor(haloRgb(declinePrimary, 0x45))
+        rippleAccept.setRippleColor(haloRgb(acceptPrimary, 0x45))
+    }
+
+    private fun parseColorHex(hex: String?, fallback: Int): Int {
+        if (hex.isNullOrBlank()) return fallback
+        return try {
+            Color.parseColor(hex)
+        } catch (_: IllegalArgumentException) {
+            fallback
         }
     }
 
@@ -287,6 +333,8 @@ class CallkitIncomingActivity : Activity() {
         tvAccept = findViewById(R.id.tvAccept)
         ivDeclineCall = findViewById(R.id.ivDeclineCall)
         tvDecline = findViewById(R.id.tvDecline)
+        rippleDecline = findViewById(R.id.ripple_decline)
+        rippleAccept = findViewById(R.id.ripple_accept)
         animateAcceptCall()
 
         ivAcceptCall.setOnClickListener {

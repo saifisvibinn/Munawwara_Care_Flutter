@@ -66,5 +66,20 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Location shows your position on the map, shares it with your care group for safety, and supports SOS and nearby weather.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Location may be used in the background so your group and moderators can see updates for safety and SOS support when Munawwara Care is not on screen.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access is required to scan QR codes for group entry and registration.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone access is required for recording voice messages and making group voice calls.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>audio</string>
+		<string>remote-notification</string>
+		<string>voip</string>
+	</array>
 </dict>
 </plist>

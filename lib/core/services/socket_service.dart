@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:flutter_munawwara/core/utils/app_logger.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SocketService – static singleton wrapping the Socket.io connection.
@@ -15,12 +15,21 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 //    of on('connect', ...) to avoid clobbering the register-user handshake.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Handler for server events that require an acknowledgement (e.g. call-offer).
+typedef SocketAckHandler = void Function(
+  dynamic data,
+  void Function([dynamic response])? ack,
+);
+
 class SocketService {
   static io.Socket? _socket;
   static String? _connectedUserId;
 
   /// Custom-event listeners (NOT for reserved socket.io events).
   static final Map<String, void Function(dynamic)> _pendingListeners = {};
+
+  /// Events where the server expects an ACK (socket_io_client appends ack last).
+  static final Map<String, SocketAckHandler> _pendingAckListeners = {};
 
   /// Callbacks that fire every time the socket connects / reconnects.
   /// Use [onConnected] / [offConnected] to manage these.
@@ -43,7 +52,7 @@ class SocketService {
     required String role,
   }) {
     if (_socket != null && _socket!.connected && _connectedUserId == userId) {
-      debugPrint(
+      AppLogger.d(
         '[SocketService] Already connected as $userId – re-applying listeners',
       );
       _applyPendingListeners();
@@ -54,12 +63,20 @@ class SocketService {
     _socket = null;
     _connectedUserId = userId;
 
-    debugPrint('[SocketService] Connecting to $serverUrl as $userId ($role)');
+    // Clean URL: remove trailing slashes if present
+    final cleanUrl = serverUrl.endsWith('/') 
+        ? serverUrl.substring(0, serverUrl.length - 1) 
+        : serverUrl;
+
+    AppLogger.w(
+      '[SocketService] Connecting to $cleanUrl as $userId ($role)',
+    );
 
     _socket = io.io(
-      serverUrl,
+      cleanUrl,
       io.OptionBuilder()
-          .setTransports(['websocket'])
+          // Try websocket first; polling helps some proxies / Cloud setups.
+          .setTransports(['websocket', 'polling'])
           .setReconnectionDelay(2000)
           .setReconnectionAttempts(20)
           .enableReconnection()
@@ -70,8 +87,9 @@ class SocketService {
     //    pending listeners so that off() in _apply never removes these). ──
 
     _socket!.onConnect((_) {
-      debugPrint(
-        '[SocketService] ✓ Connected (${_socket?.id}) – registering as $userId',
+      AppLogger.w(
+        '[SocketService] Connected socketId=${_socket?.id} url=$cleanUrl '
+        'userId=$userId role=$role',
       );
       _socket!.emit('register-user', {'userId': userId, 'role': role});
       // Fire external connect callbacks (iterate a copy so callbacks can
@@ -80,33 +98,21 @@ class SocketService {
         try {
           cb();
         } catch (e) {
-          debugPrint('[SocketService] onConnected callback error: $e');
+          AppLogger.d('[SocketService] onConnected callback error: $e');
         }
       }
     });
 
     _socket!.onDisconnect((_) {
-      debugPrint('[SocketService] Disconnected');
+      AppLogger.d('[SocketService] Disconnected');
     });
 
     _socket!.onConnectError((err) {
-      debugPrint('[SocketService] Connection error: $err');
+      AppLogger.w('[SocketService] Connection error ($cleanUrl): $err');
     });
 
     _socket!.onError((err) {
-      debugPrint('[SocketService] Socket error: $err');
-    });
-
-    _socket!.on('reconnect', (_) {
-      debugPrint('[SocketService] Reconnected – re-registering as $userId');
-      _socket!.emit('register-user', {'userId': userId, 'role': role});
-      for (final cb in List.of(_onConnectCallbacks)) {
-        try {
-          cb();
-        } catch (e) {
-          debugPrint('[SocketService] onConnected callback error: $e');
-        }
-      }
+      AppLogger.w('[SocketService] Socket error ($cleanUrl): $err');
     });
 
     // Apply custom-event listeners that were registered before connect().
@@ -122,22 +128,39 @@ class SocketService {
   /// Register a handler for a **custom** event (not connect/disconnect/etc.).
   static void on(String event, void Function(dynamic) handler) {
     if (_reserved.contains(event)) {
-      debugPrint(
+      AppLogger.d(
         '[SocketService] ⚠ "$event" is reserved – use onConnected() instead',
       );
       return; // silently ignore to avoid breaking the internal handshake
     }
+    _pendingAckListeners.remove(event);
     _pendingListeners[event] = handler;
     if (_socket != null) {
       _socket!.off(event);
       _socket!.on(event, handler);
-      debugPrint('[SocketService] Listener registered: $event');
+    }
+  }
+
+  /// Register a handler that must ACK the server immediately on receipt.
+  static void onWithAck(String event, SocketAckHandler handler) {
+    if (_reserved.contains(event)) {
+      AppLogger.d(
+        '[SocketService] ⚠ "$event" is reserved – use onConnected() instead',
+      );
+      return;
+    }
+    _pendingListeners.remove(event);
+    _pendingAckListeners[event] = handler;
+    if (_socket != null) {
+      _socket!.off(event);
+      _socket!.on(event, _wrapAckHandler(handler));
     }
   }
 
   static void off(String event) {
     if (_reserved.contains(event)) return;
     _pendingListeners.remove(event);
+    _pendingAckListeners.remove(event);
     _socket?.off(event);
   }
 
@@ -169,10 +192,34 @@ class SocketService {
   // ── Internal ──────────────────────────────────────────────────────────────
   static void _applyPendingListeners() {
     if (_socket == null) return;
+    final ackEvents = _pendingAckListeners.keys.toSet();
     for (final entry in _pendingListeners.entries) {
+      if (ackEvents.contains(entry.key)) continue;
       _socket!.off(entry.key);
       _socket!.on(entry.key, entry.value);
-      debugPrint('[SocketService] Applied pending listener: ${entry.key}');
     }
+    for (final entry in _pendingAckListeners.entries) {
+      _socket!.off(entry.key);
+      _socket!.on(entry.key, _wrapAckHandler(entry.value));
+    }
+  }
+
+  static void Function(dynamic, [dynamic]) _wrapAckHandler(
+    SocketAckHandler handler,
+  ) {
+    return (dynamic arg1, [dynamic arg2]) {
+      dynamic data = arg1;
+      void Function([dynamic])? ack;
+
+      if (arg2 is Function) {
+        ack = arg2 as void Function([dynamic]);
+      } else if (arg1 is List && arg1.isNotEmpty && arg1.last is Function) {
+        final list = List<dynamic>.from(arg1);
+        ack = list.removeLast() as void Function([dynamic]);
+        data = list.length == 1 ? list.first : list;
+      }
+
+      handler(data, ack);
+    };
   }
 }

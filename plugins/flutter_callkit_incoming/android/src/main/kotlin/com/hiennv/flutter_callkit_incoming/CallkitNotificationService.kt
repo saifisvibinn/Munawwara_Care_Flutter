@@ -3,6 +3,7 @@ package com.hiennv.flutter_callkit_incoming
 import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Context
+import android.util.Log
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -101,9 +102,18 @@ class CallkitNotificationService : Service() {
 
 
     override fun onDestroy() {
+        // Required: otherwise the foreground call notification can outlive the service.
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+        } catch (e: Exception) {
+            Log.w("CallkitNotificationService", "onDestroy stopForeground: ${e.message}")
+        }
         super.onDestroy()
-        // Don't destroy the notification manager here as it's shared across the app
-        // The plugin will handle cleanup when all engines are detached
     }
 
     override fun onBind(p0: Intent?): IBinder? {

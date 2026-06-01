@@ -19,7 +19,7 @@
     <dimen name="size_button_x2">120dp</dimen>
     <dimen name="size_button_x2_5">150dp</dimen>
 
-    <dimen name="size_text_name">24sp</dimen>
+    <dimen name="size_text_name">28sp</dimen>
     <dimen name="size_text_action">14sp</dimen>
     <dimen name="size_text_sub">12sp</dimen>
 </resources>

@@ -78,6 +78,10 @@ class AppNotification {
         return Symbols.phone_missed;
       case 'reminder':
         return Symbols.add_alarm;
+      case 'removed_from_group':
+        return Symbols.group_off;
+      case 'group_deleted':
+        return Symbols.delete_forever;
       default:
         return Symbols.notifications;
     }
@@ -106,6 +110,9 @@ class AppNotification {
         return const Color(0xFFEF4444);
       case 'reminder':
         return const Color(0xFFF97316); // AppColors.primary (orange)
+      case 'removed_from_group':
+      case 'group_deleted':
+        return const Color(0xFFEF4444);
       default:
         return const Color(0xFF64748B);
     }
@@ -137,6 +144,10 @@ class AppNotification {
         return 'Missed Call';
       case 'reminder':
         return 'Reminder';
+      case 'removed_from_group':
+        return 'Removed from group';
+      case 'group_deleted':
+        return 'Group deleted';
       default:
         return 'Notification';
     }

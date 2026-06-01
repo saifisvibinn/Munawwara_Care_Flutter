@@ -137,6 +137,12 @@ class RippleRelativeLayout : RelativeLayout {
         }
     }
 
+    /** Re-tint animated ripples (e.g. from Flutter [actionColor]) without reinflating the layout. */
+    fun setRippleColor(color: Int) {
+        rippleColor = color
+        paint.color = color
+    }
+
     companion object {
         private const val DEFAULT_RIPPLE_COUNT = 5
         private const val DEFAULT_DURATION_TIME = 6000

@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -14,8 +14,14 @@ import 'package:record/record.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/services/speech_service.dart';
+import '../../../core/widgets/custom_dialog.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 import '../../shared/models/message_model.dart';
 import '../../shared/providers/message_provider.dart';
+import '../../shared/services/message_realtime_binder.dart';
+import '../providers/moderator_provider.dart';
+import '../../shared/widgets/group_chat_theme.dart';
 import '../../shared/widgets/message_widgets.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -43,8 +49,8 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   // Scroll
   final _scrollController = ScrollController();
 
-  // Compose state
-  String _composeType = 'text'; // 'text' | 'voice' | 'tts'
+  // Compose: TTS (default) or voice only — no plain text channel.
+  String _composeMode = 'tts'; // 'tts' | 'voice'
   bool _isUrgent = false;
   final _textController = TextEditingController();
 
@@ -62,13 +68,19 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   Duration _duration = Duration.zero;
 
   // TTS Playback (for viewing TTS messages)
-  final _tts = FlutterTts();
   String? _ttsPlayingId;
   bool _ttsSpeaking = false;
+  bool _ttsLoading = false;
+
+  /// Message being quoted for the next send (any sender, inc. self).
+  GroupMessage? _replyTarget;
+  late final MessageNotifier _messageNotifier;
+  bool _initialLoadDone = false;
 
   @override
   void initState() {
     super.initState();
+    _messageNotifier = ref.read(messageProvider.notifier);
 
     // Audio listeners
     _player.onPositionChanged.listen((p) {
@@ -86,26 +98,19 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
       }
     });
 
-    // TTS listeners
-    _tts.setCompletionHandler(() {
-      if (mounted) {
-        setState(() {
-          _ttsSpeaking = false;
-          _ttsPlayingId = null;
-        });
-      }
-    });
-    _tts.setErrorHandler((_) {
-      if (mounted) {
-        setState(() {
-          _ttsSpeaking = false;
-          _ttsPlayingId = null;
-        });
-      }
-    });
+    MessageRealtimeBinder.bindDeleteListener();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _load().then((_) => _scrollToBottom(jump: true));
+      if (!mounted) return;
+      _messageNotifier.setActiveGroup(widget.groupId);
+      unawaited(
+        _load().then((_) {
+          if (!mounted) return;
+          _scrollToBottom(jump: true);
+        }),
+      );
+      ref.read(messageProvider.notifier).markAllRead(widget.groupId);
+      ref.read(moderatorProvider.notifier).loadDashboard(silently: true);
     });
   }
 
@@ -116,7 +121,9 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
     _recordTimer?.cancel();
     _recorder.dispose();
     _player.dispose();
-    _tts.stop();
+    SpeechService.stop();
+    final notifier = _messageNotifier;
+    Future.microtask(() => notifier.setActiveGroup(null));
     super.dispose();
   }
 
@@ -124,6 +131,13 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
 
   Future<void> _load() async {
     await ref.read(messageProvider.notifier).loadMessages(widget.groupId);
+  }
+
+  Future<void> _refreshMessages() async {
+    await ref.read(messageProvider.notifier).loadMessages(
+          widget.groupId,
+          force: true,
+        );
   }
 
   void _scrollToBottom({bool jump = false}) {
@@ -152,10 +166,11 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
       return;
     }
     if (_ttsPlayingId != null) {
-      await _tts.stop();
+      await SpeechService.stop();
       setState(() {
         _ttsSpeaking = false;
         _ttsPlayingId = null;
+        _ttsLoading = false;
       });
     }
     setState(() {
@@ -168,29 +183,77 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
     await _player.play(UrlSource(url));
   }
 
+  String _dominantPilgrimLanguageCode() {
+    ModeratorGroup? match;
+    for (final g in ref.read(moderatorProvider).groups) {
+      if (g.id == widget.groupId) {
+        match = g;
+        break;
+      }
+    }
+    final pilgrims = match?.pilgrims ?? const [];
+    if (pilgrims.isEmpty) return 'en';
+    final counts = <String, int>{};
+    for (final p in pilgrims) {
+      final code = p.language.trim().isNotEmpty ? p.language : 'en';
+      counts[code] = (counts[code] ?? 0) + 1;
+    }
+    return counts.entries
+        .reduce((a, b) => a.value >= b.value ? a : b)
+        .key;
+  }
+
   Future<void> _toggleTts(GroupMessage msg) async {
     final text = msg.originalText ?? msg.content ?? '';
-    if (_ttsPlayingId == msg.id && _ttsSpeaking) {
-      await _tts.stop();
-      setState(() {
-        _ttsSpeaking = false;
-        _ttsPlayingId = null;
-      });
+    final isCurrentlySpeaking = _ttsPlayingId == msg.id && (_ttsSpeaking || _ttsLoading);
+    
+    if (isCurrentlySpeaking) {
+      await SpeechService.stop();
+      if (mounted) {
+        setState(() {
+          _ttsSpeaking = false;
+          _ttsPlayingId = null;
+          _ttsLoading = false;
+        });
+      }
       return;
     }
+    
     if (_playingId != null) {
       await _player.stop();
+      if (mounted) {
+        setState(() {
+          _playingId = null;
+          _position = Duration.zero;
+        });
+      }
+    }
+    
+    await SpeechService.stop();
+    if (mounted) {
       setState(() {
-        _playingId = null;
-        _position = Duration.zero;
+        _ttsPlayingId = msg.id;
+        _ttsLoading = true;
       });
     }
-    await _tts.stop();
-    setState(() {
-      _ttsPlayingId = msg.id;
-      _ttsSpeaking = true;
-    });
-    await _tts.speak(text);
+
+    try {
+      final audioUrl =
+          ref.read(messageProvider.notifier).resolveMediaUrl(msg.audioUrl);
+      await SpeechService.playRobust(
+        audioUrl: audioUrl,
+        backupText: text,
+        lang: _dominantPilgrimLanguageCode(),
+      );
+    } finally {
+      if (mounted && _ttsPlayingId == msg.id) {
+        setState(() {
+          _ttsLoading = false;
+          _ttsSpeaking = false;
+          _ttsPlayingId = null;
+        });
+      }
+    }
   }
 
   Future<void> _togglePreview() async {
@@ -271,11 +334,97 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
 
   // ── Send ──────────────────────────────────────────────────────────────────
 
-  Future<void> _sendText() async {
+  MessageReplySnapshot _snapshotForReplyDraft(GroupMessage msg) {
+    var preview = switch (msg.type) {
+      'text' => msg.content ?? '',
+      'tts' => msg.originalText ?? msg.content ?? '',
+      'voice' => 'msg_reply_preview_voice'.tr(),
+      'meetpoint' =>
+        msg.meetpointData?['name']?.toString() ?? msg.content ?? 'Meetpoint',
+      _ => msg.content ?? '',
+    };
+    if (preview.length > 200) {
+      preview = '${preview.substring(0, 197)}...';
+    }
+    return MessageReplySnapshot(
+      messageId: msg.id,
+      senderName: msg.sender?.fullName ?? 'you'.tr(),
+      previewText: preview,
+      messageType: msg.type,
+    );
+  }
+
+  Future<void> _openMessageActions(GroupMessage msg) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? AppColors.surfaceDark
+          : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Symbols.content_copy, size: 22.w),
+              title: Text(
+                'msg_copy'.tr(),
+                style: const TextStyle(fontFamily: 'Lexend'),
+              ),
+              onTap: () {
+                final plain = messagePlainTextForCopy(msg);
+                Navigator.pop(ctx);
+                if (plain.trim().isEmpty) {
+                  _snack('msg_copy_empty'.tr());
+                  return;
+                }
+                Clipboard.setData(ClipboardData(text: plain));
+                _snack('msg_copied'.tr());
+              },
+            ),
+            ListTile(
+              leading: Icon(Symbols.reply, size: 22.w),
+              title: Text(
+                'msg_reply'.tr(),
+                style: const TextStyle(fontFamily: 'Lexend'),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                setState(() => _replyTarget = msg);
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Symbols.delete_outline,
+                size: 22.w,
+                color: Colors.red.shade400,
+              ),
+              title: Text(
+                'msg_delete_confirm'.tr(),
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  color: Colors.red.shade400,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _deleteMessage(msg);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendTtsMessage() async {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
     _textController.clear();
     FocusScope.of(context).unfocus();
+    final replyId = _replyTarget?.id;
 
     final ok = await ref
         .read(messageProvider.notifier)
@@ -283,11 +432,15 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
           groupId: widget.groupId,
           content: text,
           isUrgent: _isUrgent,
-          isTts: _composeType == 'tts',
+          isTts: true,
+          replyToMessageId: replyId,
         );
 
     if (ok) {
-      setState(() => _isUrgent = false);
+      setState(() {
+        _isUrgent = false;
+        _replyTarget = null;
+      });
       _scrollToBottom();
     } else {
       _snack('msg_send_failed'.tr());
@@ -304,6 +457,8 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
       });
     }
 
+    final replyId = _replyTarget?.id;
+
     final ok = await ref
         .read(messageProvider.notifier)
         .sendVoiceMessage(
@@ -311,6 +466,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
           filePath: _recordedPath!,
           isUrgent: _isUrgent,
           durationSeconds: _recordSeconds,
+          replyToMessageId: replyId,
         );
 
     if (ok) {
@@ -318,6 +474,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
         _recordedPath = null;
         _isUrgent = false;
         _recordSeconds = 0;
+        _replyTarget = null;
       });
       _scrollToBottom();
     } else {
@@ -328,49 +485,13 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   // ── Delete ─────────────────────────────────────────────────────────────────
 
   Future<void> _deleteMessage(GroupMessage msg) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await StandardDialog.show<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14.r),
-        ),
-        title: Text(
-          'msg_delete_title'.tr(),
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontWeight: FontWeight.w700,
-            fontSize: 15.sp,
-          ),
-        ),
-        content: Text(
-          'msg_delete_body'.tr(),
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontSize: 13.sp,
-            color: AppColors.textMutedLight,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'settings_cancel'.tr(),
-              style: const TextStyle(fontFamily: 'Lexend'),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              'msg_delete_confirm'.tr(),
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                color: Colors.red.shade600,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+      title: 'msg_delete_title',
+      content: 'msg_delete_body',
+      confirmText: 'msg_delete_confirm',
+      cancelText: 'settings_cancel',
+      isDestructive: true,
     );
     if (confirmed != true) return;
     final ok = await ref.read(messageProvider.notifier).deleteMessage(msg.id);
@@ -378,13 +499,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   }
 
   void _snack(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(text, style: const TextStyle(fontFamily: 'Lexend')),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
+    StandardSnackBar.showInfo(context, text);
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -393,9 +508,16 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   Widget build(BuildContext context) {
     final msgState = ref.watch(messageProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final showLoading = msgState.messages.isEmpty &&
+        (msgState.isLoading || !_initialLoadDone);
 
     // Scroll to bottom when new socket messages arrive
     ref.listen(messageProvider, (prev, next) {
+      final loadFinished =
+          (prev?.isLoading ?? false) && !next.isLoading;
+      if (loadFinished && mounted) {
+        setState(() => _initialLoadDone = true);
+      }
       if (!next.isLoading &&
           (prev?.messages.length ?? 0) < next.messages.length) {
         _scrollToBottom();
@@ -403,15 +525,20 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
     });
 
     return Scaffold(
-      backgroundColor: isDark
-          ? AppColors.backgroundDark
-          : const Color(0xFFF1F5F9),
+      backgroundColor: GroupChatTheme.scaffoldBackground(isDark),
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(isDark),
+            GroupChatHeader(
+              isDark: isDark,
+              title: widget.groupName,
+              subtitle: 'msg_broadcasts'.tr(),
+              onRefresh: _refreshMessages,
+              onBack: () => Navigator.of(context).maybePop(),
+              showBrandAvatar: true,
+            ),
             Expanded(
-              child: msgState.isLoading
+              child: showLoading
                   ? const Center(
                       child: CircularProgressIndicator(
                         color: AppColors.primary,
@@ -428,77 +555,6 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
 
   // ── Header ─────────────────────────────────────────────────────────────────
 
-  Widget _buildHeader(bool isDark) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(8.w, 8.h, 16.w, 8.h),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(
-              Symbols.arrow_back,
-              color: isDark ? Colors.white : AppColors.textDark,
-            ),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-          SizedBox(width: 4.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.groupName,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16.sp,
-                    color: isDark ? Colors.white : AppColors.textDark,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  'msg_broadcasts'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 12.sp,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: _load,
-            child: Container(
-              width: 36.w,
-              height: 36.w,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10.r),
-              ),
-              child: Icon(
-                Symbols.refresh,
-                size: 18.w,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ── Message list ───────────────────────────────────────────────────────────
 
   Widget _buildMessageList(List<GroupMessage> messages, bool isDark) {
@@ -507,13 +563,13 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Symbols.campaign, size: 48.w, color: AppColors.textMutedLight),
+            Icon(Symbols.inbox, size: 48.w, color: AppColors.textMutedLight),
             SizedBox(height: 12.h),
             Text(
-              'msg_empty'.tr(),
+              'inbox_empty'.tr(),
               style: TextStyle(
                 fontFamily: 'Lexend',
-                fontSize: 14.sp,
+                fontSize: 15.sp,
                 color: AppColors.textMutedLight,
               ),
             ),
@@ -524,11 +580,11 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
 
     return RefreshIndicator(
       color: AppColors.primary,
-      onRefresh: _load,
+      onRefresh: _refreshMessages,
       child: ListView.builder(
         controller: _scrollController,
         reverse: true,
-        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
+        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
         itemCount: messages.length,
         itemBuilder: (_, i) {
           // reverse:true renders index 0 at the bottom;
@@ -543,97 +599,158 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   // ── Message card ───────────────────────────────────────────────────────────
 
   Widget _buildCard(GroupMessage msg, bool isDark) {
-    Color cardBg = isDark ? AppColors.surfaceDark : Colors.white;
-    Color borderColor = Colors.transparent;
-    if (msg.isUrgent) {
-      cardBg = isDark ? const Color(0xFF2D1515) : const Color(0xFFFEF2F2);
-      borderColor = const Color(0xFFFECACA);
-    }
+    final cardBg = GroupChatTheme.cardBackground(
+      isDark,
+      urgent: msg.isUrgent,
+      highlightNew: false,
+    );
+    final borderColor = GroupChatTheme.cardBorderColor(
+      isDark,
+      urgent: msg.isUrgent,
+      highlightNew: false,
+    );
+    final borderWidth = GroupChatTheme.cardBorderWidth(
+      urgent: msg.isUrgent,
+      highlightNew: false,
+    );
 
     return GestureDetector(
-      onLongPress: () => _deleteMessage(msg),
+      onLongPress: () => _openMessageActions(msg),
       child: Container(
-        margin: EdgeInsets.only(bottom: 12.h),
+        margin: EdgeInsets.only(bottom: 10.h),
         decoration: BoxDecoration(
           color: cardBg,
-          borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(color: borderColor, width: 1.2),
+          borderRadius: BorderRadius.circular(14.r),
+          border: Border.all(color: borderColor, width: borderWidth),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-              blurRadius: 8,
+              color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.035),
+              blurRadius: 10,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: Padding(
-          padding: EdgeInsets.all(14.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header row: type badges + delete button
-              Row(
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(14.w, 10.h, 40.w, 12.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  MessageTypeBadge(type: msg.type),
-                  SizedBox(width: 6.w),
-                  if (msg.isUrgent) const UrgentBadge(),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => _deleteMessage(msg),
-                    child: Icon(
-                      Symbols.delete_outline,
-                      size: 18.w,
-                      color: Colors.red.shade400,
+                  if (msg.recipientId != null)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 6.h),
+                      child: Builder(
+                        builder: (context) {
+                          final modState = ref.watch(moderatorProvider);
+                          final pilgrim =
+                              modState.currentGroup?.pilgrims.firstWhere(
+                            (p) => p.id == msg.recipientId,
+                            orElse: () => PilgrimInGroup(
+                              id: '',
+                              fullName: 'msg_private_indicator'.tr(),
+                            ),
+                          );
+                          return PrivateIndicator(
+                            isForPilgrim: false,
+                            recipientName: pilgrim?.fullName,
+                          );
+                        },
+                      ),
                     ),
+                  if (msg.recipientId == null)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 6.h),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          _modGroupScopeChip(isDark: isDark),
+                          if (msg.isUrgent) ...[
+                            SizedBox(width: 8.w),
+                            const UrgentBadge(),
+                          ],
+                        ],
+                      ),
+                    )
+                  else if (msg.isUrgent)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 6.h),
+                      child: const UrgentBadge(),
+                    ),
+                  if (msg.replySnapshot != null)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 8.h),
+                      child: MessageReplyQuote(
+                        snapshot: msg.replySnapshot!,
+                        isDark: isDark,
+                      ),
+                    ),
+                  if (msg.type == 'text') _buildTextBody(msg, isDark),
+                  if (msg.type == 'voice') _buildVoiceBody(msg, isDark),
+                  if (msg.type == 'tts') _buildTtsBody(msg, isDark),
+                  if (msg.type == 'meetpoint') _buildMeetpointBody(msg, isDark),
+                  SizedBox(height: 6.h),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        msg.sender?.fullName ?? 'you'.tr(),
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 11.sp,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      Text(
+                        _formatDate(msg.createdAt),
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 11.sp,
+                          color: AppColors.textMutedLight,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              SizedBox(height: 10.h),
-              // Body
-              if (msg.type == 'text') _buildTextBody(msg, isDark),
-              if (msg.type == 'voice') _buildVoiceBody(msg, isDark),
-              if (msg.type == 'tts') _buildTtsBody(msg, isDark),
-              if (msg.type == 'meetpoint') _buildMeetpointBody(msg, isDark),
-              SizedBox(height: 8.h),
-              // Footer
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    msg.sender?.fullName ?? 'you'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  Text(
-                    _formatDate(msg.createdAt),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 11.sp,
-                      color: AppColors.textMutedLight,
-                    ),
-                  ),
-                ],
+            ),
+            Positioned(
+              top: 4.h,
+              right: 4.w,
+              child: IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.all(4.w),
+                constraints: BoxConstraints.tightFor(width: 32.w, height: 32.w),
+                onPressed: () => _deleteMessage(msg),
+                icon: Icon(
+                  Symbols.delete_outline,
+                  size: 18.w,
+                  color: Colors.red.shade400,
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildTextBody(GroupMessage msg, bool isDark) => Text(
-    msg.content ?? '',
-    style: TextStyle(
-      fontFamily: 'Lexend',
-      fontSize: 14.sp,
-      height: 1.5,
-      color: isDark ? Colors.white70 : AppColors.textDark,
-    ),
-  );
+  Widget _buildTextBody(GroupMessage msg, bool isDark) {
+    final bodyColor = isDark ? Colors.white.withValues(alpha: 0.88) : AppColors.textDark;
+    return Text(
+      msg.content ?? '',
+      style: TextStyle(
+        fontFamily: 'Lexend',
+        fontSize: 15.sp,
+        fontWeight: FontWeight.w400,
+        height: 1.45,
+        color: bodyColor,
+      ),
+    );
+  }
 
   Widget _buildVoiceBody(GroupMessage msg, bool isDark) {
     final isPlaying = _playingId == msg.id;
@@ -649,85 +766,75 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
       positionSeconds: isPlaying ? _position.inSeconds : null,
       onToggle: () => _toggleVoice(msg),
       isDark: isDark,
+      playCircleColor: isDark
+          ? AppColors.info.withValues(alpha: 0.22)
+          : AppColors.info.withValues(alpha: 0.12),
+      playIconColor: AppColors.info,
     );
   }
 
   Widget _buildTtsBody(GroupMessage msg, bool isDark) {
     final isSpeaking = _ttsPlayingId == msg.id && _ttsSpeaking;
+    final isLoading = _ttsPlayingId == msg.id && _ttsLoading;
     final text = msg.originalText ?? msg.content ?? '';
+    final bodyColor = isDark ? Colors.white.withValues(alpha: 0.88) : AppColors.textDark;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
-          decoration: BoxDecoration(
-            color: const Color(0xFFDBEAFE),
-            borderRadius: BorderRadius.circular(8.r),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Symbols.volume_up,
-                size: 14.w,
-                color: const Color(0xFF1D4ED8),
-              ),
-              SizedBox(width: 4.w),
-              Text(
-                'msg_tts_label'.tr(),
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1D4ED8),
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: 8.h),
         Text(
           text,
           style: TextStyle(
             fontFamily: 'Lexend',
-            fontSize: 14.sp,
-            height: 1.5,
-            color: isDark ? Colors.white70 : AppColors.textDark,
+            fontSize: 15.sp,
+            fontWeight: FontWeight.w400,
+            height: 1.35,
+            color: bodyColor,
           ),
         ),
-        SizedBox(height: 10.h),
-        GestureDetector(
-          onTap: () => _toggleTts(msg),
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-            decoration: BoxDecoration(
-              color: isSpeaking ? Colors.red.shade600 : const Color(0xFF2563EB),
-              borderRadius: BorderRadius.circular(10.r),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isSpeaking ? Symbols.pause : Symbols.play_arrow,
-                  size: 16.w,
-                  color: Colors.white,
-                ),
-                SizedBox(width: 6.w),
-                Text(
-                  isSpeaking ? 'msg_playing'.tr() : 'msg_play_aloud'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13.sp,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        SizedBox(height: 6.h),
+        TtsPlayAloudButton(
+          isSpeaking: isSpeaking,
+          isLoading: isLoading,
+          compact: true,
+          onPressed: () => _toggleTts(msg),
+          idleLabel: 'msg_play_aloud'.tr(),
+          playingLabel: 'msg_playing'.tr(),
         ),
       ],
+    );
+  }
+
+  /// Broadcast (whole group) scope — private rows use [PrivateIndicator].
+  Widget _modGroupScopeChip({required bool isDark}) {
+    final bg = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : AppColors.primary.withValues(alpha: 0.1);
+    final fg = isDark ? Colors.white70 : AppColors.primary;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6.r),
+        border: Border.all(color: fg.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Symbols.groups, size: 13.w, color: fg),
+          SizedBox(width: 4.w),
+          Text(
+            'msg_mod_group_scope'.tr(),
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 10.sp,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -736,13 +843,17 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
     final name = mp?['name']?.toString() ?? msg.content ?? 'Meetpoint';
     final lat = (mp?['latitude'] as num?)?.toDouble();
     final lng = (mp?['longitude'] as num?)?.toDouble();
+    final timeStr = mp?['meetpoint_time']?.toString();
+    final DateTime? meetTimeUtc =
+        timeStr != null ? DateTime.tryParse(timeStr) : null;
+    final DateTime? meetTime = meetTimeUtc?.toLocal();
 
     return Container(
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF3B1212) : const Color(0xFFFEF2F2),
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: const Color(0xFFFECACA)),
+        color: isDark ? const Color(0xFF2D1515) : const Color(0xFFFFF1F2),
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(color: const Color(0xFFFECDD3), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -750,40 +861,44 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
           Row(
             children: [
               Container(
-                width: 34.w,
-                height: 34.w,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFDC2626),
-                  shape: BoxShape.circle,
+                width: 42.w,
+                height: 42.w,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE11D48),
+                  borderRadius: BorderRadius.circular(12.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFE11D48).withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-                child: Icon(
-                  Symbols.crisis_alert,
-                  color: Colors.white,
-                  size: 18.w,
-                ),
+                child:
+                    Icon(Symbols.crisis_alert, color: Colors.white, size: 22.w),
               ),
-              SizedBox(width: 10.w),
+              SizedBox(width: 12.w),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'area_meetpoint'.tr(),
+                      'popup_urgent_meetpoint'.tr().toUpperCase(),
                       style: TextStyle(
                         fontFamily: 'Lexend',
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         fontSize: 10.sp,
-                        color: const Color(0xFFDC2626),
+                        letterSpacing: 0.5,
+                        color: const Color(0xFFE11D48),
                       ),
                     ),
-                    SizedBox(height: 2.h),
                     Text(
                       name,
                       style: TextStyle(
                         fontFamily: 'Lexend',
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14.sp,
-                        color: isDark ? Colors.white : AppColors.textDark,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16.sp,
+                        color: isDark ? Colors.white : const Color(0xFF9F1239),
                       ),
                     ),
                   ],
@@ -791,52 +906,76 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
               ),
             ],
           ),
+          if (meetTime != null) ...[
+            SizedBox(height: 16.h),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black26 : Colors.white70,
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Symbols.schedule,
+                    size: 18.w,
+                    color: const Color(0xFFE11D48),
+                  ),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      'msg_meetpoint_at'.tr(args: [
+                        DateFormat('hh:mm a').format(meetTime),
+                        DateFormat('MMM dd').format(meetTime),
+                      ]),
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.sp,
+                        color: isDark ? Colors.white : const Color(0xFF881337),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (msg.content != null &&
               msg.content!.isNotEmpty &&
               msg.content != name) ...[
-            SizedBox(height: 8.h),
+            SizedBox(height: 12.h),
             Text(
               msg.content!,
               style: TextStyle(
                 fontFamily: 'Lexend',
                 fontSize: 13.sp,
-                height: 1.4,
-                color: isDark ? Colors.white70 : AppColors.textDark,
+                height: 1.5,
+                color: isDark ? Colors.white70 : const Color(0xFF4C0519),
               ),
             ),
           ],
           if (lat != null && lng != null) ...[
-            SizedBox(height: 10.h),
-            GestureDetector(
-              onTap: () {
+            SizedBox(height: 16.h),
+            ElevatedButton.icon(
+              onPressed: () {
                 final url = Uri.parse(
                   'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
                 );
                 launchUrl(url, mode: LaunchMode.externalApplication);
               },
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(vertical: 10.h),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDC2626),
-                  borderRadius: BorderRadius.circular(10.r),
+              icon: Icon(Symbols.navigation, size: 18.w, color: Colors.white),
+              label: Text(
+                'area_navigate'.tr(),
+                style: const TextStyle(fontFamily: 'Lexend'),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE11D48),
+                foregroundColor: Colors.white,
+                minimumSize: Size(double.infinity, 44.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Symbols.navigation, size: 16.w, color: Colors.white),
-                    SizedBox(width: 6.w),
-                    Text(
-                      'area_navigate'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12.sp,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
+                elevation: 0,
               ),
             ),
           ],
@@ -863,15 +1002,21 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Type selector row + urgent toggle
+          if (_replyTarget != null)
+            MessageReplyComposerStrip(
+              snapshot: _snapshotForReplyDraft(_replyTarget!),
+              isDark: isDark,
+              onCancel: () => setState(() => _replyTarget = null),
+            ),
+          // Text (read aloud) vs voice + urgent toggle
           Row(
             children: [
               _TypeButton(
                 label: 'msg_tab_text'.tr(),
                 icon: Symbols.text_fields,
-                selected: _composeType == 'text',
+                selected: _composeMode == 'tts',
                 onTap: () => setState(() {
-                  _composeType = 'text';
+                  _composeMode = 'tts';
                   _discardRecording();
                 }),
               ),
@@ -879,18 +1024,8 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
               _TypeButton(
                 label: 'msg_tab_voice'.tr(),
                 icon: Symbols.mic,
-                selected: _composeType == 'voice',
-                onTap: () => setState(() => _composeType = 'voice'),
-              ),
-              SizedBox(width: 6.w),
-              _TypeButton(
-                label: 'msg_tab_tts'.tr(),
-                icon: Symbols.volume_up,
-                selected: _composeType == 'tts',
-                onTap: () => setState(() {
-                  _composeType = 'tts';
-                  _discardRecording();
-                }),
+                selected: _composeMode == 'voice',
+                onTap: () => setState(() => _composeMode = 'voice'),
               ),
               const Spacer(),
               // Urgent toggle
@@ -939,9 +1074,8 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
             ],
           ),
           SizedBox(height: 10.h),
-          // Input area
-          if (_composeType == 'text' || _composeType == 'tts')
-            _buildTextInput(isDark, isSending)
+          if (_composeMode != 'voice')
+            _buildTtsComposer(isDark, isSending)
           else
             _buildVoiceInput(isDark, isSending),
         ],
@@ -949,7 +1083,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
     );
   }
 
-  Widget _buildTextInput(bool isDark, bool isSending) {
+  Widget _buildTtsComposer(bool isDark, bool isSending) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -969,9 +1103,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
                 color: isDark ? Colors.white : AppColors.textDark,
               ),
               decoration: InputDecoration(
-                hintText: _composeType == 'tts'
-                    ? 'msg_hint_tts'.tr()
-                    : 'msg_hint_text'.tr(),
+                hintText: 'msg_hint_tts'.tr(),
                 hintStyle: TextStyle(
                   fontFamily: 'Lexend',
                   fontSize: 14.sp,
@@ -988,7 +1120,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
         ),
         SizedBox(width: 10.w),
         GestureDetector(
-          onTap: isSending ? null : _sendText,
+          onTap: isSending ? null : _sendTtsMessage,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             width: 44.w,
@@ -1146,6 +1278,10 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
             positionSeconds: isPlaying ? _position.inSeconds : null,
             onToggle: _togglePreview,
             isDark: isDark,
+            playCircleColor: isDark
+                ? AppColors.info.withValues(alpha: 0.22)
+                : AppColors.info.withValues(alpha: 0.12),
+            playIconColor: AppColors.info,
           ),
         ),
         SizedBox(width: 8.w),
@@ -1231,36 +1367,48 @@ class _TypeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 7.h),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primary.withValues(alpha: 0.12)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(10.r),
+              ? AppColors.primary
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.white),
+          borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: selected ? AppColors.primary : Colors.black12,
+            color: selected
+                ? AppColors.primary
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : const Color(0xFFE2E8F0)),
           ),
         ),
+        alignment: Alignment.center,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
               size: 14.w,
-              color: selected ? AppColors.primary : AppColors.textMutedLight,
+              color: selected
+                  ? Colors.white
+                  : (isDark ? Colors.white70 : AppColors.textMutedLight),
             ),
             SizedBox(width: 4.w),
             Text(
               label,
               style: TextStyle(
                 fontFamily: 'Lexend',
-                fontSize: 12.sp,
+                fontSize: 11.sp,
                 fontWeight: FontWeight.w600,
-                color: selected ? AppColors.primary : AppColors.textMutedLight,
+                color: selected
+                    ? Colors.white
+                    : (isDark ? Colors.white70 : AppColors.textMutedLight),
               ),
             ),
           ],

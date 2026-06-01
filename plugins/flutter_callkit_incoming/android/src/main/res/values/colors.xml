@@ -1,11 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Munawwara Care — match app primary / error palette -->
+    <color name="accept">#F97316</color>
+    <color name="accept_gradient_start">#FB923C</color>
+    <color name="accept_gradient_end">#EA580C</color>
+    <color name="accept_ripple">#66FDBA74</color>
 
-    <color name="accept">#4CAF50</color>
-    <color name="accept_ripple">#A6FFA9</color>
-    <color name="decline">#F44336</color>
-    <color name="decline_ripple">#FB8D85</color>
+    <color name="decline">#EF4444</color>
+    <color name="decline_ripple">#66FCA5A5</color>
 
-    <color name="action_text">#FFFFFF</color>
-    <color name="ripple_main_color">#80ffffff</color>
+    <color name="call_screen_background">#0B1220</color>
+    <color name="action_text">#94A3B8</color>
+    <color name="call_action_label">#94A3B8</color>
+    <color name="call_subtitle">#94A3B8</color>
+    <color name="avatar_ring">#40F97316</color>
+
+    <!-- Concentric pulse behind caller (was semi-opaque white → grey rings on navy) -->
+    <color name="ripple_main_color">#38F97316</color>
+    <color name="ripple_avatar_pulse">#38F97316</color>
+    <color name="ripple_accept_halo">#45FB923C</color>
+    <color name="ripple_decline_halo">#45FCA5A5</color>
 </resources>

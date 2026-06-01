@@ -1,8 +1,20 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../../core/services/api_service.dart';
+import '../../../core/services/app_data_cache.dart';
+import '../../../core/services/secure_session_store.dart';
+import '../../../core/utils/app_logger.dart';
+import '../../../core/utils/route_id_utils.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../helpers/chat_popup_dedup.dart';
+import '../helpers/message_visibility.dart';
 import '../models/message_model.dart';
+
+/// Server may run translation + Cloud TTS before responding; avoid false
+/// "send failed" when the default Dio receive timeout fires too early.
+const Duration _kMessageSendReceiveTimeout = Duration(seconds: 90);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // State
@@ -14,6 +26,8 @@ class MessageState {
   final bool isSending;
   final String? error;
   final int unreadCount;
+  final String? activeGroupId;
+  final String? loadedGroupId;
 
   const MessageState({
     this.messages = const [],
@@ -21,6 +35,8 @@ class MessageState {
     this.isSending = false,
     this.error,
     this.unreadCount = 0,
+    this.activeGroupId,
+    this.loadedGroupId,
   });
 
   MessageState copyWith({
@@ -29,13 +45,22 @@ class MessageState {
     bool? isSending,
     String? error,
     int? unreadCount,
-  }) => MessageState(
-    messages: messages ?? this.messages,
-    isLoading: isLoading ?? this.isLoading,
-    isSending: isSending ?? this.isSending,
-    error: error,
-    unreadCount: unreadCount ?? this.unreadCount,
-  );
+    bool updateActiveGroup = false,
+    String? activeGroupId,
+    String? loadedGroupId,
+    bool updateLoadedGroup = false,
+  }) =>
+      MessageState(
+        messages: messages ?? this.messages,
+        isLoading: isLoading ?? this.isLoading,
+        isSending: isSending ?? this.isSending,
+        error: error,
+        unreadCount: unreadCount ?? this.unreadCount,
+        activeGroupId:
+            updateActiveGroup ? activeGroupId : this.activeGroupId,
+        loadedGroupId:
+            updateLoadedGroup ? loadedGroupId : this.loadedGroupId,
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -43,38 +68,216 @@ class MessageState {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class MessageNotifier extends Notifier<MessageState> {
+  static const _maxCachedMessages = 100;
+
+  int _loadGeneration = 0;
+
   @override
   MessageState build() => const MessageState();
 
-  // Strips "/api" suffix to build the upload base URL
-  String get _uploadBase =>
-      ApiService.baseUrl.replaceFirst(RegExp(r'/api$'), '');
+  String get _uploadBase => ApiService.apiOrigin;
 
-  /// Full URL to stream a voice/image upload from the server
-  String buildUploadUrl(String filename) => '$_uploadBase/uploads/$filename';
+  /// Resolves [mediaUrl] from the API: full HTTPS URL (e.g. GCS) is returned
+  /// unchanged; a bare filename uses legacy `GET /uploads/:name` on this host.
+  String buildUploadUrl(String mediaUrl) {
+    final s = mediaUrl.trim();
+    if (s.isEmpty) return s;
+    final lower = s.toLowerCase();
+    if (lower.startsWith('http://') || lower.startsWith('https://')) {
+      return s;
+    }
+    return '$_uploadBase/uploads/$s';
+  }
+
+  /// Same as [buildUploadUrl] for nullable fields (TTS [audio_url], etc.).
+  String? resolveMediaUrl(String? mediaUrl) {
+    if (mediaUrl == null) return null;
+    final s = mediaUrl.trim();
+    if (s.isEmpty) return null;
+    return buildUploadUrl(s);
+  }
+
+  Map<String, dynamic> _trimMessagesBody(Map<String, dynamic> body) {
+    final copy = Map<String, dynamic>.from(body);
+    final list = copy['data'];
+    if (list is List && list.length > _maxCachedMessages) {
+      copy['data'] = list.sublist(list.length - _maxCachedMessages);
+    }
+    return copy;
+  }
+
+  Future<void> _hydrateMessagesFromCache(String groupId) async {
+    final uid = await SecureSessionStore.getUserId();
+    if (uid == null) return;
+    final blob = AppDataCache.jsonMap(
+      await AppDataCache.readData(
+        uid,
+        AppDataCache.messagesFile(groupId),
+      ),
+    );
+    if (blob == null) return;
+    final listRaw = blob['data'];
+    if (listRaw is! List<dynamic>) return;
+    try {
+      final parsed = <GroupMessage>[];
+      for (final item in listRaw) {
+        final jm = AppDataCache.jsonMap(item);
+        if (jm == null) continue;
+        try {
+          parsed.add(GroupMessage.fromJson(jm));
+        } catch (_) {}
+      }
+      parsed.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      if (parsed.isEmpty) return;
+      final groupId = parsed.first.groupId;
+      state = state.copyWith(
+        messages: _mergeMessageLists(state.messages, parsed, groupId),
+      );
+      await ChatPopupDedup.mergeKnownMessageIds(
+        state.messages.map((m) => m.id),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _writeMessagesCache(
+    String groupId,
+    Map<String, dynamic> body,
+  ) async {
+    final uid = await SecureSessionStore.getUserId();
+    if (uid == null) return;
+    await AppDataCache.write(
+      uid,
+      AppDataCache.messagesFile(groupId),
+      _trimMessagesBody(body),
+    );
+  }
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
-  Future<void> loadMessages(String groupId) async {
-    state = state.copyWith(isLoading: true, error: null);
+  bool _hasLoadedGroupMessages(String groupId) {
+    if (state.loadedGroupId != groupId || state.messages.isEmpty) {
+      return false;
+    }
+    return state.messages.every((message) => message.groupId == groupId);
+  }
+
+  /// Keeps in-memory messages (e.g. just sent) that are not yet in [incoming].
+  List<GroupMessage> _mergeMessageLists(
+    List<GroupMessage> current,
+    List<GroupMessage> incoming,
+    String groupId,
+  ) {
+    if (incoming.isEmpty) {
+      return current.where((m) => m.groupId == groupId).toList();
+    }
+    final incomingIds = incoming.map((m) => m.id).toSet();
+    final localOnly = current.where(
+      (m) => m.groupId == groupId && !incomingIds.contains(m.id),
+    );
+    final merged = [...incoming, ...localOnly];
+    merged.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return merged;
+  }
+
+  Future<void> loadMessages(
+    String groupId, {
+    bool force = false,
+  }) async {
+    final normalizedGroupId = normalizeRouteId(groupId);
+    if (normalizedGroupId.isEmpty) return;
+
+    final loadGeneration = ++_loadGeneration;
+    final previousGroupId = state.loadedGroupId;
+    final hasWrongGroupMessages = state.messages.any(
+      (message) => message.groupId != normalizedGroupId,
+    );
+    final switchingGroup =
+        previousGroupId != null && previousGroupId != normalizedGroupId;
+    final mustClearMessages = switchingGroup || hasWrongGroupMessages;
+    final hasLoadedGroup = _hasLoadedGroupMessages(normalizedGroupId);
+    final hasVisibleMessages = state.messages.any(
+      (message) => message.groupId == normalizedGroupId,
+    );
+
+    if (mustClearMessages) {
+      state = state.copyWith(
+        messages: const [],
+        isLoading: true,
+        error: null,
+      );
+    } else if (force) {
+      state = state.copyWith(
+        isLoading: !hasVisibleMessages,
+        error: null,
+      );
+    } else if (!hasLoadedGroup) {
+      state = state.copyWith(
+        isLoading: !hasVisibleMessages,
+        error: null,
+      );
+    } else {
+      state = state.copyWith(error: null);
+    }
+
+    await _hydrateMessagesFromCache(normalizedGroupId);
+    if (loadGeneration != _loadGeneration) return;
+
     try {
-      final res = await ApiService.dio.get('/messages/group/$groupId');
-      final raw = (res.data['data'] as List<dynamic>)
+      final res = await ApiService.dio.get(
+        '/messages/group/$normalizedGroupId',
+      );
+      if (loadGeneration != _loadGeneration) return;
+      final body = Map<String, dynamic>.from(res.data as Map);
+      await _writeMessagesCache(normalizedGroupId, body);
+      if (loadGeneration != _loadGeneration) return;
+      final raw = (body['data'] as List<dynamic>)
           .map((j) => GroupMessage.fromJson(j as Map<String, dynamic>))
           .toList();
       // oldest first (chronological / chat order)
       raw.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      state = state.copyWith(messages: raw, isLoading: false);
+      state = state.copyWith(
+        messages: _mergeMessageLists(state.messages, raw, normalizedGroupId),
+        isLoading: false,
+        updateLoadedGroup: true,
+        loadedGroupId: normalizedGroupId,
+      );
+      await ChatPopupDedup.mergeKnownMessageIds(raw.map((m) => m.id));
     } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
+      if (loadGeneration != _loadGeneration) return;
+      if (state.messages.isEmpty) {
+        await _hydrateMessagesFromCache(normalizedGroupId);
+        if (loadGeneration != _loadGeneration) return;
+      }
+      if (state.messages.isNotEmpty) {
+        state = state.copyWith(
+          isLoading: false,
+          error: null,
+          updateLoadedGroup: true,
+          loadedGroupId: normalizedGroupId,
+        );
+        await ChatPopupDedup.mergeKnownMessageIds(
+          state.messages.map((m) => m.id),
+        );
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          error: ApiService.parseError(e),
+          updateLoadedGroup: true,
+          loadedGroupId: normalizedGroupId,
+        );
+      }
     }
   }
 
   // ── Unread ─────────────────────────────────────────────────────────────────
 
   Future<int> fetchUnreadCount(String groupId) async {
+    final normalizedGroupId = normalizeRouteId(groupId);
+    if (normalizedGroupId.isEmpty) return 0;
     try {
-      final res = await ApiService.dio.get('/messages/group/$groupId/unread');
+      final res = await ApiService.dio.get(
+        '/messages/group/$normalizedGroupId/unread',
+      );
       final count = (res.data['unread_count'] as num?)?.toInt() ?? 0;
       state = state.copyWith(unreadCount: count);
       return count;
@@ -84,29 +287,147 @@ class MessageNotifier extends Notifier<MessageState> {
   }
 
   Future<void> markAllRead(String groupId) async {
+    final normalizedGroupId = normalizeRouteId(groupId);
+    if (normalizedGroupId.isEmpty) return;
     try {
-      await ApiService.dio.post('/messages/group/$groupId/mark-read');
+      await ApiService.dio.post(
+        '/messages/group/$normalizedGroupId/mark-read',
+      );
       state = state.copyWith(unreadCount: 0);
     } catch (_) {}
   }
 
-  /// Silently appends a single message received from a socket event.
-  /// No loading state is touched, so the list never flickers.
-  void appendMessage(Map<String, dynamic> json) {
-    try {
-      final msg = GroupMessage.fromJson(json);
-      if (state.messages.any((m) => m.id == msg.id)) return; // dedup
-      state = state.copyWith(
-        messages: [...state.messages, msg],
-        unreadCount: state.unreadCount + 1,
-      );
-    } catch (_) {}
+  void setActiveGroup(String? groupId) {
+    final normalizedGroupId =
+        groupId == null ? null : normalizeRouteId(groupId);
+    state = state.copyWith(
+      updateActiveGroup: true,
+      activeGroupId: normalizedGroupId,
+    );
   }
 
-  /// Silently removes a message received via socket (no loading state).
-  void removeMessage(String messageId) {
-    state = state.copyWith(
-      messages: state.messages.where((m) => m.id != messageId).toList(),
+  /// Silently appends a single message received from a socket event.
+  /// No loading state is touched, so the list never flickers.
+  /// Returns false when the message was already present or could not be parsed.
+  bool appendMessage(Map<String, dynamic> json) {
+    try {
+      final myId = ref.read(authProvider).userId ?? '';
+      final isModerator =
+          ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
+      if (!isRawMessageVisibleToUser(
+        json,
+        myId,
+        isModerator: isModerator,
+      )) {
+        return false;
+      }
+      final msg = GroupMessage.fromJson(json);
+      if (state.messages.any((m) => m.id == msg.id)) {
+        return false;
+      }
+
+      final isReadingNow = state.activeGroupId == msg.groupId;
+
+      state = state.copyWith(
+        messages: [...state.messages, msg],
+        unreadCount: isReadingNow ? state.unreadCount : state.unreadCount + 1,
+      );
+
+      if (isReadingNow) {
+        markAllRead(msg.groupId);
+      }
+      return true;
+    } catch (e) {
+      AppLogger.w('[MessageNotifier] Error appending message: $e');
+      return false;
+    }
+  }
+
+  /// Silently removes a message (socket or local delete). Updates disk cache.
+  void removeMessage(String messageId, {String? groupId}) {
+    final normalizedId = mongoIdString(messageId);
+    if (normalizedId.isEmpty) return;
+
+    String? resolvedGroupId;
+    if (groupId != null && groupId.trim().isNotEmpty) {
+      resolvedGroupId = normalizeRouteId(groupId);
+    } else {
+      for (final m in state.messages) {
+        if (m.id == normalizedId) {
+          resolvedGroupId = m.groupId;
+          break;
+        }
+      }
+    }
+
+    final nextMessages =
+        state.messages.where((m) => m.id != normalizedId).toList();
+    if (nextMessages.length != state.messages.length) {
+      state = state.copyWith(messages: nextMessages);
+    }
+
+    if (resolvedGroupId != null && resolvedGroupId.isNotEmpty) {
+      unawaited(_removeMessageFromCache(resolvedGroupId, normalizedId));
+    }
+  }
+
+  /// Handles `message_deleted` from socket.io (moderator + pilgrim).
+  void onMessageDeleted(Map<String, dynamic> data) {
+    final messageId = mongoIdString(
+      data['message_id'] ?? data['messageId'],
+    );
+    if (messageId.isEmpty) return;
+
+    final payloadGroupId = mongoIdString(
+      data['group_id'] ?? data['groupId'],
+    );
+    if (payloadGroupId.isNotEmpty) {
+      final active = state.activeGroupId;
+      if (active != null &&
+          active.isNotEmpty &&
+          normalizeRouteId(active) != normalizeRouteId(payloadGroupId)) {
+        return;
+      }
+    }
+
+    removeMessage(
+      messageId,
+      groupId: payloadGroupId.isEmpty ? null : payloadGroupId,
+    );
+  }
+
+  Future<void> _removeMessageFromCache(
+    String groupId,
+    String messageId,
+  ) async {
+    final normalizedGroupId = normalizeRouteId(groupId);
+    final normalizedId = messageId.toString().trim();
+    if (normalizedGroupId.isEmpty || normalizedId.isEmpty) return;
+    final uid = await SecureSessionStore.getUserId();
+    if (uid == null) return;
+    final blob = AppDataCache.jsonMap(
+      await AppDataCache.readData(
+        uid,
+        AppDataCache.messagesFile(normalizedGroupId),
+      ),
+    );
+    if (blob == null) return;
+    final listRaw = blob['data'];
+    if (listRaw is! List<dynamic>) return;
+    final filtered = <dynamic>[];
+    for (final item in listRaw) {
+      final jm = AppDataCache.jsonMap(item);
+      if (jm == null) {
+        filtered.add(item);
+        continue;
+      }
+      final id = mongoIdString(jm['_id'] ?? jm['id']);
+      if (id != normalizedId) filtered.add(item);
+    }
+    await AppDataCache.write(
+      uid,
+      AppDataCache.messagesFile(normalizedGroupId),
+      _trimMessagesBody({'data': filtered}),
     );
   }
 
@@ -117,6 +438,7 @@ class MessageNotifier extends Notifier<MessageState> {
     required String content,
     required bool isUrgent,
     bool isTts = false,
+    String? replyToMessageId,
   }) async {
     state = state.copyWith(isSending: true);
     try {
@@ -128,15 +450,22 @@ class MessageNotifier extends Notifier<MessageState> {
           'content': content,
           if (isTts) 'original_text': content,
           'is_urgent': isUrgent,
+          if (replyToMessageId != null && replyToMessageId.isNotEmpty)
+            'reply_to': replyToMessageId,
         },
+        options: Options(receiveTimeout: _kMessageSendReceiveTimeout),
       );
       final msg = GroupMessage.fromJson(
         response.data['data'] as Map<String, dynamic>,
       );
-      state = state.copyWith(
-        messages: [...state.messages, msg],
-        isSending: false,
-      );
+      if (state.messages.any((m) => m.id == msg.id)) {
+        state = state.copyWith(isSending: false);
+      } else {
+        state = state.copyWith(
+          messages: [...state.messages, msg],
+          isSending: false,
+        );
+      }
       return true;
     } catch (_) {
       state = state.copyWith(isSending: false);
@@ -150,6 +479,7 @@ class MessageNotifier extends Notifier<MessageState> {
     required String content,
     required bool isUrgent,
     bool isTts = false,
+    String? replyToMessageId,
   }) async {
     state = state.copyWith(isSending: true);
     try {
@@ -162,15 +492,22 @@ class MessageNotifier extends Notifier<MessageState> {
           'content': content,
           if (isTts) 'original_text': content,
           'is_urgent': isUrgent,
+          if (replyToMessageId != null && replyToMessageId.isNotEmpty)
+            'reply_to': replyToMessageId,
         },
+        options: Options(receiveTimeout: _kMessageSendReceiveTimeout),
       );
       final msg = GroupMessage.fromJson(
         response.data['data'] as Map<String, dynamic>,
       );
-      state = state.copyWith(
-        messages: [...state.messages, msg],
-        isSending: false,
-      );
+      if (state.messages.any((m) => m.id == msg.id)) {
+        state = state.copyWith(isSending: false);
+      } else {
+        state = state.copyWith(
+          messages: [...state.messages, msg],
+          isSending: false,
+        );
+      }
       return true;
     } catch (_) {
       state = state.copyWith(isSending: false);
@@ -185,6 +522,7 @@ class MessageNotifier extends Notifier<MessageState> {
     required String filePath,
     required bool isUrgent,
     int durationSeconds = 0,
+    String? replyToMessageId,
   }) async {
     state = state.copyWith(isSending: true);
     try {
@@ -193,21 +531,32 @@ class MessageNotifier extends Notifier<MessageState> {
         'type': 'voice',
         'is_urgent': isUrgent.toString(),
         'duration': durationSeconds.toString(),
+        if (replyToMessageId != null && replyToMessageId.isNotEmpty)
+          'reply_to': replyToMessageId,
         'file': await MultipartFile.fromFile(
           filePath,
           filename: 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
         ),
       });
-      final response = await ApiService.dio.post('/messages', data: formData);
+      final response = await ApiService.dio.post(
+        '/messages',
+        data: formData,
+        options: Options(receiveTimeout: _kMessageSendReceiveTimeout),
+      );
       final msg = GroupMessage.fromJson(
         response.data['data'] as Map<String, dynamic>,
       );
-      state = state.copyWith(
-        messages: [...state.messages, msg],
-        isSending: false,
-      );
+      if (state.messages.any((m) => m.id == msg.id)) {
+        state = state.copyWith(isSending: false);
+      } else {
+        state = state.copyWith(
+          messages: [...state.messages, msg],
+          isSending: false,
+        );
+      }
       return true;
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e('sendVoiceMessage failed', e, st);
       state = state.copyWith(isSending: false);
       return false;
     }
@@ -219,6 +568,7 @@ class MessageNotifier extends Notifier<MessageState> {
     required String filePath,
     required bool isUrgent,
     int durationSeconds = 0,
+    String? replyToMessageId,
   }) async {
     state = state.copyWith(isSending: true);
     try {
@@ -228,6 +578,8 @@ class MessageNotifier extends Notifier<MessageState> {
         'type': 'voice',
         'is_urgent': isUrgent.toString(),
         'duration': durationSeconds.toString(),
+        if (replyToMessageId != null && replyToMessageId.isNotEmpty)
+          'reply_to': replyToMessageId,
         'file': await MultipartFile.fromFile(
           filePath,
           filename: 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
@@ -236,16 +588,22 @@ class MessageNotifier extends Notifier<MessageState> {
       final response = await ApiService.dio.post(
         '/messages/individual',
         data: formData,
+        options: Options(receiveTimeout: _kMessageSendReceiveTimeout),
       );
       final msg = GroupMessage.fromJson(
         response.data['data'] as Map<String, dynamic>,
       );
-      state = state.copyWith(
-        messages: [...state.messages, msg],
-        isSending: false,
-      );
+      if (state.messages.any((m) => m.id == msg.id)) {
+        state = state.copyWith(isSending: false);
+      } else {
+        state = state.copyWith(
+          messages: [...state.messages, msg],
+          isSending: false,
+        );
+      }
       return true;
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e('sendIndividualVoiceMessage failed', e, st);
       state = state.copyWith(isSending: false);
       return false;
     }
@@ -254,11 +612,11 @@ class MessageNotifier extends Notifier<MessageState> {
   // ── Delete ─────────────────────────────────────────────────────────────────
 
   Future<bool> deleteMessage(String messageId) async {
+    final normalizedId = messageId.toString().trim();
+    if (normalizedId.isEmpty) return false;
     try {
-      await ApiService.dio.delete('/messages/$messageId');
-      state = state.copyWith(
-        messages: state.messages.where((m) => m.id != messageId).toList(),
-      );
+      await ApiService.dio.delete('/messages/$normalizedId');
+      removeMessage(normalizedId);
       return true;
     } catch (_) {
       return false;

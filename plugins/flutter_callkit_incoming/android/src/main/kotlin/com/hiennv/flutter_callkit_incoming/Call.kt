@@ -150,9 +150,9 @@ data class Data(val args: Map<String, Any?>) {
         logoUrl = android["logoUrl"] as? String ?: ""
         isShowCallID = android["isShowCallID"] as? Boolean ?: false
         ringtonePath = android["ringtonePath"] as? String ?: ""
-        backgroundColor = android["backgroundColor"] as? String ?: "#0955fa"
+        backgroundColor = android["backgroundColor"] as? String ?: "#0B1220"
         backgroundUrl = android["backgroundUrl"] as? String ?: ""
-        actionColor = android["actionColor"] as? String ?: "#4CAF50"
+        actionColor = android["actionColor"] as? String ?: "#F97316"
         textColor = android["textColor"] as? String ?: "#ffffff"
         incomingCallNotificationChannelName =
             android["incomingCallNotificationChannelName"] as? String
@@ -407,13 +407,13 @@ data class Data(val args: Map<String, Any?>) {
             )
             data.backgroundColor = bundle.getString(
                 CallkitConstants.EXTRA_CALLKIT_BACKGROUND_COLOR,
-                "#0955fa"
+                "#0B1220"
             )
             data.backgroundUrl =
                 bundle.getString(CallkitConstants.EXTRA_CALLKIT_BACKGROUND_URL, "")
             data.actionColor = bundle.getString(
                 CallkitConstants.EXTRA_CALLKIT_ACTION_COLOR,
-                "#4CAF50"
+                "#F97316"
             )
             data.textColor = bundle.getString(
                 CallkitConstants.EXTRA_CALLKIT_TEXT_COLOR,

@@ -8,9 +8,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/legal_support_section.dart';
+import '../../../core/services/api_service.dart';
+import '../../../core/services/locale_prefs.dart';
+import '../../../core/services/sos_alert_audio.dart';
+import '../../../core/services/callkit_service.dart';
 import '../../auth/providers/auth_provider.dart';
-import 'pilgrim_profile_edit_screen.dart';
-
+import '../../shared/widgets/pilgrim_gender_avatar.dart';
 class PilgrimProfileScreen extends ConsumerStatefulWidget {
   const PilgrimProfileScreen({super.key});
 
@@ -39,7 +43,11 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(authProvider.notifier).fetchProfile());
+    Future.microtask(() async {
+      final ok = await ref.read(authProvider.notifier).fetchProfile();
+      if (!mounted) return;
+      if (!ok) context.go('/login');
+    });
   }
 
   @override
@@ -53,42 +61,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
     _selectedLocale = context.locale.languageCode;
   }
 
-  void _saveChanges() {
-    // Settings is a tab, nothing to pop — just show success feedback
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('edit_profile_success'.tr()),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
-  Future<void> _signOut() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('settings_sign_out_confirm_title'.tr()),
-        content: Text('settings_sign_out_confirm_body'.tr()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('settings_cancel'.tr()),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text('settings_sign_out'.tr()),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && mounted) {
-      await ref.read(authProvider.notifier).logout();
-      if (mounted) context.go('/login');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,7 +70,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
 
     final authState = ref.watch(authProvider);
     final fullName = authState.fullName ?? 'Pilgrim';
-    final initials = _initials(fullName);
 
     final bg = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
     final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
@@ -107,8 +78,8 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
         ? AppColors.textMutedLight
         : AppColors.textMutedDark;
     final dividerColor = isDark
-        ? const Color(0xFF2D4A3A)
-        : const Color(0xFFE2E8F0);
+        ? AppColors.dividerDark
+        : AppColors.dividerLight;
 
     return Scaffold(
       backgroundColor: bg,
@@ -117,7 +88,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
           children: [
             // ── Header ──────────────────────────────────────────────────
             Padding(
-              padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 0),
+              padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 0),
               child: Align(
                 alignment: AlignmentDirectional.centerStart,
                 child: Text(
@@ -139,7 +110,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: 24.h),
+                    SizedBox(height: 16.h),
 
                     // ── Profile card ─────────────────────────────────────
                     Container(
@@ -166,6 +137,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           Container(
                             width: 56.w,
                             height: 56.w,
+                            padding: EdgeInsets.all(2.5.w),
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: LinearGradient(
@@ -177,16 +149,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                                 end: Alignment.bottomRight,
                               ),
                             ),
-                            child: Center(
-                              child: Text(
-                                initials,
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 20.sp,
-                                  color: Colors.white,
-                                ),
-                              ),
+                            child: PilgrimGenderAvatar(
+                              gender: authState.gender,
+                              size: 51.w,
                             ),
                           ),
                           SizedBox(width: 16.w),
@@ -226,161 +191,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                               ],
                             ),
                           ),
-                          GestureDetector(
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const PilgrimProfileEditScreen(),
-                              ),
-                            ),
-                            child: Container(
-                              padding: EdgeInsets.all(8.r),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(10.r),
-                              ),
-                              child: Icon(
-                                Icons.edit_rounded,
-                                color: AppColors.primary,
-                                size: 18.sp,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
-
-                    if (authState.moderatorRequestStatus != null) ...[
-                      SizedBox(height: 24.h),
-                      _SectionLabel(
-                        label: 'edit_profile_moderator_section'.tr(),
-                        textMuted: textMuted,
-                      ),
-                      SizedBox(height: 8.h),
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: cardBg,
-                          borderRadius: BorderRadius.circular(16.r),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 
-                                isDark ? 0.3 : 0.06,
-                              ),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(16.w),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 38.w,
-                                    height: 38.w,
-                                    decoration: BoxDecoration(
-                                      color: _getStatusColor(
-                                        authState.moderatorRequestStatus!,
-                                      ).withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(10.r),
-                                    ),
-                                    child: Icon(
-                                      _getStatusIcon(
-                                        authState.moderatorRequestStatus!,
-                                      ),
-                                      color: _getStatusColor(
-                                        authState.moderatorRequestStatus!,
-                                      ),
-                                      size: 18.sp,
-                                    ),
-                                  ),
-                                  SizedBox(width: 12.w),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          authState.moderatorRequestStatus ==
-                                                  'pending'
-                                              ? 'moderator_status_pending'.tr()
-                                              : authState
-                                                        .moderatorRequestStatus ==
-                                                    'approved'
-                                              ? 'moderator_status_approved'.tr()
-                                              : 'moderator_status_rejected'
-                                                    .tr(),
-                                          style: TextStyle(
-                                            fontFamily: 'Lexend',
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 14.sp,
-                                            color: textPrimary,
-                                          ),
-                                        ),
-                                        SizedBox(height: 2.h),
-                                        Text(
-                                          authState.moderatorRequestStatus ==
-                                                  'pending'
-                                              ? 'moderator_status_pending_desc'
-                                                    .tr()
-                                              : authState
-                                                        .moderatorRequestStatus ==
-                                                    'approved'
-                                              ? 'moderator_status_approved_desc'
-                                                    .tr()
-                                              : 'moderator_status_rejected_desc'
-                                                    .tr(),
-                                          style: TextStyle(
-                                            fontFamily: 'Lexend',
-                                            fontSize: 11.sp,
-                                            color: textMuted,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (authState.moderatorRequestStatus ==
-                                      'approved' &&
-                                  authState.role == 'moderator') ...[
-                                SizedBox(height: 12.h),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      context.go('/moderator-dashboard');
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primary,
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          10.r,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'profile_switch_moderator_dashboard'.tr(),
-                                      style: TextStyle(
-                                        fontFamily: 'Lexend',
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13.sp,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
 
                     SizedBox(height: 28.h),
 
@@ -415,7 +228,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                               width: 40.w,
                               height: 40.w,
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.15),
+                                color: isDark
+                                    ? AppColors.surfaceDark
+                                    : AppColors.primary.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(12.r),
                               ),
                               child: Icon(
@@ -453,6 +268,15 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             Switch(
                               value: isDark,
                               activeThumbColor: AppColors.primary,
+                              activeTrackColor: AppColors.primary.withValues(
+                                alpha: 0.3,
+                              ),
+                              inactiveThumbColor: isDark
+                                  ? AppColors.textLight
+                                  : Colors.grey,
+                              inactiveTrackColor: isDark
+                                  ? AppColors.surfaceDark
+                                  : Colors.grey.shade300,
                               onChanged: (_) => themeNotifier.toggle(),
                             ),
                           ],
@@ -495,69 +319,277 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             dividerColor: dividerColor,
                             textPrimary: textPrimary,
                             textMuted: textMuted,
-                            onTap: () {
-                              setState(() => _selectedLocale = lang['code']!);
-                              context.setLocale(Locale(lang['code']!));
+                            onTap: () async {
+                              final code = lang['code']!;
+                              setState(() => _selectedLocale = code);
+                              context.setLocale(Locale(code));
+                              await LocalePrefs.saveLanguageCode(code);
+                              await SosAlertAudio.stopAndReset();
+                              unawaited(
+                                CallKitService.refreshCachedSupportDisplayName(
+                                  languageCode: code,
+                                ),
+                              );
+                              try {
+                                await ApiService.dio.put(
+                                  '/auth/update-language',
+                                  data: {'language': code},
+                                );
+                              } catch (_) {
+                                // Non-fatal — local language is already applied
+                              }
                             },
                           );
                         }),
                       ),
                     ),
 
-                    SizedBox(height: 32.h),
+                    SizedBox(height: 28.h),
 
-                    // ── Save Changes button ─────────────────────────────
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52.h,
-                      child: ElevatedButton(
-                        onPressed: _saveChanges,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14.r),
-                          ),
+                    LegalSupportSection(
+                      isDark: isDark,
+                      cardBg: cardBg,
+                      textPrimary: textPrimary,
+                      textMuted: textMuted,
+                      dividerColor: dividerColor,
+                      showAccountDeletion: true,
+                    ),
+
+                    SizedBox(height: 28.h),
+
+                    // ── Travel & Accommodation (Retractable) ────────────────
+                    Theme(
+                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(16.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: isDark ? 0.3 : 0.06,
+                              ),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                        child: Text(
-                          'settings_save'.tr(),
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16.sp,
+                        child: ExpansionTile(
+                          shape: const RoundedRectangleBorder(side: BorderSide.none),
+                          collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                          tilePadding: EdgeInsets.symmetric(horizontal: 16.w),
+                          title: Text(
+                            'profile_travel_accommodation'.tr(),
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14.sp,
+                              color: textPrimary,
+                            ),
                           ),
+                          leading: Icon(Icons.travel_explore_rounded, color: AppColors.primary, size: 22.sp),
+                          children: [
+                            _InfoTile(
+                              icon: Icons.hotel_rounded,
+                              label: 'group_hotel_name'.tr(),
+                              value: authState.hotelName ?? 'profile_not_assigned'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.meeting_room_rounded,
+                              label: 'group_room_number'.tr(),
+                              value: authState.roomNumber ?? 'profile_not_assigned'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.directions_bus_rounded,
+                              label: 'group_bus_number'.tr(),
+                              value: authState.busInfo ?? 'profile_not_assigned'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.assignment_ind_rounded,
+                              label: 'profile_national_id'.tr(), // Visa status section
+                              value: authState.visaStatus != null
+                                  ? authState.visaStatus!.toUpperCase()
+                                  : 'status_unknown'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                              valueColor: _getVisaColor(authState.visaStatus),
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.assignment_turned_in_rounded,
+                              label: 'Tashera Number',
+                              value: authState.tasheraNumber ?? 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            SizedBox(height: 12.h),
+                          ],
                         ),
                       ),
                     ),
 
                     SizedBox(height: 16.h),
 
-                    // ── Sign Out button ──────────────────────────────────
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52.h,
-                      child: OutlinedButton.icon(
-                        onPressed: _signOut,
-                        icon: Icon(
-                          Icons.logout_rounded,
-                          size: 18.sp,
-                          color: Colors.red,
+                    // ── Personal Details (Retractable) ──────────────────────
+                    Theme(
+                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(16.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: isDark ? 0.3 : 0.06,
+                              ),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                        label: Text(
-                          'settings_sign_out'.tr(),
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w500,
-                            fontSize: 16.sp,
-                            color: Colors.red,
+                        child: ExpansionTile(
+                          shape: const RoundedRectangleBorder(side: BorderSide.none),
+                          collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                          tilePadding: EdgeInsets.symmetric(horizontal: 16.w),
+                          title: Text(
+                            'profile_personal_details'.tr(),
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14.sp,
+                              color: textPrimary,
+                            ),
                           ),
+                          leading: Icon(Icons.person_outline_rounded, color: AppColors.primary, size: 22.sp),
+                          children: [
+                            _InfoTile(
+                              icon: Icons.badge_rounded,
+                              label: 'profile_national_id'.tr(),
+                              value: authState.nationalId ?? 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.cake_rounded,
+                              label: 'reg_age'.tr(),
+                              value: authState.age != null ? '${authState.age} ${'reg_age_hint'.tr()}' : 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.wc_rounded,
+                              label: 'reg_gender'.tr(),
+                              value: authState.gender != null ? 'reg_${authState.gender}'.tr() : 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.medical_services_rounded,
+                              label: 'reg_medical'.tr(),
+                              value: authState.medicalHistory?.isNotEmpty == true ? authState.medicalHistory! : 'profile_none'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.public_rounded,
+                              label: 'ethnic_other'.tr(), // Ethnicity
+                              value: authState.ethnicity ?? 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.phone_android_rounded,
+                              label: 'Alternative Phone',
+                              value: authState.alternativePhoneNumber ?? 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            SizedBox(height: 12.h),
+                          ],
                         ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.red, width: 1.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14.r),
+                      ),
+                    ),
+
+                    SizedBox(height: 16.h),
+
+                    // ── Insurance Details (Retractable) ──────────────────────
+                    Theme(
+                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(16.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: isDark ? 0.3 : 0.06,
+                              ),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ExpansionTile(
+                          shape: const RoundedRectangleBorder(side: BorderSide.none),
+                          collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                          tilePadding: EdgeInsets.symmetric(horizontal: 16.w),
+                          title: Text(
+                            'Insurance Details',
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14.sp,
+                              color: textPrimary,
+                            ),
                           ),
+                          leading: Icon(Icons.health_and_safety_rounded, color: AppColors.primary, size: 22.sp),
+                          children: [
+                            _InfoTile(
+                              icon: Icons.health_and_safety_rounded,
+                              label: 'Insurance Company',
+                              value: authState.insuranceCompany?.name ?? 'profile_not_provided'.tr(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            _divider(dividerColor),
+                            _InfoTile(
+                              icon: Icons.local_hospital_rounded,
+                              label: 'Covered Hospitals',
+                              value: authState.insuranceCompany != null && authState.insuranceCompany!.hospitals.isNotEmpty
+                                  ? '${authState.insuranceCompany!.hospitals.length} covered hospitals (view on Map)'
+                                  : 'No hospitals listed',
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                              textMuted: textMuted,
+                            ),
+                            SizedBox(height: 12.h),
+                          ],
                         ),
                       ),
                     ),
@@ -573,37 +605,91 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
     );
   }
 
-  static String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return 'P';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
+  Color _getVisaColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'issued':
+        return Colors.green;
       case 'pending':
         return Colors.orange;
-      case 'approved':
-        return Colors.green;
       case 'rejected':
+      case 'expired':
         return Colors.red;
       default:
         return AppColors.primary;
     }
   }
 
-  IconData _getStatusIcon(String status) {
-    switch (status) {
-      case 'pending':
-        return Icons.hourglass_empty_rounded;
-      case 'approved':
-        return Icons.check_circle_rounded;
-      case 'rejected':
-        return Icons.cancel_rounded;
-      default:
-        return Icons.help_outline_rounded;
-    }
+  Widget _divider(Color color) => Divider(
+        height: 1,
+        thickness: 1,
+        color: color,
+        indent: 16.w,
+        endIndent: 16.w,
+      );
+}
+
+class _InfoTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool isDark;
+  final Color textPrimary;
+  final Color textMuted;
+  final Color? valueColor;
+
+  const _InfoTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.isDark,
+    required this.textPrimary,
+    required this.textMuted,
+    this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+      child: Row(
+        children: [
+          Container(
+            width: 36.w,
+            height: 36.w,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            child: Icon(icon, color: AppColors.primary, size: 18.sp),
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 11.sp,
+                    color: textMuted,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14.sp,
+                    color: valueColor ?? textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -675,8 +761,8 @@ class _LanguageRow extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isDark
-                        ? const Color(0xFF1A2C24)
-                        : const Color(0xFFF0FDF8),
+                        ? AppColors.surfaceDark
+                        : AppColors.backgroundLight,
                   ),
                   child: Center(
                     child: Text(

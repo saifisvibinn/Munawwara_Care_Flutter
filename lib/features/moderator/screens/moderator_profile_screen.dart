@@ -1,13 +1,22 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/widgets/custom_dialog.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/legal_support_section.dart';
+import '../../../core/services/api_service.dart';
+import '../../../core/services/callkit_service.dart';
+import '../../../core/services/locale_prefs.dart';
+import '../../../core/services/sos_alert_audio.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'moderator_profile_edit_screen.dart';
+import '../../shared/widgets/moderator_avatar.dart';
 
 class ModeratorProfileScreen extends ConsumerStatefulWidget {
   const ModeratorProfileScreen({super.key});
@@ -39,7 +48,11 @@ class _ModeratorProfileScreenState
   void initState() {
     super.initState();
     // Eagerly load email + phoneNumber from the API
-    Future.microtask(() => ref.read(authProvider.notifier).fetchProfile());
+    Future.microtask(() async {
+      final ok = await ref.read(authProvider.notifier).fetchProfile();
+      if (!mounted) return;
+      if (!ok) context.go('/login');
+    });
   }
 
   @override
@@ -50,27 +63,17 @@ class _ModeratorProfileScreenState
 
   // Language is applied immediately on tap — this just closes the screen
   void _saveChanges() {
-    Navigator.of(context).pop();
+    Navigator.of(context).maybePop();
   }
 
   Future<void> _signOut() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await StandardDialog.show<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('settings_sign_out_confirm_title'.tr()),
-        content: Text('settings_sign_out_confirm_body'.tr()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('settings_cancel'.tr()),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text('settings_sign_out'.tr()),
-          ),
-        ],
-      ),
+      title: 'settings_sign_out_confirm_title',
+      content: 'settings_sign_out_confirm_body',
+      confirmText: 'settings_sign_out',
+      cancelText: 'settings_cancel',
+      isDestructive: true,
     );
     if (confirmed == true && mounted) {
       await ref.read(authProvider.notifier).logout();
@@ -163,7 +166,9 @@ class _ModeratorProfileScreenState
                               width: 40.w,
                               height: 40.w,
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.15),
+                                color: isDark
+                                    ? AppColors.surfaceDark
+                                    : AppColors.primary.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(12.r),
                               ),
                               child: Icon(
@@ -201,6 +206,15 @@ class _ModeratorProfileScreenState
                             Switch(
                               value: isDark,
                               activeThumbColor: AppColors.primary,
+                              activeTrackColor: AppColors.primary.withValues(alpha: 
+                                0.3,
+                              ),
+                              inactiveThumbColor: isDark
+                                  ? AppColors.textLight
+                                  : Colors.grey,
+                              inactiveTrackColor: isDark
+                                  ? AppColors.surfaceDark
+                                  : Colors.grey.shade300,
                               onChanged: (_) => themeNotifier.toggle(),
                             ),
                           ],
@@ -243,13 +257,40 @@ class _ModeratorProfileScreenState
                             dividerColor: dividerColor,
                             textPrimary: textPrimary,
                             textMuted: textMuted,
-                            onTap: () {
-                              setState(() => _selectedLocale = lang['code']!);
-                              context.setLocale(Locale(lang['code']!));
+                            onTap: () async {
+                              final code = lang['code']!;
+                              setState(() => _selectedLocale = code);
+                              context.setLocale(Locale(code));
+                              await LocalePrefs.saveLanguageCode(code);
+                              await SosAlertAudio.stopAndReset();
+                              unawaited(
+                                CallKitService.refreshCachedSupportDisplayName(
+                                  languageCode: code,
+                                ),
+                              );
+                              try {
+                                await ApiService.dio.put(
+                                  '/auth/update-language',
+                                  data: {'language': code},
+                                );
+                              } catch (_) {
+                                // Non-fatal — local language is already applied
+                              }
                             },
                           );
                         }),
                       ),
+                    ),
+
+                    SizedBox(height: 28.h),
+
+                    LegalSupportSection(
+                      isDark: isDark,
+                      cardBg: cardBg,
+                      textPrimary: textPrimary,
+                      textMuted: textMuted,
+                      dividerColor: dividerColor,
+                      showAccountDeletion: true,
                     ),
 
                     SizedBox(height: 32.h),
@@ -339,16 +380,36 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(8.w, 12.h, 20.w, 0),
+      padding: EdgeInsets.fromLTRB(8.w, 8.h, 20.w, 0),
       child: Row(
         children: [
-          IconButton(
-            icon: Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: textPrimary,
-              size: 20.sp,
+          GestureDetector(
+            onTap: () => Navigator.of(context).maybePop(),
+            child: Container(
+              width: 42.w,
+              height: 42.w,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.surfaceDark : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isDark
+                      ? AppColors.backgroundDark
+                      : const Color(0xFFE2E2F0),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: textPrimary,
+                size: 20.sp,
+              ),
             ),
-            onPressed: () => Navigator.of(context).pop(),
           ),
           Expanded(
             child: Center(
@@ -408,29 +469,7 @@ class _ProfileCard extends StatelessWidget {
       child: Row(
         children: [
           // Avatar
-          Container(
-            width: 56.w,
-            height: 56.w,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [AppColors.primary, AppColors.primaryDark],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                initials,
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 20.sp,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
+          ModeratorAvatar(size: 56.w, initials: initials),
           SizedBox(width: 16.w),
           Expanded(
             child: Column(
@@ -473,7 +512,7 @@ class _ProfileCard extends StatelessWidget {
             child: Container(
               padding: EdgeInsets.all(8.r),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.12),
+                color: isDark ? AppColors.surfaceDark : const Color(0xFFEEEEFB),
                 borderRadius: BorderRadius.circular(10.r),
               ),
               child: Icon(
@@ -556,8 +595,8 @@ class _LanguageRow extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isDark
-                        ? const Color(0xFF272210)
-                        : const Color(0xFFEEEEFB),
+                        ? AppColors.surfaceDark
+                        : AppColors.backgroundLight,
                   ),
                   child: Center(
                     child: Text(
@@ -616,4 +655,3 @@ class _LanguageRow extends StatelessWidget {
     );
   }
 }
-

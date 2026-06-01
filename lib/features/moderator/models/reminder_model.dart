@@ -5,7 +5,7 @@
 class ReminderModel {
   final String id;
   final String groupId;
-  final String targetType; // 'pilgrim' | 'group'
+  final String targetType;
   final String? pilgrimId;
   final String? pilgrimName;
   final String text;
@@ -15,6 +15,10 @@ class ReminderModel {
   final String status; // 'pending' | 'active' | 'completed' | 'cancelled'
   final int firesSent;
   final DateTime createdAt;
+  /// Number of groups in group_ids (for display).
+  final int groupIdsCount;
+  /// Dart weekdays 1=Mon … 7=Sun; empty = interval-based repeats only.
+  final List<int> weeklyDays;
 
   const ReminderModel({
     required this.id,
@@ -29,6 +33,8 @@ class ReminderModel {
     required this.status,
     required this.firesSent,
     required this.createdAt,
+    this.groupIdsCount = 0,
+    this.weeklyDays = const [],
   });
 
   bool get isActive => status == 'pending' || status == 'active';
@@ -44,9 +50,29 @@ class ReminderModel {
       pilgrimId = pilgrimIdRaw;
     }
 
+    var groupId = _extractId(j['group_id']);
+    var groupIdsCount = 0;
+    final rawIds = j['group_ids'];
+    if (rawIds is List) {
+      groupIdsCount = rawIds.length;
+      if (groupId.isEmpty && rawIds.isNotEmpty) {
+        groupId = _extractId(rawIds.first);
+      }
+    }
+
+    List<int> weeklyDays = const [];
+    final wd = j['weekly_days'];
+    if (wd is List) {
+      weeklyDays = wd
+          .map((e) => (e as num?)?.toInt())
+          .whereType<int>()
+          .where((d) => d >= 1 && d <= 7)
+          .toList();
+    }
+
     return ReminderModel(
       id: j['_id']?.toString() ?? '',
-      groupId: _extractId(j['group_id']),
+      groupId: groupId,
       targetType: j['target_type']?.toString() ?? 'pilgrim',
       pilgrimId: pilgrimId,
       pilgrimName: pilgrimName,
@@ -60,6 +86,8 @@ class ReminderModel {
       firesSent: (j['fires_sent'] as num?)?.toInt() ?? 0,
       createdAt:
           DateTime.tryParse(j['createdAt']?.toString() ?? '') ?? DateTime.now(),
+      groupIdsCount: groupIdsCount,
+      weeklyDays: weeklyDays,
     );
   }
 

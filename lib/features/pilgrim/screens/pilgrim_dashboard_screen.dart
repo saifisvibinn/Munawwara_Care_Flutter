@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:battery_plus/battery_plus.dart';
+import 'package:dio/dio.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -11,28 +11,48 @@ import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../shared/helpers/chat_notification_helper.dart';
+import '../../shared/helpers/message_visibility.dart';
+import '../../shared/services/message_realtime_binder.dart';
+import '../../shared/helpers/deferred_urgent_chat_popup.dart';
+import '../../../core/bootstrap/app_startup_coordinator.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/location_permission_service.dart';
+import '../../../core/services/oem_settings_service.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/services/socket_service.dart';
+import '../../../core/map/app_map_tiles.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/in_app_popup.dart';
+import '../../../core/utils/app_logger.dart';
+import '../../../core/widgets/keep_alive_tab.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/services/callkit_service.dart';
 import '../../calling/providers/call_provider.dart';
+import '../../calling/providers/missed_calls_unread_provider.dart';
 import '../../calling/screens/voice_call_screen.dart';
-import '../../../main.dart' show isNavigatingToCall;
+import '../../calling/native_call_coordinator.dart' show isNavigatingToCall;
 import '../../notifications/providers/notification_provider.dart';
-import '../../notifications/screens/alerts_tab.dart';
 import '../../shared/providers/message_provider.dart';
 import '../../shared/providers/suggested_area_provider.dart';
-import '../../shared/models/suggested_area_model.dart';
-import '../../shared/models/message_model.dart';
 import '../providers/pilgrim_provider.dart';
+import '../services/pilgrim_sos_coordinator.dart';
+import '../widgets/bottom_nav.dart';
+import '../../../core/widgets/support_dialogs.dart';
+import '../widgets/home_tab/home_cards.dart';
+import '../widgets/home_tab/home_tab.dart';
+import '../widgets/map_tab/pilgrim_map_tab.dart';
+import '../widgets/sos/sos_home_phase.dart';
+import 'group_details_screen.dart';
 import 'group_inbox_screen.dart';
-import 'join_group_screen.dart';
+import 'mecca_hotspots_screen.dart';
+import 'pilgrim_notifications_screen.dart';
 import 'pilgrim_profile_screen.dart';
+import 'qibla_compass_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pilgrim Dashboard Screen
@@ -48,9 +68,11 @@ class PilgrimDashboardScreen extends ConsumerStatefulWidget {
 
 class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
+  bool _isInitializingDashboard = true;
   // Bottom nav
+  static const int _qiblaTabIndex = 2;
   int _currentTab = 0;
+  late final PageController _pageController = PageController(initialPage: 0);
 
   // Notifier to trigger chat scroll-to-bottom on tab switch
   final ValueNotifier<int> _chatScrollNotifier = ValueNotifier<int>(0);
@@ -62,14 +84,101 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   Timer? _sosCountdownTimer;
   bool _isSosHolding = false;
   int _sosCountdown = 3;
-  Timer? _roleSyncTimer;
-  bool _promotionDialogOpen = false;
+  Timer? _weatherRefreshTimer;
+
+  /// Post-SOS help session: status line progression (no auto-call).
+  Timer? _sosHelpPhaseTimer;
+  String _sosHelpStatusKey = 'sos_status_notifying';
+  String _sosModeratorName = '';
+
+  /// Drives SOS block: idle disc, help session panel, or post–voice-call closure.
+  SosHomePhase _sosHomePhase = SosHomePhase.idle;
+  /// The moderator who last called the pilgrim during this SOS (for callback).
+  String? _sosCallbackModeratorId;
+  bool _hasModeratorCalledForThisSos = false;
+  Timer? _sosResolvedUiTimer;
+  bool _showResolvedSosCard = false;
+
+  static const _prefsSosUiPrefix = 'pilgrim_sos_ui_v1';
+
+  String _prefsKey(String activeSosId) => '$_prefsSosUiPrefix:$activeSosId';
+
+  Future<void> _persistSosUi() async {
+    final active = ref.read(pilgrimProvider).activeSosId?.trim();
+    if (active == null || active.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_prefsKey(active), <String>[
+        _sosHomePhase.name,
+        _sosHelpStatusKey,
+        _sosModeratorName,
+        _sosCallbackModeratorId ?? '',
+        _hasModeratorCalledForThisSos ? '1' : '0',
+        _showResolvedSosCard ? '1' : '0',
+      ]);
+    } catch (_) {}
+  }
+
+  Future<void> _restoreSosUiIfNeeded() async {
+    final p = ref.read(pilgrimProvider);
+    final active = p.activeSosId?.trim();
+    if (active == null || active.isEmpty) return;
+    if (!p.sosActive) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getStringList(_prefsKey(active));
+      if (raw == null || raw.length < 6) return;
+
+      final phaseStr = raw[0];
+      final statusKey = raw[1];
+      final modName = raw[2];
+      final cbId = raw[3];
+      final hasCalled = raw[4] == '1';
+      final showResolved = raw[5] == '1';
+
+      final phase =
+          SosHomePhase.values.where((e) => e.name == phaseStr).firstOrNull;
+
+      if (!mounted) return;
+      _stopSosHelpTimers();
+      setState(() {
+        _sosHomePhase = phase ?? SosHomePhase.helpSession;
+        _sosHelpStatusKey = statusKey.isNotEmpty
+            ? statusKey
+            : (hasCalled ? 'sos_status_being_handled' : 'sos_status_waiting');
+        _sosModeratorName = modName;
+        _sosCallbackModeratorId = cbId.isNotEmpty ? cbId : null;
+        _hasModeratorCalledForThisSos = hasCalled;
+        _showResolvedSosCard = showResolved;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _clearPersistedSosUi({String? sosId}) async {
+    final id = sosId?.trim() ?? ref.read(pilgrimProvider).activeSosId?.trim();
+    if (id == null || id.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefsKey(id));
+    } catch (_) {}
+  }
 
   // Location
   StreamSubscription<Position>? _locationSub;
+  StreamSubscription<ServiceStatus>? _serviceStatusSub;
+  bool _isGpsEnabled = true;
+  bool _hasLocPermission = true;
   final Battery _battery = Battery();
   final MapController _mapController = MapController();
   LatLng? _myLatLng;
+  /// True after opening the map tab before the first GPS fix (recenter then).
+  bool _pilgrimMapAwaitingFirstFix = false;
+  WeatherAlert _weatherAlert = const WeatherAlert.loading();
+  DateTime? _lastWeatherFetchAt;
+  LatLng? _lastWeatherFetchLatLng;
+  static const Duration _weatherMinRefreshInterval = Duration(minutes: 5);
+  static const double _weatherLocationRefreshMeters = 1500;
 
   // SFX player for incoming chat messages
   final AudioPlayer _sfxPlayer = AudioPlayer();
@@ -83,40 +192,154 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     }
   }
 
-  bool _shouldPollRoleSync(AuthState auth) {
-    return auth.role == 'pilgrim' && auth.moderatorRequestStatus == 'pending';
+  void _reconcileCallsAfterSocketReady() {
+    if (!mounted) return;
+    unawaited(CallKitService.instance.recoverStaleIncomingCallGuards());
+    unawaited(
+      ref.read(callProvider.notifier).reconcileCallStateAfterProcessDeath(),
+    );
+    if (!mounted) return;
+    ref.read(callProvider.notifier).checkPendingAcceptedCall();
+    ref.read(callProvider.notifier).checkPendingDeclinedCall();
   }
 
-  void _stopRoleSyncPolling() {
-    _roleSyncTimer?.cancel();
-    _roleSyncTimer = null;
+  void _refreshRealtimeState({bool forceDashboard = false}) {
+    if (!mounted) return;
+    ref.read(notificationProvider.notifier).refetch();
+    ref.read(pilgrimProvider.notifier).loadDashboard(force: forceDashboard);
   }
 
-  void _configureRoleSyncPolling(AuthState auth, {bool runImmediate = false}) {
-    if (!_shouldPollRoleSync(auth)) {
-      _stopRoleSyncPolling();
+  /// Urgent socket messages received while !resumed are queued; see
+  /// [DeferredUrgentChatPopup].
+  Future<void> _flushDeferredUrgentChatPopup() async {
+    final map = DeferredUrgentChatPopup.takePending();
+    if (map == null || !mounted) return;
+    final myId = ref.read(authProvider).userId ?? '';
+    if (!isRawMessageVisibleToUser(map, myId)) return;
+    final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
+    final gid = map['group_id']?.toString();
+    if (groupId == null || gid != groupId) return;
+    if (ref.read(messageProvider).activeGroupId == groupId) {
+      AppLogger.d(
+        '[PilgrimDashboard] In chat, skip deferred urgent popup',
+      );
       return;
     }
-
-    if (runImmediate) {
-      ref.read(authProvider.notifier).syncRoleWithServer();
-    }
-
-    _roleSyncTimer ??= Timer.periodic(const Duration(seconds: 60), (_) {
-      if (!mounted) return;
-      ref.read(authProvider.notifier).syncRoleWithServer();
-    });
+    await ChatNotificationHelper.showIncomingMessage(
+      context: context,
+      ref: ref,
+      map: map,
+      onViewChat: () {
+        _goToTab(3);
+        ref.read(messageProvider.notifier).markAllRead(groupId);
+      },
+    );
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _lifecycleState = state;
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_checkRequiredPermissions());
+      _loadWeatherAlert(force: true);
+      ref.read(missedCallsUnreadProvider.notifier).refresh();
+      if (_locationSub == null) {
+        unawaited(_initLocation());
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          unawaited(_flushDeferredUrgentChatPopup());
+        }
+      });
+    }
+  }
+
+  int _permissionsCheckGate = 0;
+
+  Future<void> _checkRequiredPermissions() async {
+    if (OemSettingsService.isOnboardingSkippedForSession) return;
+
+    final gate = OemSettingsService.onboardingGate;
+    final checkId = ++_permissionsCheckGate;
+
+    final hasLoc = await hasLocationAlwaysPermission();
+    if (!mounted ||
+        checkId != _permissionsCheckGate ||
+        OemSettingsService.isOnboardingSkippedForSession ||
+        gate != OemSettingsService.onboardingGate) {
+      return;
+    }
+    if (_hasLocPermission != hasLoc) {
+      setState(() => _hasLocPermission = hasLoc);
+    }
+
+    final showOnboarding = await OemSettingsService.shouldShowOnboardingOnResume(
+      gate: gate,
+    );
+    if (!mounted ||
+        checkId != _permissionsCheckGate ||
+        OemSettingsService.isOnboardingSkippedForSession ||
+        gate != OemSettingsService.onboardingGate) {
+      return;
+    }
+    if (showOnboarding) {
+      context.go('/device-care-onboarding');
+    }
+  }
+
+  Future<void> _promptPermissionsForLocationUse() async {
+    final showOnboarding =
+        await OemSettingsService.shouldShowOnboardingForLocationUse();
+    if (!mounted) return;
+    if (showOnboarding) {
+      context.go('/device-care-onboarding');
+      return;
+    }
+    await requestLocationPermissionsFlow(context);
+    await _checkRequiredPermissions();
+  }
+
+  /// Moderator marked SOS resolved — show friendly card, then allow new SOS.
+  void _applyModeratorResolvedUi({String? sosIdForPrefs}) {
+    if (!mounted) return;
+
+    _stopSosHelpTimers();
+    _sosCallbackModeratorId = null;
+    _hasModeratorCalledForThisSos = false;
+    _sosResolvedUiTimer?.cancel();
+    _sosResolvedUiTimer = null;
+
+    setState(() {
+      _sosHomePhase = SosHomePhase.helpSession;
+      _sosHelpStatusKey = 'sos_status_resolved_friendly';
+      _sosModeratorName = '';
+      _showResolvedSosCard = true;
+    });
+
+    final clearId =
+        sosIdForPrefs?.trim() ??
+        ref.read(pilgrimProvider).activeSosId?.trim();
+    if (clearId != null && clearId.isNotEmpty) {
+      unawaited(_clearPersistedSosUi(sosId: clearId));
+    }
+
+    ref.read(pilgrimProvider.notifier).cancelSOS();
+
+    _sosResolvedUiTimer = Timer(const Duration(seconds: 30), () {
+      if (!mounted) return;
+      setState(() {
+        _showResolvedSosCard = false;
+        _sosHomePhase = SosHomePhase.idle;
+        _sosHelpStatusKey = 'sos_status_notifying';
+      });
+      SupportDialogs.showRating(context, isContextual: true);
+    });
   }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    PilgrimSosCoordinator.onModeratorResolvedUi = _applyModeratorResolvedUi;
 
     // SOS hold progress ring (fills in 3 s)
     _sosHoldController = AnimationController(
@@ -128,162 +351,531 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _sosPulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
+    );
 
-    // Load data after first frame so the provider is ready
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await ref.read(pilgrimProvider.notifier).loadDashboard();
+    ref.listenManual(callProvider, (prev, next) {
+      final sosActive = ref.read(pilgrimProvider).sosActive;
+      final incomingModeratorCall =
+          sosActive &&
+          prev?.status != CallStatus.ringing &&
+          next.status == CallStatus.ringing &&
+          (next.remoteUserId?.isNotEmpty ?? false);
+      if (incomingModeratorCall) {
+        _sosCallbackModeratorId = next.remoteUserId;
+        _hasModeratorCalledForThisSos = true;
+        if (mounted) {
+          setState(() {
+            _sosHelpStatusKey = 'sos_status_being_handled';
+          });
+        }
+        unawaited(_persistSosUi());
+      }
+
+      if (next.status == CallStatus.connected &&
+          (prev?.status == CallStatus.ringing || prev?.status == CallStatus.connecting) &&
+          mounted &&
+          !isNavigatingToCall &&
+          !VoiceCallScreen.isActive) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
+        );
+      }
+      if (next.status == CallStatus.calling &&
+          prev?.status != CallStatus.calling &&
+          mounted &&
+          !isNavigatingToCall &&
+          !VoiceCallScreen.isActive) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
+        );
+      }
+      if (next.status == CallStatus.connecting &&
+          (prev?.status == CallStatus.calling || prev?.status == CallStatus.ringing) &&
+          mounted &&
+          !isNavigatingToCall &&
+          !VoiceCallScreen.isActive) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
+        );
+      }
+
+      if (next.status == CallStatus.ended && prev != null) {
+        final wasInVoice =
+            prev.status == CallStatus.calling ||
+            prev.status == CallStatus.ringing ||
+            prev.status == CallStatus.connecting ||
+            prev.status == CallStatus.connected;
+        final shouldShowCallback =
+            wasInVoice &&
+            ref.read(pilgrimProvider).sosActive &&
+            _hasModeratorCalledForThisSos &&
+            (_sosCallbackModeratorId?.isNotEmpty ?? false);
+        if (shouldShowCallback && mounted) {
+          setState(() => _sosHelpStatusKey = 'sos_status_callback_available');
+          unawaited(_persistSosUi());
+        }
+      }
+    });
+    ref.listenManual(pilgrimProvider, (prev, next) {
+      if (prev?.sosActive != true && next.sosActive) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (!ref.read(pilgrimProvider).sosActive) return;
+          if (_sosHomePhase != SosHomePhase.idle) return;
+          setState(() {
+            _sosHomePhase = SosHomePhase.helpSession;
+            _sosHelpStatusKey = 'sos_status_waiting';
+            _sosModeratorName = '';
+            _sosCallbackModeratorId = null;
+            _hasModeratorCalledForThisSos = false;
+            _showResolvedSosCard = false;
+          });
+        });
+      }
+      if (prev?.sosActive == true && next.sosActive == false) {
+        if (_showResolvedSosCard) {
+          return;
+        }
+        _stopSosHelpTimers();
+        _sosResolvedUiTimer?.cancel();
+        _sosResolvedUiTimer = null;
+        _sosCallbackModeratorId = null;
+        _hasModeratorCalledForThisSos = false;
+        if (mounted) {
+          setState(() {
+            _sosHelpStatusKey = 'sos_status_notifying';
+            _sosHomePhase = SosHomePhase.idle;
+            _sosModeratorName = '';
+            _showResolvedSosCard = false;
+          });
+        }
+      }
+      final prevGroupId = prev?.groupInfo?.groupId;
+      final nextGroupId = next.groupInfo?.groupId;
+      if (prevGroupId != nextGroupId) {
+        if (prevGroupId != null) {
+          SocketService.emit('leave_group', prevGroupId);
+        }
+        if (nextGroupId != null) {
+          SocketService.emit('join_group', nextGroupId);
+        }
+      }
+      final chatGid = next.groupInfo?.groupId;
+      final chatMsgState = ref.read(messageProvider);
+      if (_currentTab == 3 && chatGid != null) {
+        if (chatMsgState.activeGroupId != chatGid) {
+          ref.read(messageProvider.notifier).setActiveGroup(chatGid);
+        }
+      } else if (chatMsgState.activeGroupId != null) {
+        ref.read(messageProvider.notifier).setActiveGroup(null);
+      }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _sosPulseController.repeat(reverse: true);
+      }
+      unawaited(_checkRequiredPermissions());
+      unawaited(ref.read(authProvider.notifier).ensureFcmTokenRegistered());
+      unawaited(_bootstrapDashboard());
+    });
+  }
+
+  Future<void> _bootstrapDashboard() async {
+    if (AppStartupCoordinator.consumeDashboardPrimed()) {
+      if (mounted) {
+        setState(() => _isInitializingDashboard = false);
+      }
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_finishPilgrimWarmup());
+      });
+      return;
+    }
+
+    try {
+      await ref.read(authProvider.notifier).hydrateFromCache();
+      await ref.read(pilgrimProvider.notifier).hydrateFromCache();
+      if (mounted) {
+        setState(() => _isInitializingDashboard = false);
+      }
+    } catch (e) {
+      AppLogger.e('[PilgrimDashboard] Error loading dashboard: $e');
+      if (mounted) {
+        setState(() => _isInitializingDashboard = false);
+      }
+    }
+
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_loadRemoteDashboardState());
+    });
+  }
+
+  Future<void> _loadRemoteDashboardState() async {
+    final pilgrim = ref.read(pilgrimProvider);
+    final hasCached =
+        pilgrim.profile != null || pilgrim.groupInfo != null;
+
+    try {
+      await ref.read(pilgrimProvider.notifier).loadDashboard(
+        silently: hasCached,
+      );
+      await _restoreSosUiIfNeeded();
       final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
+      AppLogger.d('[PilgrimDashboard] Dashboard loaded. GroupId: $groupId');
+
       if (groupId != null) {
         ref.read(messageProvider.notifier).fetchUnreadCount(groupId);
       }
-      // Connect socket with this pilgrim's identity
-      final auth = ref.read(authProvider);
-      if (auth.userId != null) {
-        final socketUrl = ApiService.baseUrl.replaceFirst(RegExp(r'/api$'), '');
+    } catch (e) {
+      AppLogger.e('[PilgrimDashboard] Error loading dashboard: $e');
+    }
+
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_finishPilgrimWarmup());
+    });
+  }
+
+  Future<void> _finishPilgrimWarmup() async {
+    await _restoreSosUiIfNeeded();
+    if (await PilgrimSosCoordinator.consumePendingModeratorResolved()) {
+      _applyModeratorResolvedUi();
+    }
+    final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
+    if (groupId != null) {
+      ref.read(messageProvider.notifier).fetchUnreadCount(groupId);
+    }
+    unawaited(_initLocationHealth());
+    await _initLocation();
+    _connectPilgrimRealtime();
+    await _finishDashboardWarmup();
+  }
+
+  void _connectPilgrimRealtime() {
+    final auth = ref.read(authProvider);
+    if (auth.userId != null) {
+        // Re-join group room on every (re)connect. Register BEFORE connect so we
+        // can't miss a fast connect on hot restart.
+        SocketService.onConnected(_onSocketConnected);
+
+        final socketUrl = ApiService.socketOrigin;
+        MessageRealtimeBinder.bindDeleteListener();
         SocketService.connect(
           serverUrl: socketUrl,
           userId: auth.userId!,
           role: auth.role ?? 'pilgrim',
         );
-        ref.read(callProvider.notifier).reRegisterListeners();
+        // Note: CallNotifier.build() already registers call socket listeners on
+        // first access, and SocketService.connect() re-applies them on every
+        // reconnect via _applyPendingListeners(). No manual reRegisterListeners()
+        // needed here — calling it would cause duplicate handler registration.
+        AppLogger.d(
+          '[PilgrimDashboard] Socket status: ${SocketService.isConnected ? 'Connected' : 'Connecting...'}',
+        );
+
+        // If we're already connected, join immediately (and trigger beacon sync).
+        _onSocketConnected();
+
         // Check if there's a pending call accepted from native call screen.
         // Must run AFTER the socket handshake so the call-answer emit goes through.
         if (SocketService.isConnected) {
-          ref.read(callProvider.notifier).checkPendingAcceptedCall();
-          ref.read(callProvider.notifier).checkPendingDeclinedCall();
+          _reconcileCallsAfterSocketReady();
         } else {
           void checkOnce() {
-            ref.read(callProvider.notifier).checkPendingAcceptedCall();
-            ref.read(callProvider.notifier).checkPendingDeclinedCall();
             SocketService.offConnected(checkOnce);
+            _reconcileCallsAfterSocketReady();
           }
 
           SocketService.onConnected(checkOnce);
         }
-        // Join group socket room so we receive group-scoped events
-        final gId = ref.read(pilgrimProvider).groupInfo?.groupId;
-        if (gId != null) SocketService.emit('join_group', gId);
-        // Re-join group room on every reconnect (so beacon state is re-synced)
-        SocketService.onConnected(_onSocketConnected);
+        // Group join is handled by _onSocketConnected (initial + every reconnect)
         // Listen for moderator navigation beacon
         SocketService.on('mod_nav_beacon', (data) {
           if (!mounted) return;
-          final map = data as Map<String, dynamic>;
-          final modId = map['moderatorId'] as String? ?? '';
-          final modName = map['moderatorName'] as String? ?? 'Moderator';
-          final enabled = map['enabled'] as bool? ?? false;
-          final lat = (map['lat'] as num?)?.toDouble();
-          final lng = (map['lng'] as num?)?.toDouble();
-          ref
-              .read(pilgrimProvider.notifier)
-              .updateModeratorBeacon(modId, modName, enabled, lat, lng);
+          try {
+            // socket.io can deliver data as Map<dynamic,dynamic> — cast safely
+            final map = Map<String, dynamic>.from(data as Map);
+            final modId = map['moderatorId'] as String? ?? '';
+            final modName = map['moderatorName'] as String? ?? 'Moderator';
+            final enabled = map['enabled'] as bool? ?? false;
+            final lat = (map['lat'] as num?)?.toDouble();
+            final lng = (map['lng'] as num?)?.toDouble();
+            ref
+                .read(pilgrimProvider.notifier)
+                .updateModeratorBeacon(modId, modName, enabled, lat, lng);
+          } catch (e) {
+            AppLogger.e('[PilgrimDashboard] mod_nav_beacon handler error: $e');
+          }
         });
 
         // Listen for removal from group
         SocketService.on('removed-from-group', (data) {
           if (!mounted) return;
-          // Clear all group-related state
-          ref.read(pilgrimProvider.notifier).clearGroupState();
-          // Clear suggested areas
-          ref.read(suggestedAreaProvider.notifier).clear();
-          // Show notification to user
-          final map = data as Map<String, dynamic>;
-          final groupName = map['group_name'] as String? ?? 'the group';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('You have been removed from $groupName'),
-              backgroundColor: Colors.orange,
+          try {
+            final map = Map<String, dynamic>.from(data as Map);
+            final groupId = map['group_id']?.toString();
+            if (groupId != null) {
+              SocketService.emit('leave_group', groupId);
+            }
+
+            _stopSosHelpTimers();
+            _sosCallbackModeratorId = null;
+            _hasModeratorCalledForThisSos = false;
+            if (mounted) {
+              setState(() => _sosHomePhase = SosHomePhase.idle);
+            }
+            // Clear all group-related state immediately
+            ref.read(pilgrimProvider.notifier).clearGroupState();
+            // Clear suggested areas
+            ref.read(suggestedAreaProvider.notifier).clear();
+            // Show notification to user
+            final groupName = map['group_name'] as String? ?? 'the group';
+            StandardSnackBar.showWarning(
+              context,
+              'msg_removed_from_group'.tr(args: [groupName]),
               duration: const Duration(seconds: 5),
-            ),
-          );
+            );
+            // Reload from server to confirm state (force bypasses throttle)
+            ref.read(pilgrimProvider.notifier).loadDashboard(force: true);
+          } catch (e) {
+            AppLogger.e('[PilgrimDashboard] removed-from-group handler error: $e');
+          }
         });
 
         // Listen for new group messages — append silently to avoid flicker
         SocketService.on('new_message', (data) {
           if (!mounted) return;
-          final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
-          if (groupId == null) return;
-          final map = data as Map<String, dynamic>;
-          // Append the single message without a full reload (no spinner)
-          ref.read(messageProvider.notifier).appendMessage(map);
-          if (_currentTab == 3) {
-            // User is on Chat tab → mark as read immediately
-            ref.read(messageProvider.notifier).markAllRead(groupId);
+          AppLogger.d('[PilgrimDashboard] Socket event: new_message | Data: $data');
+          try {
+            final map = Map<String, dynamic>.from(data as Map);
+            AppLogger.d(
+              '[PilgrimDashboard] is_urgent value in map: ${map['is_urgent']} (type: ${map['is_urgent'].runtimeType})',
+            );
+            final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
+            if (groupId == null) {
+              AppLogger.w('[PilgrimDashboard] groupInfo.groupId is null');
+              return;
+            }
+            final myId = ref.read(authProvider).userId ?? '';
+            if (!isRawMessageVisibleToUser(map, myId)) {
+              AppLogger.d(
+                '[PilgrimDashboard] Ignoring private message for another pilgrim',
+              );
+              return;
+            }
+            // Append the single message without a full reload (no spinner)
+            final msgNotifier = ref.read(messageProvider.notifier);
+            final appended = msgNotifier.appendMessage(map);
+            if (!appended) {
+              AppLogger.w(
+                '[PilgrimDashboard] appendMessage failed — refetching chat',
+              );
+              unawaited(msgNotifier.loadMessages(groupId, force: true));
+              return;
+            }
+
+            // Don't show popup or play sound when app is not interactively
+            // foreground (binding reflects engine state; avoids false "resumed"
+            // before the first lifecycle callback).
+            if (WidgetsBinding.instance.lifecycleState !=
+                AppLifecycleState.resumed) {
+              AppLogger.d(
+                '[PilgrimDashboard] App not resumed — deferring urgent popup',
+              );
+              if (ref.read(messageProvider).activeGroupId != groupId) {
+                DeferredUrgentChatPopup.offerIfUrgent(map);
+              }
+              return;
+            }
+
+            // Don't show popup if user is actively reading this chat
+            if (ref.read(messageProvider).activeGroupId == groupId) {
+              AppLogger.d('[PilgrimDashboard] User is reading chat, skipping popup');
+              return;
+            }
+
+            // Show in-app popup for the incoming message
+            unawaited(
+              ChatNotificationHelper.showIncomingMessage(
+                context: context,
+                ref: ref,
+                map: map,
+                onViewChat: () {
+                  _goToTab(3);
+                  ref.read(messageProvider.notifier).markAllRead(groupId);
+                },
+              ),
+            );
+          } catch (e) {
+            AppLogger.e('[PilgrimDashboard] new_message handler error: $e');
           }
-          // Show in-app popup for the incoming message
-          _showMessagePopup(map);
         });
 
-        // Listen for deleted messages — remove silently to avoid flicker
-        SocketService.on('message_deleted', (data) {
-          if (!mounted) return;
-          final map = data as Map<String, dynamic>;
-          final messageId = map['message_id'] as String?;
-          if (messageId != null) {
-            ref.read(messageProvider.notifier).removeMessage(messageId);
-          }
-        });
+        // message_deleted: global [MessageRealtimeBinder] (bootstrap + below)
 
         // Listen for suggested area / meetpoint additions
         SocketService.on('area_added', (data) {
           if (!mounted) return;
-          ref
-              .read(suggestedAreaProvider.notifier)
-              .appendArea(data as Map<String, dynamic>);
+          try {
+            final map = Map<String, dynamic>.from(data as Map);
+            ref.read(suggestedAreaProvider.notifier).appendArea(map);
+          } catch (e) {
+            AppLogger.e('[PilgrimDashboard] area_added handler error: $e');
+          }
         });
 
         // Listen for suggested area / meetpoint deletions
         SocketService.on('area_deleted', (data) {
           if (!mounted) return;
-          final map = data as Map<String, dynamic>;
-          final areaId = map['area_id'] as String?;
-          if (areaId != null) {
-            ref.read(suggestedAreaProvider.notifier).removeArea(areaId);
+          try {
+            final map = Map<String, dynamic>.from(data as Map);
+            final areaId = map['area_id'] as String?;
+            if (areaId != null) {
+              ref.read(suggestedAreaProvider.notifier).removeArea(areaId);
+            }
+          } catch (e) {
+            AppLogger.e('[PilgrimDashboard] area_deleted handler error: $e');
           }
         });
 
         // Listen for notification refresh (new area/meetpoint/SOS notifications)
         // refetch() updates the full list + badge without auto-marking as read
         SocketService.on('notification_refresh', (_) {
-          if (!mounted) return;
-          ref.read(notificationProvider.notifier).refetch();
-          final auth = ref.read(authProvider);
-          if (_shouldPollRoleSync(auth)) {
-            ref.read(authProvider.notifier).syncRoleWithServer();
-          }
+          _refreshRealtimeState();
         });
 
-        // Socket-first moderator request updates (approval/rejection)
-        SocketService.on('moderator-request-approved', (_) {
-          if (!mounted) return;
-          ref.read(notificationProvider.notifier).refetch();
-          ref.read(authProvider.notifier).syncRoleWithServer();
-        });
-
-        SocketService.on('moderator-request-rejected', (_) {
-          if (!mounted) return;
-          ref.read(notificationProvider.notifier).refetch();
-          ref.read(authProvider.notifier).fetchProfile();
-        });
 
         // Listen for missed calls — refresh notifications so badge + list update
         SocketService.on('missed-call-received', (_) {
-          if (!mounted) return;
-          ref.read(notificationProvider.notifier).refetch();
+          _refreshRealtimeState();
+          ref.read(missedCallsUnreadProvider.notifier).refresh();
         });
-      }
-      // Fetch notification badge count
-      ref.read(notificationProvider.notifier).fetchUnreadCount();
-      await ref.read(authProvider.notifier).fetchProfile();
+
+        // Keep pilgrim dashboard synced when group composition/meta changes
+        SocketService.on('group_updated', (_) {
+          _refreshRealtimeState(forceDashboard: true);
+        });
+        SocketService.on('group_deleted', (_) {
+          _refreshRealtimeState(forceDashboard: true);
+        });
+
+        // Listen for remote force logout (e.g., code refreshed by moderator)
+        SocketService.on('force_logout', (_) {
+          if (!mounted) return;
+          ref.read(authProvider.notifier).logout();
+          context.go('/login');
+          StandardSnackBar.showError(context, 'msg_force_logout'.tr(), duration: const Duration(seconds: 5));
+        });
+
+        // Listen for group membership changes (moderator controlled)
+        SocketService.on('added-to-group', (data) {
+          if (!mounted) return;
+          // Immediately join the socket room using the payload group_id so
+          // the server can sync the active beacon right away — before the
+          // async provider refresh completes. This prevents a race condition
+          // where the beacon sync arrives while groupInfo is still null.
+          final payload = data is Map<String, dynamic> ? data : <String, dynamic>{};
+          final newGroupId = payload['group_id']?.toString();
+          if (newGroupId != null) {
+            SocketService.emit('join_group', newGroupId);
+          }
+          // Use loadDashboard(force:true) instead of ref.invalidate —
+          // invalidate resets to empty state but build() never calls
+          // loadDashboard, leaving groupInfo permanently null.
+          ref.read(pilgrimProvider.notifier).loadDashboard(force: true).then((_) {
+            if (!mounted) return;
+            final gId = ref.read(pilgrimProvider).groupInfo?.groupId ?? newGroupId;
+            if (gId != null) {
+              ref.read(suggestedAreaProvider.notifier).load(gId);
+            }
+          });
+        });
+
+        // Moderator acknowledged SOS — update status and cancel the auto-call
+        // so the pilgrim is not forced into a group ring once help is underway.
+        SocketService.on('sos-handling', (data) {
+          if (!mounted) return;
+          try {
+            final map = Map<String, dynamic>.from(data as Map);
+            if (!ref.read(pilgrimProvider).sosActive) return;
+
+            final myGroup = ref.read(pilgrimProvider).groupInfo?.groupId;
+            final evtGroup = map['group_id']?.toString();
+            if (myGroup != null &&
+                evtGroup != null &&
+                evtGroup != myGroup) {
+              return;
+            }
+
+            final sid = map['sos_id']?.toString().trim();
+            final active = ref.read(pilgrimProvider).activeSosId?.trim();
+            // Ignore only when both IDs are present and clearly differ
+            // (fixes missed cancels when one side omits or formats ids).
+            if (sid != null &&
+                sid.isNotEmpty &&
+                active != null &&
+                active.isNotEmpty &&
+                sid != active) {
+              return;
+            }
+
+            final modName = map['moderator_name']?.toString() ?? '';
+            _stopSosHelpTimers();
+            setState(() {
+              _sosHelpStatusKey = 'sos_status_reviewing';
+              if (modName.isNotEmpty) _sosModeratorName = modName;
+            });
+            unawaited(_persistSosUi());
+          } catch (e) {
+            AppLogger.e('[PilgrimDashboard] sos-handling handler error: $e');
+          }
+        });
+
+        SocketService.on('sos-resolved', (data) {
+          if (!mounted) return;
+          try {
+            final map = Map<String, dynamic>.from(data as Map);
+            if (!ref.read(pilgrimProvider).sosActive) return;
+
+            final myGroup = ref.read(pilgrimProvider).groupInfo?.groupId;
+            final evtGroup = map['group_id']?.toString();
+            if (myGroup != null &&
+                evtGroup != null &&
+                evtGroup.isNotEmpty &&
+                evtGroup != myGroup) {
+              return;
+            }
+
+            final sid = map['sos_id']?.toString().trim();
+            _applyModeratorResolvedUi(sosIdForPrefs: sid);
+          } catch (e) {
+            AppLogger.e('[PilgrimDashboard] sos-resolved handler error: $e');
+          }
+        });
+    }
+  }
+
+  Future<void> _finishDashboardWarmup() async {
+    if (!mounted) return;
+    ref.read(notificationProvider.notifier).fetchUnreadCount();
+    ref.read(missedCallsUnreadProvider.notifier).refresh();
+    unawaited(_loadWeatherAlert(force: true));
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated) {
+      context.go('/login');
+      return;
+    }
+    final gIdForAreas = ref.read(pilgrimProvider).groupInfo?.groupId;
+    if (gIdForAreas != null) {
+      ref.read(suggestedAreaProvider.notifier).load(gIdForAreas);
+    }
+    _weatherRefreshTimer ??= Timer.periodic(const Duration(hours: 3), (_) {
       if (!mounted) return;
-      _configureRoleSyncPolling(ref.read(authProvider), runImmediate: true);
-      // Load suggested areas if in a group
-      final gIdForAreas = ref.read(pilgrimProvider).groupInfo?.groupId;
-      if (gIdForAreas != null) {
-        ref.read(suggestedAreaProvider.notifier).load(gIdForAreas);
-      }
-      _initLocation();
+      _loadWeatherAlert(force: true);
     });
   }
 
@@ -295,227 +887,518 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _mapController.dispose();
     _sosTimer?.cancel();
     _sosCountdownTimer?.cancel();
-    _roleSyncTimer?.cancel();
+    _stopSosHelpTimers();
+    _sosResolvedUiTimer?.cancel();
+    _sosResolvedUiTimer = null;
+    _sosCallbackModeratorId = null;
+    _hasModeratorCalledForThisSos = false;
+    _weatherRefreshTimer?.cancel();
+    _serviceStatusSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _locationSub?.cancel();
     _sfxPlayer.dispose();
+    ChatNotificationHelper.dispose();
     SocketService.off('mod_nav_beacon');
     SocketService.off('removed-from-group');
     SocketService.off('new_message');
-    SocketService.off('message_deleted');
     SocketService.off('area_added');
     SocketService.off('area_deleted');
     SocketService.off('notification_refresh');
     SocketService.off('missed-call-received');
-    SocketService.off('moderator-request-approved');
-    SocketService.off('moderator-request-rejected');
+    SocketService.off('group_updated');
+    SocketService.off('group_deleted');
+    SocketService.off('added-to-group');
+    SocketService.off('force_logout');
+    SocketService.off('sos-handling');
+    SocketService.off('sos-resolved');
     SocketService.offConnected(_onSocketConnected);
+    if (PilgrimSosCoordinator.onModeratorResolvedUi == _applyModeratorResolvedUi) {
+      PilgrimSosCoordinator.onModeratorResolvedUi = null;
+    }
+    _pageController.dispose();
     super.dispose();
   }
 
-  // ── In-app popup for incoming messages ───────────────────────────────────
-  void _showMessagePopup(Map<String, dynamic> map) {
-    if (!mounted) return;
-
-    // Don't play SFX or show popup when app is not in foreground
-    if (_lifecycleState != AppLifecycleState.resumed) return;
-
-    // Don't show popup if user is already on the chat tab
-    if (_currentTab == 3) return;
-
-    try {
-      final msg = GroupMessage.fromJson(map);
-
-      // Don't show popup for our own messages
-      final myId = ref.read(authProvider).userId;
-      if (msg.sender?.id == myId) return;
-
-      // ── Play SFX for every incoming message (regardless of urgency) ─────────
-      _sfxPlayer.play(AssetSource('static/in_app.mp3'));
-
-      final senderName = msg.sender?.fullName ?? 'notification_title'.tr();
-
-      if (msg.type == 'meetpoint') {
-        // Meetpoint message → special popup with Navigate button
-        final mpName =
-            msg.meetpointData?['name']?.toString() ?? 'meetpoint'.tr();
-        final lat = msg.meetpointData?['latitude'];
-        final lng = msg.meetpointData?['longitude'];
-        InAppPopup.showMeetpoint(
-          context,
-          name: mpName,
-          body: msg.content,
-          onNavigate: (lat != null && lng != null)
-              ? () {
-                  final url = Uri.parse(
-                    'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
-                  );
-                  launchUrl(url, mode: LaunchMode.externalApplication);
-                }
-              : null,
-        );
-      } else {
-        // Only show popup for urgent messages
-        if (!msg.isUrgent) {
-          // Non-urgent: brief auto-dismissing popup (no lock, no TTS)
-          final body =
-              msg.content ??
-              (msg.type == 'voice'
-                  ? '\ud83c\udfa4 ${'voice_message'.tr()}'
-                  : '');
-          InAppPopup.show(
-            context,
-            title: senderName,
-            body: body,
-            isUrgent: false,
-            lockUntilDismiss: false,
-            duration: const Duration(seconds: 4),
-            onViewChat: () {
-              setState(() => _currentTab = 3);
-              final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
-              if (groupId != null) {
-                ref.read(messageProvider.notifier).markAllRead(groupId);
-              }
-              _chatScrollNotifier.value++;
-            },
-          );
-          return;
-        }
-
-        final body =
-            msg.content ??
-            (msg.type == 'voice' ? '🎤 ${'voice_message'.tr()}' : '');
-
-        String? playType;
-        String? playValue;
-        if (msg.isUrgent && msg.type == 'voice' && msg.mediaUrl != null) {
-          playType = 'voice';
-          playValue = ref
-              .read(messageProvider.notifier)
-              .buildUploadUrl(msg.mediaUrl!);
-        } else if (msg.isUrgent && msg.type == 'tts') {
-          playType = 'tts';
-          playValue = msg.originalText ?? msg.content ?? '';
-        }
-
-        InAppPopup.show(
-          context,
-          title: senderName,
-          body: body,
-          isUrgent: msg.isUrgent,
-          lockUntilDismiss: true,
-          playType: playType,
-          playValue: playValue,
-          onViewChat: () {
-            // Navigate to chat tab, mark read, and scroll to latest
-            setState(() => _currentTab = 3);
-            final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
-            if (groupId != null) {
-              ref.read(messageProvider.notifier).markAllRead(groupId);
-            }
-            _chatScrollNotifier.value++;
-          },
-        );
-      }
-    } catch (e) {
-      debugPrint('[InAppPopup] Error showing popup: $e');
+  /// Runs map/chat/home side effects when the visible tab changes.
+  void _applyTabSideEffects(int index) {
+    final chatGid = ref.read(pilgrimProvider).groupInfo?.groupId;
+    if (index == 3 && chatGid != null) {
+      ref.read(messageProvider.notifier).setActiveGroup(chatGid);
+    } else {
+      ref.read(messageProvider.notifier).setActiveGroup(null);
+    }
+    if (index == 0) {
+      unawaited(_loadWeatherAlert(force: true));
+    }
+    if (index == 3) {
+      _chatScrollNotifier.value++;
+    }
+    if (index == 1) {
+      _recenterPilgrimMapOnMe();
     }
   }
 
-  Future<void> _showModeratorPromotionDialog() async {
-    if (!mounted || _promotionDialogOpen) return;
-    _promotionDialogOpen = true;
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
-        return AlertDialog(
-          backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
-          title: Text(
-            'moderator_promotion_title'.tr(),
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : AppColors.textDark,
-            ),
-          ),
-          content: Text(
-            'moderator_promotion_body'.tr(),
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              color: isDark
-                  ? AppColors.textMutedLight
-                  : AppColors.textMutedDark,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                ref.read(authProvider.notifier).acknowledgeModeratorPromotion();
-                Navigator.of(dialogContext).pop();
-              },
-              child: Text(
-                'moderator_promotion_later'.tr(),
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  color: isDark
-                      ? AppColors.textMutedLight
-                      : AppColors.textMutedDark,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                ref.read(authProvider.notifier).acknowledgeModeratorPromotion();
-                Navigator.of(dialogContext).pop();
-                context.go('/moderator-dashboard');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-              child: Text('moderator_promotion_switch'.tr()),
-            ),
-          ],
-        );
-      },
-    );
-
-    _promotionDialogOpen = false;
+  void _handlePageChanged(int index) {
+    if (_currentTab == index) return;
+    final previousTab = _currentTab;
+    setState(() {
+      if (previousTab == 1 && index != 1) {
+        _pilgrimMapAwaitingFirstFix = false;
+      }
+      _currentTab = index;
+      if (index == 1 && _myLatLng == null) {
+        _pilgrimMapAwaitingFirstFix = true;
+      }
+    });
+    _applyTabSideEffects(index);
   }
+
+  void _openProfileScreen() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<void>(
+        builder: (ctx) => Scaffold(
+          backgroundColor: isDark
+              ? AppColors.backgroundDark
+              : const Color(0xfff1f5f3),
+          body: const SafeArea(child: PilgrimProfileScreen()),
+        ),
+      ),
+    );
+  }
+
+  /// Swipe uses [PageView] physics; programmatic navigation uses [jumpToPage].
+  void _goToTab(int index, {bool animate = false}) {
+    if (_currentTab == index &&
+        (!_pageController.hasClients ||
+            (_pageController.page?.round() ?? _currentTab) == index)) {
+      return;
+    }
+    if (!_pageController.hasClients) {
+      final previousTab = _currentTab;
+      setState(() {
+        if (previousTab == 1 && index != 1) {
+          _pilgrimMapAwaitingFirstFix = false;
+        }
+        _currentTab = index;
+        if (index == 1 && _myLatLng == null) {
+          _pilgrimMapAwaitingFirstFix = true;
+        }
+      });
+      _applyTabSideEffects(index);
+      return;
+    }
+    if (animate) {
+      unawaited(
+        _pageController.animateToPage(
+          index,
+          duration: dashboardTabAnimDuration,
+          curve: dashboardTabAnimCurve,
+        ),
+      );
+    } else {
+      _pageController.jumpToPage(index);
+    }
+  }
+
+  void _stopSosHelpTimers() {
+    _sosHelpPhaseTimer?.cancel();
+    _sosHelpPhaseTimer = null;
+  }
+
+  void _startSosHelpSessionTimers() {
+    _stopSosHelpTimers();
+    if (!mounted) return;
+    setState(() => _sosHelpStatusKey = 'sos_status_notifying');
+    unawaited(_persistSosUi());
+    _sosHelpPhaseTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      if (!ref.read(pilgrimProvider).sosActive) return;
+      setState(() => _sosHelpStatusKey = 'sos_status_waiting');
+      unawaited(_persistSosUi());
+    });
+  }
+
+  // ── In-app popup for incoming messages ───────────────────────────────────
+  // Extracted to ChatNotificationHelper
+
+
 
   // ── Location ────────────────────────────────────────────────────────────────
 
+  bool _isUsableLastKnown(Position p) {
+    final age = DateTime.now().difference(p.timestamp);
+    if (age > const Duration(hours: 8)) return false;
+    final acc = p.accuracy;
+    if (acc.isInfinite || acc < 0) return false;
+    return acc <= 8000;
+  }
+
+  Future<void> _applyPilgrimGpsPosition(Position pos) async {
+    if (!mounted) return;
+    final ll = LatLng(pos.latitude, pos.longitude);
+    setState(() => _myLatLng = ll);
+    _loadWeatherAlert(
+      latitude: pos.latitude,
+      longitude: pos.longitude,
+      force: false,
+    );
+    int? battery;
+    try {
+      final lvl = await _battery.batteryLevel;
+      battery = lvl;
+      ref.read(pilgrimProvider.notifier).setBattery(lvl);
+    } catch (_) {}
+    if (!mounted) return;
+    ref.read(pilgrimProvider.notifier).updateLocation(
+          latitude: pos.latitude,
+          longitude: pos.longitude,
+          batteryPercent: battery,
+        );
+    if (_pilgrimMapAwaitingFirstFix && _currentTab == 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _currentTab != 1) return;
+        final target = _myLatLng ?? AppMapTiles.fallbackMapCenter;
+        _mapController.move(target, AppMapTiles.clampMapZoom(15));
+        setState(() => _pilgrimMapAwaitingFirstFix = false);
+      });
+    }
+  }
+
+  void _recenterPilgrimMapOnMe() {
+    if (!mounted) return;
+    final target = _myLatLng ?? AppMapTiles.fallbackMapCenter;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mapController.move(target, AppMapTiles.clampMapZoom(15));
+    });
+  }
+
+  Future<void> _initLocationHealth() async {
+    _isGpsEnabled = await Geolocator.isLocationServiceEnabled();
+    _hasLocPermission = await hasLocationAlwaysPermission();
+    if (mounted) setState(() {});
+
+    _serviceStatusSub = Geolocator.getServiceStatusStream().listen((status) {
+      if (mounted) {
+        setState(() => _isGpsEnabled = (status == ServiceStatus.enabled));
+      }
+    });
+  }
+
   Future<void> _initLocation() async {
-    final status = await Permission.locationWhenInUse.request();
-    if (!status.isGranted) return;
+    await _locationSub?.cancel();
+    _locationSub = null;
+
+    final ok = await hasLocationAlwaysPermission();
+    if (!ok) return;
     if (!mounted) return;
 
-    _locationSub =
-        Geolocator.getPositionStream(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 20, // metres
-          ),
-        ).listen((pos) async {
-          final ll = LatLng(pos.latitude, pos.longitude);
-          setState(() => _myLatLng = ll);
-          int? battery;
-          try {
-            final lvl = await _battery.batteryLevel;
-            battery = lvl;
-            ref.read(pilgrimProvider.notifier).setBattery(lvl);
-          } catch (_) {}
-          ref
-              .read(pilgrimProvider.notifier)
-              .updateLocation(
-                latitude: pos.latitude,
-                longitude: pos.longitude,
-                batteryPercent: battery,
-              );
+    // 1) Cached / fused location — map + backend update immediately when usable.
+    try {
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null && _isUsableLastKnown(last)) {
+        await _applyPilgrimGpsPosition(last);
+      }
+    } catch (_) {}
+
+    // 2) Fast network-assisted fix (avoids waiting on cold GPS alone).
+    try {
+      final quick = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.low,
+          timeLimit: Duration(seconds: 5),
+        ),
+      );
+      await _applyPilgrimGpsPosition(quick);
+    } catch (_) {}
+
+    // 3) Ongoing updates — medium accuracy reaches first fix much faster than high.
+    _locationSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.medium,
+        distanceFilter: 12,
+      ),
+    ).listen((pos) {
+      unawaited(_applyPilgrimGpsPosition(pos));
+    });
+  }
+
+  /// Skips duplicate fetches unless [force] is set, the cache expired, or the
+  /// device moved far enough that local weather may differ.
+  bool _shouldSkipWeatherFetch({
+    required bool force,
+    required double latitude,
+    required double longitude,
+  }) {
+    if (force) return false;
+    if (_lastWeatherFetchAt == null || _lastWeatherFetchLatLng == null) {
+      return false;
+    }
+    final movedMeters = Geolocator.distanceBetween(
+      _lastWeatherFetchLatLng!.latitude,
+      _lastWeatherFetchLatLng!.longitude,
+      latitude,
+      longitude,
+    );
+    if (movedMeters >= _weatherLocationRefreshMeters) return false;
+    return DateTime.now().difference(_lastWeatherFetchAt!) <
+        _weatherMinRefreshInterval;
+  }
+
+  /// Resolves coordinates for Open-Meteo. Never falls back to a fixed city —
+  /// wrong-city weather is worse than a short loading state.
+  Future<LatLng?> _resolveWeatherCoordinates({
+    double? latitude,
+    double? longitude,
+  }) async {
+    if (latitude != null && longitude != null) {
+      return LatLng(latitude, longitude);
+    }
+    if (_myLatLng != null) return _myLatLng;
+    final permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return null;
+    }
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.low,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+      final ll = LatLng(pos.latitude, pos.longitude);
+      if (mounted) setState(() => _myLatLng = ll);
+      return ll;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _loadWeatherAlert({
+    double? latitude,
+    double? longitude,
+    bool force = false,
+  }) async {
+    final coords = await _resolveWeatherCoordinates(
+      latitude: latitude,
+      longitude: longitude,
+    );
+    if (coords == null) {
+      if (!mounted) return;
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        setState(() {
+          _weatherAlert = WeatherAlert(
+            temperatureC: 0,
+            condition: 'weather_unavailable'.tr(),
+            cardTip: 'weather_card_error_short'.tr(),
+            detailTip: 'weather_detail_error_body'.tr(),
+            icon: Icons.location_off,
+            iconColor: AppColors.textMutedLight,
+            isLoading: false,
+            isError: true,
+          );
         });
+      }
+      return;
+    }
+
+    if (_shouldSkipWeatherFetch(
+      force: force,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+    )) {
+      return;
+    }
+
+    final lat = coords.latitude;
+    final lng = coords.longitude;
+
+    try {
+      final response = await Dio().get(
+        'https://api.open-meteo.com/v1/forecast',
+        queryParameters: {
+          'latitude': lat,
+          'longitude': lng,
+          'current': 'temperature_2m,weather_code,is_day',
+          'forecast_days': 1,
+        },
+      );
+
+      final payload = response.data as Map<String, dynamic>;
+      final current = payload['current'] as Map<String, dynamic>?;
+      final temp = (current?['temperature_2m'] as num?)?.toDouble();
+      final weatherCode = (current?['weather_code'] as num?)?.toInt() ?? 0;
+      final isDayRaw = (current?['is_day'] as num?)?.round() ?? 1;
+      final isDaytime = isDayRaw != 0;
+
+      if (temp == null) throw Exception('Missing temperature payload');
+
+      if (!mounted) return;
+      setState(() {
+        _weatherAlert = _buildWeatherAlert(
+          temp,
+          weatherCode,
+          isDaytime: isDaytime,
+        );
+        _lastWeatherFetchAt = DateTime.now();
+        _lastWeatherFetchLatLng = coords;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _weatherAlert = WeatherAlert(
+          temperatureC: 0,
+          condition: 'weather_unavailable'.tr(),
+          cardTip: 'weather_card_error_short'.tr(),
+          detailTip: 'weather_detail_error_body'.tr(),
+          icon: Icons.cloud_off,
+          iconColor: AppColors.textMutedLight,
+          isLoading: false,
+          isError: true,
+        );
+        // Don't set _lastWeatherFetchAt on error so it retries immediately
+      });
+    }
+  }
+
+  WeatherAlert _buildWeatherAlert(
+    double temperatureC,
+    int weatherCode, {
+    required bool isDaytime,
+  }) {
+    final temp = temperatureC.round();
+    final condition = _weatherCondition(weatherCode, temp);
+    final keys = _weatherTipKeys(weatherCode, temp, isDaytime);
+    final icon = _weatherIcon(weatherCode, temp);
+    final iconColor = _weatherIconColor(weatherCode, temp);
+
+    return WeatherAlert(
+      temperatureC: temp,
+      condition: condition,
+      cardTip: keys.cardKey.tr(),
+      detailTip: keys.detailKey.tr(),
+      icon: icon,
+      iconColor: iconColor,
+      isLoading: false,
+      isError: false,
+    );
+  }
+
+  IconData _weatherIcon(int weatherCode, int temperatureC) {
+    if (_isRainCode(weatherCode)) return Icons.umbrella;
+    if (weatherCode == 45 || weatherCode == 48) return Icons.masks;
+    if (temperatureC <= 14 || (weatherCode >= 71 && weatherCode <= 77)) {
+      return Icons.ac_unit;
+    }
+    if (temperatureC >= 36) return Icons.local_fire_department;
+    if (weatherCode <= 1) return Icons.wb_sunny;
+    if (weatherCode == 2 || weatherCode == 3) return Icons.cloud;
+    if (weatherCode >= 95) return Icons.thunderstorm;
+    return Icons.wb_sunny;
+  }
+
+  Color _weatherIconColor(int weatherCode, int temperatureC) {
+    if (_isRainCode(weatherCode)) return const Color(0xFF2F80ED);
+    if (weatherCode == 45 || weatherCode == 48) return const Color(0xFF8B6D4E);
+    if (temperatureC <= 16 || (weatherCode >= 71 && weatherCode <= 77)) {
+      return const Color(0xFF56CCF2);
+    }
+    if (temperatureC >= 36) return const Color(0xFFE67E22);
+    if (weatherCode <= 1) return const Color(0xFFFFA726);
+    if (weatherCode == 2 || weatherCode == 3) return const Color(0xFF90A4AE);
+    if (weatherCode >= 95) return const Color(0xFF6C5CE7);
+    return AppColors.primary;
+  }
+
+  String _weatherCondition(int weatherCode, int temperatureC) {
+    if (_isRainCode(weatherCode)) return 'weather_rainy'.tr();
+    if (weatherCode == 45 || weatherCode == 48) return 'weather_sandy'.tr();
+    if (temperatureC <= 16 || (weatherCode >= 71 && weatherCode <= 77)) {
+      return 'weather_cold'.tr();
+    }
+    if (temperatureC >= 36) return 'weather_extreme_heat'.tr();
+    if (weatherCode <= 1) return 'weather_sunny'.tr();
+    if (weatherCode == 2 || weatherCode == 3) return 'weather_cloudy'.tr();
+    if (weatherCode >= 95) return 'weather_storm'.tr();
+    return 'weather_clear'.tr();
+  }
+
+  /// Short line for the dashboard card (`weather_card_*`) and long body
+  /// (`weather_reminder_*` / legacy detail keys).
+  ({
+    String cardKey,
+    String detailKey,
+  }) _weatherTipKeys(
+    int weatherCode,
+    int temperatureC,
+    bool isDaytime,
+  ) {
+    if (temperatureC <= 16 || (weatherCode >= 71 && weatherCode <= 77)) {
+      return (
+        cardKey: 'weather_card_jacket',
+        detailKey: 'weather_reminder_jacket',
+      );
+    }
+    if (weatherCode >= 95) {
+      return (
+        cardKey: 'weather_card_storm',
+        detailKey: 'weather_reminder_storm',
+      );
+    }
+    if (_isRainCode(weatherCode)) {
+      return (cardKey: 'weather_card_rain', detailKey: 'weather_reminder_rain');
+    }
+    if (weatherCode == 45 || weatherCode == 48) {
+      return (cardKey: 'weather_card_mask', detailKey: 'weather_reminder_mask');
+    }
+    if (isDaytime && temperatureC >= 32) {
+      return (
+        cardKey: 'weather_card_heat_sun',
+        detailKey: 'weather_reminder_heat_sun_umbrella',
+      );
+    }
+    if (!isDaytime && temperatureC >= 30) {
+      return (
+        cardKey: 'weather_card_hot_night',
+        detailKey: 'weather_reminder_hot_night_hydrate',
+      );
+    }
+    if (isDaytime && temperatureC >= 28 && temperatureC < 32) {
+      return (
+        cardKey: 'weather_card_warm',
+        detailKey: 'weather_reminder_warm_hijaz',
+      );
+    }
+    if (weatherCode <= 1) {
+      return (
+        cardKey: 'weather_card_sunny',
+        detailKey: 'weather_reminder_sun_hijaz',
+      );
+    }
+    return (
+      cardKey: 'weather_card_default',
+      detailKey: 'weather_reminder_default',
+    );
+  }
+
+  bool _isRainCode(int code) {
+    return code == 51 ||
+        code == 53 ||
+        code == 55 ||
+        code == 56 ||
+        code == 57 ||
+        code == 61 ||
+        code == 63 ||
+        code == 65 ||
+        code == 66 ||
+        code == 67 ||
+        code == 80 ||
+        code == 81 ||
+        code == 82;
   }
 
   // ── SOS Logic ───────────────────────────────────────────────────────────────
@@ -561,124 +1444,143 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       _sosCountdown = 3;
     });
     _sosHoldController.value = 0;
+
     final ok = await ref.read(pilgrimProvider.notifier).triggerSOS();
     if (!mounted) return;
 
     if (ok) {
-      // Show call options dialog
-      await showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) => _SosCallOptionsSheet(
-          onCancel: () {
-            Navigator.pop(ctx);
-            _cancelSOS();
-          },
-          onInternetCall: () {
-            final mods = ref.read(pilgrimProvider).groupInfo?.moderators ?? [];
-            if (mods.isNotEmpty) {
-              final mod = mods.first;
-              Navigator.pop(ctx);
-              ref
-                  .read(callProvider.notifier)
-                  .startCall(
-                    remoteUserId: mod.id,
-                    remoteUserName: mod.fullName,
-                  );
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
-              );
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('No moderator available to call.'),
-                ),
-              );
-            }
-          },
-          onNormalCall: () async {
-            final mods = ref.read(pilgrimProvider).groupInfo?.moderators ?? [];
-            final phone = mods.isNotEmpty ? mods.first.phoneNumber : null;
-            if (phone != null && phone.isNotEmpty) {
-              final cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
-              final uri = Uri.parse('tel:$cleanPhone');
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri);
-              } else if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Could not launch phone dialer.'),
-                  ),
-                );
-              }
-            } else if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Moderator phone number not available.'),
-                ),
-              );
-            }
-          },
-        ),
-      );
+      if (mounted) {
+        setState(() {
+          _sosHomePhase = SosHomePhase.helpSession;
+        });
+      }
+      _startSosHelpSessionTimers();
+      unawaited(_persistSosUi());
     } else {
       // Get the actual error message from the provider
       final errorMsg = ref.read(pilgrimProvider).error ?? 'sos_failed'.tr();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.grey.shade700,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.r),
-          ),
-          content: Text(errorMsg, style: const TextStyle(color: Colors.white)),
-        ),
-      );
+      StandardSnackBar.showError(context, errorMsg);
     }
   }
 
-  void _cancelSOS() {
-    ref.read(pilgrimProvider.notifier).cancelSOS();
-    final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
-    if (groupId != null) {
-      SocketService.emit('sos_cancel', {
-        'groupId': groupId,
-        'pilgrimId': ref.read(authProvider).userId,
-      });
-    }
+  Future<void> _cancelSOS() async {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: Colors.green.shade700,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.r),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+        title: Text(
+          'sos_cancel_confirm_title'.tr(),
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            color: isDark ? Colors.white : AppColors.textDark,
+          ),
         ),
         content: Text(
-          'sos_cancelled'.tr(),
-          style: const TextStyle(color: Colors.white),
+          'sos_cancel_confirm_body'.tr(),
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            color: isDark ? Colors.white70 : AppColors.textDark,
+            height: 1.45,
+          ),
         ),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(dialogCtx, false),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(
+                    'sos_cancel_confirm_keep'.tr(),
+                    style: const TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 13,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.tonal(
+                  onPressed: () => Navigator.pop(dialogCtx, true),
+                  child: Text(
+                    'sos_cancel_confirm_yes'.tr(),
+                    style: const TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 13,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
+    if (confirmed != true || !mounted) return;
+    await _performCancelSOS();
   }
 
-  // ── Join Group ──────────────────────────────────────────────────────────────
+  Future<void> _performCancelSOS() async {
+    _stopSosHelpTimers();
+    _sosResolvedUiTimer?.cancel();
+    _sosResolvedUiTimer = null;
+    final call = ref.read(callProvider);
+    if (call.status == CallStatus.calling ||
+        call.status == CallStatus.ringing ||
+        call.status == CallStatus.connecting) {
+      ref.read(callProvider.notifier).cancelOutgoingRing();
+    }
+    if (mounted) {
+      setState(() {
+        _sosHelpStatusKey = 'sos_status_notifying';
+        _sosHomePhase = SosHomePhase.idle;
+        _sosModeratorName = '';
+        _sosCallbackModeratorId = null;
+        _hasModeratorCalledForThisSos = false;
+        _showResolvedSosCard = false;
+      });
+    }
+    unawaited(_clearPersistedSosUi());
+    final pilgrimState = ref.read(pilgrimProvider);
+    final groupId = pilgrimState.groupInfo?.groupId;
+    final sosId = pilgrimState.activeSosId;
 
-  Future<void> _openJoinGroup() async {
-    final result = await Navigator.of(
-      context,
-    ).push<bool>(MaterialPageRoute(builder: (_) => const JoinGroupScreen()));
-    if (result == true && mounted) {
-      await ref.read(pilgrimProvider.notifier).loadDashboard();
-      final gId = ref.read(pilgrimProvider).groupInfo?.groupId;
-      if (gId != null) {
-        SocketService.emit('join_group', gId);
-        ref.read(messageProvider.notifier).fetchUnreadCount(gId);
+    ref.read(pilgrimProvider.notifier).cancelSOS();
+
+    if (groupId != null) {
+      final pilgrimId = ref.read(authProvider).userId;
+      final payload = <String, dynamic>{
+        'groupId': groupId,
+        'pilgrimId': pilgrimId,
+      };
+      if (sosId != null) payload['sos_id'] = sosId;
+
+      if (SocketService.isConnected) {
+        SocketService.emit('sos_cancel', payload);
+      } else {
+        final ok = await ref
+            .read(pilgrimProvider.notifier)
+            .cancelSosRemote(sosId: sosId);
+        if (!ok && mounted) {
+          StandardSnackBar.showError(
+            context,
+            ref.read(pilgrimProvider).error ?? 'error_generic'.tr(),
+          );
+          return;
+        }
       }
     }
+    if (!mounted) return;
+    StandardSnackBar.showSuccess(context, 'sos_cancelled'.tr());
   }
 
   // ── Navigate to Moderator ──────────────────────────────────────────────────
@@ -703,59 +1605,95 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     final pilgrimState = ref.watch(pilgrimProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final notifCount = ref.watch(notificationProvider).unreadCount;
-
-    // Fallback: if an incoming call was accepted and we're connected,
-    // navigate to VoiceCallScreen from here.
-    ref.listen(callProvider, (prev, next) {
-      if (next.status == CallStatus.connected &&
-          prev?.status == CallStatus.ringing &&
-          mounted &&
-          !isNavigatingToCall &&
-          !VoiceCallScreen.isActive) {
-        Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const VoiceCallScreen()));
-      }
-    });
-
-    ref.listen(authProvider, (prev, next) {
-      _configureRoleSyncPolling(next);
-
-      if (next.promotedToModeratorPending == true &&
-          prev?.promotedToModeratorPending != true &&
-          mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('moderator_promotion_snackbar'.tr()),
-            backgroundColor: AppColors.primary,
+    if (_isInitializingDashboard) {
+      return Scaffold(
+        backgroundColor:
+            isDark ? AppColors.backgroundDark : const Color(0xfff1f5f3),
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 34.w,
+                  height: 34.w,
+                  child: const CircularProgressIndicator(strokeWidth: 3),
+                ),
+                SizedBox(height: 14.h),
+                Text(
+                  'app_loading'.tr(),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white70 : AppColors.textMutedDark,
+                  ),
+                ),
+              ],
+            ),
           ),
-        );
-        ref.read(notificationProvider.notifier).refetch();
-        _showModeratorPromotionDialog();
-      }
-    });
+        ),
+      );
+    }
+
+    final notifCount = ref.watch(notificationProvider).unreadCount;
+    final missedCallUnread = ref.watch(missedCallsUnreadProvider);
 
     final tabs = [
-      _HomeTab(
+      PilgrimHomeTab(
         pilgrimState: pilgrimState,
+        authFullName: ref.watch(authProvider).fullName,
         isDark: isDark,
+        weatherAlert: _weatherAlert,
         sosPulseController: _sosPulseController,
         sosHoldController: _sosHoldController,
         isSosHolding: _isSosHolding,
         onSosHoldStart: _onSosHoldStart,
         onSosHoldEnd: _onSosHoldEnd,
-        onRefresh: () => ref.read(pilgrimProvider.notifier).loadDashboard(),
+        onRefresh: () async {
+          await ref.read(pilgrimProvider.notifier).loadDashboard();
+          final gId = ref.read(pilgrimProvider).groupInfo?.groupId;
+          if (gId != null) {
+            await ref.read(suggestedAreaProvider.notifier).load(gId);
+          }
+          await _loadWeatherAlert(force: true);
+        },
         sosCountdown: _sosCountdown,
         onCancelSos: _cancelSOS,
+        onCallBackSos: () async {
+          final to = _sosCallbackModeratorId;
+          if (to == null || to.isEmpty) return;
+          if (!ref.read(pilgrimProvider).sosActive) return;
+          if (ref.read(callProvider).isInCall) return;
+          if (ref.read(callProvider).cooldownSeconds > 0) return;
+          await ref.read(callProvider.notifier).startCall(
+                remoteUserId: to,
+                remoteUserName: 'call_support_display_name'.tr(),
+              );
+        },
+        showResolvedSosCard: _showResolvedSosCard,
+        sosHelpStatusKey: _sosHelpStatusKey,
+        sosModeratorName: _sosModeratorName,
+        sosHomePhase: _sosHomePhase,
         navBeacons: pilgrimState.navBeacons,
+        isGpsEnabled: _isGpsEnabled,
+        hasLocPermission: _hasLocPermission,
+        onLocationInactiveTap: () async {
+          if (!_hasLocPermission) {
+            await _promptPermissionsForLocationUse();
+          } else if (!_isGpsEnabled) {
+            await Geolocator.openLocationSettings();
+          }
+        },
+        myLocation: _myLatLng,
         onNavigateToModerator: _navigateToModerator,
+        callCooldownSeconds: ref.watch(callProvider).cooldownSeconds,
         notificationCount: notifCount,
         onNotificationTap: () {
           Navigator.of(context)
               .push(
                 MaterialPageRoute(
-                  builder: (_) => const _PilgrimNotificationsScreen(),
+                  builder: (_) => const PilgrimNotificationsScreen(),
                 ),
               )
               .then((_) {
@@ -763,15 +1701,63 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                 ref.read(notificationProvider.notifier).fetchUnreadCount();
               });
         },
-        onJoinGroup: _openJoinGroup,
+        missedCallUnreadCount: missedCallUnread,
+        onMissedCallsTap: () {
+          unawaited(NotificationService.onAlertsTabOpened());
+          Navigator.of(context)
+              .push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      const PilgrimNotificationsScreen(missedCallsOnly: true),
+                ),
+              )
+              .then((_) {
+                ref.read(missedCallsUnreadProvider.notifier).refresh();
+              });
+        },
+        onSettingsTap: _openProfileScreen,
+        onGroupCardTap: () {
+          if (pilgrimState.groupInfo != null) {
+            final hasModerator = pilgrimState.groupInfo!.moderators.isNotEmpty;
+            final firstModerator = hasModerator
+                ? pilgrimState.groupInfo!.moderators.first
+                : null;
+            showGroupDetailsBottomSheet(
+              context,
+              moderatorName: firstModerator?.fullName,
+              moderatorLat: firstModerator?.lat,
+              moderatorLng: firstModerator?.lng,
+              hotelName: pilgrimState.groupInfo!.hotelName,
+              roomNumber: pilgrimState.groupInfo!.roomNumber,
+              busNumber: pilgrimState.groupInfo!.busNumber,
+              driverName: pilgrimState.groupInfo!.driverName,
+              checkIn: pilgrimState.groupInfo!.checkIn,
+              checkOut: pilgrimState.groupInfo!.checkOut,
+              daysRemaining: pilgrimState.groupInfo!.daysRemaining,
+            );
+          } else {
+            // No group — do nothing (limbo state, moderator will assign)
+          }
+        },
+        onHotspotsTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => MeccaHotspotsScreen(anchorLocation: _myLatLng),
+            ),
+          );
+        },
+        onWeatherTap: () => showWeatherDetailBottomSheet(context, _weatherAlert),
       ),
-      _PilgrimMapTab(
+      PilgrimMapTab(
         myLocation: _myLatLng,
         mapController: _mapController,
         pilgrimState: pilgrimState,
+        profileGender: pilgrimState.profile?.gender,
         areas: ref.watch(suggestedAreaProvider).areas,
       ),
-      const _PlaceholderTab(icon: Symbols.calendar_month, label: 'tab_plan'),
+      QiblaCompassScreen(
+        enableAlignmentHaptics: _currentTab == _qiblaTabIndex,
+      ),
       pilgrimState.groupInfo != null
           ? GroupInboxScreen(
               groupId: pilgrimState.groupInfo!.groupId,
@@ -782,1383 +1768,75 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               icon: Symbols.chat_bubble,
               label: 'pilgrim_no_group',
             ),
-      const PilgrimProfileScreen(),
     ];
 
     return PopScope(
       canPop: _currentTab == 0,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
-          setState(() => _currentTab = 0);
+          _goToTab(0);
+          ref.read(messageProvider.notifier).setActiveGroup(null);
         }
       },
       child: Scaffold(
         backgroundColor: isDark
             ? AppColors.backgroundDark
             : const Color(0xfff1f5f3),
-        body: IndexedStack(index: _currentTab, children: tabs),
-        floatingActionButton: SizedBox(
-          width: 56.w,
-          height: 56.w,
-          child: FloatingActionButton(
-            onPressed: pilgrimState.groupInfo != null
-                ? () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'You are already in a group. Leave your current group to join another.',
-                          style: const TextStyle(fontFamily: 'Lexend'),
-                        ),
-                        backgroundColor: Colors.grey.shade700,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                      ),
-                    );
-                  }
-                : _openJoinGroup,
-            backgroundColor: pilgrimState.groupInfo != null
-                ? Colors.grey
-                : AppColors.primary,
-            foregroundColor: Colors.white,
-            shape: const CircleBorder(),
-            elevation: 6,
-            child: Icon(Symbols.qr_code_scanner, size: 26.w),
-          ),
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        bottomNavigationBar: _BottomNav(
-          currentIndex: _currentTab,
-          onTap: (i) {
-            setState(() => _currentTab = i);
-            // Reload + mark read + scroll when opening Chat tab
-            if (i == 3) {
-              _chatScrollNotifier.value++;
-            }
-          },
-          unreadMessages: ref.watch(messageProvider).unreadCount,
-          isDark: isDark,
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Home Tab
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _HomeTab extends StatelessWidget {
-  final PilgrimState pilgrimState;
-  final bool isDark;
-  final AnimationController sosPulseController;
-  final AnimationController sosHoldController;
-  final bool isSosHolding;
-  final VoidCallback onSosHoldStart;
-  final VoidCallback onSosHoldEnd;
-  final Future<void> Function() onRefresh;
-  final int sosCountdown;
-  final VoidCallback onCancelSos;
-  final Map<String, ModeratorBeacon> navBeacons;
-  final void Function(ModeratorBeacon) onNavigateToModerator;
-  final int notificationCount;
-  final VoidCallback onNotificationTap;
-  final VoidCallback onJoinGroup;
-
-  const _HomeTab({
-    required this.pilgrimState,
-    required this.isDark,
-    required this.sosPulseController,
-    required this.sosHoldController,
-    required this.isSosHolding,
-    required this.onSosHoldStart,
-    required this.onSosHoldEnd,
-    required this.onRefresh,
-    required this.sosCountdown,
-    required this.onCancelSos,
-    required this.navBeacons,
-    required this.onNavigateToModerator,
-    required this.notificationCount,
-    required this.onNotificationTap,
-    required this.onJoinGroup,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final profile = pilgrimState.profile;
-    final group = pilgrimState.groupInfo;
-
-    return SafeArea(
-      child: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: onRefresh,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            // ── Header ──────────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 0),
-                child: Row(
-                  children: [
-                    // Logo
-                    Container(
-                      width: 52.w,
-                      height: 52.w,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppColors.primary.withValues(alpha: 0.2),
-                            AppColors.primary.withValues(alpha: 0.1),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(14.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            blurRadius: 16,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(14.r),
-                        child: Image.asset(
-                          'assets/static/logo.jpeg',
-                          width: 52.w,
-                          height: 52.w,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+        body: Column(
+          children: [
+            if (pilgrimState.usingOfflineSnapshot)
+              Material(
+                color: AppColors.primary.withValues(alpha: 0.14),
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12.w,
+                      vertical: 8.h,
                     ),
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'MUNAWWARA CARE',
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                              color: isDark ? Colors.white : AppColors.textDark,
-                            ),
-                          ),
-                          Text(
-                            pilgrimState.isLoading
-                                ? '${'pilgrim_id_prefix'.tr()} ...'
-                                : '${'pilgrim_id_prefix'.tr()} ${profile?.displayId ?? '------'}',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Symbols.cloud_off,
+                          size: 18.w,
+                          color: AppColors.primary,
+                        ),
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          child: Text(
+                            'offline_showing_saved_data'.tr(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 12.sp,
-                              color: AppColors.textMutedLight,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Notification bell
-                    GestureDetector(
-                      onTap: onNotificationTap,
-                      child: Stack(
-                        children: [
-                          Container(
-                            width: 42.w,
-                            height: 42.w,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? AppColors.surfaceDark
-                                  : Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              Symbols.notifications,
-                              size: 22.w,
+                              fontWeight: FontWeight.w500,
                               color: isDark
                                   ? Colors.white70
                                   : AppColors.textDark,
                             ),
                           ),
-                          if (notificationCount > 0)
-                            Positioned(
-                              top: 2.w,
-                              right: 0,
-                              child: Container(
-                                padding: EdgeInsets.all(3.w),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                constraints: BoxConstraints(
-                                  minWidth: 16.w,
-                                  minHeight: 16.w,
-                                ),
-                                child: Text(
-                                  notificationCount > 9
-                                      ? '9+'
-                                      : '$notificationCount',
-                                  style: TextStyle(
-                                    fontSize: 9.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SliverToBoxAdapter(child: SizedBox(height: 28.h)),
-
-            // ── Greeting ────────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'greeting_prefix'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 28.sp,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : AppColors.textDark,
-                      ),
-                    ),
-                    Text(
-                      pilgrimState.isLoading
-                          ? '...'
-                          : (profile?.firstName ?? ''),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 32.sp,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                        height: 1.1,
-                      ),
-                    ),
-                    SizedBox(height: 12.h),
-                    Row(
-                      children: [
-                        Container(
-                          width: 10.w,
-                          height: 10.w,
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
                         ),
-                        SizedBox(width: 8.w),
-                        Text(
-                          'status_safe_label'.tr(),
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontSize: 14.sp,
-                            color: isDark ? Colors.white70 : AppColors.textDark,
-                          ),
-                        ),
-                        Text(
-                          ' ${'status_safe'.tr()}',
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SliverToBoxAdapter(child: SizedBox(height: 24.h)),
-
-            // ── Info Cards ──────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: Row(
-                  children: [
-                    // Group card
-                    Expanded(
-                      child: _InfoCard(
-                        isDark: isDark,
-                        icon: Symbols.groups,
-                        iconColor: AppColors.primary,
-                        label: 'card_my_group'.tr(),
-                        value: group?.groupName ?? 'card_no_group'.tr(),
-                        badge: null,
-                      ),
-                    ),
-                    SizedBox(width: 12.w),
-                    // Location sharing card
-                    Expanded(
-                      child: _InfoCard(
-                        isDark: isDark,
-                        icon: Symbols.location_on,
-                        iconColor: AppColors.primary,
-                        label: 'card_sharing'.tr(),
-                        value: pilgrimState.isSharingLocation
-                            ? 'card_active'.tr()
-                            : 'card_paused'.tr(),
-                        badge: pilgrimState.batteryLevel != null
-                            ? '🔋 ${pilgrimState.batteryLevel}%'
-                            : null,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SliverToBoxAdapter(child: SizedBox(height: 40.h)),
-
-            // ── SOS Button ──────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Center(
-                child: Column(
-                  children: [
-                    _SosButton(
-                      pulseController: sosPulseController,
-                      holdController: sosHoldController,
-                      isHolding: isSosHolding,
-                      isLoading: pilgrimState.isSosLoading,
-                      sosActive: pilgrimState.sosActive,
-                      countdown: sosCountdown,
-                      onHoldStart: onSosHoldStart,
-                      onHoldEnd: onSosHoldEnd,
-                    ),
-                    SizedBox(height: 20.h),
-                    Text(
-                      'sos_title'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : AppColors.textDark,
-                      ),
-                    ),
-                    SizedBox(height: 4.h),
-                    Text(
-                      pilgrimState.sosActive
-                          ? 'sos_active_label'.tr()
-                          : isSosHolding
-                          ? ''
-                          : 'sos_hold_hint'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 13.sp,
-                        color: pilgrimState.sosActive
-                            ? Colors.red.shade600
-                            : AppColors.textMutedLight,
-                        fontWeight: pilgrimState.sosActive
-                            ? FontWeight.w700
-                            : FontWeight.normal,
-                      ),
-                    ),
-                    if (pilgrimState.sosActive) ...[
-                      SizedBox(height: 12.h),
-                      GestureDetector(
-                        onTap: onCancelSos,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 28.w,
-                            vertical: 10.h,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: Colors.red.shade400,
-                              width: 1.5,
-                            ),
-                            borderRadius: BorderRadius.circular(20.r),
-                          ),
-                          child: Text(
-                            'sos_cancel'.tr(),
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14.sp,
-                              color: Colors.red.shade500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                    SizedBox(height: 24.h),
-                  ],
-                ),
-              ),
-            ),
-
-            // ── Navigate to Moderator ────────────────────────────────────
-            if (navBeacons.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? AppColors.surfaceDark : Colors.white,
-                      borderRadius: BorderRadius.circular(20.r),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 8.h),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Symbols.my_location,
-                                size: 18.w,
-                                color: AppColors.primary,
-                              ),
-                              SizedBox(width: 8.w),
-                              Text(
-                                'nav_to_moderator'.tr(),
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14.sp,
-                                  color: isDark
-                                      ? Colors.white
-                                      : AppColors.textDark,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Divider(height: 1),
-                        ...navBeacons.values.map(
-                          (beacon) => Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 16.w,
-                              vertical: 10.h,
-                            ),
-                            child: Row(
-                              children: [
-                                // Avatar
-                                Container(
-                                  width: 40.w,
-                                  height: 40.w,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.12),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Symbols.person_pin_circle,
-                                    size: 22.w,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                                SizedBox(width: 12.w),
-                                // Name
-                                Expanded(
-                                  child: Text(
-                                    beacon.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14.sp,
-                                      color: isDark
-                                          ? Colors.white
-                                          : AppColors.textDark,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: 10.w),
-                                // Navigate button
-                                GestureDetector(
-                                  onTap: () => onNavigateToModerator(beacon),
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 14.w,
-                                      vertical: 9.h,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary,
-                                      borderRadius: BorderRadius.circular(14.r),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppColors.primary.withValues(alpha: 
-                                            0.35,
-                                          ),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 3),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Symbols.navigation,
-                                          color: Colors.white,
-                                          size: 16.w,
-                                        ),
-                                        SizedBox(width: 6.w),
-                                        Text(
-                                          'nav_go'.tr(),
-                                          style: TextStyle(
-                                            fontFamily: 'Lexend',
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13.sp,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 8.h),
                       ],
                     ),
                   ),
                 ),
               ),
+            Expanded(
+              child: DashboardTabPageView(
+                controller: _pageController,
+                backgroundColor: isDark
+                    ? AppColors.backgroundDark
+                    : const Color(0xfff1f5f3),
+                onPageChanged: _handlePageChanged,
+                children: tabs,
+              ),
+            ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SOS Button Widget
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SosButton extends StatefulWidget {
-  final AnimationController pulseController;
-  final AnimationController holdController;
-  final bool isHolding;
-  final bool isLoading;
-  final bool sosActive;
-  final int countdown;
-  final VoidCallback onHoldStart;
-  final VoidCallback onHoldEnd;
-
-  const _SosButton({
-    required this.pulseController,
-    required this.holdController,
-    required this.isHolding,
-    required this.isLoading,
-    required this.sosActive,
-    required this.countdown,
-    required this.onHoldStart,
-    required this.onHoldEnd,
-  });
-
-  @override
-  State<_SosButton> createState() => _SosButtonState();
-}
-
-class _SosButtonState extends State<_SosButton>
-    with SingleTickerProviderStateMixin {
-  bool _isPressed = false;
-  late AnimationController _scaleController;
-  late Animation<double> _scaleAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _scaleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 120),
-    );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.88).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _scaleController.dispose();
-    super.dispose();
-  }
-
-  void _onDown() {
-    setState(() => _isPressed = true);
-    _scaleController.forward();
-  }
-
-  void _onUp() {
-    setState(() => _isPressed = false);
-    _scaleController.reverse();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const double size = 180;
-    const double ringStroke = 6;
-
-    return GestureDetector(
-      onLongPressDown: (_) => _onDown(),
-      onLongPressStart: (_) => widget.onHoldStart(),
-      onLongPressEnd: (_) {
-        _onUp();
-        widget.onHoldEnd();
-      },
-      onLongPressCancel: () {
-        _onUp();
-        widget.onHoldEnd();
-      },
-      child: AnimatedBuilder(
-        animation: _scaleAnim,
-        builder: (_, child) =>
-            Transform.scale(scale: _scaleAnim.value, child: child),
-        child: SizedBox(
-          width: size.w,
-          height: size.w,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Pulse glow
-              AnimatedBuilder(
-                animation: widget.pulseController,
-                builder: (_, _) {
-                  final scale = 1.0 + 0.15 * widget.pulseController.value;
-                  return Transform.scale(
-                    scale: scale,
-                    child: Container(
-                      width: size.w,
-                      height: size.w,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.red.withValues(alpha: 
-                          0.15 * widget.pulseController.value,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              // Main red circle
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
-                width: (size - 20).w,
-                height: (size - 20).w,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: _isPressed || widget.isHolding
-                        ? [Colors.red.shade600, Colors.red.shade900]
-                        : [
-                            widget.sosActive
-                                ? Colors.red.shade300
-                                : Colors.red.shade400,
-                            widget.sosActive
-                                ? Colors.red.shade700
-                                : Colors.red.shade700,
-                          ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.red.withValues(alpha: 
-                        _isPressed || widget.isHolding ? 0.25 : 0.45,
-                      ),
-                      blurRadius: _isPressed || widget.isHolding ? 14 : 30,
-                      spreadRadius: _isPressed || widget.isHolding ? 1 : 4,
-                    ),
-                  ],
-                ),
-                child: widget.isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 3,
-                        ),
-                      )
-                    : widget.isHolding
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '${widget.countdown}',
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 56.sp,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                            ),
-                          ),
-                          Text(
-                            'sec',
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 14.sp,
-                              color: Colors.white70,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            widget.sosActive ? 'ACTIVE' : '505',
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 20.sp,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white.withValues(alpha: 0.6),
-                              letterSpacing: 2,
-                            ),
-                          ),
-                          Text(
-                            'SOS',
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 28.sp,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: 4,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-
-              // Hold progress ring
-              if (widget.isHolding)
-                AnimatedBuilder(
-                  animation: widget.holdController,
-                  builder: (_, _) => SizedBox(
-                    width: size.w,
-                    height: size.w,
-                    child: CircularProgressIndicator(
-                      value: widget.holdController.value,
-                      strokeWidth: ringStroke,
-                      color: Colors.white,
-                      backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+        bottomNavigationBar: PilgrimBottomNav(
+          currentIndex: _currentTab,
+          onTap: (index) => _goToTab(index, animate: false),
+          unreadMessages: ref.watch(messageProvider).unreadCount,
         ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Info Card Widget
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _InfoCard extends StatelessWidget {
-  final bool isDark;
-  final IconData icon;
-  final Color iconColor;
-  final String label;
-  final String value;
-  final String? badge;
-
-  const _InfoCard({
-    required this.isDark,
-    required this.icon,
-    required this.iconColor,
-    required this.label,
-    required this.value,
-    this.badge,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(20.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                width: 42.w,
-                height: 42.w,
-                decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 22.w, color: iconColor),
-              ),
-              if (badge != null)
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20.r),
-                  ),
-                  child: Text(
-                    badge!,
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          SizedBox(height: 12.h),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 12.sp,
-              color: AppColors.textMutedLight,
-            ),
-          ),
-          SizedBox(height: 2.h),
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 15.sp,
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : AppColors.textDark,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Bottom Navigation Bar
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _BottomNav extends StatelessWidget {
-  final int currentIndex;
-  final ValueChanged<int> onTap;
-  final int unreadMessages;
-  final bool isDark;
-
-  const _BottomNav({
-    required this.currentIndex,
-    required this.onTap,
-    required this.unreadMessages,
-    required this.isDark,
-  });
-
-  // Tabs that appear in the nav bar (skip index 2 which is the FAB slot)
-  static const _navMap = [0, 1, 3, 4];
-
-  @override
-  Widget build(BuildContext context) {
-    final labels = [
-      'tab_home'.tr(),
-      'tab_map'.tr(),
-      'tab_chat'.tr(),
-      'settings_title'.tr(),
-    ];
-    final icons = [
-      Symbols.home,
-      Symbols.map,
-      Symbols.chat_bubble,
-      Symbols.settings,
-    ];
-    final tabIndices = _navMap;
-    final badges = [0, 0, unreadMessages, 0];
-
-    return BottomAppBar(
-      color: isDark ? AppColors.surfaceDark : Colors.white,
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 8,
-      padding: EdgeInsets.zero,
-      surfaceTintColor: Colors.transparent,
-      elevation: 8,
-      height: 66.h,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          // Left two tabs
-          ...List.generate(2, (slot) {
-            final i = tabIndices[slot];
-            final isSelected = i == currentIndex;
-            return GestureDetector(
-              onTap: () => onTap(i),
-              behavior: HitTestBehavior.opaque,
-              child: SizedBox(
-                width: 60.w,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: 44.w,
-                      height: 32.h,
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppColors.primary.withValues(alpha: 0.12)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      child: Icon(
-                        icons[slot],
-                        size: 22.w,
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.textMutedLight,
-                      ),
-                    ),
-                    SizedBox(height: 2.h),
-                    Text(
-                      labels[slot],
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 10.sp,
-                        fontWeight: isSelected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.textMutedLight,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-
-          // Center gap for FAB
-          SizedBox(width: 60.w),
-
-          // Right two tabs (chat + settings)
-          ...List.generate(2, (slot) {
-            final listSlot = slot + 2; // slots 2 & 3 in our lists
-            final i = tabIndices[listSlot];
-            final isSelected = i == currentIndex;
-            return GestureDetector(
-              onTap: () => onTap(i),
-              behavior: HitTestBehavior.opaque,
-              child: SizedBox(
-                width: 60.w,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: 44.w,
-                          height: 32.h,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppColors.primary.withValues(alpha: 0.12)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12.r),
-                          ),
-                          child: Icon(
-                            icons[listSlot],
-                            size: 22.w,
-                            color: isSelected
-                                ? AppColors.primary
-                                : AppColors.textMutedLight,
-                          ),
-                        ),
-                        if (badges[listSlot] > 0)
-                          Positioned(
-                            top: -2,
-                            right: -2,
-                            child: Container(
-                              padding: EdgeInsets.all(3.w),
-                              decoration: const BoxDecoration(
-                                color: Colors.orange,
-                                shape: BoxShape.circle,
-                              ),
-                              constraints: BoxConstraints(
-                                minWidth: 14.w,
-                                minHeight: 14.w,
-                              ),
-                              child: Text(
-                                badges[listSlot] > 9
-                                    ? '9+'
-                                    : '${badges[listSlot]}',
-                                style: TextStyle(
-                                  fontSize: 9.sp,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    SizedBox(height: 2.h),
-                    Text(
-                      labels[listSlot],
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 10.sp,
-                        fontWeight: isSelected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.textMutedLight,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Map Tab
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _PilgrimMapTab extends StatelessWidget {
-  final LatLng? myLocation;
-  final MapController mapController;
-  final PilgrimState pilgrimState;
-  final List<SuggestedArea> areas;
-
-  const _PilgrimMapTab({
-    required this.myLocation,
-    required this.mapController,
-    required this.pilgrimState,
-    required this.areas,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final group = pilgrimState.groupInfo;
-
-    return Stack(
-      children: [
-        // Map
-        FlutterMap(
-          mapController: mapController,
-          options: MapOptions(
-            initialCenter: myLocation ?? const LatLng(21.3891, 39.8579),
-            initialZoom: 15,
-            interactionOptions: const InteractionOptions(
-              flags: InteractiveFlag.all,
-            ),
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.munawwaracare.app',
-            ),
-            // Suggested areas & meetpoints
-            if (areas.isNotEmpty)
-              MarkerLayer(
-                markers: [
-                  for (var area in areas)
-                    Marker(
-                      point: LatLng(area.latitude, area.longitude),
-                      width: 120.w,
-                      height: 82.h,
-                      child: GestureDetector(
-                        onTap: () => _showAreaInfo(context, area),
-                        child: _PilgrimAreaMarker(area: area),
-                      ),
-                    ),
-                ],
-              ),
-            // My location
-            if (myLocation != null)
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: myLocation!,
-                    width: 60.w,
-                    height: 72.h,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 46.w,
-                          height: 46.w,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2.5),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.5),
-                                blurRadius: 10,
-                                spreadRadius: 3,
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Symbols.person,
-                            color: Colors.white,
-                            size: 22.w,
-                          ),
-                        ),
-                        Container(
-                          margin: EdgeInsets.only(top: 2.h),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 5.w,
-                            vertical: 2.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(6.r),
-                          ),
-                          child: Text(
-                            'You',
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 10.sp,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-          ],
-        ),
-
-        // Top overlay: group name
-        if (group != null)
-          SafeArea(
-            child: Padding(
-              padding: EdgeInsets.all(14.w),
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.surfaceDark : Colors.white,
-                  borderRadius: BorderRadius.circular(16.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircleAvatar(
-                      radius: 16.r,
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                      child: Icon(
-                        Symbols.group,
-                        color: AppColors.primary,
-                        size: 16.w,
-                      ),
-                    ),
-                    SizedBox(width: 8.w),
-                    Text(
-                      group.groupName,
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13.sp,
-                        color: isDark ? Colors.white : AppColors.textDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-        // Center FAB (my location)
-        Positioned(
-          right: 14.w,
-          bottom: 14.h,
-          child: GestureDetector(
-            onTap: () {
-              if (myLocation != null) {
-                mapController.move(myLocation!, 15);
-              }
-            },
-            child: Container(
-              width: 48.w,
-              height: 48.w,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceDark : Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                Symbols.my_location,
-                color: isDark ? Colors.white : AppColors.textDark,
-                size: 22.w,
-              ),
-            ),
-          ),
-        ),
-
-        // Meetpoint pin button (only when active meetpoint exists)
-        if (areas.any((a) => a.isMeetpoint))
-          Positioned(
-            right: 14.w,
-            bottom: 74.h,
-            child: GestureDetector(
-              onTap: () {
-                final mp = areas.firstWhere((a) => a.isMeetpoint);
-                mapController.move(LatLng(mp.latitude, mp.longitude), 17);
-                _showAreaInfo(context, mp);
-              },
-              child: Container(
-                width: 48.w,
-                height: 48.w,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDC2626),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFDC2626).withValues(alpha: 0.45),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Symbols.crisis_alert,
-                  color: Colors.white,
-                  size: 22.w,
-                ),
-              ),
-            ),
-          ),
-
-        // Suggestions pin button (only when suggestions exist)
-        if (areas.any((a) => !a.isMeetpoint))
-          Positioned(
-            right: 14.w,
-            bottom: areas.any((a) => a.isMeetpoint) ? 134.h : 74.h,
-            child: _SuggestionsCycleButton(
-              areas: areas.where((a) => !a.isMeetpoint).toList(),
-              mapController: mapController,
-              onAreaSelected: (area) => _showAreaInfo(context, area),
-            ),
-          ),
-
-        // No location message
-        if (myLocation == null)
-          Center(
-            child: Container(
-              padding: EdgeInsets.all(16.w),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16.r),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Symbols.location_off,
-                    size: 40.w,
-                    color: AppColors.textMutedLight,
-                  ),
-                  SizedBox(height: 8.h),
-                  Text(
-                    'pilgrim_locating'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 14.sp,
-                      color: AppColors.textMutedLight,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Pilgrim Notifications Screen — wraps AlertsTab in a Scaffold with back nav
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _PilgrimNotificationsScreen extends StatelessWidget {
-  const _PilgrimNotificationsScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Scaffold(
-      backgroundColor: isDark
-          ? AppColors.backgroundDark
-          : const Color(0xfff1f5f3),
-      body: SafeArea(
-        child: AlertsTab(onBack: () => Navigator.of(context).pop()),
       ),
     );
   }
@@ -2190,785 +1868,7 @@ class _PlaceholderTab extends StatelessWidget {
               color: AppColors.textMutedLight,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'pilgrim_coming_soon'.tr(),
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 13,
-              color: AppColors.textMutedLight.withValues(alpha: 0.6),
-            ),
-          ),
         ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Pilgrim area marker (suggestions = primary, meetpoints = red)
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Suggestions button (tapping shows all suggested areas in a list)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SuggestionsCycleButton extends StatefulWidget {
-  final List<SuggestedArea> areas;
-  final MapController mapController;
-  final void Function(SuggestedArea) onAreaSelected;
-  const _SuggestionsCycleButton({
-    required this.areas,
-    required this.mapController,
-    required this.onAreaSelected,
-  });
-
-  @override
-  State<_SuggestionsCycleButton> createState() =>
-      _SuggestionsCycleButtonState();
-}
-
-class _SuggestionsCycleButtonState extends State<_SuggestionsCycleButton> {
-  void _showAreaList() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(ctx).size.height * 0.65,
-        ),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-        ),
-        padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40.w,
-              height: 4.h,
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white24 : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2.r),
-              ),
-            ),
-            SizedBox(height: 16.h),
-            Text(
-              'area_view_all'.tr(),
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontWeight: FontWeight.w700,
-                fontSize: 17.sp,
-                color: isDark ? Colors.white : AppColors.textDark,
-              ),
-            ),
-            SizedBox(height: 16.h),
-            Flexible(
-              child: widget.areas.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(24.w),
-                        child: Text(
-                          'area_empty'.tr(),
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontSize: 13.sp,
-                            color: AppColors.textMutedLight,
-                          ),
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: widget.areas.length,
-                      itemBuilder: (_, i) {
-                        final area = widget.areas[i];
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.pop(ctx);
-                            widget.mapController.move(
-                              LatLng(area.latitude, area.longitude),
-                              widget.mapController.camera.zoom > 16.0
-                                  ? widget.mapController.camera.zoom
-                                  : 16.5,
-                            );
-                            widget.onAreaSelected(area);
-                          },
-                          child: Container(
-                            margin: EdgeInsets.only(bottom: 10.h),
-                            padding: EdgeInsets.all(12.w),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? AppColors.backgroundDark
-                                  : const Color(0xFFF0F0F8),
-                              borderRadius: BorderRadius.circular(14.r),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 36.w,
-                                  height: 36.w,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Symbols.pin_drop,
-                                    color: Colors.white,
-                                    size: 18.w,
-                                  ),
-                                ),
-                                SizedBox(width: 10.w),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        area.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontFamily: 'Lexend',
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13.sp,
-                                          color: isDark
-                                              ? Colors.white
-                                              : AppColors.textDark,
-                                        ),
-                                      ),
-                                      if (area.description.isNotEmpty) ...[
-                                        SizedBox(height: 3.h),
-                                        Text(
-                                          area.description,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontFamily: 'Lexend',
-                                            fontSize: 11.sp,
-                                            color: AppColors.textMutedLight,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                                GestureDetector(
-                                  onTap: () async {
-                                    final confirmed = await showDialog<bool>(
-                                      context: ctx,
-                                      builder: (dialogCtx) => AlertDialog(
-                                        backgroundColor: isDark
-                                            ? AppColors.surfaceDark
-                                            : Colors.white,
-                                        title: Text(
-                                          'area_navigate_confirm_title'.tr(),
-                                          style: TextStyle(
-                                            fontFamily: 'Lexend',
-                                            color: isDark
-                                                ? Colors.white
-                                                : AppColors.textDark,
-                                          ),
-                                        ),
-                                        content: Text(
-                                          'area_navigate_confirm_message'.tr(),
-                                          style: TextStyle(
-                                            fontFamily: 'Lexend',
-                                            color: isDark
-                                                ? Colors.white70
-                                                : AppColors.textDark,
-                                          ),
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(dialogCtx, false),
-                                            child: Text(
-                                              'area_cancel'.tr(),
-                                              style: const TextStyle(
-                                                fontFamily: 'Lexend',
-                                                color: AppColors.textMutedLight,
-                                              ),
-                                            ),
-                                          ),
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(dialogCtx, true),
-                                            child: Text(
-                                              'area_open_maps'.tr(),
-                                              style: const TextStyle(
-                                                fontFamily: 'Lexend',
-                                                color: AppColors.primary,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                    if (confirmed == true) {
-                                      final lat = area.latitude;
-                                      final lng = area.longitude;
-                                      final googleMapsWeb = Uri.parse(
-                                        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking',
-                                      );
-                                      try {
-                                        await launchUrl(
-                                          googleMapsWeb,
-                                          mode: LaunchMode.externalApplication,
-                                        );
-                                      } catch (_) {}
-                                    }
-                                  },
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 8.w,
-                                    ),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Symbols.navigation,
-                                          size: 20.w,
-                                          color: AppColors.primary,
-                                          fill: 1,
-                                        ),
-                                        SizedBox(height: 2.h),
-                                        Text(
-                                          'area_navigate'.tr(),
-                                          style: TextStyle(
-                                            fontFamily: 'Lexend',
-                                            fontSize: 9.sp,
-                                            color: AppColors.primary,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final count = widget.areas.length;
-    return GestureDetector(
-      onTap: () {
-        if (widget.areas.isEmpty) return;
-        _showAreaList();
-      },
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: 48.w,
-            height: 48.w,
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.45),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Icon(
-              Symbols.pin_drop,
-              color: Colors.white,
-              size: 22.w,
-              fill: 1,
-            ),
-          ),
-          if (count > 1)
-            Positioned(
-              top: -2,
-              right: -2,
-              child: Container(
-                width: 18.w,
-                height: 18.w,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    '$count',
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 10.sp,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Area info bottom sheet + marker
-// ─────────────────────────────────────────────────────────────────────────────
-
-void _showAreaInfo(BuildContext context, SuggestedArea area) {
-  final isMeetpoint = area.isMeetpoint;
-  final color = isMeetpoint ? const Color(0xFFDC2626) : AppColors.primary;
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.transparent,
-    builder: (ctx) => Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-      ),
-      padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 32.h),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40.w,
-            height: 4.h,
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white24 : Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2.r),
-            ),
-          ),
-          SizedBox(height: 16.h),
-          Container(
-            width: 56.w,
-            height: 56.w,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isMeetpoint ? Symbols.crisis_alert : Symbols.pin_drop,
-              color: color,
-              size: 28.w,
-              fill: 1,
-            ),
-          ),
-          SizedBox(height: 12.h),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8.r),
-            ),
-            child: Text(
-              isMeetpoint
-                  ? 'area_meetpoint'.tr()
-                  : 'area_suggestion_label'.tr(),
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontWeight: FontWeight.w700,
-                fontSize: 10.sp,
-                color: color,
-              ),
-            ),
-          ),
-          SizedBox(height: 12.h),
-          Text(
-            area.name,
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontWeight: FontWeight.w700,
-              fontSize: 17.sp,
-              color: isDark ? Colors.white : AppColors.textDark,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          if (area.description.isNotEmpty) ...[
-            SizedBox(height: 6.h),
-            Text(
-              area.description,
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 13.sp,
-                color: AppColors.textMutedLight,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-          SizedBox(height: 6.h),
-          Text(
-            '${'area_by'.tr()} ${area.createdByName}',
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 11.sp,
-              color: AppColors.textMutedLight,
-            ),
-          ),
-          SizedBox(height: 20.h),
-          SizedBox(
-            width: double.infinity,
-            height: 50.h,
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                final confirmed = await showDialog<bool>(
-                  context: ctx,
-                  builder: (dialogCtx) => AlertDialog(
-                    backgroundColor: isDark
-                        ? AppColors.surfaceDark
-                        : Colors.white,
-                    title: Text(
-                      'area_navigate_confirm_title'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        color: isDark ? Colors.white : AppColors.textDark,
-                      ),
-                    ),
-                    content: Text(
-                      'area_navigate_confirm_message'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        color: isDark ? Colors.white70 : AppColors.textDark,
-                      ),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(dialogCtx, false),
-                        child: Text(
-                          'area_cancel'.tr(),
-                          style: const TextStyle(
-                            fontFamily: 'Lexend',
-                            color: AppColors.textMutedLight,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(dialogCtx, true),
-                        child: Text(
-                          'area_open_maps'.tr(),
-                          style: const TextStyle(
-                            fontFamily: 'Lexend',
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirmed == true) {
-                  Navigator.pop(ctx);
-                  final lat = area.latitude;
-                  final lng = area.longitude;
-                  final googleMapsWeb = Uri.parse(
-                    'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking',
-                  );
-                  try {
-                    await launchUrl(
-                      googleMapsWeb,
-                      mode: LaunchMode.externalApplication,
-                    );
-                  } catch (_) {}
-                }
-              },
-              icon: Icon(
-                Symbols.navigation,
-                size: 20.w,
-                color: Colors.white,
-                fill: 1,
-              ),
-              label: Text(
-                'area_navigate'.tr(),
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15.sp,
-                  color: Colors.white,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.r),
-                ),
-                elevation: 0,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _PilgrimAreaMarker extends StatelessWidget {
-  final SuggestedArea area;
-  const _PilgrimAreaMarker({required this.area});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = area.isMeetpoint
-        ? const Color(0xFFDC2626)
-        : AppColors.primary;
-    final icon = area.isMeetpoint ? Symbols.crisis_alert : Symbols.pin_drop;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10.r),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.35),
-                blurRadius: 8,
-                spreadRadius: 1,
-              ),
-            ],
-            border: Border.all(color: color, width: 1.5),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14.w, color: color, fill: 1),
-              SizedBox(width: 4.w),
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 56.w),
-                child: Text(
-                  area.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 9.sp,
-                    color: color,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Triangle tail
-        CustomPaint(
-          size: Size(10.w, 6.h),
-          painter: _AreaTailPainter(color: color),
-        ),
-        // Circle dot
-        Container(
-          width: 10.w,
-          height: 10.w,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.5),
-                blurRadius: 6,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AreaTailPainter extends CustomPainter {
-  final Color color;
-  const _AreaTailPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final path = ui.Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..lineTo(size.width, 0)
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_AreaTailPainter old) => old.color != color;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SOS Call Options Sheet
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SosCallOptionsSheet extends StatelessWidget {
-  final VoidCallback onCancel;
-  final VoidCallback onInternetCall;
-  final VoidCallback onNormalCall;
-
-  const _SosCallOptionsSheet({
-    required this.onCancel,
-    required this.onInternetCall,
-    required this.onNormalCall,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(28.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 32.h),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Grab handle
-            Container(
-              width: 40.w,
-              height: 4.h,
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white24 : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2.r),
-              ),
-            ),
-            SizedBox(height: 20.h),
-
-            // SOS active indicator
-            Container(
-              width: 60.w,
-              height: 60.w,
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.red.shade600,
-                size: 32.w,
-              ),
-            ),
-            SizedBox(height: 12.h),
-
-            Text(
-              'SOS Sent!',
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 20.sp,
-                fontWeight: FontWeight.w700,
-                color: Colors.red.shade600,
-              ),
-            ),
-            SizedBox(height: 6.h),
-            Text(
-              'Your moderator has been notified.\nWould you like to call them now?',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 13.sp,
-                color: AppColors.textMutedLight,
-                height: 1.5,
-              ),
-            ),
-            SizedBox(height: 24.h),
-
-            // Internet Call Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: onInternetCall,
-                icon: Icon(Icons.wifi_calling_3_rounded, size: 20.w),
-                label: Text(
-                  'Call via Internet',
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 14.h),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.r),
-                  ),
-                  elevation: 0,
-                ),
-              ),
-            ),
-            SizedBox(height: 10.h),
-
-            // Normal Call Button
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onNormalCall,
-                icon: Icon(Icons.phone_rounded, size: 20.w),
-                label: Text(
-                  'Call Normally',
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: BorderSide(color: AppColors.primary, width: 1.5),
-                  padding: EdgeInsets.symmetric(vertical: 14.h),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.r),
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(height: 10.h),
-
-            // Cancel SOS Button
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: onCancel,
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.red.shade400,
-                  padding: EdgeInsets.symmetric(vertical: 12.h),
-                ),
-                child: Text(
-                  'Cancel SOS',
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

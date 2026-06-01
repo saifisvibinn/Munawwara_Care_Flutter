@@ -104,7 +104,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     sendEventFlutter(CallkitConstants.ACTION_CALL_INCOMING, data)
                     addCall(context, Data.fromBundle(data))
                     // ── Start IncomingCallService (Core-Telecom) ──
-                    startCallService(context, "com.munawwaracare.mcmobile.ACTION_INCOMING_CALL", data)
+                    startCallService(context, "com.munawwaracare.android.ACTION_INCOMING_CALL", data)
                 } catch (error: Exception) {
                     Log.e(TAG, null, error)
                 }
@@ -137,6 +137,12 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     )
                     sendEventFlutter(CallkitConstants.ACTION_CALL_ACCEPT, data)
                     addCall(context, Data.fromBundle(data), true)
+                    // App IncomingCallService FGS duplicates CallKit's tray UI — remove it on accept.
+                    startCallService(
+                        context,
+                        "${context.packageName}.ACTION_DISMISS_FG_NOTIFICATION",
+                        data,
+                    )
                 } catch (error: Exception) {
                     Log.e(TAG, null, error)
                 }
@@ -149,12 +155,18 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     FlutterCallkitIncomingPlugin.notifyEventCallbacks(CallkitEventCallback.CallEvent.DECLINE, data)
                     // clear notification
                     getCallkitNotificationManager()?.clearIncomingNotification(data, false)
+                    CallkitNotificationService.stopService(context)
                     sendEventFlutter(CallkitConstants.ACTION_CALL_DECLINE, data)
                     removeCall(context, Data.fromBundle(data))
                     // ── Signal IncomingCallService to fire HTTP decline ──
-                    startCallService(context, "com.munawwaracare.mcmobile.ACTION_DECLINE_CALL", data)
+                    startCallService(
+                        context,
+                        "com.munawwaracare.android.ACTION_DECLINE_CALL",
+                        data,
+                        putNoAnswerExtra = false,
+                    )
                     // Also fire HTTP directly as a fallback (with goAsync)
-                    sendDeclineToBackend(context, data)
+                    sendDeclineToBackend(context, data, noAnswer = false)
                 } catch (error: Exception) {
                     Log.e(TAG, null, error)
                 }
@@ -167,6 +179,12 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     CallkitNotificationService.stopService(context)
                     sendEventFlutter(CallkitConstants.ACTION_CALL_ENDED, data)
                     removeCall(context, Data.fromBundle(data))
+                    // Tear down app IncomingCallService FGS (was never notified on end before).
+                    startCallService(
+                        context,
+                        "${context.packageName}.ACTION_END_CALL",
+                        data,
+                    )
                 } catch (error: Exception) {
                     Log.e(TAG, null, error)
                 }
@@ -181,9 +199,14 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     sendEventFlutter(CallkitConstants.ACTION_CALL_TIMEOUT, data)
                     removeCall(context, Data.fromBundle(data))
                     // ── Signal IncomingCallService to fire HTTP decline ──
-                    startCallService(context, "com.munawwaracare.mcmobile.ACTION_DECLINE_CALL", data)
+                    startCallService(
+                        context,
+                        "com.munawwaracare.android.ACTION_DECLINE_CALL",
+                        data,
+                        putNoAnswerExtra = true,
+                    )
                     // Also fire HTTP directly as a fallback
-                    sendDeclineToBackend(context, data)
+                    sendDeclineToBackend(context, data, noAnswer = true)
                 } catch (error: Exception) {
                     Log.e(TAG, null, error)
                 }
@@ -191,6 +214,11 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
 
             "${context.packageName}.${CallkitConstants.ACTION_CALL_CONNECTED}" -> {
                 try {
+                    startCallService(
+                        context,
+                        "${context.packageName}.ACTION_DISMISS_FG_NOTIFICATION",
+                        data,
+                    )
                     // update notification on going connected
                     getCallkitNotificationManager()?.showOngoingCallNotification(data, true)
                     sendEventFlutter(CallkitConstants.ACTION_CALL_CONNECTED, data)
@@ -282,7 +310,12 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
      * On DECLINE/ACCEPT/END: delivers the intent to the running service.
      */
     @Suppress("UNCHECKED_CAST")
-    private fun startCallService(context: Context, action: String, data: Bundle) {
+    private fun startCallService(
+        context: Context,
+        action: String,
+        data: Bundle,
+        putNoAnswerExtra: Boolean = false,
+    ) {
         try {
             val serviceIntent = Intent()
             serviceIntent.component = ComponentName(
@@ -290,6 +323,9 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                 "${context.packageName}.IncomingCallService"
             )
             serviceIntent.action = action
+            if (putNoAnswerExtra) {
+                serviceIntent.putExtra("noAnswer", true)
+            }
 
             // Extract callerId and callerName from the Bundle
             try {
@@ -334,45 +370,56 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
      * Uses goAsync() to keep the BroadcastReceiver alive for the HTTP thread.
      */
     @Suppress("UNCHECKED_CAST")
-    private fun sendDeclineToBackend(context: Context, data: Bundle) {
-        val pendingResult = goAsync() // Keep receiver alive for background work
+    private fun sendDeclineToBackend(context: Context, data: Bundle, noAnswer: Boolean = false) {
+        val pendingResult = goAsync()
         thread(name = "CallDeclineHTTP") {
             try {
-                // 1. Try to get callerId from the Bundle's EXTRA_CALLKIT_EXTRA HashMap
                 var callerId = ""
+                var callRecordId = ""
+                var apiBaseUrl = ""
                 try {
                     val extraMap = data.getSerializable(CallkitConstants.EXTRA_CALLKIT_EXTRA)
                         as? HashMap<*, *>
-                    callerId = extraMap?.get("callerId")?.toString() ?: ""
+                    callerId = extraMap?.get("callerId")?.toString().orEmpty()
+                    callRecordId = extraMap?.get("callRecordId")?.toString().orEmpty()
+                    apiBaseUrl = extraMap?.get("apiBaseUrl")?.toString().orEmpty()
                 } catch (_: Exception) {}
 
-                // 2. Fall back to SharedPreferences written by Flutter when the call FCM arrived
+                val prefs: SharedPreferences = context.getSharedPreferences(
+                    "FlutterSharedPreferences", Context.MODE_PRIVATE
+                )
                 if (callerId.isBlank()) {
-                    val prefs: SharedPreferences = context.getSharedPreferences(
-                        "FlutterSharedPreferences", Context.MODE_PRIVATE
-                    )
-                    callerId = prefs.getString("flutter.pending_call_caller_id", null) ?: ""
+                    callerId = prefs.getString("flutter.pending_call_caller_id", null).orEmpty()
                 }
+                if (callRecordId.isBlank()) {
+                    callRecordId =
+                        prefs.getString("flutter.pending_call_record_id", null).orEmpty()
+                }
+                val declinerId = prefs.getString("flutter.user_id", null).orEmpty()
 
-                if (callerId.isBlank()) {
-                    Log.w(TAG, "📵 sendDeclineToBackend: callerId not found")
+                if (callerId.isBlank() && callRecordId.isBlank()) {
+                    Log.w(TAG, "📵 sendDeclineToBackend: callerId/callRecordId not found")
                     return@thread
                 }
 
-                // 3. Resolve base URL
-                val baseUrl = try {
-                    val prefs: SharedPreferences = context.getSharedPreferences(
-                        "FlutterSharedPreferences", Context.MODE_PRIVATE
-                    )
-                    prefs.getString("flutter.api_base_url", null)
+                val baseUrl = apiBaseUrl.takeIf { it.isNotBlank() }
+                    ?: prefs.getString("flutter.api_base_url", null)
                         ?.takeIf { it.isNotBlank() }
-                        ?: "https://mcbackendapp-199324116788.europe-west8.run.app/api"
-                } catch (_: Exception) {
-                    "https://mcbackendapp-199324116788.europe-west8.run.app/api"
+                    .orEmpty()
+
+                if (baseUrl.isBlank()) {
+                    Log.w(
+                        TAG,
+                        "📵 sendDeclineToBackend: API base URL missing " +
+                            "(flutter.api_base_url prefs or call extra apiBaseUrl)",
+                    )
+                    return@thread
                 }
 
-                // 4. Send HTTP POST with retry
-                Log.i(TAG, "📵 Declining callerId=$callerId to $baseUrl")
+                Log.i(
+                    TAG,
+                    "📵 Declining callerId=$callerId callRecordId=$callRecordId to $baseUrl",
+                )
                 repeat(2) { attempt ->
                     try {
                         val url = URL("$baseUrl/call-history/decline")
@@ -382,8 +429,21 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                         conn.doOutput = true
                         conn.connectTimeout = 8000
                         conn.readTimeout = 8000
+                        val body = buildString {
+                            append("{\"callerId\":\"$callerId\"")
+                            if (declinerId.isNotBlank()) {
+                                append(",\"declinerId\":\"$declinerId\"")
+                            }
+                            if (callRecordId.isNotBlank()) {
+                                append(",\"callRecordId\":\"$callRecordId\"")
+                            }
+                            if (noAnswer) {
+                                append(",\"noAnswer\":true")
+                            }
+                            append("}")
+                        }
                         OutputStreamWriter(conn.outputStream, "UTF-8").use {
-                            it.write("""{"callerId":"$callerId"}""")
+                            it.write(body)
                         }
                         val code = conn.responseCode
                         conn.disconnect()
@@ -397,7 +457,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
             } catch (e: Exception) {
                 Log.e(TAG, "📵 sendDeclineToBackend error: ${e.message}")
             } finally {
-                pendingResult.finish() // Release the BroadcastReceiver
+                pendingResult.finish()
             }
         }
     }

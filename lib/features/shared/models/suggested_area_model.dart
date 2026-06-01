@@ -3,6 +3,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 class SuggestedArea {
+  /// Meetpoints are considered expired after this window past [meetpointTime].
+  static const Duration meetpointExpiryWindow = Duration(minutes: 10);
+
   final String id;
   final String groupId;
   final String? createdByName;
@@ -12,6 +15,8 @@ class SuggestedArea {
   final double latitude;
   final double longitude;
   final DateTime createdAt;
+  final DateTime? meetpointTime;
+  final int? reminderMinutes;
 
   const SuggestedArea({
     required this.id,
@@ -23,6 +28,8 @@ class SuggestedArea {
     required this.latitude,
     required this.longitude,
     required this.createdAt,
+    this.meetpointTime,
+    this.reminderMinutes,
   });
 
   bool get isMeetpoint => areaType == 'meetpoint';
@@ -47,8 +54,12 @@ class SuggestedArea {
       createdAt:
           DateTime.tryParse(
             (j['createdAt'] ?? j['created_at'] ?? '').toString(),
-          ) ??
+          )?.toLocal() ??
           DateTime.now(),
+      meetpointTime: j['meetpoint_time'] != null
+          ? DateTime.tryParse(j['meetpoint_time'].toString())?.toLocal()
+          : null,
+      reminderMinutes: (j['reminder_minutes'] as num?)?.toInt(),
     );
   }
 }

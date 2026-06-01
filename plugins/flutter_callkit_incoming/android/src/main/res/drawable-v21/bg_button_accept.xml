@@ -3,7 +3,11 @@
     android:color="@color/accept_ripple">
     <item>
         <shape android:shape="oval">
-            <solid android:color="@color/accept"/>
+            <gradient
+                android:angle="135"
+                android:endColor="@color/accept_gradient_end"
+                android:startColor="@color/accept_gradient_start"
+                android:type="linear" />
         </shape>
     </item>
 </ripple>

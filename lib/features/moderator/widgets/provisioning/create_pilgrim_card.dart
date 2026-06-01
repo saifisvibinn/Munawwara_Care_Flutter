@@ -1,0 +1,889 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:material_symbols_icons/symbols.dart';
+
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dropdown_theme.dart';
+import '../../models/provisioning_models.dart';
+import '../../models/pilgrim_field_options.dart';
+import 'provisioning_form_theme.dart';
+import '../../../pilgrim/models/insurance_company.dart';
+
+class CreatePilgrimCard extends StatefulWidget {
+  final bool isDark;
+  final bool isProvisioning;
+  final List<HotelOption> hotels;
+  final List<BusOption> buses;
+  final List<InsuranceCompany> insurances;
+  final bool isLoadingResources;
+  final List<String> ethnicityOptions;
+  final List<PilgrimLanguageOption> languageOptions;
+  final Function(Map<String, dynamic> data) onCreate;
+
+  const CreatePilgrimCard({
+    super.key,
+    required this.isDark,
+    required this.isProvisioning,
+    required this.hotels,
+    required this.buses,
+    required this.insurances,
+    required this.isLoadingResources,
+    required this.ethnicityOptions,
+    required this.languageOptions,
+    required this.onCreate,
+  });
+
+  @override
+  State<CreatePilgrimCard> createState() => _CreatePilgrimCardState();
+}
+
+class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
+  final _formKey = GlobalKey<FormState>();
+  final _fullNameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _alternativePhoneCtrl = TextEditingController();
+  final _tasheraNumberCtrl = TextEditingController();
+  final _ageCtrl = TextEditingController();
+  final _nationalIdCtrl = TextEditingController();
+  final _medicalHistoryCtrl = TextEditingController();
+
+  String _selectedLanguage = 'en';
+  String? _selectedVisaStatus;
+  String? _selectedEthnicity;
+  String? _selectedHotelId;
+  String? _selectedRoomId;
+  String? _selectedBusId;
+  String? _selectedInsuranceCompanyId;
+  Set<String> _genderSelection = {'male'};
+
+  @override
+  void dispose() {
+    _fullNameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _alternativePhoneCtrl.dispose();
+    _tasheraNumberCtrl.dispose();
+    _ageCtrl.dispose();
+    _nationalIdCtrl.dispose();
+    _medicalHistoryCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant CreatePilgrimCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final hotelsBusesChanged =
+        oldWidget.hotels != widget.hotels || oldWidget.buses != widget.buses || oldWidget.insurances != widget.insurances;
+    final optionsChanged = oldWidget.ethnicityOptions != widget.ethnicityOptions ||
+        oldWidget.languageOptions != widget.languageOptions;
+
+    if (hotelsBusesChanged) {
+      final hotelOk = _selectedHotelId == null ||
+          widget.hotels.any((h) => h.id == _selectedHotelId);
+      final busOk = _selectedBusId == null ||
+          widget.buses.any((b) => b.id == _selectedBusId);
+      final insuranceOk = _selectedInsuranceCompanyId == null ||
+          widget.insurances.any((i) => i.id == _selectedInsuranceCompanyId);
+      var roomOk = true;
+      if (_selectedRoomId != null) {
+        final h =
+            widget.hotels.where((x) => x.id == _selectedHotelId).firstOrNull;
+        final rooms = (h?.rooms ?? const <RoomOption>[])
+            .where((r) => r.active)
+            .toList();
+        roomOk = rooms.any((r) => r.id == _selectedRoomId);
+      }
+      if (!hotelOk || !roomOk || !busOk || !insuranceOk) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          setState(() {
+            if (!hotelOk) {
+              _selectedHotelId = null;
+              _selectedRoomId = null;
+            } else if (!roomOk) {
+              _selectedRoomId = null;
+            }
+            if (!busOk) _selectedBusId = null;
+            if (!insuranceOk) _selectedInsuranceCompanyId = null;
+          });
+        });
+      }
+    }
+
+    if (optionsChanged) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          final langCodes =
+              widget.languageOptions.map((l) => l.code).toSet();
+          if (!langCodes.contains(_selectedLanguage)) {
+            _selectedLanguage = widget.languageOptions.isNotEmpty
+                ? widget.languageOptions.first.code
+                : 'en';
+          }
+          final ethn = widget.ethnicityOptions.toSet();
+          if (_selectedEthnicity == null ||
+              !ethn.contains(_selectedEthnicity)) {
+            _selectedEthnicity = widget.ethnicityOptions.isNotEmpty
+                ? widget.ethnicityOptions.first
+                : null;
+          }
+        });
+      });
+    }
+  }
+
+  void _handleSubmit() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final selectedHotel =
+        widget.hotels.where((h) => h.id == _selectedHotelId).firstOrNull;
+    final selectedRoom =
+        selectedHotel?.rooms.where((r) => r.id == _selectedRoomId).firstOrNull;
+    final selectedBus =
+        widget.buses.where((b) => b.id == _selectedBusId).firstOrNull;
+
+    final data = {
+      'full_name': _fullNameCtrl.text.trim(),
+      'phone_number': _phoneCtrl.text.trim(),
+      'alternative_phone_number': _alternativePhoneCtrl.text.trim().isEmpty ? null : _alternativePhoneCtrl.text.trim(),
+      'tashera_number': _tasheraNumberCtrl.text.trim().isEmpty ? null : _tasheraNumberCtrl.text.trim(),
+      'insurance_company_id': _selectedInsuranceCompanyId,
+      'national_id': _nationalIdCtrl.text.trim(),
+      'medical_history': _medicalHistoryCtrl.text.trim(),
+      'age': int.tryParse(_ageCtrl.text.trim()),
+      'gender': _genderSelection.first,
+      'language': _selectedLanguage,
+      'ethnicity': _selectedEthnicity ?? 'Other',
+      'hotel_id': _selectedHotelId,
+      'hotel_name': selectedHotel?.name,
+      'room_id': _selectedRoomId,
+      'room_number': selectedRoom?.roomNumber,
+      'bus_id': _selectedBusId,
+      'bus_info': selectedBus == null
+          ? null
+          : '${selectedBus.busNumber} - ${selectedBus.destination}',
+      'visa': {'status': _selectedVisaStatus ?? 'unknown'},
+    };
+
+    widget.onCreate(data);
+  }
+
+  Icon _prefix(IconData icon, Color muted) =>
+      Icon(icon, size: 20.sp, color: muted);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textMuted =
+        widget.isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final textPrimary =
+        widget.isDark ? AppColors.textLight : AppColors.textDark;
+    final outline =
+        widget.isDark ? AppColors.dividerDark : AppColors.dividerLight;
+
+    final selectedHotel =
+        widget.hotels.where((h) => h.id == _selectedHotelId).firstOrNull;
+    final rooms = (selectedHotel?.rooms ?? const <RoomOption>[])
+        .where((r) => r.active)
+        .toList();
+
+    final hotelInteractive =
+        !widget.isLoadingResources && widget.hotels.isNotEmpty;
+    final roomInteractive =
+        selectedHotel != null && !widget.isLoadingResources && rooms.isNotEmpty;
+    final busInteractive =
+        !widget.isLoadingResources && widget.buses.isNotEmpty;
+
+    final g = ProvisioningFormTheme.gapMd(context);
+    final gSm = ProvisioningFormTheme.gapSm(context);
+
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      color: widget.isDark ? AppColors.surfaceDark : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16.r),
+        side: BorderSide(
+          color: outline.withValues(alpha: widget.isDark ? 0.9 : 0.65),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 20.h),
+        child: Theme(
+          data: theme.copyWith(
+            inputDecorationTheme:
+                ProvisioningFormTheme.inputDecorationTheme(widget.isDark),
+            splashColor: AppColors.primary.withValues(alpha: 0.08),
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Symbols.person_add,
+                      color: AppColors.primary,
+                      size: 24.sp,
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: Text(
+                        'provisioning_create_account_title'.tr(),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.w700,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: ProvisioningFormTheme.gapLg(context)),
+                Text(
+                  'provisioning_basic_information'.tr(),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w600,
+                    color: textMuted,
+                  ),
+                ),
+                SizedBox(height: gSm),
+                AutofillGroup(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextFormField(
+                        controller: _fullNameCtrl,
+                        textCapitalization: TextCapitalization.words,
+                        autofillHints: const [AutofillHints.name],
+                        textInputAction: TextInputAction.next,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'reg_full_name'.tr(),
+                          prefixIcon: _prefix(Symbols.person, textMuted),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'provisioning_required'.tr()
+                            : null,
+                      ),
+                      SizedBox(height: g),
+                      TextFormField(
+                        controller: _phoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        autofillHints: const [AutofillHints.telephoneNumber],
+                        textInputAction: TextInputAction.next,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'reg_phone'.tr(),
+                          prefixIcon: _prefix(Symbols.phone, textMuted),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'provisioning_required'.tr()
+                            : null,
+                      ),
+                      SizedBox(height: g),
+                      TextFormField(
+                        controller: _alternativePhoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.next,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'Alternative Phone (Optional)',
+                          prefixIcon: _prefix(Symbols.phone, textMuted),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: g),
+                Text(
+                  'reg_gender'.tr(),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w600,
+                    color: textMuted,
+                  ),
+                ),
+                SizedBox(height: gSm),
+                SegmentedButton<String>(
+                  segments: [
+                    ButtonSegment<String>(
+                      value: 'male',
+                      label: Text('reg_male'.tr()),
+                      icon: Icon(Symbols.male, size: 18.sp),
+                    ),
+                    ButtonSegment<String>(
+                      value: 'female',
+                      label: Text('reg_female'.tr()),
+                      icon: Icon(Symbols.female, size: 18.sp),
+                    ),
+                  ],
+                  selected: _genderSelection,
+                  onSelectionChanged: (next) =>
+                      setState(() => _genderSelection = next),
+                  multiSelectionEnabled: false,
+                  emptySelectionAllowed: false,
+                  showSelectedIcon: false,
+                  style: SegmentedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12.w,
+                      vertical: 12.h,
+                    ),
+                    side: BorderSide(color: outline),
+                    foregroundColor: textMuted,
+                    selectedForegroundColor: AppColors.primary,
+                    selectedBackgroundColor:
+                        AppColors.primary.withValues(alpha: 0.12),
+                    textStyle: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.sp,
+                    ),
+                  ),
+                ),
+                SizedBox(height: g),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: TextFormField(
+                        controller: _ageCtrl,
+                        keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.done,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'reg_age'.tr(),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'provisioning_required'.tr();
+                          }
+                          final n = int.tryParse(v.trim());
+                          if (n == null || n < 1 || n > 120) {
+                            return 'provisioning_invalid'.tr();
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    SizedBox(width: gSm),
+                    Expanded(
+                      flex: 7,
+                      child: DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        initialValue: _selectedLanguage,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'settings_language'.tr(),
+                        ),
+                        icon: AppDropdownTheme.menuTrailingIcon(),
+                        dropdownColor:
+                            AppDropdownTheme.menuBackground(widget.isDark),
+                        borderRadius: AppDropdownTheme.menuBorderRadius(),
+                        elevation: AppDropdownTheme.menuElevation(),
+                        style: AppDropdownTheme.valueStyle(widget.isDark),
+                        items: widget.languageOptions
+                            .map(
+                              (opt) => DropdownMenuItem<String>(
+                                value: opt.code,
+                                child: Text(
+                                  opt.label,
+                                  style: AppDropdownTheme.menuItemStyle(
+                                    widget.isDark,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: widget.languageOptions.isEmpty
+                            ? null
+                            : (v) => setState(
+                                  () => _selectedLanguage = v ?? 'en',
+                                ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: g),
+                _AdditionalDetailsExpansion(
+                  isDark: widget.isDark,
+                  textPrimary: textPrimary,
+                  textMuted: textMuted,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String?>(
+                              isExpanded: true,
+                              initialValue: _selectedEthnicity,
+                              decoration: ProvisioningFormTheme.fieldDecoration(
+                                context: context,
+                                isDark: widget.isDark,
+                                hintText: 'provisioning_field_ethnicity'.tr(),
+                              ),
+                              icon: AppDropdownTheme.menuTrailingIcon(),
+                              dropdownColor: AppDropdownTheme.menuBackground(
+                                widget.isDark,
+                              ),
+                              borderRadius:
+                                  AppDropdownTheme.menuBorderRadius(),
+                              elevation: AppDropdownTheme.menuElevation(),
+                              style:
+                                  AppDropdownTheme.valueStyle(widget.isDark),
+                              items: widget.ethnicityOptions
+                                  .map(
+                                    (e) => DropdownMenuItem<String?>(
+                                      value: e,
+                                      child: Text(
+                                        e,
+                                        style:
+                                            AppDropdownTheme.menuItemStyle(
+                                          widget.isDark,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: widget.ethnicityOptions.isEmpty
+                                  ? null
+                                  : (v) =>
+                                      setState(() => _selectedEthnicity = v),
+
+                            ),
+                          ),
+                          SizedBox(width: gSm),
+                          Expanded(
+                            child: DropdownButtonFormField<String?>(
+                              isExpanded: true,
+                              initialValue: _selectedVisaStatus,
+                              decoration: ProvisioningFormTheme.fieldDecoration(
+                                context: context,
+                                isDark: widget.isDark,
+                                hintText: 'provisioning_field_visa'.tr(),
+                              ),
+                              icon: AppDropdownTheme.menuTrailingIcon(),
+                              dropdownColor: AppDropdownTheme.menuBackground(
+                                widget.isDark,
+                              ),
+                              borderRadius:
+                                  AppDropdownTheme.menuBorderRadius(),
+                              elevation: AppDropdownTheme.menuElevation(),
+                              style:
+                                  AppDropdownTheme.valueStyle(widget.isDark),
+                              items: [
+                                'unknown',
+                                'pending',
+                                'issued',
+                                'rejected',
+                                'expired',
+                              ]
+                                  .map(
+                                    (s) => DropdownMenuItem<String?>(
+                                      value: s,
+                                      child: Text(
+                                        'status_$s'.tr(),
+                                        style:
+                                            AppDropdownTheme.menuItemStyle(
+                                          widget.isDark,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) =>
+                                  setState(() => _selectedVisaStatus = v),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: g),
+                      DropdownButtonFormField<String?>(
+                        isExpanded: true,
+                        initialValue:
+                            hotelInteractive ? _selectedHotelId : null,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'provisioning_field_hotel'.tr(),
+                          prefixIcon: _prefix(Symbols.apartment, textMuted),
+                        ),
+                        icon: AppDropdownTheme.menuTrailingIcon(),
+                        dropdownColor:
+                            AppDropdownTheme.menuBackground(widget.isDark),
+                        borderRadius: AppDropdownTheme.menuBorderRadius(),
+                        elevation: AppDropdownTheme.menuElevation(),
+                        style: AppDropdownTheme.valueStyle(widget.isDark),
+                        items: hotelInteractive
+                            ? widget.hotels
+                                .map(
+                                  (h) => DropdownMenuItem<String?>(
+                                    value: h.id,
+                                    child: Text(
+                                      h.name,
+                                      style: AppDropdownTheme.menuItemStyle(
+                                        widget.isDark,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList()
+                            : [
+                                DropdownMenuItem<String?>(
+                                  value: null,
+                                  enabled: false,
+                                  child: Text(
+                                    'provisioning_no_hotels'.tr(),
+                                    style: AppDropdownTheme.menuItemStyle(
+                                      widget.isDark,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                        onChanged: hotelInteractive
+                            ? (v) {
+                                setState(() {
+                                  _selectedHotelId = v;
+                                  _selectedRoomId = null;
+                                });
+                              }
+                            : null,
+                      ),
+                      SizedBox(height: g),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String?>(
+                              isExpanded: true,
+                              initialValue:
+                                  roomInteractive ? _selectedRoomId : null,
+                              decoration:
+                                  ProvisioningFormTheme.fieldDecoration(
+                                context: context,
+                                isDark: widget.isDark,
+                                hintText: 'provisioning_field_room'.tr(),
+                                prefixIcon: _prefix(Symbols.bed, textMuted),
+                              ),
+                              icon: AppDropdownTheme.menuTrailingIcon(),
+                              dropdownColor:
+                                  AppDropdownTheme.menuBackground(
+                                widget.isDark,
+                              ),
+                              borderRadius:
+                                  AppDropdownTheme.menuBorderRadius(),
+                              elevation: AppDropdownTheme.menuElevation(),
+                              style:
+                                  AppDropdownTheme.valueStyle(widget.isDark),
+                              items: roomInteractive
+                                  ? rooms
+                                      .map(
+                                        (r) {
+                                          final full =
+                                              r.currentOccupancy >= r.capacity;
+                                          final base =
+                                              AppDropdownTheme.menuItemStyle(
+                                            widget.isDark,
+                                            fontSize: 13,
+                                          );
+                                          return DropdownMenuItem<String?>(
+                                            value: r.id,
+                                            child: Text(
+                                              '${r.roomNumber}'
+                                              '${r.floor != null ? ' (F${r.floor})' : ''}'
+                                              ' - ${r.currentOccupancy}/'
+                                              '${r.capacity}',
+                                              style: full
+                                                  ? base.copyWith(
+                                                      color: Colors
+                                                          .green.shade400,
+                                                    )
+                                                  : base,
+                                            ),
+                                          );
+                                        },
+                                      )
+                                      .toList()
+                                  : [
+                                      DropdownMenuItem<String?>(
+                                        value: null,
+                                        enabled: false,
+                                        child: Text(
+                                          selectedHotel == null
+                                              ? 'manage_select_hotel_first'
+                                                  .tr()
+                                              : 'provisioning_no_rooms'.tr(),
+                                          style:
+                                              AppDropdownTheme.menuItemStyle(
+                                            widget.isDark,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                              onChanged: roomInteractive
+                                  ? (v) =>
+                                      setState(() => _selectedRoomId = v)
+                                  : null,
+                            ),
+                          ),
+                          SizedBox(width: gSm),
+                          Expanded(
+                            child: DropdownButtonFormField<String?>(
+                              isExpanded: true,
+                              initialValue:
+                                  busInteractive ? _selectedBusId : null,
+                              decoration:
+                                  ProvisioningFormTheme.fieldDecoration(
+                                context: context,
+                                isDark: widget.isDark,
+                                hintText: 'provisioning_field_bus'.tr(),
+                                prefixIcon: _prefix(
+                                  Symbols.directions_bus,
+                                  textMuted,
+                                ),
+                              ),
+                              icon: AppDropdownTheme.menuTrailingIcon(),
+                              dropdownColor:
+                                  AppDropdownTheme.menuBackground(
+                                widget.isDark,
+                              ),
+                              borderRadius:
+                                  AppDropdownTheme.menuBorderRadius(),
+                              elevation: AppDropdownTheme.menuElevation(),
+                              style:
+                                  AppDropdownTheme.valueStyle(widget.isDark),
+                              items: busInteractive
+                                  ? widget.buses
+                                      .map(
+                                        (b) => DropdownMenuItem<String?>(
+                                          value: b.id,
+                                          child: Text(
+                                            b.destination.isEmpty
+                                                ? b.busNumber
+                                                : '${b.busNumber} — '
+                                                    '${b.destination}',
+                                            style:
+                                                AppDropdownTheme.menuItemStyle(
+                                              widget.isDark,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                      .toList()
+                                  : [
+                                      DropdownMenuItem<String?>(
+                                        value: null,
+                                        enabled: false,
+                                        child: Text(
+                                          'provisioning_no_buses'.tr(),
+                                          style:
+                                              AppDropdownTheme.menuItemStyle(
+                                            widget.isDark,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                              onChanged: busInteractive
+                                  ? (v) =>
+                                      setState(() => _selectedBusId = v)
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: g),
+                      TextFormField(
+                        controller: _nationalIdCtrl,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'reg_passport'.tr(),
+                          prefixIcon: _prefix(Symbols.badge, textMuted),
+                        ),
+                      ),
+                      SizedBox(height: g),
+                      TextFormField(
+                        controller: _tasheraNumberCtrl,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'Tashera Number (Optional)',
+                          prefixIcon: _prefix(Symbols.tag, textMuted),
+                        ),
+                      ),
+                      SizedBox(height: g),
+                      DropdownButtonFormField<String?>(
+                        isExpanded: true,
+                        initialValue: _selectedInsuranceCompanyId,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'Insurance Company',
+                          prefixIcon: _prefix(Symbols.health_and_safety, textMuted),
+                        ),
+                        icon: AppDropdownTheme.menuTrailingIcon(),
+                        dropdownColor: AppDropdownTheme.menuBackground(widget.isDark),
+                        borderRadius: AppDropdownTheme.menuBorderRadius(),
+                        elevation: AppDropdownTheme.menuElevation(),
+                        style: AppDropdownTheme.valueStyle(widget.isDark),
+                        items: [
+                          DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text(
+                              'No Insurance',
+                              style: AppDropdownTheme.menuItemStyle(widget.isDark),
+                            ),
+                          ),
+                          ...widget.insurances.map(
+                            (ins) => DropdownMenuItem<String?>(
+                              value: ins.id,
+                              child: Text(
+                                ins.name,
+                                style: AppDropdownTheme.menuItemStyle(widget.isDark),
+                              ),
+                            ),
+                          ),
+                        ],
+                        onChanged: (v) => setState(() => _selectedInsuranceCompanyId = v),
+                      ),
+                      SizedBox(height: g),
+                      TextFormField(
+                        controller: _medicalHistoryCtrl,
+                        maxLines: 2,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'reg_medical'.tr(),
+                          prefixIcon:
+                              _prefix(Symbols.medical_services, textMuted),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: ProvisioningFormTheme.gapLg(context)),
+                FilledButton(
+                  onPressed: widget.isProvisioning ? null : _handleSubmit,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 14.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                  ),
+                  child: widget.isProvisioning
+                      ? SizedBox(
+                          height: 22.h,
+                          width: 22.h,
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Symbols.add_circle, size: 20.sp),
+                            SizedBox(width: 8.w),
+                            Text(
+                              'reg_create_account'.tr(),
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontSize: 15.sp,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdditionalDetailsExpansion extends StatelessWidget {
+  const _AdditionalDetailsExpansion({
+    required this.isDark,
+    required this.textPrimary,
+    required this.textMuted,
+    required this.child,
+  });
+
+  final bool isDark;
+  final Color textPrimary;
+  final Color textMuted;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final dividerClr =
+        isDark ? AppColors.dividerDark : AppColors.dividerLight;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(bottom: 4.h),
+          child: Divider(height: 1, thickness: 1, color: dividerClr),
+        ),
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            maintainState: true,
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: EdgeInsets.only(top: 4.h, bottom: 4.h),
+            backgroundColor: Colors.transparent,
+            collapsedBackgroundColor: Colors.transparent,
+            shape: const RoundedRectangleBorder(side: BorderSide.none),
+            collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+            iconColor: AppColors.primary,
+            collapsedIconColor: AppColors.primary,
+            initiallyExpanded: false,
+            title: Text(
+              'provisioning_additional_details'.tr(),
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w700,
+                    color: textPrimary,
+                  ),
+            ),
+            subtitle: Padding(
+              padding: EdgeInsets.only(top: 4.h),
+              child: Text(
+                'provisioning_optional_logistics'.tr(),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w500,
+                      fontSize: 12.5.sp,
+                      color: textMuted.withValues(alpha: 0.95),
+                    ),
+              ),
+            ),
+            children: [child],
+          ),
+        ),
+      ],
+    );
+  }
+}

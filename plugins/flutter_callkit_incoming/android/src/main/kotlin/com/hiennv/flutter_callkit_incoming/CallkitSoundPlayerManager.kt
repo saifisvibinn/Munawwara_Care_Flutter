@@ -40,7 +40,15 @@ class CallkitSoundPlayerManager(private val context: Context) {
         this.playVibrator()
 
         val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
-        context.registerReceiver(screenOffCallkitIncomingBroadcastReceiver, filter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(
+                screenOffCallkitIncomingBroadcastReceiver,
+                filter,
+                Context.RECEIVER_NOT_EXPORTED,
+            )
+        } else {
+            context.registerReceiver(screenOffCallkitIncomingBroadcastReceiver, filter)
+        }
     }
 
     fun stop() {

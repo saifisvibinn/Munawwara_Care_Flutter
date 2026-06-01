@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show FilterQuality, FontFeature, ImageFilter;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -6,50 +7,96 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../../core/services/socket_service.dart';
+import '../../../core/services/callkit_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/support_dialogs.dart';
+import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../providers/call_provider.dart';
+import '../widgets/call_peer_display.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VoiceCallScreen
-// Handles both outgoing (status=calling) and active (status=connected) phases.
-// Auto-pops when the call returns to idle.
+// VoiceCallScreen — in-app voice call UI (outgoing / connected / ended)
+// Uses AppColors + theme brightness to match Munawwara Care elsewhere.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class VoiceCallScreen extends ConsumerStatefulWidget {
-  /// Prevents duplicate instances from being pushed onto the stack.
   static bool isActive = false;
 
-  const VoiceCallScreen({super.key});
+  final List<Map<String, String>>? autoRouteMods;
+  final VoidCallback? onAllBusy;
+
+  /// Seeds the header before [callProvider] finishes async setup (UI only).
+  final String? initialPeerName;
+
+  /// Seeds pilgrim avatar before [CallState.remotePeerGender] is set.
+  final String? initialPeerGender;
+
+  const VoiceCallScreen({
+    super.key,
+    this.autoRouteMods,
+    this.onAllBusy,
+    this.initialPeerName,
+    this.initialPeerGender,
+  });
 
   @override
   ConsumerState<VoiceCallScreen> createState() => _VoiceCallScreenState();
 }
 
 class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
-  /// Cached caller name so it survives provider state resets.
+  late List<Map<String, String>> _queue;
   String? _cachedName;
+  String? _cachedGender;
   Timer? _autoPopTimer;
-
-  /// Prevents cancelling an outgoing call within the first 3 seconds.
-  bool _canCancel = false;
-  Timer? _cancelLockTimer;
+  bool _showRatingOnPop = false;
 
   @override
   void initState() {
     super.initState();
     VoiceCallScreen.isActive = true;
-    // Lock the cancel button for the first 3 s so the call-offer socket
-    // message has time to reach the server before a cancel is sent.
-    _cancelLockTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _canCancel = true);
-    });
+    _queue = List.from(widget.autoRouteMods ?? []);
+    _seedDisplayCache();
+  }
+
+  void _seedDisplayCache() {
+    if (!isUnresolvedCallPeerName(widget.initialPeerName)) {
+      _cachedName = widget.initialPeerName!.trim();
+    }
+    final initialGender = widget.initialPeerGender?.trim();
+    if (initialGender != null && initialGender.isNotEmpty) {
+      _cachedGender = initialGender;
+    }
+    final call = ref.read(callProvider);
+    final resolved = resolveCallPeerDisplayName(
+      call: call,
+      cachedName: _cachedName,
+    );
+    if (resolved.isNotEmpty) {
+      _cachedName = resolved;
+    }
+    final gender = call.remotePeerGender?.trim();
+    if (gender != null && gender.isNotEmpty) {
+      _cachedGender = gender;
+    }
+  }
+
+  void _syncDisplayCache(CallState call) {
+    final resolved = resolveCallPeerDisplayName(
+      call: call,
+      cachedName: _cachedName,
+    );
+    if (resolved.isNotEmpty) {
+      _cachedName = resolved;
+    }
+    final gender = call.remotePeerGender?.trim();
+    if (gender != null && gender.isNotEmpty) {
+      _cachedGender = gender;
+    }
   }
 
   @override
   void dispose() {
     _autoPopTimer?.cancel();
-    _cancelLockTimer?.cancel();
     VoiceCallScreen.isActive = false;
     super.dispose();
   }
@@ -57,228 +104,294 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
   @override
   Widget build(BuildContext context) {
     final call = ref.watch(callProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = _CallPalette(isDark);
 
-    // Cache the name so it survives when provider resets to idle
-    if (call.remoteUserName != null && call.remoteUserName!.isNotEmpty) {
-      _cachedName = call.remoteUserName;
-    }
+    _syncDisplayCache(call);
 
-    // Auto-pop 2 s after 'ended' so user sees the end reason with correct name
     ref.listen(callProvider, (prev, next) {
+      if (next.status == CallStatus.ended &&
+          prev?.status == CallStatus.connected) {
+        _showRatingOnPop = true;
+      }
+
       if (next.status == CallStatus.ended &&
           prev?.status != CallStatus.ended &&
           mounted) {
-        _autoPopTimer?.cancel();
-        _autoPopTimer = Timer(const Duration(seconds: 2), () {
-          if (mounted) Navigator.of(context).maybePop();
-        });
+        final autoRouteReasons = [
+          'declined',
+          'busy',
+          'error',
+          'missed',
+          'timeout',
+        ];
+        final isAutoRouteReason = autoRouteReasons.contains(next.endReason);
+
+        if (isAutoRouteReason && _queue.isNotEmpty) {
+          _autoPopTimer?.cancel();
+          _autoPopTimer = Timer(const Duration(seconds: 1), () {
+            if (!mounted) return;
+            final nextMod = _queue.removeAt(0);
+            // Do not cache moderator personal name — pilgrim UI uses support label
+            // from [callProvider]; caching here would override it on the next frame.
+            final nextName = nextMod['name']?.trim();
+            final nextGender = nextMod['gender']?.trim();
+            setState(() {
+              _cachedName = isUnresolvedCallPeerName(nextName) ? null : nextName;
+              _cachedGender =
+                  (nextGender != null && nextGender.isNotEmpty)
+                      ? nextGender
+                      : null;
+            });
+            ref
+                .read(callProvider.notifier)
+                .startCall(
+                  remoteUserId: nextMod['id']!,
+                  remoteUserName: nextMod['name'] ?? '',
+                  remotePeerGender: nextMod['gender'],
+                );
+          });
+        } else {
+          _autoPopTimer?.cancel();
+          _autoPopTimer = Timer(const Duration(seconds: 2), () {
+            if (mounted) {
+              Navigator.of(context).maybePop();
+              if (isAutoRouteReason && widget.onAllBusy != null) {
+                widget.onAllBusy!();
+              }
+              if (_showRatingOnPop) {
+                SupportDialogs.showRating(context, isContextual: true);
+              }
+            }
+          });
+        }
       }
-      // Safety net: also pop on idle
-      if (next.status == CallStatus.idle && mounted) {
+      if (next.status == CallStatus.idle &&
+          prev?.status != CallStatus.ended &&
+          mounted) {
         Navigator.of(context).maybePop();
+        if (_showRatingOnPop) {
+          SupportDialogs.showRating(context, isContextual: true);
+        }
       }
     });
 
-    final name = _cachedName ?? call.remoteUserName ?? 'Unknown';
-    final initials = name
-        .trim()
-        .split(' ')
-        .take(2)
-        .map((w) => w.isNotEmpty ? w[0].toUpperCase() : '')
-        .join();
+    final displayName = resolveCallPeerDisplayName(
+      call: call,
+      cachedName: _cachedName,
+    );
+    final showPeerName = displayName.isNotEmpty;
+    final initials = showPeerName ? callPeerInitials(displayName) : '';
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D1B2A),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Top bar ────────────────────────────────────────────────────
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-              child: Row(
-                children: [
-                  const Spacer(),
-                  Text(
-                    'call_internet'.tr(),
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 13.sp,
-                      fontFamily: 'Lexend',
-                    ),
-                  ),
-                  const Spacer(),
-                ],
-              ),
-            ),
+    final canPop = call.status == CallStatus.ended || call.status == CallStatus.idle;
 
-            const Spacer(flex: 2),
-
-            // ── Avatar ─────────────────────────────────────────────────────
-            Container(
-              width: 110.w,
-              height: 110.w,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [AppColors.primary, AppColors.primaryDark],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.4),
-                    blurRadius: 30,
-                    spreadRadius: 8,
+    return PopScope(
+      canPop: canPop,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: DecoratedBox(
+          decoration: BoxDecoration(gradient: c.backgroundGradient),
+          child: Stack(
+            children: [
+              Positioned(
+                top: -80.h,
+                right: -40.w,
+                child: _BlurOrb(
+                  color: AppColors.primary.withValues(
+                    alpha: isDark ? 0.12 : 0.18,
                   ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  initials,
-                  style: TextStyle(
-                    fontSize: 38.sp,
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+                  size: 220,
                 ),
               ),
-            ),
-
-            SizedBox(height: 24.h),
-
-            // ── Name ───────────────────────────────────────────────────────
-            Text(
-              name,
-              style: TextStyle(
-                fontSize: 26.sp,
-                fontWeight: FontWeight.w700,
-                fontFamily: 'Lexend',
-                color: Colors.white,
-              ),
-            ),
-
-            SizedBox(height: 8.h),
-
-            // ── Status / Timer ─────────────────────────────────────────────
-            Text(
-              _statusLabel(call),
-              style: TextStyle(
-                fontSize: 14.sp,
-                fontFamily: 'Lexend',
-                color: call.status == CallStatus.connected
-                    ? AppColors.primary
-                    : Colors.white54,
-              ),
-            ),
-
-            const Spacer(flex: 3),
-
-            // ── Side controls (mute + speaker) ─────────────────────────────
-            if (call.status == CallStatus.connected) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _ControlButton(
-                    icon: call.isMuted ? Symbols.mic_off : Symbols.mic,
-                    label: call.isMuted ? 'call_unmute'.tr() : 'call_mute'.tr(),
-                    active: call.isMuted,
-                    onTap: () => ref.read(callProvider.notifier).toggleMute(),
+              Positioned(
+                bottom: 40.h,
+                left: -60.w,
+                child: _BlurOrb(
+                  color: AppColors.accentGold.withValues(
+                    alpha: isDark ? 0.06 : 0.1,
                   ),
-                  SizedBox(width: 32.w),
-                  _ControlButton(
-                    icon: call.isSpeakerOn
-                        ? Symbols.volume_up
-                        : Symbols.volume_down,
-                    label: call.isSpeakerOn
-                        ? 'call_speaker'.tr()
-                        : 'call_earpiece'.tr(),
-                    active: call.isSpeakerOn,
-                    onTap: () =>
-                        ref.read(callProvider.notifier).toggleSpeaker(),
-                  ),
-                ],
+                  size: 180,
+                ),
               ),
-              SizedBox(height: 36.h),
-            ],
-
-            // ── End call button ────────────────────────────────────────────
-            if (call.status != CallStatus.ended) ...[
-              // During the first 3 s of an outgoing call the button is locked
-              // (greyed-out) so the call-offer reaches the server before a
-              // cancel can race against it.
-              Builder(
-                builder: (context) {
-                  final isLocked =
-                      call.status == CallStatus.calling && !_canCancel;
-                  return GestureDetector(
-                    onTap: isLocked
-                        ? null
-                        : () {
-                            if (call.status == CallStatus.calling) {
-                              SocketService.emit('call-cancel', {
-                                'to': call.remoteUserId,
-                              });
-                              ref.read(callProvider.notifier).endCall();
-                            } else {
-                              ref.read(callProvider.notifier).endCall();
-                            }
-                          },
-                    child: AnimatedOpacity(
-                      opacity: isLocked ? 0.35 : 1.0,
-                      duration: const Duration(milliseconds: 300),
-                      child: Container(
-                        width: 70.w,
-                        height: 70.w,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFDC2626),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Symbols.call_end,
-                          color: Colors.white,
-                          size: 30.w,
-                          fill: 1,
+              SafeArea(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20.w,
+                        vertical: 10.h,
+                      ),
+                      child: Center(
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 14.w,
+                            vertical: 8.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: c.chipFill,
+                            borderRadius: BorderRadius.circular(20.r),
+                            border: Border.all(color: c.chipBorder),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Symbols.wifi_calling_3,
+                                size: 17.sp,
+                                color: AppColors.primary,
+                              ),
+                              SizedBox(width: 8.w),
+                              Text(
+                                'call_internet'.tr(),
+                                style: TextStyle(
+                                  color: c.textSecondary,
+                                  fontSize: 12.sp,
+                                  fontFamily: 'Lexend',
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
-            ],
-
-            // ── End reason ─────────────────────────────────────────────────
-            if (call.status == CallStatus.ended) ...[
-              Icon(Symbols.info, color: Colors.white38, size: 32.w),
-              SizedBox(height: 8.h),
-              Text(
-                _endReasonLabel(call.endReason),
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 14.sp,
-                  fontFamily: 'Lexend',
+                    SizedBox(height: 12.h),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Spacer(flex: 2),
+                          if (call.displayPeerAsSupportBranding)
+                            _SupportBrandingAvatar(palette: c)
+                          else if (call.isGroupRingingOut)
+                            _AvatarRing(initials: initials, palette: c)
+                          else
+                            _PilgrimPeerAvatar(
+                              gender: _cachedGender ?? call.remotePeerGender,
+                              palette: c,
+                            ),
+                          SizedBox(height: 22.h),
+                          Opacity(
+                            opacity: showPeerName ? 1 : 0,
+                            child: Text(
+                              showPeerName ? displayName : ' ',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 24.sp,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'Lexend',
+                                color: c.textPrimary,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 10.h),
+                          _StatusChip(
+                            call: call,
+                            palette: c,
+                            endedMessage: call.status == CallStatus.ended
+                                ? _endReasonLabel(call.endReason)
+                                : null,
+                          ),
+                          const Spacer(flex: 3),
+                          if (call.status == CallStatus.calling ||
+                              call.status == CallStatus.ringing ||
+                              call.status == CallStatus.connecting ||
+                              call.status == CallStatus.connected) ...[
+                            Container(
+                              margin: EdgeInsets.symmetric(horizontal: 28.w),
+                              padding: EdgeInsets.symmetric(
+                                vertical: 18.h,
+                                horizontal: 12.w,
+                              ),
+                              decoration: BoxDecoration(
+                                color: c.panelFill,
+                                borderRadius: BorderRadius.circular(22.r),
+                                border: Border.all(color: c.panelBorder),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  _ControlTile(
+                                    icon: call.isMuted
+                                        ? Symbols.mic_off
+                                        : Symbols.mic,
+                                    label: call.isMuted
+                                        ? 'call_unmute'.tr()
+                                        : 'call_mute'.tr(),
+                                    active: call.isMuted,
+                                    palette: c,
+                                    onTap: () => ref
+                                        .read(callProvider.notifier)
+                                        .toggleMute(),
+                                  ),
+                                  _ControlTile(
+                                    icon: call.isSpeakerOn
+                                        ? Symbols.volume_up
+                                        : Symbols.hearing,
+                                    label: call.isSpeakerOn
+                                        ? 'call_speaker'.tr()
+                                        : 'call_earpiece'.tr(),
+                                    active: call.isSpeakerOn,
+                                    palette: c,
+                                    onTap: () => ref
+                                        .read(callProvider.notifier)
+                                        .toggleSpeaker(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: 28.h),
+                          ],
+                          if (call.status != CallStatus.ended) ...[
+                            GestureDetector(
+                              onTap: () {
+                                _queue.clear();
+                                final notifier = ref.read(callProvider.notifier);
+                                if (call.status == CallStatus.calling) {
+                                  notifier.cancelOutgoingRing();
+                                } else if (call.status == CallStatus.ringing) {
+                                  notifier.declineCall();
+                                } else {
+                                  notifier.endCall();
+                                }
+                              },
+                              child: Container(
+                                width: 76.w,
+                                height: 76.w,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.error,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.error.withValues(
+                                        alpha: 0.35,
+                                      ),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Symbols.call_end,
+                                  color: Colors.white,
+                                  size: 34.sp,
+                                  fill: 1,
+                                ),
+                              ),
+                            ),
+                          ],
+                          SizedBox(height: 48.h),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
-
-            SizedBox(height: 60.h),
-          ],
+          ),
         ),
       ),
     );
-  }
-
-  String _statusLabel(CallState call) {
-    switch (call.status) {
-      case CallStatus.calling:
-        return 'call_calling'.tr();
-      case CallStatus.connected:
-        return call.formattedDuration;
-      case CallStatus.ended:
-        return _endReasonLabel(call.endReason);
-      default:
-        return '';
-    }
   }
 
   String _endReasonLabel(String? reason) {
@@ -297,51 +410,331 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helper widget: mute / speaker buttons
-// ─────────────────────────────────────────────────────────────────────────────
+class _CallPalette {
+  _CallPalette(bool isDark)
+    : textPrimary = isDark ? AppColors.textLight : AppColors.textDark,
+      textSecondary = isDark
+          ? AppColors.textMutedLight
+          : AppColors.textMutedDark,
+      textMuted = isDark
+          ? AppColors.textMutedLight.withValues(alpha: 0.75)
+          : AppColors.textMutedDark,
+      chipFill = isDark
+          ? AppColors.surfaceDark.withValues(alpha: 0.85)
+          : Colors.white.withValues(alpha: 0.92),
+      chipBorder = isDark ? AppColors.dividerDark : AppColors.dividerLight,
+      panelFill = isDark ? AppColors.surfaceDark : Colors.white,
+      panelBorder = isDark ? AppColors.dividerDark : AppColors.dividerLight,
+      avatarRing = isDark ? AppColors.dividerDark : AppColors.dividerLight,
+      backgroundGradient = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: isDark
+            ? [
+                AppColors.backgroundDark,
+                Color.lerp(
+                  AppColors.backgroundDark,
+                  const Color(0xFF151D2E),
+                  0.5,
+                )!,
+              ]
+            : [AppColors.backgroundLight, const Color(0xFFE4E7F5)],
+      );
 
-class _ControlButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color textMuted;
+  final Color chipFill;
+  final Color chipBorder;
+  final Color panelFill;
+  final Color panelBorder;
+  final Color avatarRing;
+  final LinearGradient backgroundGradient;
+}
 
-  const _ControlButton({
-    required this.icon,
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
+class _BlurOrb extends StatelessWidget {
+  const _BlurOrb({required this.color, required this.size});
+
+  final Color color;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 60.w,
-            height: 60.w,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: active
-                  ? Colors.white.withValues(alpha: 0.25)
-                  : Colors.white.withValues(alpha: 0.1),
-            ),
-            child: Icon(icon, fill: 1, color: Colors.white, size: 26.w),
-          ),
-          SizedBox(height: 6.h),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: 11.sp,
-              fontFamily: 'Lexend',
-            ),
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 48, sigmaY: 48),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      ),
+    );
+  }
+}
+
+class _PilgrimPeerAvatar extends StatelessWidget {
+  const _PilgrimPeerAvatar({required this.gender, required this.palette});
+
+  final String? gender;
+  final _CallPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final inner = 124.w - 8.w;
+    return Container(
+      width: 124.w,
+      height: 124.w,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: palette.avatarRing, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.22),
+            blurRadius: 28,
+            spreadRadius: 0,
+            offset: const Offset(0, 12),
           ),
         ],
+      ),
+      padding: EdgeInsets.all(4.w),
+      child: PilgrimGenderAvatar(gender: gender, size: inner),
+    );
+  }
+}
+
+class _SupportBrandingAvatar extends StatelessWidget {
+  const _SupportBrandingAvatar({required this.palette});
+
+  final _CallPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 124.w,
+      height: 124.w,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: palette.avatarRing, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.22),
+            blurRadius: 28,
+            spreadRadius: 0,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.all(4.w),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white,
+        ),
+        child: ClipOval(
+          child: Padding(
+            padding: EdgeInsets.all(18.w),
+            child: Image.asset(
+              kCallKitSupportAvatarAsset,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AvatarRing extends StatelessWidget {
+  const _AvatarRing({required this.initials, required this.palette});
+
+  final String initials;
+  final _CallPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 124.w,
+      height: 124.w,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: palette.avatarRing, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.22),
+            blurRadius: 28,
+            spreadRadius: 0,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.all(4.w),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            colors: [AppColors.primary, AppColors.primaryDark],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            initials.isEmpty ? '?' : initials,
+            style: TextStyle(
+              fontSize: 36.sp,
+              fontFamily: 'Lexend',
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              height: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({
+    required this.call,
+    required this.palette,
+    this.endedMessage,
+  });
+
+  final CallState call;
+  final _CallPalette palette;
+
+  /// When the call has just ended, show this in the same slot as the timer
+  /// so the Munawwara logo block does not jump vertically.
+  final String? endedMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    if (call.status == CallStatus.ended) {
+      final text = endedMessage ?? '';
+      if (text.isEmpty) {
+        return SizedBox(height: 44.h);
+      }
+      return Container(
+        constraints: BoxConstraints(minHeight: 44.h),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+        decoration: BoxDecoration(
+          color: palette.chipFill,
+          borderRadius: BorderRadius.circular(14.r),
+          border: Border.all(color: palette.chipBorder),
+        ),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14.sp,
+            fontFamily: 'Lexend',
+            fontWeight: FontWeight.w600,
+            color: palette.textSecondary,
+            height: 1.3,
+          ),
+        ),
+      );
+    }
+
+    final label = switch (call.status) {
+      CallStatus.calling => 'call_calling'.tr(),
+      CallStatus.connecting => 'call_connecting'.tr(),
+      CallStatus.connected => call.formattedDuration,
+      _ => '',
+    };
+    if (label.isEmpty) return const SizedBox.shrink();
+
+    final isLive = call.status == CallStatus.connected;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        color: isLive
+            ? AppColors.primary.withValues(alpha: 0.14)
+            : palette.chipFill,
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(
+          color: isLive
+              ? AppColors.primary.withValues(alpha: 0.45)
+              : palette.chipBorder,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: isLive ? 18.sp : 13.sp,
+          fontFamily: 'Lexend',
+          fontWeight: FontWeight.w600,
+          color: isLive ? AppColors.primary : palette.textSecondary,
+          letterSpacing: isLive ? 1.2 : 0.2,
+          fontFeatures: isLive ? const [FontFeature.tabularFigures()] : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _ControlTile extends StatelessWidget {
+  const _ControlTile({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.palette,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final _CallPalette palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16.r),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 4.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56.w,
+                height: 56.w,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: active
+                      ? AppColors.primary.withValues(alpha: 0.2)
+                      : palette.chipFill,
+                  border: Border.all(
+                    color: active
+                        ? AppColors.primary.withValues(alpha: 0.5)
+                        : palette.chipBorder,
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  fill: 1,
+                  color: active ? AppColors.primary : palette.textPrimary,
+                  size: 26.sp,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                label,
+                style: TextStyle(
+                  color: palette.textMuted,
+                  fontSize: 11.sp,
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
