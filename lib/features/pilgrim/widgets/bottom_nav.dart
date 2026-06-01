@@ -34,13 +34,13 @@ class PilgrimBottomNav extends ConsumerWidget {
     final labels = [
       'tab_home'.tr(),
       'tab_map'.tr(),
-      'tab_qibla'.tr(),
+      'tab_muslim'.tr(),
       'tab_announcements'.tr(),
     ];
     final icons = [
       Symbols.home,
       Symbols.map,
-      Symbols.explore,
+      Symbols.pan_tool,
       Symbols.campaign,
     ];
     // Badge counts per slot (announcements tab only)
