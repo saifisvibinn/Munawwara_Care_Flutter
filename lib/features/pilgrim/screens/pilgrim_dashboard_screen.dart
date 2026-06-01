@@ -308,6 +308,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _sosResolvedUiTimer?.cancel();
     _sosResolvedUiTimer = null;
 
+    _showResolvedSosCard = true; // Sync update to avoid race with Riverpod listener
+
     setState(() {
       _sosHomePhase = SosHomePhase.helpSession;
       _sosHelpStatusKey = 'sos_status_resolved_friendly';
@@ -839,7 +841,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           if (!mounted) return;
           try {
             final map = Map<String, dynamic>.from(data as Map);
-            if (!ref.read(pilgrimProvider).sosActive) return;
+            if (_showResolvedSosCard) return;
 
             final myGroup = ref.read(pilgrimProvider).groupInfo?.groupId;
             final evtGroup = map['group_id']?.toString();

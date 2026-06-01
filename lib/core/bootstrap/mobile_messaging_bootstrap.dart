@@ -12,7 +12,6 @@ import '../../features/calling/calling_scope.dart';
 import '../../features/calling/native_call_coordinator.dart';
 import '../../features/moderator/models/sos_moderator_payload.dart';
 import '../../features/moderator/services/sos_alert_coordinator.dart';
-import '../../features/pilgrim/providers/pilgrim_provider.dart';
 import '../../features/pilgrim/services/pilgrim_sos_coordinator.dart';
 import '../../features/shared/helpers/message_visibility.dart';
 import '../../features/shared/providers/message_provider.dart';
@@ -201,7 +200,10 @@ Future<void> bindMobileMessagingServices() async {
         if (role == 'pilgrim') {
           AppLogger.i('[FCM] sos_resolved — pilgrim help request closed');
           await PilgrimSosCoordinator.persistPendingModeratorResolved();
-          c?.read(pilgrimProvider.notifier).cancelSOS();
+          // Trigger the UI callback FIRST (while sosActive is still true) so
+          // the resolved card can display. cancelSOS() is called inside
+          // _applyModeratorResolvedUi; calling it here beforehand was causing
+          // the dashboard socket guard to silently drop the resolved card.
           PilgrimSosCoordinator.onModeratorResolvedUi?.call();
         }
         return;
