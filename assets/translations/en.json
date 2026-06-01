@@ -83,6 +83,7 @@
   "tab_map": "Map",
   "tab_plan": "Plan",
   "tab_chat": "Chat",
+  "tab_announcements": "Announcements",
   "tab_me": "Me",
   "mod_broadcast_sos_confirm_title": "Send urgent group alert?",
   "mod_broadcast_sos_confirm_body": "This sends an urgent alert to all pilgrims in your group. Use for group coordination—not as a replacement for emergency services.",
