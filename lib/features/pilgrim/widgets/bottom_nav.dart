@@ -40,7 +40,7 @@ class PilgrimBottomNav extends ConsumerWidget {
     final icons = [
       Symbols.home,
       Symbols.map,
-      Symbols.pan_tool,
+      Symbols.folded_hands,
       Symbols.campaign,
     ];
     // Badge counts per slot (announcements tab only)

@@ -82,7 +82,7 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                         _HubBentoCard(
                           title: 'muslim_azkar'.tr(),
                           subtitle: 'muslim_azkar_sub'.tr(),
-                          icon: Symbols.schedule,
+                          icon: Symbols.wb_twilight,
                           tint: MuslimColors.primaryFixed.withValues(alpha: 0.35),
                           iconColor: MuslimColors.primary,
                           onTap: () => Navigator.of(context).push(
@@ -94,7 +94,7 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                         _HubBentoCard(
                           title: 'muslim_duaa'.tr(),
                           subtitle: 'muslim_duaa_sub'.tr(),
-                          icon: Symbols.pan_tool,
+                          icon: Symbols.folded_hands,
                           tint: MuslimColors.secondaryFixed.withValues(alpha: 0.35),
                           iconColor: MuslimColors.secondary,
                           onTap: () => Navigator.of(context).push(
