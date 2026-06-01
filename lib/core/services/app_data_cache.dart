@@ -15,6 +15,8 @@ class AppDataCache {
   static const moderatorDashboardFile = 'moderator_dashboard.json';
   static const notificationsFile = 'notifications.json';
   static const exploreNearbyPoisFile = 'explore_nearby_pois.json';
+  static const asmaUlHusnaFile = 'asma_ul_husna.json';
+  static const randomHadithFile = 'random_hadith.json';
 
   static String messagesFile(String groupId) => 'messages_$groupId.json';
 

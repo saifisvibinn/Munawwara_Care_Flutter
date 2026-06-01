@@ -208,6 +208,16 @@ class HadithData {
       grade: json['grade']?.toString() ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'collection': collection,
+    'collection_name': collectionName,
+    'hadithnumber': hadithNumber,
+    'english': english,
+    'arabic': arabic,
+    'grade': grade,
+  };
 }
 
 class HadithCollection {
@@ -259,4 +269,11 @@ class AsmaName {
           json['meaning']?.toString() ?? json['english']?.toString() ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'number': number,
+    'name_arabic': nameArabic,
+    'transliteration': transliteration,
+    'meaning': meaning,
+  };
 }

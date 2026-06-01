@@ -9,6 +9,8 @@ import 'package:geolocator/geolocator.dart';
 
 import '../models/muslim_models.dart';
 import '../services/ummah_api_service.dart';
+import '../../../core/services/app_data_cache.dart';
+import '../../../core/services/secure_session_store.dart';
 
 final ummahDioProvider = Provider<Dio>((ref) {
   final apiKey = dotenv.env['UMMAH_API_KEY']?.trim() ?? '';
@@ -171,8 +173,31 @@ final duaCategoryItemsProvider =
   return ref.watch(ummahApiServiceProvider).fetchDuasByCategory(categoryId);
 });
 
+Future<HadithData> _fetchHadithWithFallback(
+  Ref ref,
+  Future<HadithData> Function() fetchCall,
+) async {
+  final uid = await SecureSessionStore.getUserId() ?? 'global';
+  try {
+    final fresh = await fetchCall();
+    await AppDataCache.write(uid, AppDataCache.randomHadithFile, fresh.toJson());
+    return fresh;
+  } catch (e) {
+    try {
+      final cached = await AppDataCache.readData(uid, AppDataCache.randomHadithFile);
+      if (cached is Map<String, dynamic>) {
+        return HadithData.fromJson(cached);
+      }
+    } catch (_) {}
+    rethrow;
+  }
+}
+
 final randomHadithProvider = FutureProvider<HadithData>((ref) {
-  return ref.watch(ummahApiServiceProvider).fetchRandomHadith();
+  return _fetchHadithWithFallback(
+    ref,
+    () => ref.read(ummahApiServiceProvider).fetchRandomHadith(),
+  );
 });
 
 /// Hadith shown on the daily hadith screen (random or from a tapped collection).
@@ -184,13 +209,19 @@ final displayedHadithProvider =
 class DisplayedHadithNotifier extends AsyncNotifier<HadithData> {
   @override
   Future<HadithData> build() {
-    return ref.watch(ummahApiServiceProvider).fetchRandomHadith();
+    return _fetchHadithWithFallback(
+      ref,
+      () => ref.read(ummahApiServiceProvider).fetchRandomHadith(),
+    );
   }
 
   Future<void> loadRandom() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-      () => ref.read(ummahApiServiceProvider).fetchRandomHadith(),
+      () => _fetchHadithWithFallback(
+        ref,
+        () => ref.read(ummahApiServiceProvider).fetchRandomHadith(),
+      ),
     );
   }
 
@@ -202,10 +233,13 @@ class DisplayedHadithNotifier extends AsyncNotifier<HadithData> {
         throw StateError('Collection has no hadiths');
       }
       final number = Random().nextInt(total) + 1;
-      return ref.read(ummahApiServiceProvider).fetchHadith(
-            collection: collection.key,
-            number: number,
-          );
+      return _fetchHadithWithFallback(
+        ref,
+        () => ref.read(ummahApiServiceProvider).fetchHadith(
+              collection: collection.key,
+              number: number,
+            ),
+      );
     });
   }
 }
@@ -217,14 +251,38 @@ final hadithCollectionsProvider = FutureProvider<List<HadithCollection>>((ref) {
 final hadithByRefProvider =
     FutureProvider.family<HadithData, ({String collection, int number})>(
   (ref, refData) {
-    return ref
-        .watch(ummahApiServiceProvider)
-        .fetchHadith(collection: refData.collection, number: refData.number);
+    return _fetchHadithWithFallback(
+      ref,
+      () => ref.read(ummahApiServiceProvider).fetchHadith(
+            collection: refData.collection,
+            number: refData.number,
+          ),
+    );
   },
 );
 
-final asmaUlHusnaProvider = FutureProvider<List<AsmaName>>((ref) {
-  return ref.watch(ummahApiServiceProvider).fetchAsmaUlHusna();
+final asmaUlHusnaProvider = FutureProvider<List<AsmaName>>((ref) async {
+  final uid = await SecureSessionStore.getUserId() ?? 'global';
+  try {
+    final cachedData = await AppDataCache.readData(uid, AppDataCache.asmaUlHusnaFile);
+    if (cachedData is List) {
+      final cachedList = cachedData
+          .whereType<Map<String, dynamic>>()
+          .map(AsmaName.fromJson)
+          .toList();
+      if (cachedList.isNotEmpty) {
+        return cachedList;
+      }
+    }
+  } catch (_) {}
+
+  final names = await ref.read(ummahApiServiceProvider).fetchAsmaUlHusna();
+  await AppDataCache.write(
+    uid,
+    AppDataCache.asmaUlHusnaFile,
+    names.map((e) => e.toJson()).toList(),
+  );
+  return names;
 });
 
 final asmaSearchQueryProvider =
@@ -238,11 +296,19 @@ class AsmaSearchQueryNotifier extends Notifier<String> {
 }
 
 final asmaSearchResultsProvider = FutureProvider<List<AsmaName>>((ref) async {
-  final query = ref.watch(asmaSearchQueryProvider).trim();
+  final query = ref.watch(asmaSearchQueryProvider).trim().toLowerCase();
+  final allNames = await ref.watch(asmaUlHusnaProvider.future);
   if (query.isEmpty) {
-    return ref.watch(asmaUlHusnaProvider.future);
+    return allNames;
   }
-  return ref.watch(ummahApiServiceProvider).searchAsmaUlHusna(query);
+  return allNames.where((name) {
+    final translit = name.transliteration.toLowerCase();
+    final meaning = name.meaning.toLowerCase();
+    final arabic = name.nameArabic.toLowerCase();
+    return translit.contains(query) ||
+        meaning.contains(query) ||
+        arabic.contains(query);
+  }).toList();
 });
 
 /// Per-card tap counters for azkar / du'aa (keyed by dua id + category).
