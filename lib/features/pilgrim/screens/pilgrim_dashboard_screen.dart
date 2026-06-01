@@ -13,7 +13,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/helpers/chat_notification_helper.dart';
 import '../../shared/helpers/message_visibility.dart';
@@ -39,6 +38,7 @@ import '../../calling/native_call_coordinator.dart' show isNavigatingToCall;
 import '../../notifications/providers/notification_provider.dart';
 import '../../shared/providers/message_provider.dart';
 import '../../shared/providers/suggested_area_provider.dart';
+import '../helpers/moderator_navigation.dart';
 import '../providers/pilgrim_provider.dart';
 import '../services/pilgrim_sos_coordinator.dart';
 import '../widgets/bottom_nav.dart';
@@ -47,12 +47,12 @@ import '../widgets/home_tab/home_cards.dart';
 import '../widgets/home_tab/home_tab.dart';
 import '../widgets/map_tab/pilgrim_map_tab.dart';
 import '../widgets/sos/sos_home_phase.dart';
+import '../../muslim/screens/islamic_corner_hub_screen.dart';
 import 'group_details_screen.dart';
 import 'group_inbox_screen.dart';
 import 'mecca_hotspots_screen.dart';
 import 'pilgrim_notifications_screen.dart';
 import 'pilgrim_profile_screen.dart';
-import 'qibla_compass_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pilgrim Dashboard Screen
@@ -70,7 +70,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _isInitializingDashboard = true;
   // Bottom nav
-  static const int _qiblaTabIndex = 2;
   int _currentTab = 0;
   late final PageController _pageController = PageController(initialPage: 0);
 
@@ -246,11 +245,17 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         unawaited(_initLocation());
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          unawaited(_flushDeferredUrgentChatPopup());
-        }
+        if (!mounted) return;
+        unawaited(_flushDeferredUrgentChatPopup());
+        unawaited(_applyPendingModeratorResolvedFromPush());
       });
     }
+  }
+
+  /// FCM in background only sets a prefs flag; apply resolved card on resume.
+  Future<void> _applyPendingModeratorResolvedFromPush() async {
+    if (!mounted) return;
+    await PilgrimSosCoordinator.applyPendingModeratorResolvedIfAny();
   }
 
   int _permissionsCheckGate = 0;
@@ -307,6 +312,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _hasModeratorCalledForThisSos = false;
     _sosResolvedUiTimer?.cancel();
     _sosResolvedUiTimer = null;
+
+    _showResolvedSosCard = true; // Sync update to avoid race with Riverpod listener
 
     setState(() {
       _sosHomePhase = SosHomePhase.helpSession;
@@ -542,9 +549,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
 
   Future<void> _finishPilgrimWarmup() async {
     await _restoreSosUiIfNeeded();
-    if (await PilgrimSosCoordinator.consumePendingModeratorResolved()) {
-      _applyModeratorResolvedUi();
-    }
+    await PilgrimSosCoordinator.applyPendingModeratorResolvedIfAny();
     final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
     if (groupId != null) {
       ref.read(messageProvider.notifier).fetchUnreadCount(groupId);
@@ -839,7 +844,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           if (!mounted) return;
           try {
             final map = Map<String, dynamic>.from(data as Map);
-            if (!ref.read(pilgrimProvider).sosActive) return;
+            if (_showResolvedSosCard) return;
 
             final myGroup = ref.read(pilgrimProvider).groupInfo?.groupId;
             final evtGroup = map['group_id']?.toString();
@@ -954,15 +959,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   }
 
   void _openProfileScreen() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
-        builder: (ctx) => Scaffold(
-          backgroundColor: isDark
-              ? AppColors.backgroundDark
-              : const Color(0xfff1f5f3),
-          body: const SafeArea(child: PilgrimProfileScreen()),
-        ),
+        builder: (_) => const PilgrimProfileScreen(),
       ),
     );
   }
@@ -1193,9 +1192,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         setState(() {
           _weatherAlert = WeatherAlert(
             temperatureC: 0,
-            condition: 'weather_unavailable'.tr(),
-            cardTip: 'weather_card_error_short'.tr(),
-            detailTip: 'weather_detail_error_body'.tr(),
+            conditionKey: 'weather_unavailable',
+            cardTipKey: 'weather_card_error_short',
+            detailTipKey: 'weather_detail_error_body',
             icon: Icons.location_off,
             iconColor: AppColors.textMutedLight,
             isLoading: false,
@@ -1252,9 +1251,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       setState(() {
         _weatherAlert = WeatherAlert(
           temperatureC: 0,
-          condition: 'weather_unavailable'.tr(),
-          cardTip: 'weather_card_error_short'.tr(),
-          detailTip: 'weather_detail_error_body'.tr(),
+          conditionKey: 'weather_unavailable',
+          cardTipKey: 'weather_card_error_short',
+          detailTipKey: 'weather_detail_error_body',
           icon: Icons.cloud_off,
           iconColor: AppColors.textMutedLight,
           isLoading: false,
@@ -1271,16 +1270,19 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     required bool isDaytime,
   }) {
     final temp = temperatureC.round();
-    final condition = _weatherCondition(weatherCode, temp);
     final keys = _weatherTipKeys(weatherCode, temp, isDaytime);
-    final icon = _weatherIcon(weatherCode, temp);
-    final iconColor = _weatherIconColor(weatherCode, temp);
+    final icon = _weatherIcon(weatherCode, temp, isDaytime: isDaytime);
+    final iconColor = _weatherIconColor(weatherCode, temp, isDaytime: isDaytime);
 
     return WeatherAlert(
       temperatureC: temp,
-      condition: condition,
-      cardTip: keys.cardKey.tr(),
-      detailTip: keys.detailKey.tr(),
+      conditionKey: _weatherConditionKey(
+        weatherCode,
+        temp,
+        isDaytime: isDaytime,
+      ),
+      cardTipKey: keys.cardKey,
+      detailTipKey: keys.detailKey,
       icon: icon,
       iconColor: iconColor,
       isLoading: false,
@@ -1288,43 +1290,61 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     );
   }
 
-  IconData _weatherIcon(int weatherCode, int temperatureC) {
-    if (_isRainCode(weatherCode)) return Icons.umbrella;
-    if (weatherCode == 45 || weatherCode == 48) return Icons.masks;
+  IconData _weatherIcon(
+    int weatherCode,
+    int temperatureC, {
+    required bool isDaytime,
+  }) {
+    if (_isRainCode(weatherCode)) return Icons.water_drop;
+    if (weatherCode == 45 || weatherCode == 48) return Icons.foggy;
     if (temperatureC <= 14 || (weatherCode >= 71 && weatherCode <= 77)) {
       return Icons.ac_unit;
     }
     if (temperatureC >= 36) return Icons.local_fire_department;
-    if (weatherCode <= 1) return Icons.wb_sunny;
-    if (weatherCode == 2 || weatherCode == 3) return Icons.cloud;
     if (weatherCode >= 95) return Icons.thunderstorm;
+    if (weatherCode == 2 || weatherCode == 3) return Icons.cloud;
+    if (weatherCode <= 1) {
+      return isDaytime ? Icons.wb_sunny : Icons.nightlight_round;
+    }
     return Icons.wb_sunny;
   }
 
-  Color _weatherIconColor(int weatherCode, int temperatureC) {
+  Color _weatherIconColor(
+    int weatherCode,
+    int temperatureC, {
+    required bool isDaytime,
+  }) {
     if (_isRainCode(weatherCode)) return const Color(0xFF2F80ED);
-    if (weatherCode == 45 || weatherCode == 48) return const Color(0xFF8B6D4E);
+    if (weatherCode == 45 || weatherCode == 48) return const Color(0xFF78909C);
     if (temperatureC <= 16 || (weatherCode >= 71 && weatherCode <= 77)) {
       return const Color(0xFF56CCF2);
     }
     if (temperatureC >= 36) return const Color(0xFFE67E22);
-    if (weatherCode <= 1) return const Color(0xFFFFA726);
-    if (weatherCode == 2 || weatherCode == 3) return const Color(0xFF90A4AE);
     if (weatherCode >= 95) return const Color(0xFF6C5CE7);
+    if (weatherCode == 2 || weatherCode == 3) return const Color(0xFF90A4AE);
+    if (weatherCode <= 1) {
+      return isDaytime ? const Color(0xFFFFA726) : const Color(0xFF5C6BC0);
+    }
     return AppColors.primary;
   }
 
-  String _weatherCondition(int weatherCode, int temperatureC) {
-    if (_isRainCode(weatherCode)) return 'weather_rainy'.tr();
-    if (weatherCode == 45 || weatherCode == 48) return 'weather_sandy'.tr();
+  String _weatherConditionKey(
+    int weatherCode,
+    int temperatureC, {
+    required bool isDaytime,
+  }) {
+    if (_isRainCode(weatherCode)) return 'weather_rainy';
+    if (weatherCode == 45 || weatherCode == 48) return 'weather_foggy';
     if (temperatureC <= 16 || (weatherCode >= 71 && weatherCode <= 77)) {
-      return 'weather_cold'.tr();
+      return 'weather_cold';
     }
-    if (temperatureC >= 36) return 'weather_extreme_heat'.tr();
-    if (weatherCode <= 1) return 'weather_sunny'.tr();
-    if (weatherCode == 2 || weatherCode == 3) return 'weather_cloudy'.tr();
-    if (weatherCode >= 95) return 'weather_storm'.tr();
-    return 'weather_clear'.tr();
+    if (temperatureC >= 36) return 'weather_extreme_heat';
+    if (weatherCode >= 95) return 'weather_storm';
+    if (weatherCode == 2 || weatherCode == 3) return 'weather_cloudy';
+    if (weatherCode <= 1) {
+      return isDaytime ? 'weather_sunny' : 'weather_clear';
+    }
+    return 'weather_clear';
   }
 
   /// Short line for the dashboard card (`weather_card_*`) and long body
@@ -1585,18 +1605,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
 
   // ── Navigate to Moderator ──────────────────────────────────────────────────
 
-  Future<void> _navigateToModerator(ModeratorBeacon beacon) async {
-    final lat = beacon.lat;
-    final lng = beacon.lng;
-    final googleMapsWeb = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking',
-    );
-    try {
-      await launchUrl(googleMapsWeb, mode: LaunchMode.externalApplication);
-    } catch (_) {
-      // Ignore
-    }
-  }
+  Future<void> _navigateToModerator(ModeratorBeacon beacon) =>
+      launchModeratorBeaconDirections(beacon);
 
   // ── Build ────────────────────────────────────────────────────────────────────
 
@@ -1718,22 +1728,21 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         onSettingsTap: _openProfileScreen,
         onGroupCardTap: () {
           if (pilgrimState.groupInfo != null) {
-            final hasModerator = pilgrimState.groupInfo!.moderators.isNotEmpty;
-            final firstModerator = hasModerator
-                ? pilgrimState.groupInfo!.moderators.first
-                : null;
+            final group = pilgrimState.groupInfo!;
+
             showGroupDetailsBottomSheet(
               context,
-              moderatorName: firstModerator?.fullName,
-              moderatorLat: firstModerator?.lat,
-              moderatorLng: firstModerator?.lng,
-              hotelName: pilgrimState.groupInfo!.hotelName,
-              roomNumber: pilgrimState.groupInfo!.roomNumber,
-              busNumber: pilgrimState.groupInfo!.busNumber,
-              driverName: pilgrimState.groupInfo!.driverName,
-              checkIn: pilgrimState.groupInfo!.checkIn,
-              checkOut: pilgrimState.groupInfo!.checkOut,
-              daysRemaining: pilgrimState.groupInfo!.daysRemaining,
+              moderators: group.moderators,
+              createdBy: group.createdBy,
+              navBeacons: pilgrimState.navBeacons,
+              pilgrimLocation: _myLatLng,
+              hotelName: group.hotelName,
+              roomNumber: group.roomNumber,
+              busNumber: group.busNumber,
+              driverName: group.driverName,
+              checkIn: group.checkIn,
+              checkOut: group.checkOut,
+              daysRemaining: group.daysRemaining,
             );
           } else {
             // No group — do nothing (limbo state, moderator will assign)
@@ -1755,9 +1764,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         profileGender: pilgrimState.profile?.gender,
         areas: ref.watch(suggestedAreaProvider).areas,
       ),
-      QiblaCompassScreen(
-        enableAlignmentHaptics: _currentTab == _qiblaTabIndex,
-      ),
+      const IslamicCornerHubScreen(),
       pilgrimState.groupInfo != null
           ? GroupInboxScreen(
               groupId: pilgrimState.groupInfo!.groupId,

@@ -12,7 +12,6 @@ import '../../features/calling/calling_scope.dart';
 import '../../features/calling/native_call_coordinator.dart';
 import '../../features/moderator/models/sos_moderator_payload.dart';
 import '../../features/moderator/services/sos_alert_coordinator.dart';
-import '../../features/pilgrim/providers/pilgrim_provider.dart';
 import '../../features/pilgrim/services/pilgrim_sos_coordinator.dart';
 import '../../features/shared/helpers/message_visibility.dart';
 import '../../features/shared/providers/message_provider.dart';
@@ -195,15 +194,11 @@ Future<void> bindMobileMessagingServices() async {
         );
         return;
       }
-      if (fcmType == 'sos_resolved') {
-        final c = CallingScope.riverpod;
-        final role = c?.read(authProvider).role?.toLowerCase() ?? '';
-        if (role == 'pilgrim') {
-          AppLogger.i('[FCM] sos_resolved — pilgrim help request closed');
-          await PilgrimSosCoordinator.persistPendingModeratorResolved();
-          c?.read(pilgrimProvider.notifier).cancelSOS();
-          PilgrimSosCoordinator.onModeratorResolvedUi?.call();
-        }
+      if (PilgrimSosCoordinator.isModeratorResolvedPayload(msg.data)) {
+        AppLogger.i('[FCM] sos_resolved — pilgrim help request closed');
+        // Trigger UI while sosActive is still true; cancelSOS() runs inside
+        // _applyModeratorResolvedUi on the dashboard.
+        await PilgrimSosCoordinator.handleModeratorResolvedPush();
         return;
       }
       if (notifType == 'sos_alert') {

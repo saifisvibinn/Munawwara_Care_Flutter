@@ -50,12 +50,43 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
   Timer? _autoPopTimer;
   bool _showRatingOnPop = false;
 
+  int _cancelLockoutSeconds = 3;
+  Timer? _cancelLockoutTimer;
+
   @override
   void initState() {
     super.initState();
     VoiceCallScreen.isActive = true;
     _queue = List.from(widget.autoRouteMods ?? []);
     _seedDisplayCache();
+
+    final call = ref.read(callProvider);
+    if (call.status == CallStatus.calling) {
+      _startCancelLockoutTimer();
+    }
+  }
+
+  void _startCancelLockoutTimer() {
+    _cancelLockoutTimer?.cancel();
+    setState(() {
+      _cancelLockoutSeconds = 3;
+    });
+    _cancelLockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_cancelLockoutSeconds > 1) {
+        setState(() {
+          _cancelLockoutSeconds--;
+        });
+      } else {
+        setState(() {
+          _cancelLockoutSeconds = 0;
+        });
+        timer.cancel();
+      }
+    });
   }
 
   void _seedDisplayCache() {
@@ -97,6 +128,7 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
   @override
   void dispose() {
     _autoPopTimer?.cancel();
+    _cancelLockoutTimer?.cancel();
     VoiceCallScreen.isActive = false;
     super.dispose();
   }
@@ -110,6 +142,11 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
     _syncDisplayCache(call);
 
     ref.listen(callProvider, (prev, next) {
+      if (next.status == CallStatus.calling &&
+          prev?.status != CallStatus.calling) {
+        _startCancelLockoutTimer();
+      }
+
       if (next.status == CallStatus.ended &&
           prev?.status == CallStatus.connected) {
         _showRatingOnPop = true;
@@ -184,6 +221,7 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
     final initials = showPeerName ? callPeerInitials(displayName) : '';
 
     final canPop = call.status == CallStatus.ended || call.status == CallStatus.idle;
+    final isCancelDisabled = call.status == CallStatus.calling && _cancelLockoutSeconds > 0;
 
     return PopScope(
       canPop: canPop,
@@ -345,6 +383,7 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
                           if (call.status != CallStatus.ended) ...[
                             GestureDetector(
                               onTap: () {
+                                if (isCancelDisabled) return;
                                 _queue.clear();
                                 final notifier = ref.read(callProvider.notifier);
                                 if (call.status == CallStatus.calling) {
@@ -355,27 +394,31 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
                                   notifier.endCall();
                                 }
                               },
-                              child: Container(
-                                width: 76.w,
-                                height: 76.w,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: AppColors.error,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.error.withValues(
-                                        alpha: 0.35,
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 200),
+                                opacity: isCancelDisabled ? 0.4 : 1.0,
+                                child: Container(
+                                  width: 76.w,
+                                  height: 76.w,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: AppColors.error,
+                                    boxShadow: isCancelDisabled ? null : [
+                                      BoxShadow(
+                                        color: AppColors.error.withValues(
+                                          alpha: 0.35,
+                                        ),
+                                        blurRadius: 20,
+                                        offset: const Offset(0, 8),
                                       ),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  Symbols.call_end,
-                                  color: Colors.white,
-                                  size: 34.sp,
-                                  fill: 1,
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Symbols.call_end,
+                                    color: Colors.white,
+                                    size: 34.sp,
+                                    fill: 1,
+                                  ),
                                 ),
                               ),
                             ),

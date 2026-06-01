@@ -1,9 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../helpers/moderator_navigation.dart';
+import '../../providers/pilgrim_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Weather Alert Model
@@ -11,11 +12,12 @@ import '../../../../core/theme/app_colors.dart';
 
 class WeatherAlert {
   final int temperatureC;
-  final String condition;
-  /// One compact line or few lines on the dashboard card (localized).
-  final String cardTip;
-  /// Fuller guidance for the detail sheet (localized).
-  final String detailTip;
+  /// easy_localization key, e.g. `weather_sunny`.
+  final String conditionKey;
+  /// Dashboard card tip key (`weather_card_*`).
+  final String cardTipKey;
+  /// Detail sheet body key (`weather_reminder_*`).
+  final String detailTipKey;
   final IconData icon;
   final Color iconColor;
   final bool isLoading;
@@ -23,9 +25,9 @@ class WeatherAlert {
 
   const WeatherAlert({
     required this.temperatureC,
-    required this.condition,
-    required this.cardTip,
-    required this.detailTip,
+    required this.conditionKey,
+    required this.cardTipKey,
+    required this.detailTipKey,
     required this.icon,
     required this.iconColor,
     required this.isLoading,
@@ -34,9 +36,9 @@ class WeatherAlert {
 
   const WeatherAlert.loading()
     : temperatureC = 0,
-      condition = '',
-      cardTip = '',
-      detailTip = '',
+      conditionKey = '',
+      cardTipKey = '',
+      detailTipKey = '',
       icon = Icons.wb_sunny,
       iconColor = AppColors.primary,
       isLoading = true,
@@ -124,7 +126,7 @@ void showWeatherDetailBottomSheet(BuildContext context, WeatherAlert alert) {
                         Text(
                           alert.isLoading
                               ? 'weather_loading'.tr()
-                              : alert.condition,
+                              : alert.conditionKey.tr(),
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 16.sp,
@@ -153,7 +155,7 @@ void showWeatherDetailBottomSheet(BuildContext context, WeatherAlert alert) {
               ),
               SizedBox(height: 10.h),
               SelectableText(
-                alert.detailTip.trim(),
+                alert.detailTipKey.tr(),
                 style: (bodyStyle ?? const TextStyle()).copyWith(
                   fontFamily: 'Lexend',
                   height: 1.45,
@@ -183,6 +185,91 @@ void showWeatherDetailBottomSheet(BuildContext context, WeatherAlert alert) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Shared tap footer for compact home cards
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _HomeCardTapFooter extends StatelessWidget {
+  final String label;
+
+  const _HomeCardTapFooter({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 5.h),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.22),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                label,
+                maxLines: 1,
+                softWrap: false,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryDark,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: 4.w),
+          Icon(
+            Icons.arrow_forward_rounded,
+            size: 16.sp,
+            color: AppColors.primary,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+BoxDecoration _homeActionCardDecoration({
+  required bool isDark,
+  required BorderRadius borderRadius,
+  required bool isInteractive,
+}) {
+  return BoxDecoration(
+    color: isDark ? AppColors.surfaceDark : Colors.white,
+    borderRadius: borderRadius,
+    border: Border.all(
+      color: isInteractive
+          ? AppColors.primary.withValues(alpha: isDark ? 0.35 : 0.2)
+          : isDark
+          ? AppColors.dividerDark
+          : AppColors.dividerLight,
+      width: isInteractive ? 1.2 : 1,
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: AppColors.primary.withValues(
+          alpha: isInteractive ? 0.14 : 0.05,
+        ),
+        blurRadius: 20,
+        offset: const Offset(0, 8),
+      ),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: isInteractive ? 0.1 : 0.06),
+        blurRadius: 14,
+        offset: const Offset(0, 5),
+      ),
+    ],
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Weather Card
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -196,152 +283,128 @@ class WeatherCard extends StatelessWidget {
     this.onTapOpenDetail,
   });
 
-  static const _corner = Radius.circular(20);
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final muted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final canOpen = !alert.isLoading && onTapOpenDetail != null;
 
-    final canOpen =
-        !alert.isLoading && onTapOpenDetail != null;
+    final customRadius = BorderRadius.circular(24.r);
 
     Widget content = Padding(
-      padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 10.h),
+      padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(alert.icon, color: alert.iconColor, size: 22.sp),
-              SizedBox(width: 8.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      alert.isLoading
-                          ? '...'
-                          : alert.isError
-                          ? '--'
-                          : '${alert.temperatureC}\u00b0C',
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 21.sp,
-                        fontWeight: FontWeight.w900,
-                        color: isDark ? Colors.white : AppColors.textDark,
-                        height: 1.05,
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        alert.isLoading
+                            ? '...'
+                            : alert.isError
+                            ? '--'
+                            : '${alert.temperatureC}\u00b0C',
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 22.sp,
+                          fontWeight: FontWeight.w900,
+                          color: isDark ? Colors.white : AppColors.textDark,
+                          height: 1.05,
+                        ),
                       ),
-                    ),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
+                      SizedBox(height: 2.h),
+                      Text(
                         alert.isLoading
                             ? 'weather_loading'.tr()
                             : alert.isError
                             ? 'weather_unavailable'.tr()
-                            : alert.condition,
+                            : alert.conditionKey.tr(),
                         maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.visible,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: 'Lexend',
-                          fontSize: 11.5.sp,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w800,
                           color: isDark
                               ? AppColors.primary
                               : AppColors.primaryDark,
                         ),
                       ),
+                      SizedBox(height: 2.h),
+                      Expanded(
+                        child: Text(
+                          alert.isLoading
+                              ? 'weather_loading_hint_short'.tr()
+                              : alert.isError
+                              ? 'weather_card_error_short'.tr()
+                              : alert.cardTipKey.tr(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 10.sp,
+                            height: 1.25,
+                            color: muted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!alert.isLoading && !alert.isError)
+                  Container(
+                    padding: EdgeInsets.all(5.w),
+                    decoration: BoxDecoration(
+                      color: alert.iconColor.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
                     ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 10.h),
-          Expanded(
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: Text(
-                alert.isLoading
-                    ? 'weather_loading_hint_short'.tr()
-                    : alert.isError
-                    ? alert.cardTip
-                    : alert.cardTip,
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontSize: 10.5.sp,
-                  height: 1.34,
-                  color: muted,
-                ),
-              ),
+                    child: Icon(
+                      alert.icon,
+                      color: alert.iconColor,
+                      size: 18.w,
+                    ),
+                  ),
+              ],
             ),
           ),
           if (canOpen) ...[
             SizedBox(height: 6.h),
-            Row(
-              children: [
-                Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'weather_tap_more'.tr(),
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.visible,
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary.withValues(alpha: 0.95),
-                      ),
-                    ),
-                  ),
-                ),
-                Icon(Icons.chevron_right, size: 18.sp, color: muted),
-              ],
-            ),
+            _HomeCardTapFooter(label: 'weather_tap_more'.tr()),
           ],
         ],
       ),
     );
 
-    content = ClipRRect(
-      borderRadius: const BorderRadius.all(_corner),
-      child: content,
-    );
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: const BorderRadius.all(_corner),
-        border: Border.all(
-          color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
+    return SizedBox(
+      height: 126.h,
+      child: DecoratedBox(
+        decoration: _homeActionCardDecoration(
+          isDark: isDark,
+          borderRadius: customRadius,
+          isInteractive: canOpen,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        child: ClipRRect(
+          borderRadius: customRadius,
+          child: canOpen
+              ? Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: customRadius,
+                    onTap: onTapOpenDetail,
+                    splashColor: AppColors.primary.withValues(alpha: 0.12),
+                    highlightColor: AppColors.primary.withValues(alpha: 0.06),
+                    child: content,
+                  ),
+                )
+              : content,
+        ),
       ),
-      child: canOpen
-          ? Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: const BorderRadius.all(_corner),
-                onTap: onTapOpenDetail,
-                child: content,
-              ),
-            )
-          : content,
     );
   }
 }
@@ -352,72 +415,171 @@ class WeatherCard extends StatelessWidget {
 
 class GroupCard extends StatelessWidget {
   final String groupName;
+  final List<ModeratorInfo> moderators;
+  final String? createdBy;
+  final String hotelName;
+  final String busNumber;
+  final String checkIn;
   final VoidCallback onTap;
 
-  const GroupCard({super.key, required this.groupName, required this.onTap});
+  const GroupCard({
+    super.key,
+    required this.groupName,
+    required this.moderators,
+    this.createdBy,
+    required this.hotelName,
+    required this.busNumber,
+    required this.checkIn,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final noRecordsText = 'no_records_available'.tr();
+    final sorted = sortedGroupModerators(moderators, createdBy: createdBy);
+
+    final cardBg = isDark ? const Color(0xFF1D2641) : Colors.white;
+    final labelColor =
+        isDark ? const Color(0xFF94A3B8) : AppColors.textMutedDark;
+    final valueColor = isDark ? Colors.white : AppColors.textDark;
+    final valueMutedColor =
+        isDark ? const Color(0xFF64748B) : AppColors.textMutedDark;
+
+    final labelStyle = TextStyle(
+      fontFamily: 'Lexend',
+      fontSize: 10.sp,
+      fontWeight: FontWeight.w800,
+      color: labelColor,
+      letterSpacing: 0.5,
+    );
+    final valueStyle = TextStyle(
+      fontFamily: 'Lexend',
+      fontSize: 14.sp,
+      fontWeight: FontWeight.w800,
+      color: valueColor,
+    );
+    final valueItalicStyle = TextStyle(
+      fontFamily: 'Lexend',
+      fontSize: 14.sp,
+      fontWeight: FontWeight.w500,
+      color: valueMutedColor,
+      fontStyle: FontStyle.italic,
+    );
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.fromLTRB(16.w, 11.h, 16.w, 9.h),
         decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : Colors.white,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(
-              color: isDark ? AppColors.dividerDark : AppColors.dividerLight),
+          color: cardBg,
+          borderRadius: BorderRadius.circular(24.r),
+          border: isDark
+              ? null
+              : Border.all(color: AppColors.dividerLight),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Icon(Symbols.groups, color: AppColors.primary, size: 36.w),
-            SizedBox(height: 16.h),
             Text(
-              'home_my_group'.tr(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
+              'home_my_group'.tr().toUpperCase(),
               style: TextStyle(
                 fontFamily: 'Lexend',
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w700,
+                fontSize: 10.sp,
+                fontWeight: FontWeight.w800,
                 color: AppColors.primary,
+                letterSpacing: 0.8,
               ),
             ),
             SizedBox(height: 4.h),
-            Expanded(
+            Text(
+              groupName,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 19.sp,
+                fontWeight: FontWeight.w800,
+                color: valueColor,
+              ),
+            ),
+            SizedBox(height: 9.h),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _GroupCardModeratorSummary(
+                    moderators: sorted,
+                    noRecordsText: noRecordsText,
+                    labelStyle: labelStyle,
+                    valueStyle: valueStyle,
+                    valueMutedColor: valueMutedColor,
+                    isDark: isDark,
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: _GroupCardInfoCell(
+                    label: 'group_hotel_name'.tr().toUpperCase(),
+                    value: hotelName.isNotEmpty ? hotelName : 'Not set',
+                    hasValue: hotelName.isNotEmpty,
+                    labelStyle: labelStyle,
+                    valueStyle: valueStyle,
+                    valueItalicStyle: valueItalicStyle,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 7.h),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _GroupCardInfoCell(
+                    label: 'CHECK-IN',
+                    value: checkIn.isNotEmpty ? checkIn : 'Not set',
+                    hasValue: checkIn.isNotEmpty,
+                    labelStyle: labelStyle,
+                    valueStyle: valueStyle,
+                    valueItalicStyle: valueItalicStyle,
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: _GroupCardInfoCell(
+                    label: 'BUS',
+                    value: busNumber.isNotEmpty ? busNumber : 'Not set',
+                    hasValue: busNumber.isNotEmpty,
+                    labelStyle: labelStyle,
+                    valueStyle: valueStyle,
+                    valueItalicStyle: valueItalicStyle,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 9.h),
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(vertical: 8.h),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: isDark ? 0.1 : 0.12),
+                borderRadius: BorderRadius.circular(16.r),
+              ),
               child: Text(
-                groupName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                'View full group details',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Lexend',
-                  fontSize: 24.sp,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : AppColors.textDark,
-                  height: 1.1,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryDark,
                 ),
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              'home_tap_details'.tr(),
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 12.sp,
-                color:
-                    isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
               ),
             ),
           ],
@@ -427,8 +589,149 @@ class GroupCard extends StatelessWidget {
   }
 }
 
+class _GroupCardModeratorSummary extends StatelessWidget {
+  const _GroupCardModeratorSummary({
+    required this.moderators,
+    required this.noRecordsText,
+    required this.labelStyle,
+    required this.valueStyle,
+    required this.valueMutedColor,
+    required this.isDark,
+  });
+
+  final List<ModeratorInfo> moderators;
+  final String noRecordsText;
+  final TextStyle labelStyle;
+  final TextStyle valueStyle;
+  final Color valueMutedColor;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    if (moderators.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('group_moderator_section'.tr().toUpperCase(), style: labelStyle),
+          SizedBox(height: 6.h),
+          Text(
+            noRecordsText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: valueStyle.copyWith(
+              fontWeight: FontWeight.w500,
+              fontStyle: FontStyle.italic,
+              color: valueMutedColor,
+            ),
+          ),
+        ],
+      );
+    }
+
+    final leader = moderators.first;
+    final coModCount = moderators.length - 1;
+    final initial = leader.fullName.isNotEmpty
+        ? leader.fullName[0].toUpperCase()
+        : '?';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('group_moderator_section'.tr().toUpperCase(), style: labelStyle),
+        SizedBox(height: 6.h),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 13.r,
+              backgroundColor: AppColors.primary.withValues(
+                alpha: isDark ? 0.22 : 0.12,
+              ),
+              child: Text(
+                initial,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11.sp,
+                  color: AppColors.primaryDark,
+                ),
+              ),
+            ),
+            SizedBox(width: 6.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    leader.fullName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: valueStyle,
+                  ),
+                  if (coModCount > 0)
+                    Padding(
+                      padding: EdgeInsets.only(top: 2.h),
+                      child: Text(
+                        'home_co_moderators_count'.tr(
+                          namedArgs: {'count': coModCount.toString()},
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 10.sp,
+                          fontWeight: FontWeight.w600,
+                          color: valueMutedColor,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _GroupCardInfoCell extends StatelessWidget {
+  const _GroupCardInfoCell({
+    required this.label,
+    required this.value,
+    required this.hasValue,
+    required this.labelStyle,
+    required this.valueStyle,
+    required this.valueItalicStyle,
+  });
+
+  final String label;
+  final String value;
+  final bool hasValue;
+  final TextStyle labelStyle;
+  final TextStyle valueStyle;
+  final TextStyle valueItalicStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: labelStyle),
+        SizedBox(height: 6.h),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: hasValue ? valueStyle : valueItalicStyle,
+        ),
+      ],
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Explore Card
+// Explore Card (mirrors weather — inner left edge scoops around SOS)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ExploreCard extends StatelessWidget {
@@ -441,57 +744,88 @@ class ExploreCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final muted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
 
-    return Material(
-      color: isDark ? AppColors.surfaceDark : Colors.white,
-      borderRadius: BorderRadius.circular(20.r),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20.r),
-        child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20.r),
-            border: Border.all(
-              color:
-                  isDark ? AppColors.dividerDark : AppColors.dividerLight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Symbols.explore,
-                color: AppColors.accentGold,
-                size: 28.w,
-              ),
-              SizedBox(width: 14.w),
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'home_explore'.tr(),
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.visible,
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white : AppColors.textDark,
+    final customRadius = BorderRadius.circular(24.r);
+
+    return SizedBox(
+      height: 126.h,
+      child: DecoratedBox(
+        decoration: _homeActionCardDecoration(
+          isDark: isDark,
+          borderRadius: customRadius,
+          isInteractive: true,
+        ),
+        child: ClipRRect(
+          borderRadius: customRadius,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: customRadius,
+              onTap: onTap,
+              splashColor: AppColors.primary.withValues(alpha: 0.12),
+              highlightColor: AppColors.primary.withValues(alpha: 0.06),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'home_explore'.tr(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 18.sp,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark
+                                        ? Colors.white
+                                        : AppColors.textDark,
+                                    height: 1.1,
+                                  ),
+                                ),
+                                SizedBox(height: 2.h),
+                                Text(
+                                  'home_explore_nearby'.tr(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 11.sp,
+                                    color: muted,
+                                    height: 1.1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: EdgeInsets.all(5.w),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.explore_outlined,
+                              color: AppColors.primary,
+                              size: 18.w,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                    SizedBox(height: 6.h),
+                    _HomeCardTapFooter(label: 'home_explore_tap'.tr()),
+                  ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: muted, size: 24.w),
-            ],
+            ),
           ),
         ),
       ),

@@ -34,16 +34,16 @@ class PilgrimBottomNav extends ConsumerWidget {
     final labels = [
       'tab_home'.tr(),
       'tab_map'.tr(),
-      'tab_qibla'.tr(),
-      'tab_chat'.tr(),
+      'tab_muslim'.tr(),
+      'tab_announcements'.tr(),
     ];
     final icons = [
       Symbols.home,
       Symbols.map,
-      Symbols.explore,
-      Symbols.chat_bubble,
+      Symbols.pan_tool,
+      Symbols.campaign,
     ];
-    // Badge counts per slot (only chat has a badge)
+    // Badge counts per slot (announcements tab only)
     final badges = [0, 0, 0, unreadMessages];
 
     final bgColor = isDark ? AppColors.surfaceDark : Colors.white;
@@ -100,7 +100,7 @@ class PilgrimBottomNav extends ConsumerWidget {
                         ),
                         child: Icon(
                           icons[slot],
-                          size: 22.w,
+                          size: slot == 3 ? 24.w : 22.w,
                           color: isSelected
                               ? AppColors.primary
                               : unselectedIconColor,

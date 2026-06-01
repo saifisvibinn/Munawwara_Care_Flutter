@@ -1553,6 +1553,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     final filtered = _getFiltered(group);
     final areaState = _scopedAreaState(ref.watch(suggestedAreaProvider));
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final headerHeight = 24.h + 54.h + 60.h + (areaState.activeMeetpoint != null ? 65.h : 0);
 
     return Scaffold(
       body: Stack(
@@ -1861,220 +1862,280 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                   child: CustomScrollView(
                     controller: scrollController,
                     slivers: [
-                      // Drag handle
-                      SliverToBoxAdapter(
-                        child: Center(
-                          child: Padding(
-                            padding: EdgeInsets.only(top: 12.h, bottom: 8.h),
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: _PinnedHeaderDelegate(
+                          height: headerHeight,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onVerticalDragUpdate: (details) {
+                              if (_dssController.isAttached) {
+                                final screenHeight = MediaQuery.of(context).size.height;
+                                if (screenHeight > 0) {
+                                  final currentSize = _dssController.size;
+                                  final newSize = currentSize - (details.delta.dy / screenHeight);
+                                  _dssController.jumpTo(newSize.clamp(0.1, 0.72));
+                                }
+                              }
+                            },
+                            onVerticalDragEnd: (details) {
+                              if (_dssController.isAttached) {
+                                final currentSize = _dssController.size;
+                                const snapSizes = [0.1, 0.28, 0.72];
+                                double targetSize = currentSize;
+
+                                final velocity = details.primaryVelocity ?? 0.0;
+                                if (velocity < -300) {
+                                  final largerSizes = snapSizes.where((s) => s > currentSize).toList();
+                                  targetSize = largerSizes.isNotEmpty ? largerSizes.first : snapSizes.last;
+                                } else if (velocity > 300) {
+                                  final smallerSizes = snapSizes.where((s) => s < currentSize).toList();
+                                  targetSize = smallerSizes.isNotEmpty ? smallerSizes.last : snapSizes.first;
+                                } else {
+                                  double closestSnap = snapSizes.first;
+                                  double minDiff = (currentSize - closestSnap).abs();
+                                  for (final size in snapSizes) {
+                                    final diff = (currentSize - size).abs();
+                                    if (diff < minDiff) {
+                                      minDiff = diff;
+                                      closestSnap = size;
+                                    }
+                                  }
+                                  targetSize = closestSnap;
+                                }
+
+                                _dssController.animateTo(
+                                  targetSize,
+                                  duration: const Duration(milliseconds: 250),
+                                  curve: Curves.easeOutCubic,
+                                );
+                              }
+                            },
                             child: Container(
-                              width: 36.w,
-                              height: 4.h,
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.white24
-                                    : const Color(0xFFE2E8F0),
-                                borderRadius: BorderRadius.circular(2.r),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Sheet header
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
-                          child: Row(
-                            children: [
-                              Text(
-                                group.totalPilgrims == 0
-                                    ? 'group_no_pilgrims'.tr()
-                                    : '${group.totalPilgrims} Pilgrims',
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15.sp,
-                                  color: isDark
-                                      ? Colors.white
-                                      : AppColors.textDark,
-                                ),
-                              ),
-                              const Spacer(),
-                              // Chat button with label
-                              GestureDetector(
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => GroupMessagesScreen(
-                                      groupId: group.id,
-                                      groupName: group.groupName,
-                                      currentUserId: widget.currentUserId,
+                              color: isDark ? AppColors.surfaceDark : Colors.white,
+                              child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Drag handle
+                                Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.only(top: 12.h, bottom: 8.h),
+                                    child: Container(
+                                      width: 36.w,
+                                      height: 4.h,
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? Colors.white24
+                                            : const Color(0xFFE2E8F0),
+                                        borderRadius: BorderRadius.circular(2.r),
+                                      ),
                                     ),
                                   ),
                                 ),
-                                child: Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 12.w,
-                                    vertical: 8.h,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF3EC),
-                                    borderRadius: BorderRadius.circular(20.r),
-                                    border: Border.all(
-                                      color: const Color(0xFFF5C4A0),
-                                      width: 0.5,
-                                    ),
-                                  ),
+                                // Sheet header
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
                                   child: Row(
-                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(
-                                        Symbols.chat_bubble,
-                                        size: 16.w,
-                                        color: const Color(0xFFC0450A),
-                                      ),
-                                      SizedBox(width: 6.w),
                                       Text(
-                                        'group_menu_chat'.tr(),
-                                        style: TextStyle(
-                                          fontFamily: 'Lexend',
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13.sp,
-                                          color: const Color(0xFFC0450A),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              SizedBox(width: 8.w),
-                              if (group.sosCount > 0)
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 8.w,
-                                    vertical: 4.h,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF1F2),
-                                    borderRadius: BorderRadius.circular(100.r),
-                                    border: Border.all(
-                                      color: const Color(0xFFFFE4E6),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Symbols.warning,
-                                        size: 12.w,
-                                        color: const Color(0xFFDC2626),
-                                        fill: 1,
-                                      ),
-                                      SizedBox(width: 3.w),
-                                      Text(
-                                        '${group.sosCount} SOS',
+                                        group.totalPilgrims == 0
+                                            ? 'group_no_pilgrims'.tr()
+                                            : '${group.totalPilgrims} Pilgrims',
                                         style: TextStyle(
                                           fontFamily: 'Lexend',
                                           fontWeight: FontWeight.w700,
-                                          fontSize: 11.sp,
-                                          color: const Color(0xFFDC2626),
+                                          fontSize: 15.sp,
+                                          color: isDark
+                                              ? Colors.white
+                                              : AppColors.textDark,
                                         ),
                                       ),
+                                      const Spacer(),
+                                      // Chat button with label
+                                      GestureDetector(
+                                        onTap: () => Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => GroupMessagesScreen(
+                                              groupId: group.id,
+                                              groupName: group.groupName,
+                                              currentUserId: widget.currentUserId,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Container(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 12.w,
+                                            vertical: 8.h,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isDark ? AppColors.primary.withValues(alpha: 0.12) : const Color(0xFFFFF3EC),
+                                            borderRadius: BorderRadius.circular(20.r),
+                                            border: Border.all(
+                                              color: isDark ? AppColors.primary.withValues(alpha: 0.4) : const Color(0xFFF5C4A0),
+                                              width: 0.5,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Symbols.chat_bubble,
+                                                size: 16.w,
+                                                color: isDark ? AppColors.primary : const Color(0xFFC0450A),
+                                              ),
+                                              SizedBox(width: 6.w),
+                                              Text(
+                                                'group_menu_chat'.tr(),
+                                                style: TextStyle(
+                                                  fontFamily: 'Lexend',
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13.sp,
+                                                  color: isDark ? AppColors.primary : const Color(0xFFC0450A),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(width: 8.w),
+                                      if (group.sosCount > 0)
+                                        Container(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 8.w,
+                                            vertical: 4.h,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFFFF1F2),
+                                            borderRadius: BorderRadius.circular(100.r),
+                                            border: Border.all(
+                                              color: const Color(0xFFFFE4E6),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Symbols.warning,
+                                                size: 12.w,
+                                                color: const Color(0xFFDC2626),
+                                                fill: 1,
+                                              ),
+                                              SizedBox(width: 3.w),
+                                              Text(
+                                                '${group.sosCount} SOS',
+                                                style: TextStyle(
+                                                  fontFamily: 'Lexend',
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 11.sp,
+                                                  color: const Color(0xFFDC2626),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                     ],
                                   ),
                                 ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      // Active Meetpoint Card (if exists)
-                      if (areaState.activeMeetpoint != null)
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16.w),
-                            child: _GroupMapMeetpointCard(
-                              activeMp: areaState.activeMeetpoint!,
-                              isDark: isDark,
-                              onDelete: () =>
-                                  _handleDeleteArea(areaState.activeMeetpoint!),
-                              onTap: () {
-                                _mapController.move(
-                                  LatLng(
-                                    areaState.activeMeetpoint!.latitude,
-                                    areaState.activeMeetpoint!.longitude,
+                                // Active Meetpoint Card (if exists)
+                                if (areaState.activeMeetpoint != null)
+                                  Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 16.w),
+                                    child: _GroupMapMeetpointCard(
+                                      activeMp: areaState.activeMeetpoint!,
+                                      isDark: isDark,
+                                      onDelete: () =>
+                                          _handleDeleteArea(areaState.activeMeetpoint!),
+                                      onTap: () {
+                                        _mapController.move(
+                                          LatLng(
+                                            areaState.activeMeetpoint!.latitude,
+                                            areaState.activeMeetpoint!.longitude,
+                                          ),
+                                          AppMapTiles.clampMapZoom(17),
+                                        );
+                                        _dssController.animateTo(
+                                          0.08,
+                                          duration: const Duration(milliseconds: 300),
+                                          curve: Curves.easeOut,
+                                        );
+                                      },
+                                    ),
                                   ),
-                                  AppMapTiles.clampMapZoom(17),
-                                );
-                                _dssController.animateTo(
-                                  0.08,
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeOut,
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      // Search bar
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 12.w,
-                            vertical: 10.h,
-                          ),
-                          child: Container(
-                            height: 40.h,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? AppColors.backgroundDark
-                                  : const Color(0xFFF7F8FC),
-                              borderRadius: BorderRadius.circular(10.r),
-                              border: Border.all(
-                                color: const Color(0x0D000000),
-                                width: 0.5,
-                              ),
-                            ),
-                            child: TextField(
-                              controller: _searchController,
-                              style: TextStyle(
-                                fontFamily: 'Lexend',
-                                fontSize: 13.sp,
-                                color: isDark
-                                    ? Colors.white
-                                    : AppColors.textDark,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'group_search_hint'.tr(),
-                                hintStyle: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontSize: 13.sp,
-                                  color: AppColors.textMutedLight,
-                                ),
-                                prefixIcon: Icon(
-                                  Symbols.search,
-                                  size: 18.w,
-                                  color: AppColors.textMutedLight,
-                                ),
-                                suffixIcon: _searchQuery.isNotEmpty
-                                    ? IconButton(
-                                        icon: Icon(
-                                          Symbols.close,
-                                          size: 16.w,
-                                          color: AppColors.textMutedLight,
+                                // Search bar
+                                Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12.w,
+                                    vertical: 10.h,
+                                  ),
+                                  child: Container(
+                                    height: 40.h,
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? Colors.white.withValues(alpha: 0.06)
+                                          : const Color(0xFFF7F8FC),
+                                      borderRadius: BorderRadius.circular(10.r),
+                                      border: Border.all(
+                                        color: isDark
+                                            ? Colors.white.withValues(alpha: 0.12)
+                                            : const Color(0x0D000000),
+                                        width: 0.5,
+                                      ),
+                                    ),
+                                    child: TextField(
+                                      controller: _searchController,
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontSize: 13.sp,
+                                        color: isDark
+                                            ? Colors.white
+                                            : AppColors.textDark,
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: 'group_search_hint'.tr(),
+                                        hintStyle: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          fontSize: 13.sp,
+                                          color: isDark
+                                              ? Colors.white.withValues(alpha: 0.38)
+                                              : AppColors.textMutedLight,
                                         ),
-                                        onPressed: () {
-                                          _searchController.clear();
-                                          setState(() => _searchQuery = '');
-                                        },
-                                      )
-                                    : null,
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(
-                                  vertical: 11.h,
+                                        prefixIcon: Icon(
+                                          Symbols.search,
+                                          size: 18.w,
+                                          color: isDark
+                                              ? Colors.white.withValues(alpha: 0.54)
+                                              : AppColors.textMutedLight,
+                                        ),
+                                        suffixIcon: _searchQuery.isNotEmpty
+                                            ? IconButton(
+                                                icon: Icon(
+                                                  Symbols.close,
+                                                  size: 16.w,
+                                                  color: isDark
+                                                      ? Colors.white.withValues(alpha: 0.54)
+                                                      : AppColors.textMutedLight,
+                                                ),
+                                                onPressed: () {
+                                                  _searchController.clear();
+                                                  setState(() => _searchQuery = '');
+                                                },
+                                              )
+                                            : null,
+                                        border: InputBorder.none,
+                                        contentPadding: EdgeInsets.symmetric(
+                                          vertical: 11.h,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
                           ),
                         ),
                       ),
-                      // Pilgrim tiles
+                    ),
+                      // Pilgrim tiles list
                       if (filtered.isEmpty)
                         SliverFillRemaining(
                           hasScrollBody: false,
@@ -2101,9 +2162,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   if (i > 0)
-                                    const Divider(
+                                    Divider(
                                       height: 0.5,
-                                      color: Color(0xFFF4F5F9),
+                                      color: isDark ? AppColors.dividerDark : const Color(0xFFF4F5F9),
                                     ),
                                   Dismissible(
                                     key: ValueKey(p.id),
@@ -3534,3 +3595,31 @@ class _PilgrimManageTile extends StatelessWidget {
     );
   }
 }
+
+class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double height;
+
+  _PinnedHeaderDelegate({required this.child, required this.height});
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) {
+    return child != oldDelegate.child || height != oldDelegate.height;
+  }
+}
+

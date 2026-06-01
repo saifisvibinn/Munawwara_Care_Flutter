@@ -408,7 +408,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     );
     return;
   }
-  if (fcmType == 'sos_resolved') {
+  if (PilgrimSosCoordinator.isModeratorResolvedPayload(message.data)) {
     await PilgrimSosCoordinator.persistPendingModeratorResolved();
     return;
   }
@@ -1116,6 +1116,11 @@ class NotificationService {
         (notificationType == 'urgent' && messageType == 'reminder_tts');
     if (isReminderTap) {
       _navigateToAlertsInbox();
+      return;
+    }
+
+    if (PilgrimSosCoordinator.isModeratorResolvedPayload(data)) {
+      unawaited(PilgrimSosCoordinator.handleModeratorResolvedPush());
       return;
     }
 

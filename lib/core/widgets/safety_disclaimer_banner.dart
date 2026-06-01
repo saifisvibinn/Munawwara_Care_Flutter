@@ -18,8 +18,8 @@ class SafetyDisclaimerBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final muted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
     return Container(
-      margin: EdgeInsets.only(bottom: 24.h),
-      padding: EdgeInsets.all(14.w),
+      margin: EdgeInsets.only(bottom: 16.h),
+      padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
         color: isDark
             ? AppColors.surfaceDark

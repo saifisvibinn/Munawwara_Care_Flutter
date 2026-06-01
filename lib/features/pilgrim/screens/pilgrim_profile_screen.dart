@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/legal_support_section.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/locale_prefs.dart';
@@ -25,6 +26,9 @@ class PilgrimProfileScreen extends ConsumerStatefulWidget {
 
 class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
   late String _selectedLocale;
+
+  /// Matches [PilgrimDashboardScreen] scaffold background in light mode.
+  static const Color _lightBg = Color(0xfff1f5f3);
 
   static const _languages = [
     {'code': 'en', 'name': 'English', 'native': 'English', 'flag': '🇬🇧'},
@@ -66,12 +70,12 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
     final themeNotifier = ref.read(themeProvider.notifier);
-    final isDark = themeMode == ThemeMode.dark;
+    final isDark = AppTheme.isDarkEffective(themeMode, context);
 
     final authState = ref.watch(authProvider);
     final fullName = authState.fullName ?? 'Pilgrim';
 
-    final bg = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+    final bg = isDark ? AppColors.backgroundDark : _lightBg;
     final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
     final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
     final textMuted = isDark
@@ -87,21 +91,24 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
         child: Column(
           children: [
             // ── Header ──────────────────────────────────────────────────
-            Padding(
-              padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 0),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: Text(
-                  'settings_title'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 24.sp,
-                    color: textPrimary,
+            if (Navigator.canPop(context))
+              _SettingsHeader(isDark: isDark, textPrimary: textPrimary)
+            else
+              Padding(
+                padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 0),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    'settings_title'.tr(),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 24.sp,
+                      color: textPrimary,
+                    ),
                   ),
                 ),
               ),
-            ),
 
             // ── Scrollable body ─────────────────────────────────────────
             Expanded(
@@ -818,6 +825,69 @@ class _LanguageRow extends StatelessWidget {
             endIndent: 16.w,
           ),
       ],
+    );
+  }
+}
+
+class _SettingsHeader extends StatelessWidget {
+  const _SettingsHeader({
+    required this.isDark,
+    required this.textPrimary,
+  });
+
+  final bool isDark;
+  final Color textPrimary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(8.w, 8.h, 20.w, 0),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.of(context).maybePop(),
+            child: Container(
+              width: 42.w,
+              height: 42.w,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.surfaceDark : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isDark
+                      ? AppColors.backgroundDark
+                      : const Color(0xFFE2E2F0),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: textPrimary,
+                size: 20.sp,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Center(
+              child: Text(
+                'settings_title'.tr(),
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 20.sp,
+                  color: textPrimary,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: 44.w),
+        ],
+      ),
     );
   }
 }

@@ -10,6 +10,7 @@ Future<void> verifyEnv() async {
   final optionalKeys = <String>[
     'AGORA_APP_ID',
     'GOOGLE_MAPS_API_KEY',
+    'UMMAH_API_KEY',
   ];
 
   final missingRequired = requiredKeys.where((k) {
