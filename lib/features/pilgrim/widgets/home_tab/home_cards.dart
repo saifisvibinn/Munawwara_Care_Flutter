@@ -382,7 +382,7 @@ class WeatherCard extends StatelessWidget {
     );
 
     return SizedBox(
-      height: 128.h,
+      height: 126.h,
       child: DecoratedBox(
         decoration: _homeActionCardDecoration(
           isDark: isDark,
@@ -471,7 +471,7 @@ class GroupCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 10.h),
+        padding: EdgeInsets.fromLTRB(16.w, 11.h, 16.w, 9.h),
         decoration: BoxDecoration(
           color: cardBg,
           borderRadius: BorderRadius.circular(24.r),
@@ -504,12 +504,12 @@ class GroupCard extends StatelessWidget {
               groupName,
               style: TextStyle(
                 fontFamily: 'Lexend',
-                fontSize: 20.sp,
+                fontSize: 19.sp,
                 fontWeight: FontWeight.w800,
                 color: valueColor,
               ),
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 9.h),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -536,7 +536,7 @@ class GroupCard extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 7.h),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -563,8 +563,7 @@ class GroupCard extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: 10.h), // Tighter spacing
-            // Pill button at the bottom
+            SizedBox(height: 9.h),
             Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(vertical: 8.h),
@@ -748,7 +747,7 @@ class ExploreCard extends StatelessWidget {
     final customRadius = BorderRadius.circular(24.r);
 
     return SizedBox(
-      height: 128.h,
+      height: 126.h,
       child: DecoratedBox(
         decoration: _homeActionCardDecoration(
           isDark: isDark,

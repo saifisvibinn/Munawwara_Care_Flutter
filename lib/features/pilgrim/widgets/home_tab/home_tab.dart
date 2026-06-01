@@ -122,7 +122,7 @@ class PilgrimHomeTab extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 10.h),
+              padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 6.h),
               child: Row(
                 children: [
                   ClipRRect(
@@ -225,7 +225,7 @@ class PilgrimHomeTab extends StatelessWidget {
                   slivers: [
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 16.h),
+                        padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 6.h),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -233,22 +233,22 @@ class PilgrimHomeTab extends StatelessWidget {
                               'home_greeting'.tr(),
                               style: TextStyle(
                                 fontFamily: 'Lexend',
-                                fontSize: 22.sp,
+                                fontSize: 18.sp,
                                 fontWeight: FontWeight.w500,
                                 color: AppColors.primary,
                               ),
                             ),
-                            SizedBox(height: 4.h),
+                            SizedBox(height: 2.h),
                             Text(
                               pilgrimState.isLoading
                                   ? '...'
                                   : _greetingDisplayName(profile),
                               style: TextStyle(
                                 fontFamily: 'Lexend',
-                                fontSize: 32.sp,
+                                fontSize: 26.sp,
                                 fontWeight: FontWeight.w800,
                                 color: headerText,
-                                height: 1.1,
+                                height: 1.05,
                               ),
                             ),
                             if (!isGpsEnabled || !hasLocPermission)
@@ -294,7 +294,7 @@ class PilgrimHomeTab extends StatelessWidget {
                                 ),
                               ),
                             if (isGpsEnabled && hasLocPermission)
-                              SizedBox(height: 10.h), // Tighter spacing below greetings to prevent scrolling
+                              SizedBox(height: 4.h),
                           ],
                         ),
                       ),
@@ -440,7 +440,7 @@ class _HomeBody extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(36.r)),
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 12.h), // Compact padding to ensure perfect fit without scroll
+        padding: EdgeInsets.fromLTRB(20.w, 10.h, 20.w, 6.h),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -461,7 +461,7 @@ class _HomeBody extends StatelessWidget {
                 onNavigate: onNavigateToModerator,
               ),
             ],
-            SizedBox(height: 10.h), // Tighter spacing
+            SizedBox(height: 8.h),
 
             // ── Animated Switcher for help mode vs normal side-by-side mode ──
             AnimatedSwitcher(
@@ -538,12 +538,12 @@ class _HomeBody extends StatelessWidget {
                             ],
                           ),
                         ),
-                        SizedBox(height: 14.h),
+                        SizedBox(height: 8.h),
 
-                        // 2. Centered large glowing SOS Button sitting directly on the page surface
+                        // 2. Centered SOS button
                         Center(
                           child: SosButton(
-                            size: 186.w, // Enlarged premium large size to sit directly on the page background
+                            size: 186.w,
                             pulseController: sosPulseController,
                             holdController: sosHoldController,
                             isHolding: isSosHolding,
@@ -554,11 +554,12 @@ class _HomeBody extends StatelessWidget {
                             onHoldEnd: onSosHoldEnd,
                           ),
                         ),
-                        SizedBox(height: 10.h),
-                        // Centered text underneath the SOS button
+                        SizedBox(height: 8.h),
                         Text(
                           'sos_idle_subtext'.tr(),
                           textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 13.sp,
@@ -570,7 +571,7 @@ class _HomeBody extends StatelessWidget {
                       ],
                     ),
             ),
-            SizedBox(height: 8.h), // Tighter vertical spacing below SOS card
+            SizedBox(height: 4.h),
 
             SafetyDisclaimerBanner(isDark: isDark),
           ],
