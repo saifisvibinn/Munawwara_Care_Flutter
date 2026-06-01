@@ -194,18 +194,11 @@ Future<void> bindMobileMessagingServices() async {
         );
         return;
       }
-      if (fcmType == 'sos_resolved') {
-        final c = CallingScope.riverpod;
-        final role = c?.read(authProvider).role?.toLowerCase() ?? '';
-        if (role == 'pilgrim') {
-          AppLogger.i('[FCM] sos_resolved — pilgrim help request closed');
-          await PilgrimSosCoordinator.persistPendingModeratorResolved();
-          // Trigger the UI callback FIRST (while sosActive is still true) so
-          // the resolved card can display. cancelSOS() is called inside
-          // _applyModeratorResolvedUi; calling it here beforehand was causing
-          // the dashboard socket guard to silently drop the resolved card.
-          PilgrimSosCoordinator.onModeratorResolvedUi?.call();
-        }
+      if (PilgrimSosCoordinator.isModeratorResolvedPayload(msg.data)) {
+        AppLogger.i('[FCM] sos_resolved — pilgrim help request closed');
+        // Trigger UI while sosActive is still true; cancelSOS() runs inside
+        // _applyModeratorResolvedUi on the dashboard.
+        await PilgrimSosCoordinator.handleModeratorResolvedPush();
         return;
       }
       if (notifType == 'sos_alert') {

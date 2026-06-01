@@ -245,11 +245,17 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         unawaited(_initLocation());
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          unawaited(_flushDeferredUrgentChatPopup());
-        }
+        if (!mounted) return;
+        unawaited(_flushDeferredUrgentChatPopup());
+        unawaited(_applyPendingModeratorResolvedFromPush());
       });
     }
+  }
+
+  /// FCM in background only sets a prefs flag; apply resolved card on resume.
+  Future<void> _applyPendingModeratorResolvedFromPush() async {
+    if (!mounted) return;
+    await PilgrimSosCoordinator.applyPendingModeratorResolvedIfAny();
   }
 
   int _permissionsCheckGate = 0;
@@ -543,9 +549,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
 
   Future<void> _finishPilgrimWarmup() async {
     await _restoreSosUiIfNeeded();
-    if (await PilgrimSosCoordinator.consumePendingModeratorResolved()) {
-      _applyModeratorResolvedUi();
-    }
+    await PilgrimSosCoordinator.applyPendingModeratorResolvedIfAny();
     final groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
     if (groupId != null) {
       ref.read(messageProvider.notifier).fetchUnreadCount(groupId);
