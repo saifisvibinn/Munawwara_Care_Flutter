@@ -1155,6 +1155,38 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.5+1"
+  proximity_screen_lock:
+    dependency: "direct main"
+    description:
+      name: proximity_screen_lock
+      sha256: d330e5e47d98a7b2aedb294c3c207f9447ae2fc774c6f7e893b171f4d18524af
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.0"
+  proximity_screen_lock_android:
+    dependency: transitive
+    description:
+      name: proximity_screen_lock_android
+      sha256: "4f09ea21c90633c0952dce5501340569bf87f16ef2de3f351f81113918223ccc"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.0"
+  proximity_screen_lock_ios:
+    dependency: transitive
+    description:
+      name: proximity_screen_lock_ios
+      sha256: e2bf684bee9241cace301569d24152b598df7a582d3300829bf809bcac168c13
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.0"
+  proximity_screen_lock_platform_interface:
+    dependency: transitive
+    description:
+      name: proximity_screen_lock_platform_interface
+      sha256: a3788e743298fb8c8f74ebde520a6b7ec93d5f80393263ac011d20169e93a4b9
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.0"
   pub_semver:
     dependency: transitive
     description:

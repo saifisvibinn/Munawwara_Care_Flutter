@@ -10,6 +10,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:proximity_screen_lock/proximity_screen_lock.dart';
 
 import '../../auth/providers/auth_provider.dart';
 import '../../moderator/services/sos_alert_coordinator.dart';
@@ -457,6 +458,10 @@ class CallNotifier extends Notifier<CallState> {
     _activeIncomingCallRecordId = null;
     CallSignaling.clearPendingOutgoingEmits();
     unawaited(_clearOutgoingCallPersistence());
+    // Deactivate proximity sensor so the screen behaves normally after the call.
+    ProximityScreenLock.setActive(false).catchError(
+      (e) => AppLogger.w('📞 Failed to deactivate proximity lock: $e'),
+    );
   }
 
   /// Idempotent teardown — use for cancel, decline, timeout, and watchdog.
@@ -1286,6 +1291,19 @@ class CallNotifier extends Notifier<CallState> {
     state = state.copyWith(status: CallStatus.connected, durationSeconds: 0);
     _syncPreConnectRingback(CallStatus.connected);
     _startTimer();
+    // Activate proximity sensor to dim screen when phone is held to ear.
+    _activateProximityLock();
+  }
+
+  void _activateProximityLock() async {
+    try {
+      if (await ProximityScreenLock.isProximityLockSupported()) {
+        await ProximityScreenLock.setActive(true);
+        AppLogger.i('📞 Proximity screen lock activated');
+      }
+    } catch (e) {
+      AppLogger.w('📞 Failed to activate proximity lock: $e');
+    }
   }
 
   void _startTimer() {

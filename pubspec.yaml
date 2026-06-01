@@ -75,6 +75,7 @@ dependencies:
   just_audio: ^0.10.5
   audio_session: ^0.2.3
   wakelock_plus: ^1.5.2
+  proximity_screen_lock: ^2.3.0
   webview_flutter: ^4.13.1
   package_info_plus: ^9.0.1
 dependency_overrides:
