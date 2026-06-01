@@ -2,12 +2,12 @@ import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../constants/dua_category_icons.dart';
 import '../constants/muslim_colors.dart';
 import '../models/muslim_models.dart';
 import '../providers/muslim_providers.dart';
+import '../utils/muslim_localization.dart';
 import '../widgets/muslim_widgets.dart';
 import 'duaa_category_screen.dart';
 
@@ -16,6 +16,7 @@ class DuaaScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(duaI18nReadyProvider);
     final categoriesAsync = ref.watch(duaCategoriesProvider);
 
     return MuslimScreenScaffold(
@@ -175,7 +176,7 @@ class _CategoryTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        category.name,
+                        localizedDuaCategoryName(category),
                         style: TextStyle(
                           fontFamily: 'Lexend',
                           fontSize: 15.sp,
@@ -185,7 +186,7 @@ class _CategoryTile extends StatelessWidget {
                       ),
                       if (category.description.isNotEmpty)
                         Text(
-                          category.description,
+                          localizedDuaCategoryDescription(category),
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 12.sp,
@@ -212,10 +213,7 @@ class _CategoryTile extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: 4.w),
-                Icon(
-                  Directionality.of(context) == TextDirection.rtl
-                      ? Symbols.chevron_left
-                      : Symbols.chevron_right,
+                muslimForwardChevron(
                   size: 20.w,
                   color: MuslimColors.primary.withValues(alpha: 0.45),
                 ),

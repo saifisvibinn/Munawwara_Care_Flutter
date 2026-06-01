@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../models/muslim_models.dart';
 import '../providers/muslim_providers.dart';
+import '../utils/muslim_localization.dart';
 import '../widgets/dua_card.dart';
 import '../widgets/muslim_widgets.dart';
 
@@ -15,10 +16,11 @@ class DuaaCategoryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(duaI18nReadyProvider);
     final duasAsync = ref.watch(duaCategoryItemsProvider(category.id));
 
     return MuslimScreenScaffold(
-      title: category.name,
+      title: localizedDuaCategoryName(category),
       onRefresh: () async {
         ref.invalidate(duaCategoryItemsProvider(category.id));
         await ref.read(duaCategoryItemsProvider(category.id).future);

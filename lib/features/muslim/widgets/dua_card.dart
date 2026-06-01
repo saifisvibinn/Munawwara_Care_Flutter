@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -6,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../constants/muslim_colors.dart';
 import '../models/muslim_models.dart';
 import '../providers/muslim_providers.dart';
+import '../utils/muslim_localization.dart';
 import 'muslim_widgets.dart';
 
 class DuaCard extends ConsumerWidget {
@@ -18,6 +20,10 @@ class DuaCard extends ConsumerWidget {
     final counter = ref.watch(duaTapCounterProvider.notifier);
     final remaining = counter.remaining(dua);
     final complete = remaining <= 0;
+    final lang = context.locale.languageCode;
+    final hideAuxiliary = hideDuaEnglishAuxiliary(lang);
+    final displayTitle = localizedDuaTitle(dua, lang);
+    final displaySource = localizedDuaSource(dua, lang);
 
     return Material(
       color: MuslimColors.surfaceContainerLowest,
@@ -36,12 +42,12 @@ class DuaCard extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (dua.title != null && dua.title!.isNotEmpty) ...[
+              if (displayTitle.isNotEmpty) ...[
                 Text(
-                  dua.title!,
+                  displayTitle,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 12.sp,
+                    fontFamily: lang == 'ar' ? 'Amiri' : 'Lexend',
+                    fontSize: lang == 'ar' ? 14.sp : 12.sp,
                     fontWeight: FontWeight.w600,
                     color: MuslimColors.onSurfaceVariant,
                   ),
@@ -52,42 +58,46 @@ class DuaCard extends ConsumerWidget {
                 dua.arabic,
                 style: muslimArabicStyle(fontSize: 22.sp),
               ),
-              SizedBox(height: 12.h),
-              Text(
-                dua.transliteration,
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontSize: 14.sp,
-                  fontStyle: FontStyle.italic,
-                  height: 1.45,
-                  color: MuslimColors.onSurfaceVariant.withValues(alpha: 0.85),
-                ),
-              ),
-              SizedBox(height: 10.h),
-              Container(
-                padding: EdgeInsetsDirectional.only(start: 12.w),
-                decoration: BoxDecoration(
-                  border: BorderDirectional(
-                    start: BorderSide(
-                      color: MuslimColors.primary.withValues(alpha: 0.2),
-                      width: 2,
-                    ),
-                  ),
-                ),
-                child: Text(
-                  dua.translation,
+              if (!hideAuxiliary && dua.transliteration.isNotEmpty) ...[
+                SizedBox(height: 12.h),
+                Text(
+                  dua.transliteration,
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 14.sp,
+                    fontStyle: FontStyle.italic,
                     height: 1.45,
-                    color: MuslimColors.onSurface,
+                    color: MuslimColors.onSurfaceVariant.withValues(alpha: 0.85),
                   ),
                 ),
-              ),
-              if (dua.source.isNotEmpty) ...[
+              ],
+              if (!hideAuxiliary && dua.translation.isNotEmpty) ...[
+                SizedBox(height: 10.h),
+                Container(
+                  padding: EdgeInsetsDirectional.only(start: 12.w),
+                  decoration: BoxDecoration(
+                    border: BorderDirectional(
+                      start: BorderSide(
+                        color: MuslimColors.primary.withValues(alpha: 0.2),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  child: Text(
+                    dua.translation,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 14.sp,
+                      height: 1.45,
+                      color: MuslimColors.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+              if (displaySource.isNotEmpty) ...[
                 SizedBox(height: 10.h),
                 Text(
-                  dua.source,
+                  displaySource,
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 11.sp,

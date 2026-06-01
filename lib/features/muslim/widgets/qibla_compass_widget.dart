@@ -9,6 +9,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../constants/muslim_colors.dart';
+import '../utils/muslim_localization.dart';
 import '../models/muslim_models.dart';
 
 class QiblaCompassWidget extends StatefulWidget {
@@ -152,7 +153,10 @@ class _QiblaCompassWidgetState extends State<QiblaCompassWidget> {
                       // Compass ring — N/E/S/W labels.
                       CustomPaint(
                         size: Size(compassSize, compassSize),
-                        painter: _CompassDialPainter(aligned: aligned),
+                        painter: _CompassDialPainter(
+                          aligned: aligned,
+                          cardinalLabels: localizedQiblaCardinals(),
+                        ),
                       ),
 
                       // Qibla marker — physically locked to the dial at its absolute geographic bearing!
@@ -283,9 +287,13 @@ class _QiblaMarker extends StatelessWidget {
 }
 
 class _CompassDialPainter extends CustomPainter {
-  _CompassDialPainter({required this.aligned});
+  _CompassDialPainter({
+    required this.aligned,
+    required this.cardinalLabels,
+  });
 
   final bool aligned;
+  final List<String> cardinalLabels;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -316,8 +324,6 @@ class _CompassDialPainter extends CustomPainter {
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round;
 
-    const cardinals = ['N', 'E', 'S', 'W'];
-
     for (var i = 0; i < 360; i += 5) {
       final angle = _degToRad(i.toDouble() - 90);
       final isMajor = i % 90 == 0;
@@ -345,15 +351,19 @@ class _CompassDialPainter extends CustomPainter {
       canvas.drawLine(p1, p2, isMajor || isMinor ? majorTick : minorTick);
 
       if (isMajor) {
-        final label = cardinals[i ~/ 90];
+        final index = i ~/ 90;
+        final label = index < cardinalLabels.length
+            ? cardinalLabels[index]
+            : '';
+        final isNorth = index == 0;
         final textPainter = TextPainter(
           text: TextSpan(
             text: label,
             style: TextStyle(
               fontFamily: 'Lexend',
-              fontSize: label == 'N' ? 13 : 11,
+              fontSize: isNorth ? 13 : 11,
               fontWeight: FontWeight.w800,
-              color: label == 'N'
+              color: isNorth
                   ? MuslimColors.secondaryContainer
                   : MuslimColors.onSurfaceVariant,
             ),
@@ -376,7 +386,8 @@ class _CompassDialPainter extends CustomPainter {
   double _degToRad(double deg) => deg * math.pi / 180;
 
   @override
-  bool shouldRepaint(covariant _CompassDialPainter old) => old.aligned != aligned;
+  bool shouldRepaint(covariant _CompassDialPainter old) =>
+      old.aligned != aligned || old.cardinalLabels != cardinalLabels;
 }
 
 class _TrianglePainter extends CustomPainter {

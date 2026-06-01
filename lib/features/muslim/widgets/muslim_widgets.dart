@@ -1,7 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../constants/muslim_colors.dart';
+import '../utils/muslim_localization.dart';
+
+/// Forward navigation chevron. Uses [Symbols.chevron_right] only; the glyph
+/// already has [IconData.matchTextDirection] so manual left/right swaps flip
+/// twice in Arabic/Urdu and point the wrong way.
+Widget muslimForwardChevron({double? size, Color? color}) {
+  return Icon(
+    Symbols.chevron_right,
+    size: size,
+    color: color,
+  );
+}
 
 class ArabicText extends StatelessWidget {
   const ArabicText(
@@ -135,9 +148,7 @@ class MuslimScreenScaffold extends StatelessWidget {
                     IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: Icon(
-                        Directionality.of(context) == TextDirection.rtl
-                            ? Icons.arrow_forward
-                            : Icons.arrow_back,
+                        Icons.arrow_back,
                         color: isDark ? MuslimColors.onSurfaceDark : MuslimColors.primary,
                       ),
                     ),
@@ -171,26 +182,10 @@ class MuslimScreenScaffold extends StatelessWidget {
   }
 }
 
-String formatPrayerLabel(String key) {
-  if (key.isEmpty || key == 'none') return '';
-  return key[0].toUpperCase() + key.substring(1);
-}
+String formatPrayerLabel(String key) => localizedPrayerName(key);
 
-String formatMinutesCountdown(int minutes) {
-  if (minutes <= 0) return 'Now';
-  if (minutes < 60) return '${minutes}m';
-  final h = minutes ~/ 60;
-  final m = minutes % 60;
-  if (m == 0) return '${h}h';
-  return '${h}h ${m}m';
-}
+String formatMinutesCountdown(int minutes) =>
+    formatMinutesCountdownLocalized(minutes);
 
-String formatPrayerTime12h(String time24) {
-  final parts = time24.split(':');
-  if (parts.length < 2) return time24;
-  final hour = int.tryParse(parts[0]) ?? 0;
-  final minute = parts[1];
-  final period = hour >= 12 ? 'PM' : 'AM';
-  final h12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-  return '$h12:$minute $period';
-}
+String formatPrayerTime12h(String time24, Locale locale) =>
+    formatPrayerTimeLocalized(time24, locale);

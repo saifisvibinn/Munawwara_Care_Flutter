@@ -13,6 +13,7 @@ class AzkarScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(duaI18nReadyProvider);
     final period = ref.watch(azkarPeriodProvider);
     final duasAsync = ref.watch(azkarDuasProvider);
 

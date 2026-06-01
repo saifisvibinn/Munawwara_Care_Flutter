@@ -7,6 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../data/dua_i18n_repository.dart';
 import '../models/muslim_models.dart';
 import '../services/ummah_api_service.dart';
 import '../../../core/services/app_data_cache.dart';
@@ -28,6 +29,11 @@ final ummahDioProvider = Provider<Dio>((ref) {
 
 final ummahApiServiceProvider = Provider<UmmahApiService>((ref) {
   return UmmahApiService(ref.watch(ummahDioProvider));
+});
+
+/// Loads [assets/muslim/dua_i18n.json] for localized du'a/azkār titles and sources.
+final duaI18nReadyProvider = FutureProvider<void>((ref) async {
+  await DuaI18nRepository.load();
 });
 
 /// Device coordinates for UmmahAPI calls (Mecca fallback when GPS unavailable).

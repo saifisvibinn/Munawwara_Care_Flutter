@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../constants/muslim_colors.dart';
 import '../models/muslim_models.dart';
 import '../providers/muslim_providers.dart';
+import '../utils/muslim_localization.dart';
 import '../widgets/muslim_widgets.dart';
 
 class HadithScreen extends ConsumerStatefulWidget {
@@ -17,15 +18,15 @@ class HadithScreen extends ConsumerStatefulWidget {
 }
 
 class _HadithScreenState extends ConsumerState<HadithScreen> {
-  bool _showArabic = false;
+  bool _showSecondary = false;
 
   Future<void> _loadNextHadith() async {
-    setState(() => _showArabic = false);
+    setState(() => _showSecondary = false);
     await ref.read(displayedHadithProvider.notifier).loadRandom();
   }
 
   Future<void> _loadFromCollection(HadithCollection collection) async {
-    setState(() => _showArabic = false);
+    setState(() => _showSecondary = false);
     await ref
         .read(displayedHadithProvider.notifier)
         .loadRandomFromCollection(collection);
@@ -51,8 +52,9 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
           children: [
             _HadithCard(
               hadith: hadith,
-              showArabic: _showArabic,
-              onToggleArabic: () => setState(() => _showArabic = !_showArabic),
+              showSecondary: _showSecondary,
+              onToggleSecondary: () =>
+                  setState(() => _showSecondary = !_showSecondary),
             ),
             SizedBox(height: 12.h),
             FilledButton(
@@ -78,9 +80,7 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
                   ),
                   SizedBox(width: 6.w),
                   Icon(
-                    Directionality.of(context) == TextDirection.rtl
-                        ? Symbols.navigate_before
-                        : Symbols.navigate_next,
+                    Symbols.navigate_next,
                     size: 22.w,
                   ),
                 ],
@@ -214,7 +214,10 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        col.name,
+                                        localizedHadithCollectionName(
+                                          collectionKey: col.key,
+                                          fallback: col.name,
+                                        ),
                                         style: TextStyle(
                                           fontFamily: 'Lexend',
                                           fontSize: 14.sp,
@@ -223,7 +226,9 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
                                         ),
                                       ),
                                       Text(
-                                        col.reliability,
+                                        localizedHadithCollectionReliability(
+                                          col.reliability,
+                                        ),
                                         style: TextStyle(
                                           fontFamily: 'Lexend',
                                           fontSize: 11.sp,
@@ -233,10 +238,7 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
                                     ],
                                   ),
                                 ),
-                                Icon(
-                                  Directionality.of(context) == TextDirection.rtl
-                                      ? Symbols.chevron_left
-                                      : Symbols.chevron_right,
+                                muslimForwardChevron(
                                   size: 20.w,
                                   color: MuslimColors.primary
                                       .withValues(alpha: 0.45),
@@ -261,16 +263,24 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
 class _HadithCard extends StatelessWidget {
   const _HadithCard({
     required this.hadith,
-    this.showArabic = false,
-    this.onToggleArabic,
+    this.showSecondary = false,
+    this.onToggleSecondary,
   });
 
   final HadithData hadith;
-  final bool showArabic;
-  final VoidCallback? onToggleArabic;
+  final bool showSecondary;
+  final VoidCallback? onToggleSecondary;
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.locale.languageCode;
+    final primary = hadithPrimaryText(hadith, lang);
+    final secondary = hadithSecondaryText(hadith, lang);
+    final prefersArabic = muslimPrefersArabicContent(lang);
+    final collectionLabel = localizedHadithCollectionName(
+      collectionKey: hadith.collection,
+      fallback: hadith.collectionName,
+    );
     return Container(
       padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
@@ -292,7 +302,7 @@ class _HadithCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999.r),
                 ),
                 child: Text(
-                  '${hadith.collectionName} · #${hadith.hadithNumber}',
+                  '$collectionLabel · #${hadith.hadithNumber}',
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 12.sp,
@@ -305,7 +315,7 @@ class _HadithCard extends StatelessWidget {
               const Spacer(),
               if (hadith.grade.isNotEmpty)
                 Text(
-                  hadith.grade,
+                  localizedHadithGrade(hadith.grade),
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 11.sp,
@@ -317,18 +327,24 @@ class _HadithCard extends StatelessWidget {
             ],
           ),
           SizedBox(height: 16.h),
-          Text(
-            hadith.english,
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 18.sp,
-              fontStyle: FontStyle.italic,
-              height: 1.55,
-              color: MuslimColors.onSurface,
-              decoration: TextDecoration.none,
+          if (prefersArabic)
+            ArabicText(
+              primary,
+              style: muslimArabicStyle(fontSize: 22.sp),
+            )
+          else
+            Text(
+              primary,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 18.sp,
+                fontStyle: FontStyle.italic,
+                height: 1.55,
+                color: MuslimColors.onSurface,
+                decoration: TextDecoration.none,
+              ),
             ),
-          ),
-          if (onToggleArabic != null && hadith.arabic.isNotEmpty) ...[
+          if (onToggleSecondary != null && secondary != null) ...[
             SizedBox(height: 16.h),
             Divider(
               color: MuslimColors.outlineVariant.withValues(alpha: 0.5),
@@ -337,7 +353,7 @@ class _HadithCard extends StatelessWidget {
             Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: onToggleArabic,
+                onTap: onToggleSecondary,
                 borderRadius: BorderRadius.circular(8.r),
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 12.h),
@@ -345,7 +361,7 @@ class _HadithCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          'muslim_original_arabic'.tr(),
+                          hadithToggleSecondaryLabel(lang),
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 14.sp,
@@ -356,7 +372,7 @@ class _HadithCard extends StatelessWidget {
                         ),
                       ),
                       Icon(
-                        showArabic ? Symbols.expand_less : Symbols.expand_more,
+                        showSecondary ? Symbols.expand_less : Symbols.expand_more,
                         size: 22.w,
                         color: MuslimColors.onSurfaceVariant,
                       ),
@@ -366,11 +382,24 @@ class _HadithCard extends StatelessWidget {
               ),
             ),
           ],
-          if (showArabic && hadith.arabic.isNotEmpty) ...[
-            ArabicText(
-              hadith.arabic,
-              style: muslimArabicStyle(fontSize: 22.sp),
-            ),
+          if (showSecondary && secondary != null) ...[
+            if (prefersArabic)
+              Text(
+                secondary,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 16.sp,
+                  fontStyle: FontStyle.italic,
+                  height: 1.55,
+                  color: MuslimColors.onSurfaceVariant,
+                  decoration: TextDecoration.none,
+                ),
+              )
+            else
+              ArabicText(
+                secondary,
+                style: muslimArabicStyle(fontSize: 22.sp),
+              ),
           ],
         ],
       ),

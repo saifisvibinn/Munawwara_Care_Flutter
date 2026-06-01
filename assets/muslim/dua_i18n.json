@@ -1,0 +1,1092 @@
+{
+  "collectors": {
+    "en": {
+      "Sahih Al-Bukhari": "Sahih Al-Bukhari",
+      "Sahih Muslim": "Sahih Muslim",
+      "Abu Dawud": "Abu Dawud",
+      "At-Tirmidhi": "At-Tirmidhi",
+      "An-Nasa'i": "An-Nasa'i",
+      "Ibn Majah": "Ibn Majah",
+      "Al-Bayhaqi": "Al-Bayhaqi",
+      "Al-Azraqi": "Al-Azraqi",
+      "Al-Hakim": "Al-Hakim",
+      "Muslim": "Muslim",
+      "Bukhari": "Bukhari"
+    },
+    "ar": {
+      "Sahih Al-Bukhari": "صحيح البخاري",
+      "Sahih Muslim": "صحيح مسلم",
+      "Abu Dawud": "أبو داود",
+      "At-Tirmidhi": "الترمذي",
+      "An-Nasa'i": "النسائي",
+      "Ibn Majah": "ابن ماجه",
+      "Al-Bayhaqi": "البيهقي",
+      "Al-Azraqi": "الأزرقي",
+      "Al-Hakim": "الحاكم",
+      "Muslim": "مسلم",
+      "Bukhari": "البخاري"
+    },
+    "ur": {
+      "Sahih Al-Bukhari": "صحیح البخاری",
+      "Sahih Muslim": "صحیح مسلم",
+      "Abu Dawud": "ابو داود",
+      "At-Tirmidhi": "ترمذی",
+      "An-Nasa'i": "نسائی",
+      "Ibn Majah": "ابن ماجہ",
+      "Al-Bayhaqi": "بیہقی",
+      "Al-Azraqi": "ازرقی",
+      "Al-Hakim": "حاکم",
+      "Muslim": "مسلم",
+      "Bukhari": "بخاری"
+    },
+    "fr": {
+      "Sahih Al-Bukhari": "Sahih al-Boukhari",
+      "Sahih Muslim": "Sahih Muslim",
+      "Abu Dawud": "Abou Daoud",
+      "At-Tirmidhi": "At-Tirmidhi",
+      "An-Nasa'i": "An-Nasa'i",
+      "Ibn Majah": "Ibn Majah",
+      "Al-Bayhaqi": "Al-Bayhaqi",
+      "Al-Azraqi": "Al-Azraqi",
+      "Al-Hakim": "Al-Hakim",
+      "Muslim": "Muslim",
+      "Bukhari": "Boukhari"
+    },
+    "id": {
+      "Sahih Al-Bukhari": "Shahih al-Bukhari",
+      "Sahih Muslim": "Shahih Muslim",
+      "Abu Dawud": "Abu Dawud",
+      "At-Tirmidhi": "At-Tirmidhi",
+      "An-Nasa'i": "An-Nasa'i",
+      "Ibn Majah": "Ibnu Majah",
+      "Al-Bayhaqi": "Al-Bayhaqi",
+      "Al-Azraqi": "Al-Azraqi",
+      "Al-Hakim": "Al-Hakim",
+      "Muslim": "Muslim",
+      "Bukhari": "Bukhari"
+    },
+    "tr": {
+      "Sahih Al-Bukhari": "Sahih-i Buhari",
+      "Sahih Muslim": "Sahih-i Müslim",
+      "Abu Dawud": "Ebu Davud",
+      "At-Tirmidhi": "Tirmizi",
+      "An-Nasa'i": "Nesai",
+      "Ibn Majah": "İbn Mace",
+      "Al-Bayhaqi": "Behaki",
+      "Al-Azraqi": "Ezraqi",
+      "Al-Hakim": "Hakim",
+      "Muslim": "Müslim",
+      "Bukhari": "Buhari"
+    }
+  },
+  "titles": {
+    "morning_1": {
+      "en": "Morning Remembrance",
+      "ar": "ذكر الصباح",
+      "ur": "Morning Remembrance",
+      "fr": "Morning Remembrance",
+      "id": "Morning Remembrance",
+      "tr": "Morning Remembrance"
+    },
+    "morning_2": {
+      "en": "Master of Forgiveness (Sayyid al-Istighfar)",
+      "ar": "سيد الاستغفار",
+      "ur": "Master of Forgiveness (Sayyid al-Istighfar)",
+      "fr": "Master of Forgiveness (Sayyid al-Istighfar)",
+      "id": "Master of Forgiveness (Sayyid al-Istighfar)",
+      "tr": "Master of Forgiveness (Sayyid al-Istighfar)"
+    },
+    "morning_3": {
+      "en": "Protection Morning Dua",
+      "ar": "دعاء حماية الصباح",
+      "ur": "Protection Morning Dua",
+      "fr": "Protection Morning Dua",
+      "id": "Protection Morning Dua",
+      "tr": "Protection Morning Dua"
+    },
+    "morning_46": {
+      "en": "Morning Tasbih",
+      "ar": "تسبيح الصباح",
+      "ur": "Morning Tasbih",
+      "fr": "Morning Tasbih",
+      "id": "Morning Tasbih",
+      "tr": "Morning Tasbih"
+    },
+    "morning_47": {
+      "en": "Morning Protection with Al-Mu'awwidhat",
+      "ar": "حماية الصباح بالمعوذات",
+      "ur": "Morning Protection with Al-Mu'awwidhat",
+      "fr": "Morning Protection with Al-Mu'awwidhat",
+      "id": "Morning Protection with Al-Mu'awwidhat",
+      "tr": "Morning Protection with Al-Mu'awwidhat"
+    },
+    "morning_48": {
+      "en": "Dua for Good Morning",
+      "ar": "دعاء صباح الخير",
+      "ur": "Dua for Good Morning",
+      "fr": "Dua for Good Morning",
+      "id": "Dua for Good Morning",
+      "tr": "Dua for Good Morning"
+    },
+    "morning_49": {
+      "en": "SubhanAllah al-Adheem Morning",
+      "ar": "سبحان الله العظيم (صباحًا)",
+      "ur": "SubhanAllah al-Adheem Morning",
+      "fr": "SubhanAllah al-Adheem Morning",
+      "id": "SubhanAllah al-Adheem Morning",
+      "tr": "SubhanAllah al-Adheem Morning"
+    },
+    "evening_4": {
+      "en": "Evening Remembrance",
+      "ar": "ذكر المساء",
+      "ur": "Evening Remembrance",
+      "fr": "Evening Remembrance",
+      "id": "Evening Remembrance",
+      "tr": "Evening Remembrance"
+    },
+    "evening_5": {
+      "en": "Evening Protection",
+      "ar": "حماية المساء",
+      "ur": "Evening Protection",
+      "fr": "Evening Protection",
+      "id": "Evening Protection",
+      "tr": "Evening Protection"
+    },
+    "evening_50": {
+      "en": "Evening Remembrance of Allah",
+      "ar": "ذكر الله في المساء",
+      "ur": "Evening Remembrance of Allah",
+      "fr": "Evening Remembrance of Allah",
+      "id": "Evening Remembrance of Allah",
+      "tr": "Evening Remembrance of Allah"
+    },
+    "evening_51": {
+      "en": "Evening Seeking Forgiveness",
+      "ar": "استغفار المساء",
+      "ur": "Evening Seeking Forgiveness",
+      "fr": "Evening Seeking Forgiveness",
+      "id": "Evening Seeking Forgiveness",
+      "tr": "Evening Seeking Forgiveness"
+    },
+    "evening_52": {
+      "en": "Evening Protection",
+      "ar": "حماية المساء",
+      "ur": "Evening Protection",
+      "fr": "Evening Protection",
+      "id": "Evening Protection",
+      "tr": "Evening Protection"
+    },
+    "wudu_41": {
+      "en": "Before Wudu",
+      "ar": "قبل الوضوء",
+      "ur": "Before Wudu",
+      "fr": "Before Wudu",
+      "id": "Before Wudu",
+      "tr": "Before Wudu"
+    },
+    "wudu_42": {
+      "en": "After Wudu",
+      "ar": "بعد الوضوء",
+      "ur": "After Wudu",
+      "fr": "After Wudu",
+      "id": "After Wudu",
+      "tr": "After Wudu"
+    },
+    "wudu_43": {
+      "en": "Complete After-Wudu Dua",
+      "ar": "دعاء الوضوء الكامل",
+      "ur": "Complete After-Wudu Dua",
+      "fr": "Complete After-Wudu Dua",
+      "id": "Complete After-Wudu Dua",
+      "tr": "Complete After-Wudu Dua"
+    },
+    "wudu_44": {
+      "en": "When Putting On Clothes",
+      "ar": "عند لبس الثوب",
+      "ur": "When Putting On Clothes",
+      "fr": "When Putting On Clothes",
+      "id": "When Putting On Clothes",
+      "tr": "When Putting On Clothes"
+    },
+    "wudu_45": {
+      "en": "When Undressing",
+      "ar": "عند خلع الثوب",
+      "ur": "When Undressing",
+      "fr": "When Undressing",
+      "id": "When Undressing",
+      "tr": "When Undressing"
+    },
+    "prayer_6": {
+      "en": "Opening Supplication in Prayer",
+      "ar": "دعاء استفتاح الصلاة",
+      "ur": "Opening Supplication in Prayer",
+      "fr": "Opening Supplication in Prayer",
+      "id": "Opening Supplication in Prayer",
+      "tr": "Opening Supplication in Prayer"
+    },
+    "prayer_7": {
+      "en": "Between Sujud (Prostrations)",
+      "ar": "بين السجدتين",
+      "ur": "Between Sujud (Prostrations)",
+      "fr": "Between Sujud (Prostrations)",
+      "id": "Between Sujud (Prostrations)",
+      "tr": "Between Sujud (Prostrations)"
+    },
+    "prayer_8": {
+      "en": "Dua in Sujud",
+      "ar": "دعاء السجود",
+      "ur": "Dua in Sujud",
+      "fr": "Dua in Sujud",
+      "id": "Dua in Sujud",
+      "tr": "Dua in Sujud"
+    },
+    "prayer_53": {
+      "en": "Dua in Ruku",
+      "ar": "دعاء الركوع",
+      "ur": "Dua in Ruku",
+      "fr": "Dua in Ruku",
+      "id": "Dua in Ruku",
+      "tr": "Dua in Ruku"
+    },
+    "prayer_54": {
+      "en": "Rising from Ruku",
+      "ar": "الرفع من الركوع",
+      "ur": "Rising from Ruku",
+      "fr": "Rising from Ruku",
+      "id": "Rising from Ruku",
+      "tr": "Rising from Ruku"
+    },
+    "prayer_55": {
+      "en": "Tashahud",
+      "ar": "التشهد",
+      "ur": "Tashahud",
+      "fr": "Tashahud",
+      "id": "Tashahud",
+      "tr": "Tashahud"
+    },
+    "prayer_56": {
+      "en": "Salawat (Ibrahimiyya) in Prayer",
+      "ar": "الصلاة الإبراهيمية",
+      "ur": "Salawat (Ibrahimiyya) in Prayer",
+      "fr": "Salawat (Ibrahimiyya) in Prayer",
+      "id": "Salawat (Ibrahimiyya) in Prayer",
+      "tr": "Salawat (Ibrahimiyya) in Prayer"
+    },
+    "prayer_57": {
+      "en": "Dua Before Salam (After Tashahud)",
+      "ar": "دعاء قبل السلام",
+      "ur": "Dua Before Salam (After Tashahud)",
+      "fr": "Dua Before Salam (After Tashahud)",
+      "id": "Dua Before Salam (After Tashahud)",
+      "tr": "Dua Before Salam (After Tashahud)"
+    },
+    "after_prayer_9": {
+      "en": "Istighfar After Prayer",
+      "ar": "استغفار بعد الصلاة",
+      "ur": "Istighfar After Prayer",
+      "fr": "Istighfar After Prayer",
+      "id": "Istighfar After Prayer",
+      "tr": "Istighfar After Prayer"
+    },
+    "after_prayer_10": {
+      "en": "SubhanAllah After Prayer",
+      "ar": "سبحان الله بعد الصلاة",
+      "ur": "SubhanAllah After Prayer",
+      "fr": "SubhanAllah After Prayer",
+      "id": "SubhanAllah After Prayer",
+      "tr": "SubhanAllah After Prayer"
+    },
+    "after_prayer_11": {
+      "en": "Alhamdulillah After Prayer",
+      "ar": "الحمد لله بعد الصلاة",
+      "ur": "Alhamdulillah After Prayer",
+      "fr": "Alhamdulillah After Prayer",
+      "id": "Alhamdulillah After Prayer",
+      "tr": "Alhamdulillah After Prayer"
+    },
+    "after_prayer_12": {
+      "en": "Allahu Akbar After Prayer",
+      "ar": "الله أكبر بعد الصلاة",
+      "ur": "Allahu Akbar After Prayer",
+      "fr": "Allahu Akbar After Prayer",
+      "id": "Allahu Akbar After Prayer",
+      "tr": "Allahu Akbar After Prayer"
+    },
+    "after_prayer_13": {
+      "en": "Ayat al-Kursi After Prayer",
+      "ar": "آية الكرسي بعد الصلاة",
+      "ur": "Ayat al-Kursi After Prayer",
+      "fr": "Ayat al-Kursi After Prayer",
+      "id": "Ayat al-Kursi After Prayer",
+      "tr": "Ayat al-Kursi After Prayer"
+    },
+    "after_prayer_58": {
+      "en": "La ilaha illallah 10 Times After Fajr and Maghrib",
+      "ar": "لا إله إلا الله بعد الفجر والمغرب",
+      "ur": "La ilaha illallah 10 Times After Fajr and Maghrib",
+      "fr": "La ilaha illallah 10 Times After Fajr and Maghrib",
+      "id": "La ilaha illallah 10 Times After Fajr and Maghrib",
+      "tr": "La ilaha illallah 10 Times After Fajr and Maghrib"
+    },
+    "after_prayer_59": {
+      "en": "Dua for Best of This World and Next",
+      "ar": "دعاء خير الدنيا والآخرة",
+      "ur": "Dua for Best of This World and Next",
+      "fr": "Dua for Best of This World and Next",
+      "id": "Dua for Best of This World and Next",
+      "tr": "Dua for Best of This World and Next"
+    },
+    "after_prayer_60": {
+      "en": "Seeking Refuge After Prayer",
+      "ar": "الاستعاذة بعد الصلاة",
+      "ur": "Seeking Refuge After Prayer",
+      "fr": "Seeking Refuge After Prayer",
+      "id": "Seeking Refuge After Prayer",
+      "tr": "Seeking Refuge After Prayer"
+    },
+    "sleep_14": {
+      "en": "Before Sleeping",
+      "ar": "قبل النوم",
+      "ur": "Before Sleeping",
+      "fr": "Before Sleeping",
+      "id": "Before Sleeping",
+      "tr": "Before Sleeping"
+    },
+    "sleep_15": {
+      "en": "Upon Waking Up",
+      "ar": "عند الاستيقاظ",
+      "ur": "Upon Waking Up",
+      "fr": "Upon Waking Up",
+      "id": "Upon Waking Up",
+      "tr": "Upon Waking Up"
+    },
+    "sleep_61": {
+      "en": "Reciting Al-Mu'awwidhat Before Sleep",
+      "ar": "المعوذات قبل النوم",
+      "ur": "Reciting Al-Mu'awwidhat Before Sleep",
+      "fr": "Reciting Al-Mu'awwidhat Before Sleep",
+      "id": "Reciting Al-Mu'awwidhat Before Sleep",
+      "tr": "Reciting Al-Mu'awwidhat Before Sleep"
+    },
+    "sleep_62": {
+      "en": "Dua for a Bad Dream",
+      "ar": "دعاء الرؤيا السيئة",
+      "ur": "Dua for a Bad Dream",
+      "fr": "Dua for a Bad Dream",
+      "id": "Dua for a Bad Dream",
+      "tr": "Dua for a Bad Dream"
+    },
+    "sleep_63": {
+      "en": "Upon Waking at Night",
+      "ar": "عند اليقظة ليلًا",
+      "ur": "Upon Waking at Night",
+      "fr": "Upon Waking at Night",
+      "id": "Upon Waking at Night",
+      "tr": "Upon Waking at Night"
+    },
+    "sleep_64": {
+      "en": "Upon Seeing a Good Dream",
+      "ar": "عند الرؤيا الحسنة",
+      "ur": "Upon Seeing a Good Dream",
+      "fr": "Upon Seeing a Good Dream",
+      "id": "Upon Seeing a Good Dream",
+      "tr": "Upon Seeing a Good Dream"
+    },
+    "food_16": {
+      "en": "Before Eating",
+      "ar": "قبل الأكل",
+      "ur": "Before Eating",
+      "fr": "Before Eating",
+      "id": "Before Eating",
+      "tr": "Before Eating"
+    },
+    "food_17": {
+      "en": "After Eating",
+      "ar": "بعد الأكل",
+      "ur": "After Eating",
+      "fr": "After Eating",
+      "id": "After Eating",
+      "tr": "After Eating"
+    },
+    "food_18": {
+      "en": "Forgetting Bismillah Before Eating",
+      "ar": "نسيان البسملة قبل الأكل",
+      "ur": "Forgetting Bismillah Before Eating",
+      "fr": "Forgetting Bismillah Before Eating",
+      "id": "Forgetting Bismillah Before Eating",
+      "tr": "Forgetting Bismillah Before Eating"
+    },
+    "food_65": {
+      "en": "Dua at Iftar",
+      "ar": "دعاء عند الإفطار",
+      "ur": "Dua at Iftar",
+      "fr": "Dua at Iftar",
+      "id": "Dua at Iftar",
+      "tr": "Dua at Iftar"
+    },
+    "food_66": {
+      "en": "Dua When Invited to Eat",
+      "ar": "دعاء عند دعوة الطعام",
+      "ur": "Dua When Invited to Eat",
+      "fr": "Dua When Invited to Eat",
+      "id": "Dua When Invited to Eat",
+      "tr": "Dua When Invited to Eat"
+    },
+    "food_67": {
+      "en": "Dua for the Host",
+      "ar": "دعاء للمضيف",
+      "ur": "Dua for the Host",
+      "fr": "Dua for the Host",
+      "id": "Dua for the Host",
+      "tr": "Dua for the Host"
+    },
+    "travel_19": {
+      "en": "Travel Dua",
+      "ar": "دعاء السفر",
+      "ur": "Travel Dua",
+      "fr": "Travel Dua",
+      "id": "Travel Dua",
+      "tr": "Travel Dua"
+    },
+    "travel_20": {
+      "en": "Entering a Town or City",
+      "ar": "دخول البلدة",
+      "ur": "Entering a Town or City",
+      "fr": "Entering a Town or City",
+      "id": "Entering a Town or City",
+      "tr": "Entering a Town or City"
+    },
+    "travel_68": {
+      "en": "Stopping at a Place",
+      "ar": "النزول في منزل",
+      "ur": "Stopping at a Place",
+      "fr": "Stopping at a Place",
+      "id": "Stopping at a Place",
+      "tr": "Stopping at a Place"
+    },
+    "travel_69": {
+      "en": "Returning From Travel",
+      "ar": "العودة من السفر",
+      "ur": "Returning From Travel",
+      "fr": "Returning From Travel",
+      "id": "Returning From Travel",
+      "tr": "Returning From Travel"
+    },
+    "travel_70": {
+      "en": "Dua for the Traveler (From Family at Home)",
+      "ar": "دعاء للمسافر",
+      "ur": "Dua for the Traveler (From Family at Home)",
+      "fr": "Dua for the Traveler (From Family at Home)",
+      "id": "Dua for the Traveler (From Family at Home)",
+      "tr": "Dua for the Traveler (From Family at Home)"
+    },
+    "travel_71": {
+      "en": "Dua at the Beginning of a Journey",
+      "ar": "دعاء بداية السفر",
+      "ur": "Dua at the Beginning of a Journey",
+      "fr": "Dua at the Beginning of a Journey",
+      "id": "Dua at the Beginning of a Journey",
+      "tr": "Dua at the Beginning of a Journey"
+    },
+    "home_21": {
+      "en": "Leaving the Home",
+      "ar": "الخروج من المنزل",
+      "ur": "Leaving the Home",
+      "fr": "Leaving the Home",
+      "id": "Leaving the Home",
+      "tr": "Leaving the Home"
+    },
+    "home_22": {
+      "en": "Entering the Home",
+      "ar": "دخول المنزل",
+      "ur": "Entering the Home",
+      "fr": "Entering the Home",
+      "id": "Entering the Home",
+      "tr": "Entering the Home"
+    },
+    "masjid_23": {
+      "en": "Entering the Masjid",
+      "ar": "دخول المسجد",
+      "ur": "Entering the Masjid",
+      "fr": "Entering the Masjid",
+      "id": "Entering the Masjid",
+      "tr": "Entering the Masjid"
+    },
+    "masjid_24": {
+      "en": "Leaving the Masjid",
+      "ar": "الخروج من المسجد",
+      "ur": "Leaving the Masjid",
+      "fr": "Leaving the Masjid",
+      "id": "Leaving the Masjid",
+      "tr": "Leaving the Masjid"
+    },
+    "masjid_72": {
+      "en": "Dua After Adhan",
+      "ar": "دعاء بعد الأذان",
+      "ur": "Dua After Adhan",
+      "fr": "Dua After Adhan",
+      "id": "Dua After Adhan",
+      "tr": "Dua After Adhan"
+    },
+    "masjid_73": {
+      "en": "Dua While Waiting for Prayer",
+      "ar": "دعاء انتظار الصلاة",
+      "ur": "Dua While Waiting for Prayer",
+      "fr": "Dua While Waiting for Prayer",
+      "id": "Dua While Waiting for Prayer",
+      "tr": "Dua While Waiting for Prayer"
+    },
+    "distress_25": {
+      "en": "Dua for Distress",
+      "ar": "دعاء الكرب",
+      "ur": "Dua for Distress",
+      "fr": "Dua for Distress",
+      "id": "Dua for Distress",
+      "tr": "Dua for Distress"
+    },
+    "distress_26": {
+      "en": "Dua of Yunus (Jonah)",
+      "ar": "دعاء يونس",
+      "ur": "Dua of Yunus (Jonah)",
+      "fr": "Dua of Yunus (Jonah)",
+      "id": "Dua of Yunus (Jonah)",
+      "tr": "Dua of Yunus (Jonah)"
+    },
+    "distress_27": {
+      "en": "When Anxious or Worried",
+      "ar": "عند الهم والغم",
+      "ur": "When Anxious or Worried",
+      "fr": "When Anxious or Worried",
+      "id": "When Anxious or Worried",
+      "tr": "When Anxious or Worried"
+    },
+    "distress_74": {
+      "en": "Dua of Prophet Ayyub (Job)",
+      "ar": "دعاء أيوب عليه السلام",
+      "ur": "Dua of Prophet Ayyub (Job)",
+      "fr": "Dua of Prophet Ayyub (Job)",
+      "id": "Dua of Prophet Ayyub (Job)",
+      "tr": "Dua of Prophet Ayyub (Job)"
+    },
+    "distress_75": {
+      "en": "Hasbunallah",
+      "ar": "حسبنا الله",
+      "ur": "Hasbunallah",
+      "fr": "Hasbunallah",
+      "id": "Hasbunallah",
+      "tr": "Hasbunallah"
+    },
+    "distress_76": {
+      "en": "La Hawla Wa La Quwwata",
+      "ar": "لا حول ولا قوة إلا بالله",
+      "ur": "La Hawla Wa La Quwwata",
+      "fr": "La Hawla Wa La Quwwata",
+      "id": "La Hawla Wa La Quwwata",
+      "tr": "La Hawla Wa La Quwwata"
+    },
+    "distress_77": {
+      "en": "Dua for Ease in Difficulty",
+      "ar": "دعاء الفرج",
+      "ur": "Dua for Ease in Difficulty",
+      "fr": "Dua for Ease in Difficulty",
+      "id": "Dua for Ease in Difficulty",
+      "tr": "Dua for Ease in Difficulty"
+    },
+    "forgiveness_28": {
+      "en": "Seeking Forgiveness",
+      "ar": "طلب المغفرة",
+      "ur": "Seeking Forgiveness",
+      "fr": "Seeking Forgiveness",
+      "id": "Seeking Forgiveness",
+      "tr": "Seeking Forgiveness"
+    },
+    "forgiveness_29": {
+      "en": "Comprehensive Forgiveness",
+      "ar": "الاستغفار الشامل",
+      "ur": "Comprehensive Forgiveness",
+      "fr": "Comprehensive Forgiveness",
+      "id": "Comprehensive Forgiveness",
+      "tr": "Comprehensive Forgiveness"
+    },
+    "forgiveness_78": {
+      "en": "Dua for Laylat al-Qadr",
+      "ar": "دعاء ليلة القدر",
+      "ur": "Dua for Laylat al-Qadr",
+      "fr": "Dua for Laylat al-Qadr",
+      "id": "Dua for Laylat al-Qadr",
+      "tr": "Dua for Laylat al-Qadr"
+    },
+    "forgiveness_79": {
+      "en": "Dua Between Adhan and Iqamah",
+      "ar": "دعاء بين الأذان والإقامة",
+      "ur": "Dua Between Adhan and Iqamah",
+      "fr": "Dua Between Adhan and Iqamah",
+      "id": "Dua Between Adhan and Iqamah",
+      "tr": "Dua Between Adhan and Iqamah"
+    },
+    "forgiveness_80": {
+      "en": "Dua of Adam and Hawwa",
+      "ar": "دعاء آدم وحواء",
+      "ur": "Dua of Adam and Hawwa",
+      "fr": "Dua of Adam and Hawwa",
+      "id": "Dua of Adam and Hawwa",
+      "tr": "Dua of Adam and Hawwa"
+    },
+    "illness_30": {
+      "en": "Visiting the Sick",
+      "ar": "عيادة المريض",
+      "ur": "Visiting the Sick",
+      "fr": "Visiting the Sick",
+      "id": "Visiting the Sick",
+      "tr": "Visiting the Sick"
+    },
+    "illness_31": {
+      "en": "Dua for Healing",
+      "ar": "دعاء الشفاء",
+      "ur": "Dua for Healing",
+      "fr": "Dua for Healing",
+      "id": "Dua for Healing",
+      "tr": "Dua for Healing"
+    },
+    "illness_81": {
+      "en": "Ruqyah: Bismillah x3, A'udhu x7",
+      "ar": "الرقية: بسم الله ومعوذات",
+      "ur": "Ruqyah: Bismillah x3, A'udhu x7",
+      "fr": "Ruqyah: Bismillah x3, A'udhu x7",
+      "id": "Ruqyah: Bismillah x3, A'udhu x7",
+      "tr": "Ruqyah: Bismillah x3, A'udhu x7"
+    },
+    "illness_82": {
+      "en": "Dua for Someone Who Is Ill",
+      "ar": "دعاء للمريض",
+      "ur": "Dua for Someone Who Is Ill",
+      "fr": "Dua for Someone Who Is Ill",
+      "id": "Dua for Someone Who Is Ill",
+      "tr": "Dua for Someone Who Is Ill"
+    },
+    "illness_83": {
+      "en": "Dua for Pain in the Body",
+      "ar": "دعاء ألم الجسد",
+      "ur": "Dua for Pain in the Body",
+      "fr": "Dua for Pain in the Body",
+      "id": "Dua for Pain in the Body",
+      "tr": "Dua for Pain in the Body"
+    },
+    "weather_32": {
+      "en": "When It Rains",
+      "ar": "عند المطر",
+      "ur": "When It Rains",
+      "fr": "When It Rains",
+      "id": "When It Rains",
+      "tr": "When It Rains"
+    },
+    "weather_33": {
+      "en": "After Rain",
+      "ar": "بعد المطر",
+      "ur": "After Rain",
+      "fr": "After Rain",
+      "id": "After Rain",
+      "tr": "After Rain"
+    },
+    "weather_34": {
+      "en": "During Thunder",
+      "ar": "عند الرعد",
+      "ur": "During Thunder",
+      "fr": "During Thunder",
+      "id": "During Thunder",
+      "tr": "During Thunder"
+    },
+    "knowledge_35": {
+      "en": "Increase in Knowledge",
+      "ar": "زيادة العلم",
+      "ur": "Increase in Knowledge",
+      "fr": "Increase in Knowledge",
+      "id": "Increase in Knowledge",
+      "tr": "Increase in Knowledge"
+    },
+    "knowledge_84": {
+      "en": "Dua for Beneficial Knowledge",
+      "ar": "دعاء العلم النافع",
+      "ur": "Dua for Beneficial Knowledge",
+      "fr": "Dua for Beneficial Knowledge",
+      "id": "Dua for Beneficial Knowledge",
+      "tr": "Dua for Beneficial Knowledge"
+    },
+    "knowledge_85": {
+      "en": "Seeking Refuge from Useless Knowledge",
+      "ar": "الاستعاذة من علم لا ينفع",
+      "ur": "Seeking Refuge from Useless Knowledge",
+      "fr": "Seeking Refuge from Useless Knowledge",
+      "id": "Seeking Refuge from Useless Knowledge",
+      "tr": "Seeking Refuge from Useless Knowledge"
+    },
+    "parents_36": {
+      "en": "Dua for Parents",
+      "ar": "دعاء للوالدين",
+      "ur": "Dua for Parents",
+      "fr": "Dua for Parents",
+      "id": "Dua for Parents",
+      "tr": "Dua for Parents"
+    },
+    "parents_86": {
+      "en": "Dua for Deceased Parents",
+      "ar": "دعاء للوالدين المتوفين",
+      "ur": "Dua for Deceased Parents",
+      "fr": "Dua for Deceased Parents",
+      "id": "Dua for Deceased Parents",
+      "tr": "Dua for Deceased Parents"
+    },
+    "parents_87": {
+      "en": "Dua for Living Parents' Well-being",
+      "ar": "دعاء لصلاح الوالدين",
+      "ur": "Dua for Living Parents' Well-being",
+      "fr": "Dua for Living Parents' Well-being",
+      "id": "Dua for Living Parents' Well-being",
+      "tr": "Dua for Living Parents' Well-being"
+    },
+    "guidance_37": {
+      "en": "Istikhara (Seeking Guidance)",
+      "ar": "الاستخارة",
+      "ur": "Istikhara (Seeking Guidance)",
+      "fr": "Istikhara (Seeking Guidance)",
+      "id": "Istikhara (Seeking Guidance)",
+      "tr": "Istikhara (Seeking Guidance)"
+    },
+    "guidance_88": {
+      "en": "Dua for Steadfastness on the Truth",
+      "ar": "دعاء الثبات على الحق",
+      "ur": "Dua for Steadfastness on the Truth",
+      "fr": "Dua for Steadfastness on the Truth",
+      "id": "Dua for Steadfastness on the Truth",
+      "tr": "Dua for Steadfastness on the Truth"
+    },
+    "guidance_89": {
+      "en": "Dua for Good Character",
+      "ar": "دعاء حسن الخلق",
+      "ur": "Dua for Good Character",
+      "fr": "Dua for Good Character",
+      "id": "Dua for Good Character",
+      "tr": "Dua for Good Character"
+    },
+    "gratitude_38": {
+      "en": "Thanking Allah",
+      "ar": "شكر الله",
+      "ur": "Thanking Allah",
+      "fr": "Thanking Allah",
+      "id": "Thanking Allah",
+      "tr": "Thanking Allah"
+    },
+    "gratitude_90": {
+      "en": "Dua of Prophet Sulayman for Gratitude",
+      "ar": "دعاء سليمان للشكر",
+      "ur": "Dua of Prophet Sulayman for Gratitude",
+      "fr": "Dua of Prophet Sulayman for Gratitude",
+      "id": "Dua of Prophet Sulayman for Gratitude",
+      "tr": "Dua of Prophet Sulayman for Gratitude"
+    },
+    "gratitude_91": {
+      "en": "Praising Allah Upon Receiving a Blessing",
+      "ar": "الحمد عند النعمة",
+      "ur": "Praising Allah Upon Receiving a Blessing",
+      "fr": "Praising Allah Upon Receiving a Blessing",
+      "id": "Praising Allah Upon Receiving a Blessing",
+      "tr": "Praising Allah Upon Receiving a Blessing"
+    },
+    "protection_39": {
+      "en": "Seeking Protection from Evil Eye",
+      "ar": "الاستعاذة من العين",
+      "ur": "Seeking Protection from Evil Eye",
+      "fr": "Seeking Protection from Evil Eye",
+      "id": "Seeking Protection from Evil Eye",
+      "tr": "Seeking Protection from Evil Eye"
+    },
+    "protection_40": {
+      "en": "General Protection",
+      "ar": "حماية عامة",
+      "ur": "General Protection",
+      "fr": "General Protection",
+      "id": "General Protection",
+      "tr": "General Protection"
+    },
+    "protection_92": {
+      "en": "Last Two Verses of Surah al-Baqarah",
+      "ar": "خاتمة البقرة",
+      "ur": "Last Two Verses of Surah al-Baqarah",
+      "fr": "Last Two Verses of Surah al-Baqarah",
+      "id": "Last Two Verses of Surah al-Baqarah",
+      "tr": "Last Two Verses of Surah al-Baqarah"
+    },
+    "protection_93": {
+      "en": "Protection from Dajjal",
+      "ar": "الاستعاذة من الدجال",
+      "ur": "Protection from Dajjal",
+      "fr": "Protection from Dajjal",
+      "id": "Protection from Dajjal",
+      "tr": "Protection from Dajjal"
+    },
+    "dhikr_94": {
+      "en": "SubhanAllah wa Bihamdihi x100",
+      "ar": "سبحان الله وبحمده مائة مرة",
+      "ur": "SubhanAllah wa Bihamdihi x100",
+      "fr": "SubhanAllah wa Bihamdihi x100",
+      "id": "SubhanAllah wa Bihamdihi x100",
+      "tr": "SubhanAllah wa Bihamdihi x100"
+    },
+    "dhikr_95": {
+      "en": "The Best Dhikr",
+      "ar": "أفضل الذكر",
+      "ur": "The Best Dhikr",
+      "fr": "The Best Dhikr",
+      "id": "The Best Dhikr",
+      "tr": "The Best Dhikr"
+    },
+    "dhikr_96": {
+      "en": "Salawat on the Prophet",
+      "ar": "الصلاة على النبي",
+      "ur": "Salawat on the Prophet",
+      "fr": "Salawat on the Prophet",
+      "id": "Salawat on the Prophet",
+      "tr": "Salawat on the Prophet"
+    },
+    "dhikr_97": {
+      "en": "Hasbiyallah",
+      "ar": "حسبي الله",
+      "ur": "Hasbiyallah",
+      "fr": "Hasbiyallah",
+      "id": "Hasbiyallah",
+      "tr": "Hasbiyallah"
+    },
+    "dhikr_98": {
+      "en": "SubhanAllahil Adheem wa Bihamdihi",
+      "ar": "سبحان الله العظيم وبحمده",
+      "ur": "SubhanAllahil Adheem wa Bihamdihi",
+      "fr": "SubhanAllahil Adheem wa Bihamdihi",
+      "id": "SubhanAllahil Adheem wa Bihamdihi",
+      "tr": "SubhanAllahil Adheem wa Bihamdihi"
+    },
+    "dhikr_99": {
+      "en": "Complete Tasbih, Tahmid, Takbir",
+      "ar": "التسبيح والتحميد والتكبير",
+      "ur": "Complete Tasbih, Tahmid, Takbir",
+      "fr": "Complete Tasbih, Tahmid, Takbir",
+      "id": "Complete Tasbih, Tahmid, Takbir",
+      "tr": "Complete Tasbih, Tahmid, Takbir"
+    },
+    "marriage_100": {
+      "en": "Dua on Seeing Spouse",
+      "ar": "دعاء عند رؤية الزوج",
+      "ur": "Dua on Seeing Spouse",
+      "fr": "Dua on Seeing Spouse",
+      "id": "Dua on Seeing Spouse",
+      "tr": "Dua on Seeing Spouse"
+    },
+    "marriage_101": {
+      "en": "Dua Before Intercourse",
+      "ar": "دعاء قبل الجماع",
+      "ur": "Dua Before Intercourse",
+      "fr": "Dua Before Intercourse",
+      "id": "Dua Before Intercourse",
+      "tr": "Dua Before Intercourse"
+    },
+    "marriage_102": {
+      "en": "Dua for a Righteous Spouse and Offspring",
+      "ar": "دعاء الزوج الصالح والذرية",
+      "ur": "Dua for a Righteous Spouse and Offspring",
+      "fr": "Dua for a Righteous Spouse and Offspring",
+      "id": "Dua for a Righteous Spouse and Offspring",
+      "tr": "Dua for a Righteous Spouse and Offspring"
+    },
+    "marriage_103": {
+      "en": "Dua at a Wedding",
+      "ar": "دعاء في العرس",
+      "ur": "Dua at a Wedding",
+      "fr": "Dua at a Wedding",
+      "id": "Dua at a Wedding",
+      "tr": "Dua at a Wedding"
+    },
+    "hajj_104": {
+      "en": "Talbiyah",
+      "ar": "التلبية",
+      "ur": "Talbiyah",
+      "fr": "Talbiyah",
+      "id": "Talbiyah",
+      "tr": "Talbiyah"
+    },
+    "hajj_105": {
+      "en": "Dua at the Ka'bah (Seeing the Ka'bah)",
+      "ar": "دعاء عند رؤية الكعبة",
+      "ur": "Dua at the Ka'bah (Seeing the Ka'bah)",
+      "fr": "Dua at the Ka'bah (Seeing the Ka'bah)",
+      "id": "Dua at the Ka'bah (Seeing the Ka'bah)",
+      "tr": "Dua at the Ka'bah (Seeing the Ka'bah)"
+    },
+    "hajj_106": {
+      "en": "Dua at Safa and Marwa",
+      "ar": "دعاء عند الصفا والمروة",
+      "ur": "Dua at Safa and Marwa",
+      "fr": "Dua at Safa and Marwa",
+      "id": "Dua at Safa and Marwa",
+      "tr": "Dua at Safa and Marwa"
+    },
+    "hajj_107": {
+      "en": "Dua at Arafah",
+      "ar": "دعاء يوم عرفة",
+      "ur": "Dua at Arafah",
+      "fr": "Dua at Arafah",
+      "id": "Dua at Arafah",
+      "tr": "Dua at Arafah"
+    },
+    "grief_108": {
+      "en": "Inna Lillahi (Upon a Calamity)",
+      "ar": "إنا لله وإنا إليه راجعون",
+      "ur": "Inna Lillahi (Upon a Calamity)",
+      "fr": "Inna Lillahi (Upon a Calamity)",
+      "id": "Inna Lillahi (Upon a Calamity)",
+      "tr": "Inna Lillahi (Upon a Calamity)"
+    },
+    "grief_109": {
+      "en": "Dua for the Deceased",
+      "ar": "دعاء للميت",
+      "ur": "Dua for the Deceased",
+      "fr": "Dua for the Deceased",
+      "id": "Dua for the Deceased",
+      "tr": "Dua for the Deceased"
+    },
+    "grief_110": {
+      "en": "Dua for Patience in Grief",
+      "ar": "دعاء الصبر عند الحزن",
+      "ur": "Dua for Patience in Grief",
+      "fr": "Dua for Patience in Grief",
+      "id": "Dua for Patience in Grief",
+      "tr": "Dua for Patience in Grief"
+    },
+    "grief_111": {
+      "en": "Dua at the Graveside",
+      "ar": "دعاء عند القبر",
+      "ur": "Dua at the Graveside",
+      "fr": "Dua at the Graveside",
+      "id": "Dua at the Graveside",
+      "tr": "Dua at the Graveside"
+    },
+    "children_112": {
+      "en": "Dua for Newborn Protection",
+      "ar": "دعاء حماية المولود",
+      "ur": "Dua for Newborn Protection",
+      "fr": "Dua for Newborn Protection",
+      "id": "Dua for Newborn Protection",
+      "tr": "Dua for Newborn Protection"
+    },
+    "children_113": {
+      "en": "Dua for Righteous Children",
+      "ar": "دعاء صلاح الذرية",
+      "ur": "Dua for Righteous Children",
+      "fr": "Dua for Righteous Children",
+      "id": "Dua for Righteous Children",
+      "tr": "Dua for Righteous Children"
+    },
+    "children_114": {
+      "en": "Dua of Prophet Ibrahim for His Offspring",
+      "ar": "دعاء إبراهيم لذريته",
+      "ur": "Dua of Prophet Ibrahim for His Offspring",
+      "fr": "Dua of Prophet Ibrahim for His Offspring",
+      "id": "Dua of Prophet Ibrahim for His Offspring",
+      "tr": "Dua of Prophet Ibrahim for His Offspring"
+    },
+    "children_115": {
+      "en": "Dua Upon Seeing a Newborn",
+      "ar": "دعاء عند رؤية المولود",
+      "ur": "Dua Upon Seeing a Newborn",
+      "fr": "Dua Upon Seeing a Newborn",
+      "id": "Dua Upon Seeing a Newborn",
+      "tr": "Dua Upon Seeing a Newborn"
+    },
+    "business_116": {
+      "en": "Dua for Provision (Rizq)",
+      "ar": "دعاء الرزق",
+      "ur": "Dua for Provision (Rizq)",
+      "fr": "Dua for Provision (Rizq)",
+      "id": "Dua for Provision (Rizq)",
+      "tr": "Dua for Provision (Rizq)"
+    },
+    "business_117": {
+      "en": "Dua for Paying Off Debt",
+      "ar": "دعاء قضاء الدين",
+      "ur": "Dua for Paying Off Debt",
+      "fr": "Dua for Paying Off Debt",
+      "id": "Dua for Paying Off Debt",
+      "tr": "Dua for Paying Off Debt"
+    },
+    "business_118": {
+      "en": "Dua for Barakah in Wealth",
+      "ar": "دعاء البركة في المال",
+      "ur": "Dua for Barakah in Wealth",
+      "fr": "Dua for Barakah in Wealth",
+      "id": "Dua for Barakah in Wealth",
+      "tr": "Dua for Barakah in Wealth"
+    },
+    "business_119": {
+      "en": "Dua at the Market",
+      "ar": "دعاء عند السوق",
+      "ur": "Dua at the Market",
+      "fr": "Dua at the Market",
+      "id": "Dua at the Market",
+      "tr": "Dua at the Market"
+    },
+    "night_prayer_120": {
+      "en": "Dua at Tahajjud",
+      "ar": "دعاء التهجد",
+      "ur": "Dua at Tahajjud",
+      "fr": "Dua at Tahajjud",
+      "id": "Dua at Tahajjud",
+      "tr": "Dua at Tahajjud"
+    },
+    "night_prayer_121": {
+      "en": "Witr Qunut",
+      "ar": "دعاء قنوت الوتر",
+      "ur": "Witr Qunut",
+      "fr": "Witr Qunut",
+      "id": "Witr Qunut",
+      "tr": "Witr Qunut"
+    },
+    "night_prayer_122": {
+      "en": "Dua for Laylat al-Qadr",
+      "ar": "دعاء ليلة القدر",
+      "ur": "Dua for Laylat al-Qadr",
+      "fr": "Dua for Laylat al-Qadr",
+      "id": "Dua for Laylat al-Qadr",
+      "tr": "Dua for Laylat al-Qadr"
+    },
+    "night_prayer_123": {
+      "en": "Opening of Tahajjud Prayer",
+      "ar": "افتتاح قيام الليل",
+      "ur": "Opening of Tahajjud Prayer",
+      "fr": "Opening of Tahajjud Prayer",
+      "id": "Opening of Tahajjud Prayer",
+      "tr": "Opening of Tahajjud Prayer"
+    },
+    "quran_recitation_124": {
+      "en": "Before Reciting the Quran",
+      "ar": "قبل تلاوة القرآن",
+      "ur": "Before Reciting the Quran",
+      "fr": "Before Reciting the Quran",
+      "id": "Before Reciting the Quran",
+      "tr": "Before Reciting the Quran"
+    },
+    "quran_recitation_125": {
+      "en": "Al-Fatiha (Opening Chapter)",
+      "ar": "الفاتحة (افتتاح القرآن)",
+      "ur": "Al-Fatiha (Opening Chapter)",
+      "fr": "Al-Fatiha (Opening Chapter)",
+      "id": "Al-Fatiha (Opening Chapter)",
+      "tr": "Al-Fatiha (Opening Chapter)"
+    },
+    "quran_recitation_126": {
+      "en": "Dua Upon Completing the Quran",
+      "ar": "دعاء عند ختم القرآن",
+      "ur": "Dua Upon Completing the Quran",
+      "fr": "Dua Upon Completing the Quran",
+      "id": "Dua Upon Completing the Quran",
+      "tr": "Dua Upon Completing the Quran"
+    }
+  }
+}

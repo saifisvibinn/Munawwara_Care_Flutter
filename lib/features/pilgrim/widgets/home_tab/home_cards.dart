@@ -527,7 +527,7 @@ class GroupCard extends StatelessWidget {
                 Expanded(
                   child: _GroupCardInfoCell(
                     label: 'group_hotel_name'.tr().toUpperCase(),
-                    value: hotelName.isNotEmpty ? hotelName : 'Not set',
+                    value: hotelName.isNotEmpty ? hotelName : 'group_not_set'.tr(),
                     hasValue: hotelName.isNotEmpty,
                     labelStyle: labelStyle,
                     valueStyle: valueStyle,
@@ -542,8 +542,8 @@ class GroupCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _GroupCardInfoCell(
-                    label: 'CHECK-IN',
-                    value: checkIn.isNotEmpty ? checkIn : 'Not set',
+                    label: 'group_checkin'.tr().toUpperCase(),
+                    value: checkIn.isNotEmpty ? checkIn : 'group_not_set'.tr(),
                     hasValue: checkIn.isNotEmpty,
                     labelStyle: labelStyle,
                     valueStyle: valueStyle,
@@ -553,8 +553,8 @@ class GroupCard extends StatelessWidget {
                 SizedBox(width: 12.w),
                 Expanded(
                   child: _GroupCardInfoCell(
-                    label: 'BUS',
-                    value: busNumber.isNotEmpty ? busNumber : 'Not set',
+                    label: 'group_bus_label'.tr().toUpperCase(),
+                    value: busNumber.isNotEmpty ? busNumber : 'group_not_set'.tr(),
                     hasValue: busNumber.isNotEmpty,
                     labelStyle: labelStyle,
                     valueStyle: valueStyle,
@@ -572,7 +572,7 @@ class GroupCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16.r),
               ),
               child: Text(
-                'View full group details',
+                'home_view_group_details'.tr(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Lexend',

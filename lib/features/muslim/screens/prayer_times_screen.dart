@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../constants/muslim_colors.dart';
 import '../providers/muslim_providers.dart';
+import '../utils/muslim_localization.dart';
 import '../widgets/muslim_widgets.dart';
 import '../widgets/qibla_compass_widget.dart';
 
@@ -54,7 +55,11 @@ class PrayerTimesScreen extends ConsumerWidget {
               Column(
                 children: [
                   Text(
-                    hijri.gregorianFormatted,
+                    formatGregorianDateLocalized(
+                      locale: context.locale,
+                      isoDate: pt.date,
+                      apiFallback: hijri.gregorianFormatted,
+                    ),
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontSize: 14.sp,
@@ -62,10 +67,10 @@ class PrayerTimesScreen extends ConsumerWidget {
                       color: MuslimColors.onSurfaceVariant,
                     ),
                   ),
-                  if (hijri.hijri.formatted.isNotEmpty) ...[
+                  if (hijri.hijri.day > 0) ...[
                     SizedBox(height: 4.h),
                     Text(
-                      hijri.hijri.formatted,
+                      formatHijriDateLocalized(hijri.hijri),
                       style: TextStyle(
                         fontFamily: 'Amiri',
                         fontSize: 15.sp,
@@ -213,7 +218,7 @@ class _PrayerRow extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      formatPrayerTime12h(time),
+                      formatPrayerTime12h(time, context.locale),
                       style: TextStyle(
                         fontFamily: 'Lexend',
                         fontSize: active ? 17.sp : 14.sp,

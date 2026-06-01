@@ -12,6 +12,7 @@ import '../screens/duaa_screen.dart';
 import '../screens/hadith_screen.dart';
 import '../screens/prayer_times_screen.dart';
 import '../screens/asma_ul_husna_screen.dart';
+import '../utils/muslim_localization.dart';
 import '../widgets/muslim_widgets.dart';
 
 class IslamicCornerHubScreen extends ConsumerWidget {
@@ -245,7 +246,7 @@ class _PrayerFeaturedCard extends StatelessWidget {
                         ),
                         SizedBox(height: 4.h),
                         Text(
-                          '${formatPrayerLabel(next)} — ${formatPrayerTime12h(nextTime)}',
+                          '${formatPrayerLabel(next)} — ${formatPrayerTime12h(nextTime, context.locale)}',
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 22.sp,
@@ -453,10 +454,7 @@ class _HubBentoCard extends StatelessWidget {
             PositionedDirectional(
               top: 12.h,
               end: 8.w,
-              child: Icon(
-                Directionality.of(context) == TextDirection.rtl
-                    ? Symbols.chevron_left
-                    : Symbols.chevron_right,
+              child: muslimForwardChevron(
                 size: 18.w,
                 color: iconColor.withValues(alpha: 0.4),
               ),
@@ -500,19 +498,26 @@ class _HadithOfDayCard extends StatelessWidget {
           if (hadith == null)
             const Center(child: CircularProgressIndicator())
           else ...[
-            Text(
-              '"${hadith!.english}"',
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 14.sp,
-                fontStyle: FontStyle.italic,
-                height: 1.5,
-                color: MuslimColors.onSurfaceVariant,
+            if (muslimPrefersArabicContentFromContext(context) &&
+                hadith!.arabic.isNotEmpty)
+              ArabicText(
+                hadith!.arabic,
+                style: muslimArabicStyle(fontSize: 16.sp),
+              )
+            else
+              Text(
+                '"${hadith!.english}"',
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 14.sp,
+                  fontStyle: FontStyle.italic,
+                  height: 1.5,
+                  color: MuslimColors.onSurfaceVariant,
+                ),
               ),
-            ),
             SizedBox(height: 8.h),
             Text(
-              '— ${hadith!.collectionName} · #${hadith!.hadithNumber}',
+              '— ${localizedHadithCollectionName(collectionKey: hadith!.collection, fallback: hadith!.collectionName)} · #${hadith!.hadithNumber}',
               style: TextStyle(
                 fontFamily: 'Lexend',
                 fontSize: 11.sp,
