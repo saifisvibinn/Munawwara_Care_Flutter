@@ -30,27 +30,6 @@ String _trOrFallback(String key, String fallback) {
   return value == key ? fallback : value;
 }
 
-String? _hadithGradeTranslationKey(String grade) {
-  final normalized =
-      grade.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9]'), '');
-
-  const exact = <String, String>{
-    'sahih': 'muslim_hadith_grade_sahih',
-    'hasan': 'muslim_hadith_grade_hasan',
-    'daif': 'muslim_hadith_grade_daif',
-    'daeef': 'muslim_hadith_grade_daif',
-    'weak': 'muslim_hadith_grade_daif',
-    'sahihlighairihi': 'muslim_hadith_grade_sahih_lighairihi',
-  };
-  if (exact.containsKey(normalized)) return exact[normalized];
-
-  if (normalized.startsWith('sahih')) return 'muslim_hadith_grade_sahih';
-  if (normalized.startsWith('hasan')) return 'muslim_hadith_grade_hasan';
-  if (normalized.startsWith('daif') || normalized.startsWith('daeef')) {
-    return 'muslim_hadith_grade_daif';
-  }
-  return null;
-}
 
 String localizedDuaCategoryName(DuaCategory category) =>
     _trOrFallback('muslim_dua_cat_${category.id}_name', category.name);
@@ -58,50 +37,6 @@ String localizedDuaCategoryName(DuaCategory category) =>
 String localizedDuaCategoryDescription(DuaCategory category) =>
     _trOrFallback('muslim_dua_cat_${category.id}_desc', category.description);
 
-String hadithPrimaryText(HadithData hadith, String languageCode) {
-  if (muslimPrefersArabicContent(languageCode) && hadith.arabic.isNotEmpty) {
-    return hadith.arabic;
-  }
-  return hadith.english;
-}
-
-String? hadithSecondaryText(HadithData hadith, String languageCode) {
-  if (muslimPrefersArabicContent(languageCode)) {
-    return hadith.english.isNotEmpty ? hadith.english : null;
-  }
-  return hadith.arabic.isNotEmpty ? hadith.arabic : null;
-}
-
-bool hadithHasSecondaryText(HadithData hadith, String languageCode) =>
-    hadithSecondaryText(hadith, languageCode) != null;
-
-String hadithToggleSecondaryLabel(String languageCode) =>
-    muslimPrefersArabicContent(languageCode)
-        ? 'muslim_show_english'.tr()
-        : 'muslim_original_arabic'.tr();
-
-String localizedHadithCollectionName({
-  required String collectionKey,
-  required String fallback,
-}) {
-  if (collectionKey.isEmpty) return fallback;
-  final normalized = collectionKey.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-  return _trOrFallback('muslim_hadith_col_${normalized}_name', fallback);
-}
-
-String localizedHadithGrade(String grade) {
-  if (grade.isEmpty) return grade;
-  final key = _hadithGradeTranslationKey(grade);
-  if (key == null) return grade;
-  return _trOrFallback(key, grade);
-}
-
-String localizedHadithCollectionReliability(String reliability) {
-  if (reliability.isEmpty) return reliability;
-  final normalized =
-      reliability.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-  return _trOrFallback('muslim_hadith_reliability_$normalized', reliability);
-}
 
 /// Prayer id from UmmahAPI (e.g. fajr, dhuhr) → localized display name.
 String localizedPrayerName(String key) {

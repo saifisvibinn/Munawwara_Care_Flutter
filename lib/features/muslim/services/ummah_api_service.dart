@@ -118,28 +118,6 @@ class UmmahApiService {
     );
   }
 
-  Future<HadithData> fetchRandomHadith() {
-    return _unwrap('/hadith/random', parse: HadithData.fromJson);
-  }
-
-  Future<List<HadithCollection>> fetchHadithCollections() {
-    return _unwrapList(
-      '/hadith/collections',
-      listKey: 'collections',
-      parseItem: HadithCollection.fromJson,
-    );
-  }
-
-  Future<HadithData> fetchHadith({
-    required String collection,
-    required int number,
-  }) {
-    return _unwrap(
-      '/hadith/$collection/$number',
-      parse: HadithData.fromJson,
-    );
-  }
-
   Future<List<AsmaName>> fetchAsmaUlHusna() {
     return _unwrapList(
       '/asma-ul-husna',

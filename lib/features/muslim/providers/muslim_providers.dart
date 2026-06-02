@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -179,80 +178,6 @@ final duaCategoryItemsProvider =
   return ref.watch(ummahApiServiceProvider).fetchDuasByCategory(categoryId);
 });
 
-Future<HadithData> _fetchHadithWithFallback(
-  Ref ref,
-  Future<HadithData> Function() fetchCall,
-) async {
-  final uid = await SecureSessionStore.getUserId() ?? 'global';
-  try {
-    final fresh = await fetchCall();
-    await AppDataCache.write(uid, AppDataCache.randomHadithFile, fresh.toJson());
-    return fresh;
-  } catch (e) {
-    try {
-      final cached = await AppDataCache.readData(uid, AppDataCache.randomHadithFile);
-      if (cached is Map<String, dynamic>) {
-        return HadithData.fromJson(cached);
-      }
-    } catch (_) {}
-    rethrow;
-  }
-}
-
-final randomHadithProvider = FutureProvider<HadithData>((ref) {
-  return _fetchHadithWithFallback(
-    ref,
-    () => ref.read(ummahApiServiceProvider).fetchRandomHadith(),
-  );
-});
-
-/// Hadith shown on the daily hadith screen (random or from a tapped collection).
-final displayedHadithProvider =
-    AsyncNotifierProvider<DisplayedHadithNotifier, HadithData>(
-  DisplayedHadithNotifier.new,
-);
-
-class DisplayedHadithNotifier extends AsyncNotifier<HadithData> {
-  @override
-  Future<HadithData> build() {
-    return _fetchHadithWithFallback(
-      ref,
-      () => ref.read(ummahApiServiceProvider).fetchRandomHadith(),
-    );
-  }
-
-  Future<void> loadRandom() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(
-      () => _fetchHadithWithFallback(
-        ref,
-        () => ref.read(ummahApiServiceProvider).fetchRandomHadith(),
-      ),
-    );
-  }
-
-  Future<void> loadRandomFromCollection(HadithCollection collection) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      final total = collection.totalHadiths;
-      if (total <= 0) {
-        throw StateError('Collection has no hadiths');
-      }
-      final number = Random().nextInt(total) + 1;
-      return _fetchHadithWithFallback(
-        ref,
-        () => ref.read(ummahApiServiceProvider).fetchHadith(
-              collection: collection.key,
-              number: number,
-            ),
-      );
-    });
-  }
-}
-
-final hadithCollectionsProvider = FutureProvider<List<HadithCollection>>((ref) {
-  return ref.watch(ummahApiServiceProvider).fetchHadithCollections();
-});
 
 final asmaUlHusnaProvider = FutureProvider<List<AsmaName>>((ref) async {
   final uid = await SecureSessionStore.getUserId() ?? 'global';
