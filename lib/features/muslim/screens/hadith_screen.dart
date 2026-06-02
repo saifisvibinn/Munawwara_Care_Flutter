@@ -60,7 +60,7 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
             FilledButton(
               onPressed: _loadNextHadith,
               style: FilledButton.styleFrom(
-                backgroundColor: MuslimColors.primary,
+                backgroundColor: context.mPrimary,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(vertical: 16.h),
                 shape: RoundedRectangleBorder(
@@ -90,10 +90,10 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
             OutlinedButton(
               onPressed: _showCollectionsSheet,
               style: OutlinedButton.styleFrom(
-                foregroundColor: MuslimColors.primary,
+                foregroundColor: context.mPrimary,
                 padding: EdgeInsets.symmetric(vertical: 16.h),
                 side: BorderSide(
-                  color: MuslimColors.primary.withValues(alpha: 0.25),
+                  color: context.mPrimary.withValues(alpha: 0.25),
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14.r),
@@ -127,7 +127,7 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
 
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: MuslimColors.surfaceContainerLowest,
+      backgroundColor: context.mSurfaceContainerLowest,
       isScrollControlled: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
@@ -153,7 +153,7 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
                           fontFamily: 'Lexend',
                           fontSize: 18.sp,
                           fontWeight: FontWeight.w600,
-                          color: MuslimColors.primary,
+                          color: context.mPrimary,
                         ),
                       ),
                       SizedBox(height: 6.h),
@@ -163,7 +163,7 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
                           fontFamily: 'Lexend',
                           fontSize: 13.sp,
                           height: 1.4,
-                          color: MuslimColors.onSurfaceVariant,
+                          color: context.mOnSurfaceVariant,
                         ),
                       ),
                     ],
@@ -178,7 +178,7 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
                     itemBuilder: (_, index) {
                       final col = collections[index];
                       return Material(
-                        color: MuslimColors.surfaceContainerLow,
+                        color: context.mSurfaceContainerLow,
                         borderRadius: BorderRadius.circular(12.r),
                         child: InkWell(
                           onTap: () {
@@ -197,14 +197,14 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
                                   width: 40.w,
                                   height: 40.w,
                                   decoration: BoxDecoration(
-                                    color: MuslimColors.primaryContainer,
+                                    color: context.mPrimaryContainer,
                                     borderRadius: BorderRadius.circular(8.r),
                                   ),
                                   alignment: Alignment.center,
                                   child: Icon(
                                     Symbols.menu_book,
                                     size: 20.w,
-                                    color: MuslimColors.onPrimaryContainer,
+                                    color: context.mOnPrimaryContainer,
                                   ),
                                 ),
                                 SizedBox(width: 12.w),
@@ -222,7 +222,7 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
                                           fontFamily: 'Lexend',
                                           fontSize: 14.sp,
                                           fontWeight: FontWeight.w600,
-                                          color: MuslimColors.onSurface,
+                                          color: context.mOnSurface,
                                         ),
                                       ),
                                       Text(
@@ -232,7 +232,7 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
                                         style: TextStyle(
                                           fontFamily: 'Lexend',
                                           fontSize: 11.sp,
-                                          color: MuslimColors.onSurfaceVariant,
+                                          color: context.mOnSurfaceVariant,
                                         ),
                                       ),
                                     ],
@@ -240,7 +240,7 @@ class _HadithScreenState extends ConsumerState<HadithScreen> {
                                 ),
                                 muslimForwardChevron(
                                   size: 20.w,
-                                  color: MuslimColors.primary
+                                  color: context.mPrimary
                                       .withValues(alpha: 0.45),
                                 ),
                               ],
@@ -284,10 +284,10 @@ class _HadithCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
-        color: MuslimColors.surfaceContainerLowest,
+        color: context.mSurfaceContainerLowest,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
-          color: MuslimColors.primary.withValues(alpha: 0.1),
+          color: context.mPrimary.withValues(alpha: 0.1),
         ),
       ),
       child: Column(
@@ -298,7 +298,7 @@ class _HadithCard extends StatelessWidget {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
                 decoration: BoxDecoration(
-                  color: MuslimColors.primaryContainer,
+                  color: context.mPrimaryContainer,
                   borderRadius: BorderRadius.circular(999.r),
                 ),
                 child: Text(
@@ -307,7 +307,7 @@ class _HadithCard extends StatelessWidget {
                     fontFamily: 'Lexend',
                     fontSize: 12.sp,
                     fontWeight: FontWeight.w600,
-                    color: MuslimColors.onPrimaryContainer,
+                    color: context.mOnPrimaryContainer,
                     decoration: TextDecoration.none,
                   ),
                 ),
@@ -320,7 +320,7 @@ class _HadithCard extends StatelessWidget {
                     fontFamily: 'Lexend',
                     fontSize: 11.sp,
                     fontWeight: FontWeight.w600,
-                    color: MuslimColors.secondary,
+                    color: context.mSecondary,
                     decoration: TextDecoration.none,
                   ),
                 ),
@@ -340,14 +340,14 @@ class _HadithCard extends StatelessWidget {
                 fontSize: 18.sp,
                 fontStyle: FontStyle.italic,
                 height: 1.55,
-                color: MuslimColors.onSurface,
+                color: context.mOnSurface,
                 decoration: TextDecoration.none,
               ),
             ),
           if (onToggleSecondary != null && secondary != null) ...[
             SizedBox(height: 16.h),
             Divider(
-              color: MuslimColors.outlineVariant.withValues(alpha: 0.5),
+              color: context.mOutlineVariant.withValues(alpha: 0.5),
               height: 1,
             ),
             Material(
@@ -366,7 +366,7 @@ class _HadithCard extends StatelessWidget {
                             fontFamily: 'Lexend',
                             fontSize: 14.sp,
                             fontWeight: FontWeight.w600,
-                            color: MuslimColors.onSurfaceVariant,
+                            color: context.mOnSurfaceVariant,
                             decoration: TextDecoration.none,
                           ),
                         ),
@@ -374,7 +374,7 @@ class _HadithCard extends StatelessWidget {
                       Icon(
                         showSecondary ? Symbols.expand_less : Symbols.expand_more,
                         size: 22.w,
-                        color: MuslimColors.onSurfaceVariant,
+                        color: context.mOnSurfaceVariant,
                       ),
                     ],
                   ),
@@ -391,7 +391,7 @@ class _HadithCard extends StatelessWidget {
                   fontSize: 16.sp,
                   fontStyle: FontStyle.italic,
                   height: 1.55,
-                  color: MuslimColors.onSurfaceVariant,
+                  color: context.mOnSurfaceVariant,
                   decoration: TextDecoration.none,
                 ),
               )

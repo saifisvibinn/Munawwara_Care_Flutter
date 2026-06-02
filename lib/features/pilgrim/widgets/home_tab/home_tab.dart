@@ -12,6 +12,8 @@ import '../moderator_navigate_button.dart';
 import '../sos/sos_button.dart';
 import '../sos/sos_help_session_panel.dart';
 import 'home_cards.dart';
+import 'reassure_family_sheet.dart';
+import '../../screens/live_translate_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Home Tab — fixed app bar; greeting + dashboard scroll below
@@ -85,16 +87,6 @@ class PilgrimHomeTab extends StatelessWidget {
     this.callCooldownSeconds = 0,
   });
 
-  String _greetingDisplayName(PilgrimProfile? profile) {
-    final p = profile?.shortName.trim();
-    if (p != null && p.isNotEmpty) return p;
-    final a = authFullName?.trim();
-    if (a == null || a.isEmpty) return '';
-    final parts = a.split(RegExp(r'\s+'));
-    if (parts.length >= 2) return '${parts[0]} ${parts[1]}';
-    return a;
-  }
-
   Widget _homeBody(GroupInfo? group) {
     return _HomeBody(
       isDark: isDark,
@@ -124,15 +116,10 @@ class PilgrimHomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final profile = pilgrimState.profile;
     final group = pilgrimState.groupInfo;
     final headerBg = isDark
         ? AppColors.backgroundDark
-        : const Color(0xFFFFF7ED);
-    final headerText = isDark ? Colors.white : AppColors.textDark;
-    final iconContainerBg = isDark
-        ? Colors.white.withValues(alpha: 0.1)
-        : AppColors.primary.withValues(alpha: 0.1);
+        : const Color(0xFFF7F9FB);
 
     return Container(
       color: headerBg,
@@ -170,12 +157,8 @@ class PilgrimHomeTab extends StatelessWidget {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        Container(
+                        Padding(
                           padding: EdgeInsets.all(10.w),
-                          decoration: BoxDecoration(
-                            color: iconContainerBg,
-                            borderRadius: BorderRadius.circular(14.r),
-                          ),
                           child: Icon(
                             Symbols.notifications,
                             size: 22.w,
@@ -218,12 +201,8 @@ class PilgrimHomeTab extends StatelessWidget {
                   SizedBox(width: 8.w),
                   GestureDetector(
                     onTap: onSettingsTap,
-                    child: Container(
+                    child: Padding(
                       padding: EdgeInsets.all(10.w),
-                      decoration: BoxDecoration(
-                        color: iconContainerBg,
-                        borderRadius: BorderRadius.circular(14.r),
-                      ),
                       child: Icon(
                         Symbols.settings,
                         size: 22.w,
@@ -245,37 +224,15 @@ class PilgrimHomeTab extends StatelessWidget {
                   slivers: [
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 6.h),
+                        padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'home_greeting'.tr(),
-                              style: TextStyle(
-                                fontFamily: 'Lexend',
-                                fontSize: 18.sp,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            SizedBox(height: 2.h),
-                            Text(
-                              pilgrimState.isLoading
-                                  ? '...'
-                                  : _greetingDisplayName(profile),
-                              style: TextStyle(
-                                fontFamily: 'Lexend',
-                                fontSize: 26.sp,
-                                fontWeight: FontWeight.w800,
-                                color: headerText,
-                                height: 1.05,
-                              ),
-                            ),
                             if (!isGpsEnabled || !hasLocPermission)
                               Align(
                                 alignment: AlignmentDirectional.centerStart,
                                 child: Container(
-                                  margin: EdgeInsets.only(top: 20.h),
+                                  margin: EdgeInsets.only(top: 8.h, bottom: 8.h),
                                   child: Material(
                                     color: Colors.red.shade100,
                                     borderRadius: BorderRadius.circular(12.r),
@@ -313,8 +270,6 @@ class PilgrimHomeTab extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                            if (isGpsEnabled && hasLocPermission)
-                              SizedBox(height: 4.h),
                           ],
                         ),
                       ),
@@ -390,21 +345,11 @@ class _HomeBody extends StatelessWidget {
     this.callCooldownSeconds = 0,
   });
 
-  Widget _weatherAndExploreRow() {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: WeatherCard(
-              alert: weatherAlert,
-              onTapOpenDetail: onWeatherTap,
-            ),
-          ),
-          SizedBox(width: 12.w),
-          Expanded(child: ExploreCard(onTap: onHotspotsTap)),
-        ],
-      ),
+  Widget _cardIcon(IconData iconData) {
+    return Icon(
+      iconData,
+      color: const Color(0xFFF97316), // Premium Orange from mockup
+      size: 28.w, // Direct icon with no background container
     );
   }
 
@@ -421,10 +366,7 @@ class _HomeBody extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(36.r)),
-      ),
+      color: Colors.transparent,
       child: Padding(
         padding: EdgeInsets.fromLTRB(20.w, 10.h, 20.w, 6.h),
         child: Column(
@@ -447,7 +389,7 @@ class _HomeBody extends StatelessWidget {
                 onNavigate: onNavigateToModerator,
               ),
             ],
-            SizedBox(height: 8.h),
+            SizedBox(height: 26.h), // Pushed grid down slightly from GroupCard
 
             // ── Animated Switcher for help mode vs normal side-by-side mode ──
             AnimatedSwitcher(
@@ -459,9 +401,7 @@ class _HomeBody extends StatelessWidget {
                       key: const ValueKey<String>('show_help_active'),
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _weatherAndExploreRow(),
-                        SizedBox(height: 12.h),
-                        // Full width SOS Help Session Card
+                        // Redesigned flush SOS Help Session panel
                         Padding(
                           padding: EdgeInsets.symmetric(vertical: 8.h),
                           child: SosHelpSessionPanel(
@@ -477,6 +417,9 @@ class _HomeBody extends StatelessWidget {
                                 sosHelpStatusKey == 'sos_status_callback_available',
                             onCallBack: onCallBackSos,
                             cooldownSeconds: callCooldownSeconds,
+                            pulseController: sosPulseController,
+                            onWeatherTap: onWeatherTap,
+                            onHotspotsTap: onHotspotsTap,
                           ),
                         ),
                       ],
@@ -485,11 +428,55 @@ class _HomeBody extends StatelessWidget {
                       key: const ValueKey<String>('show_help_idle'),
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _weatherAndExploreRow(),
-                        SizedBox(height: 8.h),
-                        Center(
-                          child: SosButton(
-                            size: 186.w,
+                        ActionHubGrid(
+                          topLeft: ScoopedGridCard(
+                            position: CardPosition.topLeft,
+                            icon: _cardIcon(
+                              weatherAlert.isLoading || weatherAlert.isError
+                                  ? Icons.wb_sunny_rounded
+                                  : weatherAlert.icon,
+                            ),
+                            title: weatherAlert.isLoading || weatherAlert.isError
+                                ? 'Weather'
+                                : 'Weather (${weatherAlert.temperatureC}°C)',
+                            subtext: weatherAlert.isLoading
+                                ? 'Loading forecast...'
+                                : weatherAlert.isError
+                                    ? 'Forecast unavailable'
+                                    : weatherAlert.conditionKey.tr(),
+                            onTap: onWeatherTap,
+                          ),
+                          topRight: ScoopedGridCard(
+                            position: CardPosition.topRight,
+                            icon: _cardIcon(Icons.explore_rounded),
+                            title: 'home_explore'.tr(),
+                            subtext: 'home_explore_nearby'.tr(),
+                            onTap: onHotspotsTap,
+                          ),
+                          bottomLeft: ScoopedGridCard(
+                            position: CardPosition.bottomLeft,
+                            icon: _cardIcon(Icons.translate_rounded),
+                            title: 'Live Translate',
+                            subtext: 'Speak & translate',
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const LiveTranslateScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                          bottomRight: ScoopedGridCard(
+                            position: CardPosition.bottomRight,
+                            icon: _cardIcon(Icons.people_alt_rounded),
+                            title: 'Reassure Family',
+                            subtext: 'Share your safety',
+                            onTap: () {
+                              showReassureFamilyBottomSheet(context: context);
+                            },
+                          ),
+                          sosButton: SosButton(
+                            size: 136,
                             pulseController: sosPulseController,
                             holdController: sosHoldController,
                             isHolding: isSosHolding,
@@ -500,7 +487,7 @@ class _HomeBody extends StatelessWidget {
                             onHoldEnd: onSosHoldEnd,
                           ),
                         ),
-                        SizedBox(height: 8.h),
+                        SizedBox(height: 24.h), // Pushed subtext down slightly
                         Text(
                           'sos_idle_subtext'.tr(),
                           textAlign: TextAlign.center,
@@ -517,7 +504,7 @@ class _HomeBody extends StatelessWidget {
                       ],
                     ),
             ),
-            SizedBox(height: 4.h),
+            SizedBox(height: 20.h), // Pushed SafetyDisclaimerBanner down slightly
 
             SafetyDisclaimerBanner(isDark: isDark),
           ],

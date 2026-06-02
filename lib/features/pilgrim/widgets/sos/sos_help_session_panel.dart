@@ -5,6 +5,124 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../home_tab/reassure_family_sheet.dart';
+import '../../screens/live_translate_screen.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Redesigned pulsing SOS button (active/sent state)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class RedesignedSosSentButton extends StatelessWidget {
+  final AnimationController pulseController;
+  final bool isResponding;
+  final double size;
+
+  const RedesignedSosSentButton({
+    super.key,
+    required this.pulseController,
+    required this.isResponding,
+    this.size = 136,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isResponding ? Colors.green.shade600 : const Color(0xFFF97316);
+
+    return AnimatedBuilder(
+      animation: pulseController,
+      builder: (context, child) {
+        final value = pulseController.value;
+        return SizedBox(
+          width: (size * 1.8).w,
+          height: (size * 1.8).w,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Outer radar wave
+              Opacity(
+                opacity: (1.0 - value) * 0.16,
+                child: Transform.scale(
+                  scale: 1.0 + (value * 0.75),
+                  child: Container(
+                    width: size.w,
+                    height: size.w,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: color.withValues(alpha: 0.35),
+                    ),
+                  ),
+                ),
+              ),
+              // Inner radar wave
+              Opacity(
+                opacity: (1.0 - value) * 0.32,
+                child: Transform.scale(
+                  scale: 1.0 + (value * 0.38),
+                  child: Container(
+                    width: size.w,
+                    height: size.w,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: color.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ),
+              ),
+              // Main central button surface
+              Container(
+                width: size.w,
+                height: size.w,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color,
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 3.5.w,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.35),
+                      blurRadius: 26.w,
+                      spreadRadius: 4.w,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(4.w),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2.w),
+                      ),
+                      child: Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: (size * 0.16).w,
+                      ),
+                    ),
+                    SizedBox(height: 6.h),
+                    Text(
+                      isResponding ? "ACTIVE" : "SENT",
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: (size * 0.11).sp,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Post-SOS help session panel (calm surface; status text + cancel button)
@@ -25,11 +143,18 @@ class SosHelpSessionPanel extends StatefulWidget {
 
   final int cooldownSeconds;
 
+  final AnimationController pulseController;
+  final VoidCallback? onWeatherTap;
+  final VoidCallback? onHotspotsTap;
+
   const SosHelpSessionPanel({
     super.key,
     required this.isDark,
     required this.statusKey,
     required this.onCancelRequest,
+    required this.pulseController,
+    this.onWeatherTap,
+    this.onHotspotsTap,
     this.onCallBack,
     this.showCancel = true,
     this.showCallBack = false,
@@ -106,17 +231,70 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
     super.dispose();
   }
 
+  Widget _buildMiniServiceButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onTap,
+  }) {
+    final isDark = widget.isDark;
+    final bg = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : const Color(0xFFFFF7ED); // Soft peach tint
+    final tintColor = isDark
+        ? AppColors.primary
+        : const Color(0xFFF97316); // Premium orange
+
+    return Opacity(
+      opacity: onTap == null ? 0.5 : 1.0,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          children: [
+            Container(
+              width: 50.w,
+              height: 50.w,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: bg,
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : const Color(0xFFFFE5D0),
+                  width: 1.2,
+                ),
+              ),
+              child: Icon(
+                icon,
+                color: tintColor,
+                size: 22.w,
+              ),
+            ),
+            SizedBox(height: 6.h),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 10.sp,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white70 : const Color(0xFF475569),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final brand = 'call_support_display_name'.tr();
-    final surface = widget.isDark ? AppColors.surfaceDark : Colors.white;
-    final border = AppColors.primary.withValues(alpha: 0.22);
-    final titleColor = widget.isDark ? Colors.white : AppColors.textDark;
+    final titleColor = widget.isDark ? Colors.white : const Color(0xFF0F3E1F); // Premium Green
     final muted = widget.isDark
         ? AppColors.textMutedLight
         : AppColors.textMutedDark;
 
-    final isResponding = widget.statusKey == 'sos_status_responding';
+    final isResponding = widget.statusKey == 'sos_status_responding' ||
+        widget.statusKey == 'sos_status_being_handled';
 
     final String statusText;
     if (isResponding) {
@@ -125,96 +303,59 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
       statusText = widget.statusKey.tr();
     }
 
+    final fullDesc = '${'sos_help_subtitle'.tr(namedArgs: {'name': brand})} $statusText';
+
     return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: 400.w),
+      constraints: BoxConstraints(maxWidth: 420.w),
       child: Container(
-        padding: EdgeInsets.fromLTRB(22.w, 24.h, 22.w, 20.h),
+        padding: EdgeInsets.fromLTRB(22.w, 12.h, 22.w, 18.h),
         decoration: BoxDecoration(
-          color: surface,
-          borderRadius: BorderRadius.circular(22.r),
-          border: Border.all(
-            color: isResponding ? Colors.green.withValues(alpha: 0.35) : border,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: widget.isDark ? 0.25 : 0.06),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          color: Colors.transparent, // Flush integration
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── State icon ────────────────────────────────────────────────────
-            Icon(
-              isResponding
-                  ? Icons.directions_run_rounded
-                  : Icons.mark_email_read_outlined,
-              color: isResponding ? Colors.green : AppColors.primary,
-              size: 40.w,
+            // ── Large Pulsing active SOS Sent Button ────────────────────────
+            RedesignedSosSentButton(
+              pulseController: widget.pulseController,
+              isResponding: isResponding,
             ),
-            SizedBox(height: 14.h),
+            SizedBox(height: 24.h),
+
+            // ── Premium Green Heading ───────────────────────────────────────
             Text(
               'sos_help_title'.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: 'Lexend',
-                fontSize: 18.sp,
+                fontSize: 22.sp,
                 fontWeight: FontWeight.w800,
                 color: titleColor,
-                height: 1.25,
+                letterSpacing: -0.2,
+                height: 1.2,
               ),
             ),
-            SizedBox(height: 8.h),
-            Text(
-              'sos_help_subtitle'.tr(namedArgs: {'name': brand}),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w500,
-                color: muted,
-                height: 1.45,
-              ),
-            ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 10.h),
 
-            // ── Visual indicator (no loading animation) ───────────────────────
-            Container(
-              width: 64.w,
-              height: 64.w,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: (isResponding ? Colors.green : AppColors.primary)
-                    .withValues(alpha: 0.12),
-              ),
-              child: Icon(
-                isResponding
-                    ? Icons.check_rounded
-                    : Icons.support_agent_rounded,
-                color: isResponding ? Colors.green : AppColors.primary,
-                size: 36.w,
+            // ── Reassuring Centered Description ─────────────────────────────
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12.w),
+              child: Text(
+                fullDesc,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 13.5.sp,
+                  fontWeight: FontWeight.w500,
+                  color: muted,
+                  height: 1.45,
+                ),
               ),
             ),
-
-            SizedBox(height: 14.h),
-
-            // ── Status text ───────────────────────────────────────────────────
-            Text(
-              statusText,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                color: isResponding ? Colors.green : AppColors.primary,
-                height: 1.35,
-              ),
-            ),
-            SizedBox(height: 22.h),
+            SizedBox(height: 28.h),
 
             if (widget.showCallBack) ...[
+              // ── Call back capsule button ────────────────────────────────────
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
@@ -232,7 +373,7 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
                     ),
                     padding: EdgeInsets.symmetric(vertical: 14.h),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14.r),
+                      borderRadius: BorderRadius.circular(28.r), // Premium capsule
                     ),
                   ),
                   child: Text(
@@ -245,33 +386,36 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontSize: 14.sp,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
               ),
             ] else if (widget.showCancel) ...[
-              // ── Cancel button ───────────────────────────────────────────────
+              // ── Cancel capsule button ───────────────────────────────────────
               SizedBox(
                 width: double.infinity,
-                child: OutlinedButton(
+                child: FilledButton(
                   onPressed: (isResponding || widget.disableCancel)
                       ? null
                       : () => widget.onCancelRequest(),
-                  style: OutlinedButton.styleFrom(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: widget.isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : const Color(0xFFF1F5F9), // Light premium grey
                     foregroundColor: (isResponding || widget.disableCancel)
                         ? Colors.grey.shade400
-                        : muted,
-                    side: BorderSide(
-                      color: (isResponding || widget.disableCancel)
-                          ? Colors.grey.shade300
-                          : widget.isDark
-                          ? AppColors.dividerDark
-                          : AppColors.dividerLight,
-                    ),
+                        : widget.isDark
+                            ? Colors.white
+                            : const Color(0xFF334155), // Slate-700
+                    disabledBackgroundColor: widget.isDark
+                        ? Colors.white.withValues(alpha: 0.04)
+                        : const Color(0xFFF8FAFC),
                     padding: EdgeInsets.symmetric(vertical: 14.h),
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14.r),
+                      borderRadius: BorderRadius.circular(28.r), // Premium capsule
                     ),
                   ),
                   child: Text(
@@ -279,12 +423,67 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontSize: 14.sp,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.2,
                     ),
                   ),
                 ),
               ),
             ],
+
+            // ── Other Services Mini-bar ─────────────────────────────────────
+            SizedBox(height: 32.h),
+            Divider(
+              color: widget.isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : const Color(0xFFE2E8F0),
+              thickness: 1.0,
+            ),
+            SizedBox(height: 12.h),
+            Text(
+              'muslim_featured_categories'.tr().toUpperCase(), // "Featured" or "Other Services"
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 10.5.sp,
+                fontWeight: FontWeight.w800,
+                color: widget.isDark ? Colors.white60 : const Color(0xFF94A3B8),
+                letterSpacing: 1.2,
+              ),
+            ),
+            SizedBox(height: 14.h),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildMiniServiceButton(
+                  icon: Icons.wb_sunny_rounded,
+                  label: 'Weather',
+                  onTap: widget.onWeatherTap,
+                ),
+                _buildMiniServiceButton(
+                  icon: Icons.explore_rounded,
+                  label: 'Explore',
+                  onTap: widget.onHotspotsTap,
+                ),
+                _buildMiniServiceButton(
+                  icon: Icons.translate_rounded,
+                  label: 'Translate',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const LiveTranslateScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMiniServiceButton(
+                  icon: Icons.people_alt_rounded,
+                  label: 'Reassure',
+                  onTap: () {
+                    showReassureFamilyBottomSheet(context: context);
+                  },
+                ),
+              ],
+            ),
           ],
         ),
       ),

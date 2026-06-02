@@ -30,7 +30,7 @@ class AzkarScreen extends ConsumerWidget {
             child: Container(
               padding: EdgeInsets.all(4.w),
               decoration: BoxDecoration(
-                color: MuslimColors.surfaceContainerLow,
+                color: context.mSurfaceContainerLow,
                 borderRadius: BorderRadius.circular(999.r),
               ),
               child: Row(
@@ -94,7 +94,7 @@ class _PeriodTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? MuslimColors.primaryContainer : Colors.transparent,
+      color: selected ? context.mPrimaryContainer : Colors.transparent,
       borderRadius: BorderRadius.circular(999.r),
       child: InkWell(
         onTap: onTap,
@@ -109,8 +109,8 @@ class _PeriodTab extends StatelessWidget {
               fontSize: 13.sp,
               fontWeight: FontWeight.w600,
               color: selected
-                  ? MuslimColors.onPrimaryContainer
-                  : MuslimColors.onSurfaceVariant,
+                  ? context.mOnPrimaryContainer
+                  : context.mOnSurfaceVariant,
             ),
           ),
         ),

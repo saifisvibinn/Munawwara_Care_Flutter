@@ -104,7 +104,7 @@ class _SectionHeader extends StatelessWidget {
             fontSize: 12.sp,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.2,
-            color: MuslimColors.primary.withValues(alpha: 0.85),
+            color: context.mPrimary.withValues(alpha: 0.85),
           ),
         ),
         SizedBox(height: 6.h),
@@ -112,7 +112,7 @@ class _SectionHeader extends StatelessWidget {
           width: 48.w,
           height: 4.h,
           decoration: BoxDecoration(
-            color: MuslimColors.secondaryContainer,
+            color: context.mSecondaryContainer,
             borderRadius: BorderRadius.circular(2.r),
           ),
         ),
@@ -140,8 +140,8 @@ class _CategoryTile extends StatelessWidget {
       padding: EdgeInsets.only(bottom: 10.h),
       child: Material(
         color: highlighted
-            ? MuslimColors.surfaceContainerLow
-            : MuslimColors.surfaceContainerLowest,
+            ? context.mSurfaceContainerLow
+            : context.mSurfaceContainerLowest,
         borderRadius: BorderRadius.circular(14.r),
         child: InkWell(
           onTap: onTap,
@@ -151,7 +151,7 @@ class _CategoryTile extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14.r),
               border: Border.all(
-                color: MuslimColors.primary.withValues(alpha: highlighted ? 0.12 : 0.06),
+                color: context.mPrimary.withValues(alpha: highlighted ? 0.12 : 0.06),
               ),
             ),
             child: Row(
@@ -160,14 +160,14 @@ class _CategoryTile extends StatelessWidget {
                   width: 48.w,
                   height: 48.w,
                   decoration: BoxDecoration(
-                    color: MuslimColors.primaryContainer,
+                    color: context.mPrimaryContainer,
                     borderRadius: BorderRadius.circular(10.r),
                   ),
                   alignment: Alignment.center,
                   child: Icon(
                     icon,
                     size: 24.w,
-                    color: MuslimColors.onPrimaryContainer,
+                    color: context.mOnPrimaryContainer,
                   ),
                 ),
                 SizedBox(width: 14.w),
@@ -181,7 +181,7 @@ class _CategoryTile extends StatelessWidget {
                           fontFamily: 'Lexend',
                           fontSize: 15.sp,
                           fontWeight: FontWeight.w600,
-                          color: MuslimColors.onSurface,
+                          color: context.mOnSurface,
                         ),
                       ),
                       if (category.description.isNotEmpty)
@@ -190,7 +190,7 @@ class _CategoryTile extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 12.sp,
-                            color: MuslimColors.onSurfaceVariant,
+                            color: context.mOnSurfaceVariant,
                           ),
                         ),
                     ],
@@ -199,7 +199,7 @@ class _CategoryTile extends StatelessWidget {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                   decoration: BoxDecoration(
-                    color: MuslimColors.secondaryContainer.withValues(alpha: 0.2),
+                    color: context.mSecondaryContainer.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(999.r),
                   ),
                   child: Text(
@@ -208,14 +208,14 @@ class _CategoryTile extends StatelessWidget {
                       fontFamily: 'Lexend',
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
-                      color: MuslimColors.secondary,
+                      color: context.mSecondary,
                     ),
                   ),
                 ),
                 SizedBox(width: 4.w),
                 muslimForwardChevron(
                   size: 20.w,
-                  color: MuslimColors.primary.withValues(alpha: 0.45),
+                  color: context.mPrimary.withValues(alpha: 0.45),
                 ),
               ],
             ),

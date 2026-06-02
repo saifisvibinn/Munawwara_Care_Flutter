@@ -16,17 +16,20 @@ class SafetyDisclaimerBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final muted = isDark ? AppColors.textMutedLight : const Color(0xFF475569);
     return Container(
       margin: EdgeInsets.only(bottom: 16.h),
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
       decoration: BoxDecoration(
         color: isDark
             ? AppColors.surfaceDark
-            : AppColors.primary.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(14.r),
+            : const Color(0xFFFFF7ED), // Premium peach/cream
+        borderRadius: BorderRadius.circular(24.r), // Premium 24.r rounded corners
         border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.2),
+          color: isDark
+              ? AppColors.primary.withValues(alpha: 0.3)
+              : const Color(0xFFFFE3C3), // Soft orange border
+          width: 1.0,
         ),
       ),
       child: Row(
@@ -34,10 +37,10 @@ class SafetyDisclaimerBanner extends StatelessWidget {
         children: [
           Icon(
             Symbols.info,
-            size: 20.w,
-            color: AppColors.primary,
+            size: 24.w,
+            color: const Color(0xFFF97316), // Premium orange icon
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 12.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,8 +50,8 @@ class SafetyDisclaimerBanner extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
-                    fontSize: 12.sp,
-                    color: isDark ? Colors.white : AppColors.textDark,
+                    fontSize: 14.sp,
+                    color: isDark ? Colors.white : const Color(0xFF0F3E1F), // Dark green title
                   ),
                 ),
                 SizedBox(height: 4.h),
@@ -56,9 +59,9 @@ class SafetyDisclaimerBanner extends StatelessWidget {
                   'safety_disclaimer_body'.tr(),
                   style: TextStyle(
                     fontFamily: 'Lexend',
-                    fontSize: 11.sp,
+                    fontSize: 11.5.sp,
                     color: muted,
-                    height: 1.4,
+                    height: 1.45,
                   ),
                 ),
               ],

@@ -1,0 +1,210 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Munawwara Care - Home</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        .geometric-pattern {
+            background-image: url("https://www.transparenttextures.com/patterns/cubes.png");
+            opacity: 0.03;
+            pointer-events: none;
+        }
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        .sos-container {
+            aspect-ratio: 1 / 1;
+        }
+        .quadrant-btn {
+            @apply flex flex-col items-center justify-center text-center p-2 transition-all active:scale-95 duration-200;
+        }
+        .quadrant-top-left { border-radius: 100px 16px 16px 16px; }
+        .quadrant-top-right { border-radius: 16px 100px 16px 16px; }
+        .quadrant-bottom-left { border-radius: 16px 16px 16px 100px; }
+        .quadrant-bottom-right { border-radius: 16px 16px 100px 16px; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#154212",
+                        "primary-container": "#2d5a27",
+                        "on-primary": "#ffffff",
+                        "on-primary-container": "#9dd090",
+                        "secondary": "#904d00",
+                        "secondary-container": "#fe932c",
+                        "surface": "#f7f9fb",
+                        "surface-container": "#eceef0",
+                        "surface-container-low": "#f2f4f6",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "on-surface-variant": "#42493e",
+                        "outline-variant": "#c2c9bb",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "16px",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "lg": "40px",
+                        "gutter": "16px",
+                        "container-margin": "20px",
+                        "sm": "12px",
+                        "base": "8px",
+                        "md": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Plus Jakarta Sans"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "label-sm": ["Plus Jakarta Sans"],
+                        "label-md": ["Plus Jakarta Sans"]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md overflow-x-hidden pb-32">
+<!-- TopAppBar -->
+<header class="bg-surface w-full top-0 sticky z-50 flex justify-between items-center px-gutter py-base">
+<div class="flex items-center gap-2">
+<img alt="logo" class="w-8 h-8" src="https://lh3.googleusercontent.com/aida-public/AB6AXuANYwaA9cvoGrlF32bhYfjKezblXrXB2-mvrWEZlGiAzs_I4L5xwKtcDj4MXcz6JJJ5jWbTdFl0LY2-K97z6mgBKmRle1HdX6BKiCslpa69eOyyz0Nhw9EdDsXpwsKWq0CsrklWAEtn-DAP4DLuyIyVNduUPlVmOp6SKSPSYIddxeH0r8q-DsjhKeJNseEvEglCAurxczWkCHxuWQLH4q8Ql9QyCBOyvgeyaTevZganJbtNt2XDf3fQ1ZvIzkwtrYBN62rc07uaT5m6">
+<span class="font-bold text-secondary text-lg">Munawwara Care</span>
+</div>
+<div class="flex gap-2">
+<button class="material-symbols-outlined text-secondary-container bg-secondary-fixed/20 p-2 rounded-full">notifications</button>
+<button class="material-symbols-outlined text-secondary-container bg-secondary-fixed/20 p-2 rounded-full">settings</button>
+</div>
+</header>
+<main class="px-container-margin mt-base">
+<!-- Welcome Header -->
+<div class="mb-md">
+
+
+</div>
+<!-- My Group Card -->
+<section class="bg-surface-container-lowest rounded-xl p-md shadow-sm border border-outline-variant/30 mb-md relative overflow-hidden"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxA9ukRRhD-kDl-7SS3JlODZdUCaf2IroQkP4yYkyCMyK79fm4JmDeFlEtiAZ_psMuAIcDmgWg1cNSAudRkN5-P4mtdvis1MlVh3gDZV3ouXBRH4ayPq0X10eGbcfXdIQUIGGKYOod1sfycP97GiKzstZt_Z6MpNPx51UqbHBhRI8O3elExwBqeUPSF3YGKwptEHotrFTCvt5ceGivQWEBBA1ZiW_6Mrzh4v2BskHSrnF651WTWzt572mV0d9ebvwStpzt1JoJfWsO" class="absolute -right-12 -bottom-12 w-64 h-64 opacity-10 pointer-events-none -z-0 transform scale-150" alt="watermark">
+<div class="flex justify-between items-start mb-4">
+<div>
+<span class="text-[10px] font-bold text-secondary-container uppercase tracking-wider">My Group</span>
+<h2 class="text-primary font-bold text-2xl">Testers</h2>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-y-4 text-sm mb-6">
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase mb-1">Moderator Section</p>
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed/30 flex items-center justify-center text-secondary font-bold">s</div>
+<div>
+<p class="font-bold">saif mod</p>
+<p class="text-[10px] text-on-surface-variant">+3 co-moderators</p>
+</div>
+</div>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase mb-1">Hotel Name</p>
+<p class="font-bold">nile ritz</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase mb-1">Check-in</p>
+<p class="text-on-surface-variant italic">Not set</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase mb-1">Bus</p>
+<p class="font-bold">test 1</p>
+</div>
+</div>
+<button class="w-full py-3 bg-secondary-fixed/20 text-secondary font-bold rounded-xl active:scale-[0.98] transition-transform">
+                View full group details
+            </button>
+</section>
+<!-- Redesigned Action Area: SOS Circular Layout -->
+<section class="relative my-lg flex flex-col items-center">
+<div class="relative w-full max-w-[340px] aspect-square grid grid-cols-2 grid-rows-2 gap-4">
+<!-- SOS Button (Center Overlay) -->
+<div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+<div class="w-40 h-40 rounded-full bg-red-600 shadow-[0_0_40px_rgba(220,38,38,0.4)] flex flex-col items-center justify-center text-white border-[6px] border-white pointer-events-auto active:scale-95 transition-transform cursor-pointer">
+<span class="text-4xl font-black tracking-tighter leading-none">SOS</span>
+<span class="text-xs font-bold mt-1 opacity-80">HOLD</span>
+</div>
+</div>
+<!-- Quadrant 1: Weather -->
+<button class="bg-surface-container-lowest border border-orange-100 shadow-sm flex flex-col items-center justify-center p-3 rounded-[100px_16px_16px_16px]">
+<span class="material-symbols-outlined text-secondary-container mb-1" style="font-variation-settings: &quot;FILL&quot; 1;">wb_sunny</span>
+<span class="text-xs font-bold text-primary">Weather</span>
+<span class="text-[9px] text-on-surface-variant">Current conditions</span>
+</button>
+<!-- Quadrant 2: Explore -->
+<button class="bg-surface-container-lowest border border-orange-100 shadow-sm flex flex-col items-center justify-center p-3 rounded-[16px_100px_16px_16px]">
+<span class="material-symbols-outlined text-secondary-container mb-1" style="font-variation-settings: &quot;FILL&quot; 1;">explore</span>
+<span class="text-xs font-bold text-primary">Explore</span>
+<span class="text-[9px] text-on-surface-variant">Nearby sites</span>
+</button>
+<!-- Quadrant 3: Live Translate -->
+<button class="bg-surface-container-lowest border border-orange-100 shadow-sm flex flex-col items-center justify-center p-3 rounded-[16px_16px_16px_100px]">
+<span class="material-symbols-outlined text-secondary-container mb-1" style="font-variation-settings: &quot;FILL&quot; 1;">translate</span>
+<span class="text-xs font-bold text-primary leading-tight">Live Translate</span>
+<span class="text-[9px] text-on-surface-variant">Speak &amp; translate</span>
+</button>
+<!-- Quadrant 4: Reassure Your Family -->
+<button class="bg-surface-container-lowest border border-orange-100 shadow-sm flex flex-col items-center justify-center p-3 rounded-[16px_16px_100px_16px]">
+<span class="material-symbols-outlined text-secondary-container mb-1" style="font-variation-settings: &quot;FILL&quot; 1;">group</span>
+<span class="text-xs font-bold text-primary leading-tight">Reassure Family</span>
+<span class="text-[9px] text-on-surface-variant">Share your safety</span>
+</button>
+</div>
+<p class="mt-6 text-on-surface-variant text-xs font-medium">Press and hold to alert your travel guide.</p>
+</section>
+<!-- Important Notice -->
+<section class="mt-md p-md rounded-xl bg-orange-50 border border-orange-100 flex gap-3">
+<span class="material-symbols-outlined text-secondary-container">info</span>
+<div>
+<h4 class="font-bold text-sm text-primary">Important</h4>
+<p class="text-xs text-on-surface-variant mt-1 leading-relaxed">Please ensure your location services are enabled for accurate assistance during emergencies.</p>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 py-3 bg-white border-t border-outline-variant">
+<a class="flex flex-col items-center gap-1 text-secondary" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1;">home</span>
+<span class="text-[10px] font-bold">Home</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">map</span>
+<span class="text-[10px] font-bold">Map</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">mosque</span>
+<span class="text-[10px] font-bold">Muslim</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">campaign</span>
+<span class="text-[10px] font-bold">Announcements</span>
+</a>
+</nav>
+<script>
+        document.querySelectorAll('button, a, .cursor-pointer').forEach(elem => {
+            elem.addEventListener('click', () => {
+                if (window.navigator.vibrate) {
+                    window.navigator.vibrate(10);
+                }
+            });
+        });
+    </script>
+
+
+
+
+
+
+</body></html>

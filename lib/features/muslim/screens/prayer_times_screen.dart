@@ -64,7 +64,7 @@ class PrayerTimesScreen extends ConsumerWidget {
                       fontFamily: 'Lexend',
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w600,
-                      color: MuslimColors.onSurfaceVariant,
+                      color: context.mOnSurfaceVariant,
                     ),
                   ),
                   if (hijri.hijri.day > 0) ...[
@@ -74,7 +74,7 @@ class PrayerTimesScreen extends ConsumerWidget {
                       style: TextStyle(
                         fontFamily: 'Amiri',
                         fontSize: 15.sp,
-                        color: MuslimColors.primary,
+                        color: context.mPrimary,
                       ),
                     ),
                   ],
@@ -82,7 +82,7 @@ class PrayerTimesScreen extends ConsumerWidget {
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                     decoration: BoxDecoration(
-                      color: MuslimColors.secondaryContainer,
+                      color: context.mSecondaryContainer,
                       borderRadius: BorderRadius.circular(999.r),
                     ),
                     child: Row(
@@ -91,7 +91,7 @@ class PrayerTimesScreen extends ConsumerWidget {
                         Icon(
                           Symbols.timer,
                           size: 16.w,
-                          color: MuslimColors.onSecondaryContainer,
+                          color: context.mOnSecondaryContainer,
                         ),
                         SizedBox(width: 6.w),
                         Text(
@@ -105,7 +105,7 @@ class PrayerTimesScreen extends ConsumerWidget {
                             fontFamily: 'Lexend',
                             fontSize: 13.sp,
                             fontWeight: FontWeight.w700,
-                            color: MuslimColors.onSecondaryContainer,
+                            color: context.mOnSecondaryContainer,
                           ),
                         ),
                       ],
@@ -116,10 +116,10 @@ class PrayerTimesScreen extends ConsumerWidget {
               SizedBox(height: 20.h),
               Container(
                 decoration: BoxDecoration(
-                  color: MuslimColors.surfaceContainerLowest,
+                  color: context.mSurfaceContainerLowest,
                   borderRadius: BorderRadius.circular(16.r),
                   border: Border.all(
-                    color: MuslimColors.outlineVariant.withValues(alpha: 0.35),
+                    color: context.mOutlineVariant.withValues(alpha: 0.35),
                   ),
                 ),
                 child: Column(
@@ -169,12 +169,12 @@ class _PrayerRow extends ConsumerWidget {
     return Container(
       decoration: BoxDecoration(
         color: active
-            ? MuslimColors.secondaryFixed.withValues(alpha: 0.15)
+            ? context.mSecondaryFixed.withValues(alpha: 0.15)
             : null,
         border: active
             ? BorderDirectional(
                 start: BorderSide(
-                  color: MuslimColors.secondaryContainer,
+                  color: context.mSecondaryContainer,
                   width: 4.w,
                 ),
               )
@@ -191,7 +191,7 @@ class _PrayerRow extends ConsumerWidget {
                     padding: EdgeInsetsDirectional.only(end: 10.w),
                     child: Icon(
                       Symbols.wb_twilight,
-                      color: MuslimColors.secondary,
+                      color: context.mSecondary,
                       size: 22.w,
                     ),
                   ),
@@ -204,7 +204,7 @@ class _PrayerRow extends ConsumerWidget {
                           fontFamily: 'Lexend',
                           fontSize: active ? 17.sp : 14.sp,
                           fontWeight: active ? FontWeight.w700 : FontWeight.w600,
-                          color: active ? MuslimColors.primary : MuslimColors.onSurface,
+                          color: active ? context.mPrimary : context.mOnSurface,
                         ),
                       ),
                       if (playable) ...[
@@ -224,8 +224,8 @@ class _PrayerRow extends ConsumerWidget {
                         fontSize: active ? 17.sp : 14.sp,
                         fontWeight: active ? FontWeight.w700 : FontWeight.w400,
                         color: active
-                            ? MuslimColors.primary
-                            : MuslimColors.onSurfaceVariant,
+                            ? context.mPrimary
+                            : context.mOnSurfaceVariant,
                       ),
                     ),
                     if (isCurrent)
@@ -236,7 +236,7 @@ class _PrayerRow extends ConsumerWidget {
                           fontSize: 9.sp,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.8,
-                          color: MuslimColors.secondary,
+                          color: context.mSecondary,
                         ),
                       ),
                   ],
@@ -249,7 +249,7 @@ class _PrayerRow extends ConsumerWidget {
               height: 1,
               indent: 20.w,
               endIndent: 20.w,
-              color: MuslimColors.outlineVariant.withValues(alpha: 0.25),
+              color: context.mOutlineVariant.withValues(alpha: 0.25),
             ),
         ],
       ),
@@ -280,14 +280,14 @@ class _PrayerPlayButton extends ConsumerWidget {
         padding: EdgeInsets.all(5.w),
         decoration: BoxDecoration(
           color: isPlaying
-              ? MuslimColors.secondary.withValues(alpha: 0.18)
-              : MuslimColors.outlineVariant.withValues(alpha: 0.1),
+              ? context.mSecondary.withValues(alpha: 0.18)
+              : context.mOutlineVariant.withValues(alpha: 0.1),
           shape: BoxShape.circle,
         ),
         child: Icon(
           isPlaying ? Symbols.stop : Symbols.play_arrow,
           size: 14.w,
-          color: isPlaying ? MuslimColors.secondary : MuslimColors.onSurfaceVariant,
+          color: isPlaying ? context.mSecondary : context.mOnSurfaceVariant,
         ),
       ),
     );

@@ -47,7 +47,7 @@ class _AsmaUlHusnaScreenState extends ConsumerState<AsmaUlHusnaScreen> {
                 hintText: 'muslim_search_names'.tr(),
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
-                fillColor: MuslimColors.surfaceContainerLowest,
+                fillColor: context.mSurfaceContainerLowest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14.r),
                   borderSide: BorderSide.none,
@@ -91,7 +91,7 @@ class _NameCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: MuslimColors.surfaceContainerLowest,
+      color: context.mSurfaceContainerLowest,
       borderRadius: BorderRadius.circular(14.r),
       child: InkWell(
         onTap: () => _showDetail(context, name),
@@ -101,7 +101,7 @@ class _NameCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14.r),
             border: Border.all(
-              color: MuslimColors.outlineVariant.withValues(alpha: 0.35),
+              color: context.mOutlineVariant.withValues(alpha: 0.35),
             ),
           ),
           child: Column(
@@ -113,7 +113,7 @@ class _NameCard extends StatelessWidget {
                   fontFamily: 'Lexend',
                   fontSize: 11.sp,
                   fontWeight: FontWeight.w600,
-                  color: MuslimColors.onSurfaceVariant,
+                  color: context.mOnSurfaceVariant,
                 ),
               ),
               SizedBox(height: 6.h),
@@ -130,7 +130,7 @@ class _NameCard extends StatelessWidget {
                   fontFamily: 'Lexend',
                   fontSize: 13.sp,
                   fontWeight: FontWeight.w600,
-                  color: MuslimColors.primary,
+                  color: context.mPrimary,
                 ),
               ),
               const Spacer(),
@@ -142,7 +142,7 @@ class _NameCard extends StatelessWidget {
                   fontFamily: 'Lexend',
                   fontSize: 11.sp,
                   height: 1.35,
-                  color: MuslimColors.onSurfaceVariant,
+                  color: context.mOnSurfaceVariant,
                 ),
               ),
             ],
@@ -156,7 +156,7 @@ class _NameCard extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: MuslimColors.surfaceContainerLowest,
+      backgroundColor: context.mSurfaceContainerLowest,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
       ),
@@ -177,7 +177,7 @@ class _NameCard extends StatelessWidget {
                 fontFamily: 'Lexend',
                 fontSize: 18.sp,
                 fontWeight: FontWeight.w600,
-                color: MuslimColors.primary,
+                color: context.mPrimary,
               ),
             ),
             SizedBox(height: 16.h),
@@ -188,7 +188,7 @@ class _NameCard extends StatelessWidget {
                 fontFamily: 'Lexend',
                 fontSize: 14.sp,
                 height: 1.5,
-                color: MuslimColors.onSurface,
+                color: context.mOnSurface,
               ),
             ),
           ],

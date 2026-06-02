@@ -96,49 +96,7 @@ class _SosButtonState extends State<SosButton>
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // ── Layered Animated Glows ────────────────────────────────────
-              AnimatedBuilder(
-                animation: widget.pulseController,
-                builder: (_, _) {
-                  final p = widget.pulseController.value;
-                  return Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Outer faint glow
-                      Transform.scale(
-                        scale: 1.0 + (0.6 * p),
-                        child: Container(
-                          width: (size - 10).w,
-                          height: (size - 10).w,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.red.withValues(alpha: 0.15 * (1 - p)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.red.withValues(alpha: 0.2 * (1 - p)),
-                                blurRadius: 25 * p,
-                                spreadRadius: 10 * p,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      // Inner pulse
-                      Transform.scale(
-                        scale: 1.0 + (0.3 * p),
-                        child: Container(
-                          width: (size - 20).w,
-                          height: (size - 20).w,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.red.withValues(alpha: 0.25 * (1 - p)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+
 
               // ── Holding Progress Ring ─────────────────────────────────────
               if (widget.isHolding)
@@ -157,32 +115,30 @@ class _SosButtonState extends State<SosButton>
                   ),
                 ),
 
-              // ── Main Button Surface ───────────────────────────────────────
+              // ── Main Button Surface (solid red, thin white ring — design mock) ──
               Container(
-                width: (size - 24).w,
-                height: (size - 24).w,
+                width: size.w,
+                height: size.w,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: widget.sosActive
-                        ? [Colors.red.shade400, Colors.red.shade700]
-                        : [const Color(0xFFFF4B4B), const Color(0xFFC41E3A)],
+                  color: widget.sosActive
+                      ? const Color(0xFFD32F2F)
+                      : const Color(0xFFE02020),
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 2.5.w,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.red.withValues(
-                        alpha: widget.sosActive ? 0.3 : 0.5,
+                      color: const Color(0xFFE02020).withValues(
+                        alpha: widget.sosActive ? 0.32 : 0.42,
                       ),
-                      blurRadius: 24,
-                      spreadRadius: 2,
-                      offset: const Offset(0, 8),
+                      blurRadius: 28,
+                      spreadRadius: 6,
                     ),
                     BoxShadow(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      blurRadius: 0,
-                      spreadRadius: -4,
+                      color: const Color(0xFFE02020).withValues(alpha: 0.18),
+                      blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
                   ],
@@ -282,8 +238,8 @@ class SosIdleContent extends StatelessWidget {
           style: TextStyle(
             fontFamily: 'Lexend',
             fontSize: (size * 0.08).clamp(8.0, 14.0).sp,
-            fontWeight: FontWeight.w800,
-            color: Colors.white.withValues(alpha: 0.8),
+            fontWeight: FontWeight.w900, // Extra bold
+            color: Colors.white, // Fully white
             letterSpacing: (size * 0.01).clamp(0.5, 1.5),
           ),
         ),

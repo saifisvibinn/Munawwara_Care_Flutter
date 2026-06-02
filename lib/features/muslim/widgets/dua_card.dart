@@ -26,7 +26,7 @@ class DuaCard extends ConsumerWidget {
     final displaySource = localizedDuaSource(dua, lang);
 
     return Material(
-      color: MuslimColors.surfaceContainerLowest,
+      color: context.mSurfaceContainerLowest,
       borderRadius: BorderRadius.circular(16.r),
       child: InkWell(
         onTap: complete ? null : () => counter.tap(dua),
@@ -36,7 +36,7 @@ class DuaCard extends ConsumerWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
-              color: MuslimColors.primary.withValues(alpha: 0.08),
+              color: context.mPrimary.withValues(alpha: 0.08),
             ),
           ),
           child: Column(
@@ -49,7 +49,7 @@ class DuaCard extends ConsumerWidget {
                     fontFamily: lang == 'ar' ? 'Amiri' : 'Lexend',
                     fontSize: lang == 'ar' ? 14.sp : 12.sp,
                     fontWeight: FontWeight.w600,
-                    color: MuslimColors.onSurfaceVariant,
+                    color: context.mOnSurfaceVariant,
                   ),
                 ),
                 SizedBox(height: 8.h),
@@ -67,7 +67,7 @@ class DuaCard extends ConsumerWidget {
                     fontSize: 14.sp,
                     fontStyle: FontStyle.italic,
                     height: 1.45,
-                    color: MuslimColors.onSurfaceVariant.withValues(alpha: 0.85),
+                    color: context.mOnSurfaceVariant.withValues(alpha: 0.85),
                   ),
                 ),
               ],
@@ -78,7 +78,7 @@ class DuaCard extends ConsumerWidget {
                   decoration: BoxDecoration(
                     border: BorderDirectional(
                       start: BorderSide(
-                        color: MuslimColors.primary.withValues(alpha: 0.2),
+                        color: context.mPrimary.withValues(alpha: 0.2),
                         width: 2,
                       ),
                     ),
@@ -89,7 +89,7 @@ class DuaCard extends ConsumerWidget {
                       fontFamily: 'Lexend',
                       fontSize: 14.sp,
                       height: 1.45,
-                      color: MuslimColors.onSurface,
+                      color: context.mOnSurface,
                     ),
                   ),
                 ),
@@ -101,7 +101,7 @@ class DuaCard extends ConsumerWidget {
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 11.sp,
-                    color: MuslimColors.onSurfaceVariant,
+                    color: context.mOnSurfaceVariant,
                   ),
                 ),
               ],
@@ -115,12 +115,12 @@ class DuaCard extends ConsumerWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: complete
-                        ? MuslimColors.primaryContainer
-                        : MuslimColors.surface,
+                        ? context.mPrimaryContainer
+                        : context.mSurface,
                     border: Border.all(
                       color: complete
-                          ? MuslimColors.primaryContainer
-                          : MuslimColors.primary,
+                          ? context.mPrimaryContainer
+                          : context.mPrimary,
                       width: 2,
                     ),
                   ),
@@ -128,7 +128,7 @@ class DuaCard extends ConsumerWidget {
                   child: complete
                       ? Icon(
                           Symbols.check,
-                          color: MuslimColors.onPrimaryContainer,
+                          color: context.mOnPrimaryContainer,
                           size: 22.w,
                         )
                       : Text(
@@ -137,7 +137,7 @@ class DuaCard extends ConsumerWidget {
                             fontFamily: 'Lexend',
                             fontSize: 13.sp,
                             fontWeight: FontWeight.w700,
-                            color: MuslimColors.primary,
+                            color: context.mPrimary,
                           ),
                         ),
                 ),

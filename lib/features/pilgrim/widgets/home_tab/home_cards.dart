@@ -1,7 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-
 import '../../../../core/theme/app_colors.dart';
 import '../../helpers/moderator_navigation.dart';
 import '../../providers/pilgrim_provider.dart';
@@ -12,10 +13,13 @@ import '../../providers/pilgrim_provider.dart';
 
 class WeatherAlert {
   final int temperatureC;
+
   /// easy_localization key, e.g. `weather_sunny`.
   final String conditionKey;
+
   /// Dashboard card tip key (`weather_card_*`).
   final String cardTipKey;
+
   /// Detail sheet body key (`weather_reminder_*`).
   final String detailTipKey;
   final IconData icon;
@@ -97,7 +101,11 @@ void showWeatherDetailBottomSheet(BuildContext context, WeatherAlert alert) {
                       color: alert.iconColor.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(16.r),
                     ),
-                    child: Icon(alert.icon, color: alert.iconColor, size: 36.sp),
+                    child: Icon(
+                      alert.icon,
+                      color: alert.iconColor,
+                      size: 36.sp,
+                    ),
                   ),
                   SizedBox(width: 14.w),
                   Expanded(
@@ -111,9 +119,7 @@ void showWeatherDetailBottomSheet(BuildContext context, WeatherAlert alert) {
                               fontFamily: 'Lexend',
                               fontSize: 32.sp,
                               fontWeight: FontWeight.w900,
-                              color: isDark
-                                  ? Colors.white
-                                  : AppColors.textDark,
+                              color: isDark ? Colors.white : AppColors.textDark,
                             ),
                           )
                         else
@@ -131,7 +137,9 @@ void showWeatherDetailBottomSheet(BuildContext context, WeatherAlert alert) {
                             fontFamily: 'Lexend',
                             fontSize: 16.sp,
                             fontWeight: FontWeight.w700,
-                            color: isDark ? AppColors.primary : AppColors.primaryDark,
+                            color: isDark
+                                ? AppColors.primary
+                                : AppColors.primaryDark,
                           ),
                         ),
                       ],
@@ -161,7 +169,9 @@ void showWeatherDetailBottomSheet(BuildContext context, WeatherAlert alert) {
                   height: 1.45,
                   color: alert.isError
                       ? theme.colorScheme.error
-                      : (isDark ? AppColors.textMutedLight : AppColors.textMutedDark),
+                      : (isDark
+                            ? AppColors.textMutedLight
+                            : AppColors.textMutedDark),
                 ),
               ),
               SizedBox(height: 16.h),
@@ -201,9 +211,7 @@ class _HomeCardTapFooter extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.22),
-        ),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.22)),
       ),
       child: Row(
         children: [
@@ -245,18 +253,14 @@ BoxDecoration _homeActionCardDecoration({
     color: isDark ? AppColors.surfaceDark : Colors.white,
     borderRadius: borderRadius,
     border: Border.all(
-      color: isInteractive
-          ? AppColors.primary.withValues(alpha: isDark ? 0.35 : 0.2)
-          : isDark
-          ? AppColors.dividerDark
-          : AppColors.dividerLight,
+      color: isDark
+          ? (isInteractive ? AppColors.primary.withValues(alpha: 0.35) : AppColors.dividerDark)
+          : const Color(0xFFFFEDD5), // Exact Tailwind border-orange-100 from code.html
       width: isInteractive ? 1.2 : 1,
     ),
     boxShadow: [
       BoxShadow(
-        color: AppColors.primary.withValues(
-          alpha: isInteractive ? 0.14 : 0.05,
-        ),
+        color: AppColors.primary.withValues(alpha: isInteractive ? 0.14 : 0.05),
         blurRadius: 20,
         offset: const Offset(0, 8),
       ),
@@ -277,11 +281,7 @@ class WeatherCard extends StatelessWidget {
   final WeatherAlert alert;
   final VoidCallback? onTapOpenDetail;
 
-  const WeatherCard({
-    super.key,
-    required this.alert,
-    this.onTapOpenDetail,
-  });
+  const WeatherCard({super.key, required this.alert, this.onTapOpenDetail});
 
   @override
   Widget build(BuildContext context) {
@@ -364,11 +364,7 @@ class WeatherCard extends StatelessWidget {
                       color: alert.iconColor.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      alert.icon,
-                      color: alert.iconColor,
-                      size: 18.w,
-                    ),
+                    child: Icon(alert.icon, color: alert.iconColor, size: 18.w),
                   ),
               ],
             ),
@@ -382,7 +378,7 @@ class WeatherCard extends StatelessWidget {
     );
 
     return SizedBox(
-      height: 126.h,
+      height: 146.h,
       child: DecoratedBox(
         decoration: _homeActionCardDecoration(
           isDark: isDark,
@@ -410,7 +406,223 @@ class WeatherCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Group Card
+// Scoop Card Painters and Grid Cards
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum CardPosition { topLeft, topRight, bottomLeft, bottomRight }
+
+/// Home action hub: 2×2 flush white tiles + centered SOS (design mock).
+class ActionHubGrid extends StatelessWidget {
+  final Widget topLeft;
+  final Widget topRight;
+  final Widget bottomLeft;
+  final Widget bottomRight;
+  final Widget sosButton;
+
+  const ActionHubGrid({
+    super.key,
+    required this.topLeft,
+    required this.topRight,
+    required this.bottomLeft,
+    required this.bottomRight,
+    required this.sosButton,
+  });
+
+  static const Color _hubBorder = Color(0xFFFFEDD5);
+  static const Color _hubDivider = Color(0xFFF0E4D4);
+
+  @override
+  Widget build(BuildContext context) {
+    final outerRadius = BorderRadius.circular(28.r);
+    const divider = VerticalDivider(
+      width: 1,
+      thickness: 1,
+      color: _hubDivider,
+    );
+    const rowDivider = Divider(
+      height: 1,
+      thickness: 1,
+      color: _hubDivider,
+    );
+
+    return AspectRatio(
+      aspectRatio: 1,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          ClipRRect(
+            borderRadius: outerRadius,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: outerRadius,
+                border: Border.all(color: _hubBorder, width: 1),
+              ),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: topLeft),
+                        divider,
+                        Expanded(child: topRight),
+                      ],
+                    ),
+                  ),
+                  rowDivider,
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: bottomLeft),
+                        divider,
+                        Expanded(child: bottomRight),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          sosButton,
+        ],
+      ),
+    );
+  }
+}
+
+class ScoopedGridCard extends StatelessWidget {
+  final CardPosition position;
+  final Widget icon;
+  final String title;
+  final String subtext;
+  final VoidCallback onTap;
+
+  const ScoopedGridCard({
+    super.key,
+    required this.position,
+    required this.icon,
+    required this.title,
+    required this.subtext,
+    required this.onTap,
+  });
+
+  Alignment _arrowAlignment() {
+    return switch (position) {
+      CardPosition.topLeft => Alignment.topLeft,
+      CardPosition.topRight => Alignment.topRight,
+      CardPosition.bottomLeft => Alignment.bottomLeft,
+      CardPosition.bottomRight => Alignment.bottomRight,
+    };
+  }
+
+  double _arrowRotation() {
+    return switch (position) {
+      CardPosition.topLeft => -3 * math.pi / 4,
+      CardPosition.topRight => -math.pi / 4,
+      CardPosition.bottomLeft => 3 * math.pi / 4,
+      CardPosition.bottomRight => math.pi / 4,
+    };
+  }
+
+  /// Slight nudge of label block toward each quadrant's outer corner.
+  Alignment _contentAlignment() {
+    const nudge = 0.16;
+    return switch (position) {
+      CardPosition.topLeft => Alignment(-nudge, -nudge),
+      CardPosition.topRight => Alignment(nudge, -nudge),
+      CardPosition.bottomLeft => Alignment(-nudge, nudge),
+      CardPosition.bottomRight => Alignment(nudge, nudge),
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleColor =
+        isDark ? Colors.white : const Color(0xFF154212);
+    final subColor = isDark ? AppColors.textMutedLight : const Color(0xFF6B7280);
+    final arrowColor = isDark
+        ? AppColors.textMutedLight.withValues(alpha: 0.7)
+        : const Color(0xFFF97316).withValues(alpha: 0.5);
+
+    return Material(
+      color: isDark ? AppColors.surfaceDark : Colors.white,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: AppColors.primary.withValues(alpha: 0.08),
+        highlightColor: AppColors.primary.withValues(alpha: 0.04),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Align(
+              alignment: _contentAlignment(),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    icon,
+                    SizedBox(height: 6.h),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                        color: titleColor,
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      subtext,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w500,
+                        height: 1.25,
+                        color: subColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(10.w, 10.h, 10.w, 10.h),
+                child: Align(
+                  alignment: _arrowAlignment(),
+                  child: Transform.rotate(
+                    angle: _arrowRotation(),
+                    child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 11.sp,
+                      color: arrowColor,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Group Card (Revamped with watermark and premium style)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class GroupCard extends StatelessWidget {
@@ -440,11 +652,16 @@ class GroupCard extends StatelessWidget {
     final sorted = sortedGroupModerators(moderators, createdBy: createdBy);
 
     final cardBg = isDark ? const Color(0xFF1D2641) : Colors.white;
-    final labelColor =
-        isDark ? const Color(0xFF94A3B8) : AppColors.textMutedDark;
-    final valueColor = isDark ? Colors.white : AppColors.textDark;
-    final valueMutedColor =
-        isDark ? const Color(0xFF64748B) : AppColors.textMutedDark;
+    final labelColor = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
+    final valueColor = isDark
+        ? Colors.white
+        : const Color(0xFF0F3E1F); // Dark Green
+    final bodyValueColor = isDark ? Colors.white : Colors.black87;
+    final valueMutedColor = isDark
+        ? const Color(0xFF64748B)
+        : AppColors.textMutedDark;
 
     final labelStyle = TextStyle(
       fontFamily: 'Lexend',
@@ -453,279 +670,230 @@ class GroupCard extends StatelessWidget {
       color: labelColor,
       letterSpacing: 0.5,
     );
-    final valueStyle = TextStyle(
-      fontFamily: 'Lexend',
-      fontSize: 14.sp,
-      fontWeight: FontWeight.w800,
-      color: valueColor,
-    );
-    final valueItalicStyle = TextStyle(
-      fontFamily: 'Lexend',
-      fontSize: 14.sp,
-      fontWeight: FontWeight.w500,
-      color: valueMutedColor,
-      fontStyle: FontStyle.italic,
-    );
+
+    final leaderName = sorted.isNotEmpty
+        ? sorted.first.fullName
+        : noRecordsText;
+    final coModCount = sorted.length - 1;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.fromLTRB(16.w, 11.h, 16.w, 9.h),
         decoration: BoxDecoration(
           color: cardBg,
           borderRadius: BorderRadius.circular(24.r),
-          border: isDark
-              ? null
-              : Border.all(color: AppColors.dividerLight),
+          border: isDark ? null : Border.all(color: const Color(0xFFF1F5F9)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+              color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.04),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'home_my_group'.tr().toUpperCase(),
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 10.sp,
-                fontWeight: FontWeight.w800,
-                color: AppColors.primary,
-                letterSpacing: 0.8,
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              groupName,
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 19.sp,
-                fontWeight: FontWeight.w800,
-                color: valueColor,
-              ),
-            ),
-            SizedBox(height: 9.h),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _GroupCardModeratorSummary(
-                    moderators: sorted,
-                    noRecordsText: noRecordsText,
-                    labelStyle: labelStyle,
-                    valueStyle: valueStyle,
-                    valueMutedColor: valueMutedColor,
-                    isDark: isDark,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24.r),
+          child: Stack(
+            children: [
+              // Background Watermark Logo
+              Positioned(
+                right: -90.w,
+                bottom: -60.h,
+                child: Opacity(
+                  opacity: isDark ? 0.06 : 0.1,
+                  child: Image.asset(
+                    'assets/static/inapp_icon.png',
+                    fit: BoxFit.contain,
+                    width: 400.w,
                   ),
                 ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: _GroupCardInfoCell(
-                    label: 'group_hotel_name'.tr().toUpperCase(),
-                    value: hotelName.isNotEmpty ? hotelName : 'group_not_set'.tr(),
-                    hasValue: hotelName.isNotEmpty,
-                    labelStyle: labelStyle,
-                    valueStyle: valueStyle,
-                    valueItalicStyle: valueItalicStyle,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 7.h),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _GroupCardInfoCell(
-                    label: 'group_checkin'.tr().toUpperCase(),
-                    value: checkIn.isNotEmpty ? checkIn : 'group_not_set'.tr(),
-                    hasValue: checkIn.isNotEmpty,
-                    labelStyle: labelStyle,
-                    valueStyle: valueStyle,
-                    valueItalicStyle: valueItalicStyle,
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: _GroupCardInfoCell(
-                    label: 'group_bus_label'.tr().toUpperCase(),
-                    value: busNumber.isNotEmpty ? busNumber : 'group_not_set'.tr(),
-                    hasValue: busNumber.isNotEmpty,
-                    labelStyle: labelStyle,
-                    valueStyle: valueStyle,
-                    valueItalicStyle: valueItalicStyle,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 9.h),
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(vertical: 8.h),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: isDark ? 0.1 : 0.12),
-                borderRadius: BorderRadius.circular(16.r),
               ),
-              child: Text(
-                'home_view_group_details'.tr(),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primaryDark,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GroupCardModeratorSummary extends StatelessWidget {
-  const _GroupCardModeratorSummary({
-    required this.moderators,
-    required this.noRecordsText,
-    required this.labelStyle,
-    required this.valueStyle,
-    required this.valueMutedColor,
-    required this.isDark,
-  });
-
-  final List<ModeratorInfo> moderators;
-  final String noRecordsText;
-  final TextStyle labelStyle;
-  final TextStyle valueStyle;
-  final Color valueMutedColor;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    if (moderators.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('group_moderator_section'.tr().toUpperCase(), style: labelStyle),
-          SizedBox(height: 6.h),
-          Text(
-            noRecordsText,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: valueStyle.copyWith(
-              fontWeight: FontWeight.w500,
-              fontStyle: FontStyle.italic,
-              color: valueMutedColor,
-            ),
-          ),
-        ],
-      );
-    }
-
-    final leader = moderators.first;
-    final coModCount = moderators.length - 1;
-    final initial = leader.fullName.isNotEmpty
-        ? leader.fullName[0].toUpperCase()
-        : '?';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('group_moderator_section'.tr().toUpperCase(), style: labelStyle),
-        SizedBox(height: 6.h),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 13.r,
-              backgroundColor: AppColors.primary.withValues(
-                alpha: isDark ? 0.22 : 0.12,
-              ),
-              child: Text(
-                initial,
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 11.sp,
-                  color: AppColors.primaryDark,
-                ),
-              ),
-            ),
-            SizedBox(width: 6.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    leader.fullName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: valueStyle,
-                  ),
-                  if (coModCount > 0)
-                    Padding(
-                      padding: EdgeInsets.only(top: 2.h),
-                      child: Text(
-                        'home_co_moderators_count'.tr(
-                          namedArgs: {'count': coModCount.toString()},
+              // Card Content
+              Padding(
+                padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 18.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'home_my_group'.tr().toUpperCase(),
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFFF97316), // Premium Orange
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      groupName,
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 26.sp,
+                        fontWeight: FontWeight.w800,
+                        color: valueColor,
+                      ),
+                    ),
+                    SizedBox(height: 18.h),
+                    // 2x2 Info Grid
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Moderator Section
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'group_moderator_section'.tr().toUpperCase(),
+                                style: labelStyle,
+                              ),
+                              SizedBox(height: 4.h),
+                              Text(
+                                leaderName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: bodyValueColor,
+                                ),
+                              ),
+                              if (coModCount > 0)
+                                Text(
+                                  'home_co_moderators_count'.tr(
+                                    namedArgs: {'count': coModCount.toString()},
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 11.sp,
+                                    color: valueMutedColor,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        SizedBox(width: 12.w),
+                        // Hotel Name
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'group_hotel_name'.tr().toUpperCase(),
+                                style: labelStyle,
+                              ),
+                              SizedBox(height: 4.h),
+                              Text(
+                                hotelName.isNotEmpty
+                                    ? hotelName
+                                    : 'group_not_set'.tr(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: bodyValueColor,
+                                  fontStyle: hotelName.isEmpty
+                                      ? FontStyle.italic
+                                      : FontStyle.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 16.h),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Check-in
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'group_checkin'.tr().toUpperCase(),
+                                style: labelStyle,
+                              ),
+                              SizedBox(height: 4.h),
+                              Text(
+                                checkIn.isNotEmpty
+                                    ? checkIn
+                                    : 'group_not_set'.tr(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: bodyValueColor,
+                                  fontStyle: checkIn.isEmpty
+                                      ? FontStyle.italic
+                                      : FontStyle.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        // Bus
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'group_bus_label'.tr().toUpperCase(),
+                                style: labelStyle,
+                              ),
+                              SizedBox(height: 4.h),
+                              Text(
+                                busNumber.isNotEmpty
+                                    ? busNumber
+                                    : 'group_not_set'.tr(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: bodyValueColor,
+                                  fontStyle: busNumber.isEmpty
+                                      ? FontStyle.italic
+                                      : FontStyle.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 20.h),
+                    // "View full group details" centered orange link
+                    Center(
+                      child: Text(
+                        'home_view_group_details'.tr(),
                         style: TextStyle(
                           fontFamily: 'Lexend',
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w600,
-                          color: valueMutedColor,
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFFC2410C), // Deep Orange/Brown
                         ),
                       ),
                     ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ],
-    );
-  }
-}
-
-class _GroupCardInfoCell extends StatelessWidget {
-  const _GroupCardInfoCell({
-    required this.label,
-    required this.value,
-    required this.hasValue,
-    required this.labelStyle,
-    required this.valueStyle,
-    required this.valueItalicStyle,
-  });
-
-  final String label;
-  final String value;
-  final bool hasValue;
-  final TextStyle labelStyle;
-  final TextStyle valueStyle;
-  final TextStyle valueItalicStyle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: labelStyle),
-        SizedBox(height: 6.h),
-        Text(
-          value,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: hasValue ? valueStyle : valueItalicStyle,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -747,7 +915,7 @@ class ExploreCard extends StatelessWidget {
     final customRadius = BorderRadius.circular(24.r);
 
     return SizedBox(
-      height: 126.h,
+      height: 146.h,
       child: DecoratedBox(
         decoration: _homeActionCardDecoration(
           isDark: isDark,

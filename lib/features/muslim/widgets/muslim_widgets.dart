@@ -73,7 +73,7 @@ class IslamicPatternBackground extends StatelessWidget {
         Positioned.fill(
           child: CustomPaint(
             painter: _IslamicDotPatternPainter(
-              color: MuslimColors.primary.withValues(alpha: 0.04),
+              color: context.mPrimary.withValues(alpha: 0.04),
             ),
           ),
         ),
@@ -121,14 +121,13 @@ class MuslimScreenScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? MuslimColors.surfaceDark : MuslimColors.surface;
+    final bg = context.mSurface;
 
     Widget content = IslamicPatternBackground(child: body);
 
     if (onRefresh != null) {
       content = RefreshIndicator(
-        color: MuslimColors.primary,
+        color: context.mPrimary,
         onRefresh: onRefresh!,
         child: content,
       );
@@ -149,7 +148,7 @@ class MuslimScreenScaffold extends StatelessWidget {
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: Icon(
                         Icons.arrow_back,
-                        color: isDark ? MuslimColors.onSurfaceDark : MuslimColors.primary,
+                        color: context.mPrimary,
                       ),
                     ),
                   ]
@@ -163,7 +162,7 @@ class MuslimScreenScaffold extends StatelessWidget {
                         fontFamily: 'Lexend',
                         fontSize: 18.sp,
                         fontWeight: FontWeight.w600,
-                        color: isDark ? MuslimColors.onSurfaceDark : MuslimColors.primary,
+                        color: context.mPrimary,
                       ),
                     ),
                   ),

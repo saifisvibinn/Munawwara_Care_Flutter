@@ -20,8 +20,7 @@ class IslamicCornerHubScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? MuslimColors.surfaceDark : MuslimColors.surface;
+    final bg = context.mSurface;
     final bundleAsync = ref.watch(prayerBundleProvider);
     final hadithAsync = ref.watch(randomHadithProvider);
 
@@ -40,13 +39,13 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                   fontFamily: 'Lexend',
                   fontSize: 18.sp,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? MuslimColors.onSurfaceDark : MuslimColors.primary,
+                  color: context.mPrimary,
                 ),
               ),
             ),
             Expanded(
               child: RefreshIndicator(
-                color: MuslimColors.primary,
+                color: context.mPrimary,
                 onRefresh: () async {
                   ref.invalidate(prayerBundleProvider);
                   ref.invalidate(randomHadithProvider);
@@ -83,8 +82,8 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                           title: 'muslim_azkar'.tr(),
                           subtitle: 'muslim_azkar_sub'.tr(),
                           icon: Symbols.wb_twilight,
-                          tint: MuslimColors.primaryFixed.withValues(alpha: 0.35),
-                          iconColor: MuslimColors.primary,
+                          tint: context.mPrimaryFixed.withValues(alpha: 0.35),
+                          iconColor: context.mPrimary,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => const AzkarScreen(),
@@ -95,8 +94,8 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                           title: 'muslim_duaa'.tr(),
                           subtitle: 'muslim_duaa_sub'.tr(),
                           icon: Symbols.folded_hands,
-                          tint: MuslimColors.secondaryFixed.withValues(alpha: 0.35),
-                          iconColor: MuslimColors.secondary,
+                          tint: context.mSecondaryFixed.withValues(alpha: 0.35),
+                          iconColor: context.mSecondary,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => const DuaaScreen(),
@@ -107,8 +106,8 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                           title: 'muslim_hadith'.tr(),
                           subtitle: 'muslim_hadith_sub'.tr(),
                           icon: Symbols.menu_book,
-                          tint: MuslimColors.tertiaryFixed.withValues(alpha: 0.55),
-                          iconColor: MuslimColors.tertiaryContainer,
+                          tint: context.mTertiaryFixed.withValues(alpha: 0.55),
+                          iconColor: context.mTertiaryContainer,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => const HadithScreen(),
@@ -119,8 +118,8 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                           title: 'muslim_99_names'.tr(),
                           subtitle: 'muslim_99_names_sub'.tr(),
                           icon: Symbols.star,
-                          tint: MuslimColors.onTertiaryContainer.withValues(alpha: 0.12),
-                          iconColor: MuslimColors.tertiary,
+                          tint: context.mOnTertiaryContainer.withValues(alpha: 0.12),
+                          iconColor: context.mTertiary,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => const AsmaUlHusnaScreen(),
@@ -175,7 +174,7 @@ class _PrayerFeaturedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (bundle == null && onRetry != null) {
       return Material(
-        color: MuslimColors.primaryContainer,
+        color: context.mPrimaryContainer,
         borderRadius: BorderRadius.circular(16.r),
         child: InkWell(
           onTap: onRetry,
@@ -201,7 +200,7 @@ class _PrayerFeaturedCard extends StatelessWidget {
       return Container(
         height: 180.h,
         decoration: BoxDecoration(
-          color: MuslimColors.primaryContainer,
+          color: context.mPrimaryContainer,
           borderRadius: BorderRadius.circular(16.r),
         ),
         alignment: Alignment.center,
@@ -215,10 +214,10 @@ class _PrayerFeaturedCard extends StatelessWidget {
     final minutes = countdownMinutes ?? data.currentStatus.minutesUntilNext;
 
     return Material(
-      color: MuslimColors.primary,
+      color: context.mPrimary,
       borderRadius: BorderRadius.circular(16.r),
       elevation: 4,
-      shadowColor: MuslimColors.primary.withValues(alpha: 0.35),
+      shadowColor: context.mPrimary.withValues(alpha: 0.35),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16.r),
@@ -241,7 +240,7 @@ class _PrayerFeaturedCard extends StatelessWidget {
                             fontSize: 11.sp,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 1.2,
-                            color: MuslimColors.secondaryFixed.withValues(alpha: 0.85),
+                            color: context.mSecondaryFixed.withValues(alpha: 0.85),
                           ),
                         ),
                         SizedBox(height: 4.h),
@@ -261,7 +260,7 @@ class _PrayerFeaturedCard extends StatelessWidget {
                             vertical: 4.h,
                           ),
                           decoration: BoxDecoration(
-                            color: MuslimColors.secondaryContainer,
+                            color: context.mSecondaryContainer,
                             borderRadius: BorderRadius.circular(999.r),
                           ),
                           child: Row(
@@ -270,7 +269,7 @@ class _PrayerFeaturedCard extends StatelessWidget {
                               Icon(
                                 Symbols.schedule,
                                 size: 14.w,
-                                color: MuslimColors.onSecondaryContainer,
+                                color: context.mOnSecondaryContainer,
                               ),
                               SizedBox(width: 4.w),
                               Text(
@@ -281,7 +280,7 @@ class _PrayerFeaturedCard extends StatelessWidget {
                                   fontFamily: 'Lexend',
                                   fontSize: 12.sp,
                                   fontWeight: FontWeight.w700,
-                                  color: MuslimColors.onSecondaryContainer,
+                                  color: context.mOnSecondaryContainer,
                                 ),
                               ),
                             ],
@@ -352,7 +351,7 @@ class _MiniPrayerSlot extends StatelessWidget {
               fontSize: 10.sp,
               fontWeight: FontWeight.w500,
               color: highlighted
-                  ? MuslimColors.secondaryContainer
+                  ? context.mSecondaryContainer
                   : Colors.white,
             ),
           ),
@@ -364,7 +363,7 @@ class _MiniPrayerSlot extends StatelessWidget {
               fontSize: 12.sp,
               fontWeight: highlighted ? FontWeight.w700 : FontWeight.w600,
               color: highlighted
-                  ? MuslimColors.secondaryContainer
+                  ? context.mSecondaryContainer
                   : Colors.white,
             ),
           ),
@@ -445,7 +444,7 @@ class _HubBentoCard extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontSize: 11.sp,
-                      color: MuslimColors.onSurfaceVariant,
+                      color: context.mOnSurfaceVariant,
                     ),
                   ),
                 ],
@@ -478,9 +477,9 @@ class _HadithOfDayCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
-        color: MuslimColors.surfaceContainerLow,
+        color: context.mSurfaceContainerLow,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: MuslimColors.outlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(color: context.mOutlineVariant.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -491,7 +490,7 @@ class _HadithOfDayCard extends StatelessWidget {
               fontFamily: 'Lexend',
               fontSize: 14.sp,
               fontWeight: FontWeight.w600,
-              color: MuslimColors.primary,
+              color: context.mPrimary,
             ),
           ),
           SizedBox(height: 12.h),
@@ -512,7 +511,7 @@ class _HadithOfDayCard extends StatelessWidget {
                   fontSize: 14.sp,
                   fontStyle: FontStyle.italic,
                   height: 1.5,
-                  color: MuslimColors.onSurfaceVariant,
+                  color: context.mOnSurfaceVariant,
                 ),
               ),
             SizedBox(height: 8.h),
@@ -521,7 +520,7 @@ class _HadithOfDayCard extends StatelessWidget {
               style: TextStyle(
                 fontFamily: 'Lexend',
                 fontSize: 11.sp,
-                color: MuslimColors.onSurfaceVariant,
+                color: context.mOnSurfaceVariant,
               ),
             ),
           ],
