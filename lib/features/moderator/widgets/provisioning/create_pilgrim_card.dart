@@ -10,6 +10,22 @@ import '../../models/pilgrim_field_options.dart';
 import 'provisioning_form_theme.dart';
 import '../../../pilgrim/models/insurance_company.dart';
 
+/// Translates a nationality string using the nat_ prefix key.
+/// Falls back to the original English value if no translation exists.
+String _natTr(String nat) {
+  final key = 'nat_${nat.toLowerCase().replaceAll(' ', '_')}';
+  final translated = key.tr();
+  return translated == key ? nat : translated;
+}
+
+/// Translates a language code using the lang_ prefix key.
+/// Falls back to the provided label if no translation exists.
+String _langTr(String code, String fallback) {
+  final key = 'lang_$code';
+  final translated = key.tr();
+  return translated == key ? fallback : translated;
+}
+
 class CreatePilgrimCard extends StatefulWidget {
   final bool isDark;
   final bool isProvisioning;
@@ -49,7 +65,6 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
   final _medicalHistoryCtrl = TextEditingController();
 
   String _selectedLanguage = 'en';
-  String? _selectedVisaStatus;
   String? _selectedEthnicity;
   String? _selectedHotelId;
   String? _selectedRoomId;
@@ -122,15 +137,30 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                 : 'en';
           }
           final ethn = widget.ethnicityOptions.toSet();
-          if (_selectedEthnicity == null ||
+          if (_selectedEthnicity != null &&
               !ethn.contains(_selectedEthnicity)) {
-            _selectedEthnicity = widget.ethnicityOptions.isNotEmpty
-                ? widget.ethnicityOptions.first
-                : null;
+            _selectedEthnicity = null;
           }
         });
       });
     }
+  }
+
+  void _showEthnicitySearchDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return _SearchSelectionDialog(
+          title: 'provisioning_field_ethnicity'.tr(),
+          options: widget.ethnicityOptions,
+          initialValue: _selectedEthnicity,
+          isDark: widget.isDark,
+          onSelected: (v) {
+            setState(() => _selectedEthnicity = v);
+          },
+        );
+      },
+    );
   }
 
   void _handleSubmit() {
@@ -163,7 +193,6 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
       'bus_info': selectedBus == null
           ? null
           : '${selectedBus.busNumber} - ${selectedBus.destination}',
-      'visa': {'status': _selectedVisaStatus ?? 'unknown'},
     };
 
     widget.onCreate(data);
@@ -397,7 +426,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                               (opt) => DropdownMenuItem<String>(
                                 value: opt.code,
                                 child: Text(
-                                  opt.label,
+                                  _langTr(opt.code, opt.label),
                                   style: AppDropdownTheme.menuItemStyle(
                                     widget.isDark,
                                   ),
@@ -422,92 +451,28 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String?>(
-                              isExpanded: true,
-                              initialValue: _selectedEthnicity,
-                              decoration: ProvisioningFormTheme.fieldDecoration(
-                                context: context,
-                                isDark: widget.isDark,
-                                hintText: 'provisioning_field_ethnicity'.tr(),
-                              ),
-                              icon: AppDropdownTheme.menuTrailingIcon(),
-                              dropdownColor: AppDropdownTheme.menuBackground(
-                                widget.isDark,
-                              ),
-                              borderRadius:
-                                  AppDropdownTheme.menuBorderRadius(),
-                              elevation: AppDropdownTheme.menuElevation(),
-                              style:
-                                  AppDropdownTheme.valueStyle(widget.isDark),
-                              items: widget.ethnicityOptions
-                                  .map(
-                                    (e) => DropdownMenuItem<String?>(
-                                      value: e,
-                                      child: Text(
-                                        e,
-                                        style:
-                                            AppDropdownTheme.menuItemStyle(
-                                          widget.isDark,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: widget.ethnicityOptions.isEmpty
-                                  ? null
-                                  : (v) =>
-                                      setState(() => _selectedEthnicity = v),
-
+                      InkWell(
+                        onTap: widget.ethnicityOptions.isEmpty
+                            ? null
+                            : _showEthnicitySearchDialog,
+                        borderRadius: BorderRadius.circular(12.r),
+                        child: IgnorePointer(
+                          child: TextFormField(
+                            key: ValueKey('ethnicity_$_selectedEthnicity'),
+                            initialValue: _selectedEthnicity == null
+                                ? null
+                                : _natTr(_selectedEthnicity!),
+                            decoration: ProvisioningFormTheme.fieldDecoration(
+                              context: context,
+                              isDark: widget.isDark,
+                              hintText: 'provisioning_field_ethnicity'.tr(),
                             ),
+                            style: AppDropdownTheme.valueStyle(widget.isDark),
+                            validator: (v) => _selectedEthnicity == null
+                                ? 'provisioning_required'.tr()
+                                : null,
                           ),
-                          SizedBox(width: gSm),
-                          Expanded(
-                            child: DropdownButtonFormField<String?>(
-                              isExpanded: true,
-                              initialValue: _selectedVisaStatus,
-                              decoration: ProvisioningFormTheme.fieldDecoration(
-                                context: context,
-                                isDark: widget.isDark,
-                                hintText: 'provisioning_field_visa'.tr(),
-                              ),
-                              icon: AppDropdownTheme.menuTrailingIcon(),
-                              dropdownColor: AppDropdownTheme.menuBackground(
-                                widget.isDark,
-                              ),
-                              borderRadius:
-                                  AppDropdownTheme.menuBorderRadius(),
-                              elevation: AppDropdownTheme.menuElevation(),
-                              style:
-                                  AppDropdownTheme.valueStyle(widget.isDark),
-                              items: [
-                                'unknown',
-                                'pending',
-                                'issued',
-                                'rejected',
-                                'expired',
-                              ]
-                                  .map(
-                                    (s) => DropdownMenuItem<String?>(
-                                      value: s,
-                                      child: Text(
-                                        'status_$s'.tr(),
-                                        style:
-                                            AppDropdownTheme.menuItemStyle(
-                                          widget.isDark,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (v) =>
-                                  setState(() => _selectedVisaStatus = v),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                       SizedBox(height: g),
                       DropdownButtonFormField<String?>(
@@ -884,6 +849,145 @@ class _AdditionalDetailsExpansion extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SearchSelectionDialog extends StatefulWidget {
+  const _SearchSelectionDialog({
+    required this.title,
+    required this.options,
+    required this.initialValue,
+    required this.isDark,
+    required this.onSelected,
+  });
+
+  final String title;
+  final List<String> options;
+  final String? initialValue;
+  final bool isDark;
+  final ValueChanged<String> onSelected;
+
+  @override
+  State<_SearchSelectionDialog> createState() => _SearchSelectionDialogState();
+}
+
+class _SearchSelectionDialogState extends State<_SearchSelectionDialog> {
+  final _searchController = TextEditingController();
+  List<String> _filteredOptions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredOptions = widget.options;
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final q = _searchController.text.trim().toLowerCase();
+    setState(() {
+      _filteredOptions = widget.options
+          .where((o) => o.toLowerCase().contains(q))
+          .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textPrimary = widget.isDark ? AppColors.textLight : AppColors.textDark;
+    final textMuted = widget.isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final bg = widget.isDark ? const Color(0xFF1A1A24) : Colors.white;
+    final outline = widget.isDark ? AppColors.dividerDark : AppColors.dividerLight;
+
+    return Dialog(
+      backgroundColor: bg,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+      child: Container(
+        padding: EdgeInsets.all(16.w),
+        width: 320.w,
+        height: 400.h,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              widget.title,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w700,
+                color: textPrimary,
+              ),
+            ),
+            SizedBox(height: 12.h),
+            TextField(
+              controller: _searchController,
+              autofocus: true,
+              style: TextStyle(fontFamily: 'Lexend', fontSize: 13.sp, color: textPrimary),
+              decoration: InputDecoration(
+                hintText: 'common_search'.tr(),
+                hintStyle: TextStyle(color: textMuted),
+                prefixIcon: Icon(Symbols.search, size: 18.sp, color: textMuted),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.r),
+                  borderSide: BorderSide(color: outline),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.r),
+                  borderSide: const BorderSide(color: AppColors.primary),
+                ),
+              ),
+            ),
+            SizedBox(height: 12.h),
+            Expanded(
+              child: _filteredOptions.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No matches found',
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 12.sp,
+                          color: textMuted,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: _filteredOptions.length,
+                      separatorBuilder: (context, index) => Divider(height: 1, color: outline),
+                      itemBuilder: (context, index) {
+                        final option = _filteredOptions[index];
+                        final isSelected = option == widget.initialValue;
+                        return ListTile(
+                          onTap: () {
+                            widget.onSelected(option);
+                            Navigator.pop(context);
+                          },
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8.w),
+                          title: Text(
+                            _natTr(option),
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 13.sp,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              color: isSelected ? AppColors.primary : textPrimary,
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? Icon(Symbols.check, size: 18.sp, color: AppColors.primary)
+                              : null,
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -45,14 +46,15 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
   late AnimationController _micPulseController;
 
   // Language state
-  String _fromLang = "English";
-  String _toLang = "Arabic";
+  String _fromLang = "lang_english";
+  String _toLang = "lang_arabic";
+  bool _initialized = false;
 
   // Translate interactive state
   bool _isListening = false;
   bool _isLoading = false;
-  String _inputText = "Where is the nearest medical clinic?";
-  String _translationText = "أين تقع أقرب عيادة طبية؟";
+  String _inputText = "";
+  String _translationText = "";
 
   // Simulation step counter
   int _speechSimulationStep = 0;
@@ -62,14 +64,14 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
     const RecentTranslation(
       text: "As-salamu alaykum",
       translation: "وعليكم السلام",
-      fromLang: "English",
-      toLang: "Arabic",
+      fromLang: "lang_english",
+      toLang: "lang_arabic",
     ),
     const RecentTranslation(
       text: "Thank you very much",
       translation: "شكرًا جزيلًا لك",
-      fromLang: "English",
-      toLang: "Arabic",
+      fromLang: "lang_english",
+      toLang: "lang_arabic",
     ),
   ];
 
@@ -80,6 +82,16 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _inputText = 'translate_mock_clinic_input'.tr();
+      _translationText = 'translate_mock_clinic_output'.tr();
+      _initialized = true;
+    }
   }
 
   @override
@@ -106,14 +118,14 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
 
   // ── TTS Sound Playback ─────────────────────────────────────────────────────
   void _playTtsAudio() {
-    StandardSnackBar.showInfo(context, "Playing translation audio...");
+    StandardSnackBar.showInfo(context, 'translate_playing_audio'.tr());
     HapticFeedback.selectionClick();
   }
 
   // ── Copy text to Clipboard ─────────────────────────────────────────────────
   void _copyToClipboard() {
     Clipboard.setData(ClipboardData(text: _inputText));
-    StandardSnackBar.showSuccess(context, "Text copied to clipboard!");
+    StandardSnackBar.showSuccess(context, 'translate_copied'.tr());
   }
 
   // ── Trigger API / Simulated Translate ──────────────────────────────────────
@@ -174,7 +186,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
       }
     } catch (e) {
       if (mounted) {
-        StandardSnackBar.showError(context, "Translation error: $e");
+        StandardSnackBar.showError(context, 'translate_error'.tr(args: [e.toString()]));
       }
     } finally {
       if (mounted) {
@@ -197,7 +209,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
     _micPulseController.repeat();
     setState(() {
       _isListening = true;
-      _inputText = "Listening...";
+      _inputText = 'translate_listening'.tr();
       _translationText = "";
     });
 
@@ -205,7 +217,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
     Timer(const Duration(milliseconds: 1500), () {
       if (!mounted || !_isListening) return;
       setState(() {
-        _inputText = "...detecting audio...";
+        _inputText = 'translate_detecting'.tr();
       });
     });
 
@@ -216,12 +228,12 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
       final String simulatedTranslation;
 
       if (_speechSimulationStep == 0) {
-        simulatedPhrase = "Excuse me, where is the bus to Mina?";
-        simulatedTranslation = "المعذرة، أين الحافلة المتجهة إلى منى؟";
+        simulatedPhrase = 'translate_mock_excuse_me'.tr();
+        simulatedTranslation = 'translate_mock_excuse_me'.tr();
         _speechSimulationStep = 1;
       } else {
-        simulatedPhrase = "Is there a pharmacy nearby?";
-        simulatedTranslation = "هل توجد صيدلية قريبة من هنا؟";
+        simulatedPhrase = 'translate_mock_pharmacy'.tr();
+        simulatedTranslation = 'translate_mock_pharmacy'.tr();
         _speechSimulationStep = 0;
       }
 
@@ -275,7 +287,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
           ),
         ),
         title: Text(
-          'Live Translate',
+          'live_translate'.tr(),
           style: TextStyle(
             fontFamily: 'Lexend',
             fontSize: 18.sp,
@@ -315,7 +327,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            'FROM',
+                            'translate_from'.tr(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 10.sp,
@@ -326,7 +338,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
                           ),
                           SizedBox(height: 4.h),
                           Text(
-                            _fromLang,
+                            _fromLang.tr(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 15.sp,
@@ -363,7 +375,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            'TO',
+                            'translate_to'.tr(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 10.sp,
@@ -374,7 +386,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
                           ),
                           SizedBox(height: 4.h),
                           Text(
-                            _toLang,
+                            _toLang.tr(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 15.sp,
@@ -414,7 +426,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
                             borderRadius: BorderRadius.circular(12.r),
                           ),
                           child: Text(
-                            _isListening ? 'LISTENING...' : 'INPUT TEXT',
+                            _isListening ? 'translate_listening'.tr() : 'translate_input_text'.tr(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 9.sp,
@@ -469,7 +481,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'TRANSLATION',
+                                'translate_translation'.tr(),
                                 style: TextStyle(
                                   fontFamily: 'Lexend',
                                   fontSize: 10.sp,
@@ -491,7 +503,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
                           SizedBox(height: 8.h),
                           Text(
                             _translationText,
-                            textAlign: _toLang == "Arabic" ? TextAlign.right : TextAlign.left,
+                            textAlign: _toLang == "lang_arabic" ? TextAlign.right : TextAlign.left,
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 20.sp,
@@ -528,7 +540,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
                           color: textDarkColor,
                         ),
                         decoration: InputDecoration(
-                          hintText: "Type to translate...",
+                          hintText: 'translate_hint'.tr(),
                           hintStyle: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 13.5.sp,
@@ -557,7 +569,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'RECENT TRANSLATIONS',
+                    'translate_recent'.tr(),
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontSize: 11.sp,
@@ -569,7 +581,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
                   TextButton(
                     onPressed: () {},
                     child: Text(
-                      'VIEW ALL',
+                      'translate_view_all'.tr(),
                       style: TextStyle(
                         fontFamily: 'Lexend',
                         fontSize: 10.5.sp,
@@ -612,7 +624,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
                               ),
                               SizedBox(height: 3.h),
                               Text(
-                                '${item.fromLang} to ${item.toLang}',
+                                '${item.fromLang.tr()} to ${item.toLang.tr()}',
                                 style: TextStyle(
                                   fontFamily: 'Lexend',
                                   fontSize: 10.sp,
@@ -705,7 +717,7 @@ class _LiveTranslateScreenState extends State<LiveTranslateScreen>
                       borderRadius: BorderRadius.circular(20.r),
                     ),
                     child: Text(
-                      _isListening ? "TAP TO STOP" : "TAP TO SPEAK",
+                      _isListening ? 'translate_tap_to_stop'.tr() : 'translate_tap_to_speak'.tr(),
                       style: TextStyle(
                         fontFamily: 'Lexend',
                         fontSize: 10.sp,

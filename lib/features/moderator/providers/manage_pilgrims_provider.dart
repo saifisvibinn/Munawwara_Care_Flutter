@@ -22,8 +22,6 @@ class ManagedPilgrimItem {
   final String? hotelName;
   final String? roomNumber;
   final String? busInfo;
-  final String? visaStatus;
-  final String? visaNumber;
   final String? medicalHistory;
   final String? alternativePhoneNumber;
   final String? tasheraNumber;
@@ -45,8 +43,6 @@ class ManagedPilgrimItem {
     this.hotelName,
     this.roomNumber,
     this.busInfo,
-    this.visaStatus,
-    this.visaNumber,
     this.medicalHistory,
     this.alternativePhoneNumber,
     this.tasheraNumber,
@@ -71,8 +67,6 @@ class ManagedPilgrimItem {
       hotelName: m['hotel_name']?.toString(),
       roomNumber: m['room_number']?.toString(),
       busInfo: m['bus_info']?.toString(),
-      visaStatus: m['visa']?['status']?.toString(),
-      visaNumber: m['visa']?['visa_number']?.toString(),
       medicalHistory: m['medical_history']?.toString(),
       alternativePhoneNumber: m['alternative_phone_number']?.toString(),
       tasheraNumber: m['tashera_number']?.toString(),
@@ -94,8 +88,6 @@ class ManagedPilgrimItem {
         hotelName: hotelName,
         roomNumber: roomNumber,
         busInfo: busInfo,
-        visaNumber: visaNumber,
-        visaStatus: visaStatus,
         language: language,
         ethnicity: ethnicity,
         medicalHistory: medicalHistory,

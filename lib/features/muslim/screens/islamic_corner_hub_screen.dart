@@ -10,9 +10,7 @@ import '../providers/muslim_providers.dart';
 import 'azkar_screen.dart';
 import 'asma_ul_husna_screen.dart';
 import 'duaa_screen.dart';
-import 'hadith_screen.dart';
 import 'prayer_times_screen.dart';
-import '../utils/muslim_localization.dart';
 import '../widgets/muslim_widgets.dart';
 
 class IslamicCornerHubScreen extends ConsumerWidget {
@@ -22,7 +20,7 @@ class IslamicCornerHubScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bg = context.mSurface;
     final bundleAsync = ref.watch(prayerBundleProvider);
-    final hadithAsync = ref.watch(randomHadithProvider);
+    final namesAsync = ref.watch(asmaUlHusnaProvider);
 
     return ColoredBox(
       color: bg,
@@ -48,7 +46,7 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                 color: context.mPrimary,
                 onRefresh: () async {
                   ref.invalidate(prayerBundleProvider);
-                  ref.invalidate(randomHadithProvider);
+                  ref.invalidate(asmaUlHusnaProvider);
                   await ref.read(prayerBundleProvider.future);
                 },
                 child: ListView(
@@ -102,36 +100,29 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                             ),
                           ),
                         ),
-                        _HubBentoCard(
-                          title: 'muslim_hadith'.tr(),
-                          subtitle: 'muslim_hadith_sub'.tr(),
-                          icon: Symbols.menu_book,
-                          tint: context.mTertiaryFixed.withValues(alpha: 0.55),
-                          iconColor: context.mTertiaryContainer,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const HadithScreen(),
-                            ),
-                          ),
-                        ),
-                        _HubBentoCard(
-                          title: 'muslim_99_names'.tr(),
-                          subtitle: 'muslim_99_names_sub'.tr(),
-                          icon: Symbols.star,
-                          tint: context.mOnTertiaryContainer.withValues(alpha: 0.12),
-                          iconColor: context.mTertiary,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const AsmaUlHusnaScreen(),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
+                    SizedBox(height: 16.h),
+                    _HubWideCard(
+                      title: 'muslim_99_names'.tr(),
+                      subtitle: 'muslim_99_names_sub'.tr(),
+                      icon: Symbols.star,
+                      tint: context.mOnTertiaryContainer.withValues(alpha: 0.12),
+                      iconColor: context.mTertiary,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const AsmaUlHusnaScreen(),
+                        ),
+                      ),
+                    ),
                     SizedBox(height: 24.h),
-                    hadithAsync.when(
-                      data: (hadith) => _HadithOfDayCard(hadith: hadith),
-                      loading: () => const _HadithOfDayCard.loading(),
+                    namesAsync.when(
+                      data: (names) {
+                        if (names.isEmpty) return const SizedBox.shrink();
+                        final dayIndex = DateTime.now().dayOfYear % names.length;
+                        return _NameOfDayCard(name: names[dayIndex]);
+                      },
+                      loading: () => const _NameOfDayCard.loading(),
                       error: (_, _) => const SizedBox.shrink(),
                     ),
                   ],
@@ -144,6 +135,7 @@ class IslamicCornerHubScreen extends ConsumerWidget {
     );
   }
 }
+
 
 class _PrayerFeaturedCard extends StatelessWidget {
   const _PrayerFeaturedCard({
@@ -465,15 +457,119 @@ class _HubBentoCard extends StatelessWidget {
   }
 }
 
-class _HadithOfDayCard extends StatelessWidget {
-  const _HadithOfDayCard({required this.hadith});
+extension on DateTime {
+  int get dayOfYear {
+    final startOfYear = DateTime(year, 1, 1);
+    return difference(startOfYear).inDays;
+  }
+}
 
-  const _HadithOfDayCard.loading() : hadith = null;
+class _HubWideCard extends StatelessWidget {
+  const _HubWideCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.tint,
+    required this.iconColor,
+    required this.onTap,
+  });
 
-  final HadithData? hadith;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color tint;
+  final Color iconColor;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    return Material(
+      color: tint,
+      borderRadius: BorderRadius.circular(16.r),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16.r),
+        child: Stack(
+          children: [
+            PositionedDirectional(
+              end: -10.w,
+              bottom: -10.h,
+              child: Icon(
+                icon,
+                size: 96.w,
+                color: iconColor.withValues(alpha: 0.08),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
+              child: Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(10.w),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                    child: Icon(icon, color: iconColor, size: 24.w),
+                  ),
+                  SizedBox(width: 16.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 15.sp,
+                            fontWeight: FontWeight.w600,
+                            color: iconColor,
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 11.sp,
+                            color: context.mOnSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  muslimForwardChevron(
+                    size: 20.w,
+                    color: iconColor.withValues(alpha: 0.4),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NameOfDayCard extends StatelessWidget {
+  const _NameOfDayCard({required this.name});
+  const _NameOfDayCard.loading() : name = null;
+
+  final AsmaName? name;
+
+  @override
+  Widget build(BuildContext context) {
+    final lang = context.locale.languageCode;
+    final isAr = lang == 'ar';
+
     return Container(
       padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
@@ -484,46 +580,114 @@ class _HadithOfDayCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'muslim_hadith_of_day'.tr(),
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w600,
-              color: context.mPrimary,
-            ),
-          ),
-          SizedBox(height: 12.h),
-          if (hadith == null)
-            const Center(child: CircularProgressIndicator())
-          else ...[
-            if (muslimPrefersArabicContentFromContext(context) &&
-                hadith!.arabic.isNotEmpty)
-              ArabicText(
-                hadith!.arabic,
-                style: muslimArabicStyle(fontSize: 16.sp),
-              )
-            else
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
               Text(
-                '"${hadith!.english}"',
+                'muslim_name_of_day'.tr(),
                 style: TextStyle(
                   fontFamily: 'Lexend',
-                  fontSize: 14.sp,
-                  fontStyle: FontStyle.italic,
-                  height: 1.5,
-                  color: context.mOnSurfaceVariant,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.0,
+                  color: context.mPrimary,
                 ),
               ),
-            SizedBox(height: 8.h),
-            Text(
-              '— ${localizedHadithCollectionName(collectionKey: hadith!.collection, fallback: hadith!.collectionName)} · #${hadith!.hadithNumber}',
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 11.sp,
-                color: context.mOnSurfaceVariant,
-              ),
+              if (name != null)
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: context.mPrimary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6.r),
+                  ),
+                  child: Text(
+                    '#${name!.number}',
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w700,
+                      color: context.mPrimary,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          SizedBox(height: 16.h),
+          if (name == null)
+            const Center(child: CircularProgressIndicator())
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: isAr
+                        ? [
+                            ArabicText(
+                              name!.nameArabic,
+                              style: muslimArabicStyle(
+                                fontSize: 32.sp,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.right,
+                            ),
+                            SizedBox(height: 4.h),
+                            Text(
+                              name!.transliteration,
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w600,
+                                color: context.mPrimary,
+                              ),
+                            ),
+                            SizedBox(height: 8.h),
+                            Text(
+                              name!.localizedMeaning(lang),
+                              style: TextStyle(
+                                fontFamily: 'Amiri',
+                                fontSize: 13.sp,
+                                height: 1.4,
+                                color: context.mOnSurfaceVariant,
+                              ),
+                            ),
+                          ]
+                        : [
+                            Text(
+                              name!.transliteration,
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontSize: 18.sp,
+                                fontWeight: FontWeight.w700,
+                                color: context.mOnSurface,
+                              ),
+                            ),
+                            SizedBox(height: 6.h),
+                            Text(
+                              name!.localizedMeaning(lang),
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontSize: 13.sp,
+                                height: 1.4,
+                                color: context.mOnSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                  ),
+                ),
+                if (!isAr) ...[
+                  SizedBox(width: 16.w),
+                  ArabicText(
+                    name!.nameArabic,
+                    style: muslimArabicStyle(
+                      fontSize: 36.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ],
         ],
       ),
     );

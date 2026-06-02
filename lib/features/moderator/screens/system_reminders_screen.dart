@@ -32,7 +32,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
   @override
   void initState() {
     super.initState();
-    _audienceTabController = TabController(length: 3, vsync: this);
+    _audienceTabController = TabController(length: 2, vsync: this);
     _audienceTabController.addListener(_onAudienceTabChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -82,8 +82,8 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
     setState(() => _targetAudienceIndex = i);
   }
 
-  int _targetAudienceIndex = 0; // 0 = System Wide, 1 = Specific Groups, 2 = Specific Pilgrim
-  int _historyFilterIndex = 0; // 0 = All, 1 = System, 2 = Groups, 3 = Pilgrim
+  int _targetAudienceIndex = 0; // 0 = Specific Groups, 1 = Specific Pilgrim
+  int _historyFilterIndex = 0; // 0 = All, 1 = Groups, 2 = Pilgrim
   final Set<String> _selectedGroupIds = {};
   String? _selectedGroupIdForPilgrim;
   String? _selectedPilgrimId;
@@ -175,17 +175,13 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
       return;
     }
 
-    final state = ref.read(moderatorProvider);
-    final allGroups = state.groups;
+
 
     // Determine target groups and type
     List<String> targetGroups = [];
     String targetType = 'group';
 
     if (_targetAudienceIndex == 0) {
-      targetGroups = allGroups.map((g) => g.id).toList();
-      targetType = 'system';
-    } else if (_targetAudienceIndex == 1) {
       targetGroups = _selectedGroupIds.toList();
       targetType = 'group';
     } else {
@@ -228,7 +224,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
         .create(
           groupIds: targetGroups,
           targetType: targetType,
-          pilgrimId: _targetAudienceIndex == 2 ? _selectedPilgrimId : null,
+          pilgrimId: _targetAudienceIndex == 1 ? _selectedPilgrimId : null,
           text: msg,
           scheduledAt: sched,
           repeatCount: count,
@@ -363,9 +359,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                         color: Colors.transparent,
                         child: TabBar(
                           controller: _audienceTabController,
-                          isScrollable: true,
-                          tabAlignment: TabAlignment.start,
-                          padding: EdgeInsetsDirectional.only(start: 2.w),
+                          isScrollable: false,
                           labelPadding: EdgeInsets.symmetric(horizontal: 10.w),
                           dividerHeight: 0,
                           indicatorSize: TabBarIndicatorSize.label,
@@ -384,13 +378,12 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                             fontSize: 15.sp,
                           ),
                           tabs: [
-                            Tab(text: 'reminder_audience_system_wide'.tr()),
                             Tab(text: 'reminder_audience_groups_tab'.tr()),
                             Tab(text: 'reminder_audience_pilgrim_tab'.tr()),
                           ],
                         ),
                       ),
-                      if (_targetAudienceIndex == 1) ...[
+                      if (_targetAudienceIndex == 0) ...[
                         Divider(height: 24.h, thickness: 1, color: outline),
                         Text(
                           'reminder_select_recipient_groups'.tr(),
@@ -440,7 +433,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                                     ? AppColors.primary
                                     : textMuted,
                                 size: 20.sp,
-                              ),
+                               ),
                               SizedBox(width: 12.w),
                               Expanded(
                                 child: Text(
@@ -468,7 +461,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                       );
                     }),
                       ],
-                      if (_targetAudienceIndex == 2) ...[
+                      if (_targetAudienceIndex == 1) ...[
                         Divider(height: 24.h, thickness: 1, color: outline),
                         Text(
                           'reminder_select_pilgrim_section'.tr(),
@@ -1006,9 +999,8 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                 scrollDirection: Axis.horizontal,
                 children: [
                   _buildFilterChip(0, 'reminder_hist_all', isDark),
-                  _buildFilterChip(1, 'reminder_hist_system', isDark),
-                  _buildFilterChip(2, 'reminder_hist_groups', isDark),
-                  _buildFilterChip(3, 'reminder_hist_pilgrim', isDark),
+                  _buildFilterChip(1, 'reminder_hist_groups', isDark),
+                  _buildFilterChip(2, 'reminder_hist_pilgrim', isDark),
                 ],
               ),
             ),
@@ -1019,12 +1011,11 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                     builder: (context) {
                       final filtered = remState.reminders.where((r) {
                         if (_historyFilterIndex == 0) return true;
-                        if (_historyFilterIndex == 1) return r.targetType == 'system';
-                        if (_historyFilterIndex == 2) {
+                        if (_historyFilterIndex == 1) {
                           return r.targetType == 'group' ||
                               r.targetType == 'all_groups';
                         }
-                        if (_historyFilterIndex == 3) return r.targetType == 'pilgrim';
+                        if (_historyFilterIndex == 2) return r.targetType == 'pilgrim';
                         return true;
                       }).toList();
 

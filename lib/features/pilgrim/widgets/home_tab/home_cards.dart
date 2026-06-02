@@ -1,4 +1,4 @@
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -508,8 +508,17 @@ class ScoopedGridCard extends StatelessWidget {
     required this.onTap,
   });
 
-  Alignment _arrowAlignment() {
-    return switch (position) {
+  Alignment _arrowAlignment(BuildContext context) {
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final pos = isRtl
+        ? switch (position) {
+            CardPosition.topLeft => CardPosition.topRight,
+            CardPosition.topRight => CardPosition.topLeft,
+            CardPosition.bottomLeft => CardPosition.bottomRight,
+            CardPosition.bottomRight => CardPosition.bottomLeft,
+          }
+        : position;
+    return switch (pos) {
       CardPosition.topLeft => Alignment.topLeft,
       CardPosition.topRight => Alignment.topRight,
       CardPosition.bottomLeft => Alignment.bottomLeft,
@@ -517,19 +526,47 @@ class ScoopedGridCard extends StatelessWidget {
     };
   }
 
-  double _arrowRotation() {
-    return switch (position) {
-      CardPosition.topLeft => -3 * math.pi / 4,
-      CardPosition.topRight => -math.pi / 4,
-      CardPosition.bottomLeft => 3 * math.pi / 4,
-      CardPosition.bottomRight => math.pi / 4,
-    };
+  double _arrowRotation(BuildContext context) {
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final pos = isRtl
+        ? switch (position) {
+            CardPosition.topLeft => CardPosition.topRight,
+            CardPosition.topRight => CardPosition.topLeft,
+            CardPosition.bottomLeft => CardPosition.bottomRight,
+            CardPosition.bottomRight => CardPosition.bottomLeft,
+          }
+        : position;
+
+    if (isRtl) {
+      return switch (pos) {
+        CardPosition.topLeft => math.pi / 4,
+        CardPosition.topRight => 3 * math.pi / 4,
+        CardPosition.bottomLeft => -math.pi / 4,
+        CardPosition.bottomRight => -3 * math.pi / 4,
+      };
+    } else {
+      return switch (pos) {
+        CardPosition.topLeft => -3 * math.pi / 4,
+        CardPosition.topRight => -math.pi / 4,
+        CardPosition.bottomLeft => 3 * math.pi / 4,
+        CardPosition.bottomRight => math.pi / 4,
+      };
+    }
   }
 
   /// Slight nudge of label block toward each quadrant's outer corner.
-  Alignment _contentAlignment() {
+  Alignment _contentAlignment(BuildContext context) {
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final pos = isRtl
+        ? switch (position) {
+            CardPosition.topLeft => CardPosition.topRight,
+            CardPosition.topRight => CardPosition.topLeft,
+            CardPosition.bottomLeft => CardPosition.bottomRight,
+            CardPosition.bottomRight => CardPosition.bottomLeft,
+          }
+        : position;
     const nudge = 0.16;
-    return switch (position) {
+    return switch (pos) {
       CardPosition.topLeft => Alignment(-nudge, -nudge),
       CardPosition.topRight => Alignment(nudge, -nudge),
       CardPosition.bottomLeft => Alignment(-nudge, nudge),
@@ -557,7 +594,7 @@ class ScoopedGridCard extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             Align(
-              alignment: _contentAlignment(),
+              alignment: _contentAlignment(context),
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
                 child: Column(
@@ -602,9 +639,9 @@ class ScoopedGridCard extends StatelessWidget {
               child: Padding(
                 padding: EdgeInsets.fromLTRB(10.w, 10.h, 10.w, 10.h),
                 child: Align(
-                  alignment: _arrowAlignment(),
+                  alignment: _arrowAlignment(context),
                   child: Transform.rotate(
-                    angle: _arrowRotation(),
+                    angle: _arrowRotation(context),
                     child: Icon(
                       Icons.arrow_forward_ios_rounded,
                       size: 11.sp,

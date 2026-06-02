@@ -90,6 +90,9 @@ class _NameCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.locale.languageCode;
+    final isAr = lang == 'ar';
+
     return Material(
       color: context.mSurfaceContainerLowest,
       borderRadius: BorderRadius.circular(14.r),
@@ -119,7 +122,10 @@ class _NameCard extends StatelessWidget {
               SizedBox(height: 6.h),
               ArabicText(
                 name.nameArabic,
-                style: muslimArabicStyle(fontSize: 24.sp),
+                style: muslimArabicStyle(
+                  fontSize: isAr ? 26.sp : 24.sp,
+                  fontWeight: isAr ? FontWeight.bold : FontWeight.w400,
+                ),
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 6.h),
@@ -128,20 +134,21 @@ class _NameCard extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Lexend',
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w600,
-                  color: context.mPrimary,
+                  fontSize: isAr ? 12.sp : 13.sp,
+                  fontWeight: isAr ? FontWeight.w500 : FontWeight.w600,
+                  color: isAr ? context.mOnSurfaceVariant : context.mPrimary,
                 ),
               ),
               const Spacer(),
               Text(
-                name.meaning,
+                name.localizedMeaning(lang),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
+                textAlign: isAr ? TextAlign.right : TextAlign.left,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontSize: 11.sp,
-                  height: 1.35,
+                  fontFamily: isAr ? 'Amiri' : 'Lexend',
+                  fontSize: isAr ? 12.sp : 11.sp,
+                  height: isAr ? 1.4 : 1.35,
                   color: context.mOnSurfaceVariant,
                 ),
               ),
@@ -153,6 +160,9 @@ class _NameCard extends StatelessWidget {
   }
 
   void _showDetail(BuildContext context, AsmaName name) {
+    final lang = context.locale.languageCode;
+    final isAr = lang == 'ar';
+
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -167,7 +177,10 @@ class _NameCard extends StatelessWidget {
           children: [
             ArabicText(
               name.nameArabic,
-              style: muslimArabicStyle(fontSize: 36.sp),
+              style: muslimArabicStyle(
+                fontSize: isAr ? 44.sp : 36.sp,
+                fontWeight: FontWeight.bold,
+              ),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 8.h),
@@ -182,11 +195,11 @@ class _NameCard extends StatelessWidget {
             ),
             SizedBox(height: 16.h),
             Text(
-              name.meaning,
+              name.localizedMeaning(lang),
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 14.sp,
+                fontFamily: isAr ? 'Amiri' : 'Lexend',
+                fontSize: isAr ? 16.sp : 14.sp,
                 height: 1.5,
                 color: context.mOnSurface,
               ),

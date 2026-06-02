@@ -143,7 +143,7 @@ class PilgrimHomeTab extends StatelessWidget {
                   ),
                   SizedBox(width: 10.w),
                   Text(
-                    'Munawwara Care',
+                    'app_name'.tr(),
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontSize: 15.sp,
@@ -437,12 +437,12 @@ class _HomeBody extends StatelessWidget {
                                   : weatherAlert.icon,
                             ),
                             title: weatherAlert.isLoading || weatherAlert.isError
-                                ? 'Weather'
-                                : 'Weather (${weatherAlert.temperatureC}°C)',
+                                ? 'label_weather'.tr()
+                                : 'weather_with_temp'.tr(namedArgs: {'temp': '${weatherAlert.temperatureC}'}),
                             subtext: weatherAlert.isLoading
-                                ? 'Loading forecast...'
+                                ? 'weather_loading_forecast'.tr()
                                 : weatherAlert.isError
-                                    ? 'Forecast unavailable'
+                                    ? 'weather_forecast_unavailable'.tr()
                                     : weatherAlert.conditionKey.tr(),
                             onTap: onWeatherTap,
                           ),
@@ -456,8 +456,8 @@ class _HomeBody extends StatelessWidget {
                           bottomLeft: ScoopedGridCard(
                             position: CardPosition.bottomLeft,
                             icon: _cardIcon(Icons.translate_rounded),
-                            title: 'Live Translate',
-                            subtext: 'Speak & translate',
+                            title: 'live_translate'.tr(),
+                            subtext: 'live_translate_sub'.tr(),
                             onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
@@ -469,8 +469,8 @@ class _HomeBody extends StatelessWidget {
                           bottomRight: ScoopedGridCard(
                             position: CardPosition.bottomRight,
                             icon: _cardIcon(Icons.people_alt_rounded),
-                            title: 'Reassure Family',
-                            subtext: 'Share your safety',
+                            title: 'reassure_family'.tr(),
+                            subtext: 'reassure_family_sub'.tr(),
                             onTap: () {
                               showReassureFamilyBottomSheet(context: context);
                             },

@@ -7,8 +7,11 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/open_maps_navigation.dart';
 import '../../../core/services/socket_service.dart';
+import '../../../core/services/api_service.dart';
+import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
+import 'package:dio/dio.dart';
 import '../../notifications/providers/notification_provider.dart';
 import '../providers/moderator_provider.dart';
 import '../providers/moderator_resolved_sos_provider.dart';
@@ -383,7 +386,43 @@ class ModeratorSosBannerCard extends ConsumerWidget {
       final engProv = ref.read(moderatorSosEngagementProvider.notifier);
       final notifProv = ref.read(notificationProvider.notifier);
 
-      SocketService.emit('sos_resolve', payload);
+      // 1. Emit via socket (for real-time responsiveness when online)
+      try {
+        SocketService.emit('sos_resolve', payload);
+      } catch (e) {
+        AppLogger.e('[ModeratorActiveSosPanel] Socket emit failed: $e');
+      }
+
+      // 2. Call HTTP fallback (guarantees delivery across network drops)
+      try {
+        await ApiService.dio.post(
+          '/auth/groups/$gId/pilgrims/$pId/resolve-sos',
+          data: {
+            if (sosId != null && sosId.isNotEmpty) 'sos_id': sosId,
+          },
+        );
+      } on DioException catch (e) {
+        AppLogger.e('[ModeratorActiveSosPanel] HTTP resolve fallback failed: $e');
+        // If it's a real API failure (e.g. 403 Forbidden / 404), show error snackbar
+        // and abort local optimistic updates.
+        if (e.response != null && e.response!.statusCode != null) {
+          final code = e.response!.statusCode!;
+          if (code >= 400 && code < 500) {
+            if (context.mounted) {
+              StandardSnackBar.showError(
+                context,
+                ApiService.parseError(e),
+              );
+            }
+            return;
+          }
+        }
+        // For other network/timeout errors, we allow it to proceed locally so that the moderator
+        // can at least clear their local UI during offline/poor network conditions.
+      } catch (e) {
+        AppLogger.e('[ModeratorActiveSosPanel] General resolve error: $e');
+      }
+
       modProv.markPilgrimSOS(pId, active: false);
       await ModeratorSosEngagementStore.removeAllEntriesForPilgrim(pId);
       await resProv.addResolved(resolved);

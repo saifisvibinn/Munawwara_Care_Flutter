@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -57,7 +58,7 @@ class _ReassureFamilySheetBodyState extends State<ReassureFamilySheetBody> {
         if (mounted) {
           StandardSnackBar.showSuccess(
             context,
-            'Reassurance sent! Primary contacts notified.',
+            'reassure_success'.tr(),
           );
         }
       }
@@ -68,7 +69,7 @@ class _ReassureFamilySheetBodyState extends State<ReassureFamilySheetBody> {
       if (mounted) {
         StandardSnackBar.showError(
           context,
-          'Failed to send reassurance: ${e.toString()}',
+          'reassure_failed'.tr(args: [e.toString()]),
         );
       }
     } finally {
@@ -110,7 +111,7 @@ class _ReassureFamilySheetBodyState extends State<ReassureFamilySheetBody> {
               SizedBox(width: 14.w),
               Expanded(
                 child: Text(
-                  'Reassure Family',
+                  'reassure_family'.tr(),
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontSize: 18.sp,
@@ -133,7 +134,7 @@ class _ReassureFamilySheetBodyState extends State<ReassureFamilySheetBody> {
 
           // ── Description ────────────────────────────────────────────────────
           Text(
-            'Quickly let your loved ones know you are safe during your pilgrimage. This message will be sent to your primary emergency contacts.',
+            'reassure_sheet_desc'.tr(),
             style: TextStyle(
               fontFamily: 'Lexend',
               fontSize: 13.sp,
@@ -171,7 +172,7 @@ class _ReassureFamilySheetBodyState extends State<ReassureFamilySheetBody> {
                     SizedBox(width: 10.w),
                     Expanded(
                       child: Text(
-                        'Assalamu Alaykum, I am doing well and safe in Makkah. Alhamdulillah.',
+                        'reassure_default_msg'.tr(),
                         style: TextStyle(
                           fontFamily: 'Lexend',
                           fontSize: 13.5.sp,
@@ -188,7 +189,7 @@ class _ReassureFamilySheetBodyState extends State<ReassureFamilySheetBody> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: Text(
-                    'DEFAULT STATUS MESSAGE',
+                    'reassure_default_msg_lbl'.tr(),
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontSize: 8.5.sp,
@@ -231,7 +232,7 @@ class _ReassureFamilySheetBodyState extends State<ReassureFamilySheetBody> {
                         Icon(Icons.send_rounded, size: 16.w),
                         SizedBox(width: 8.w),
                         Text(
-                          'Send Status to All',
+                          'reassure_send_btn'.tr(),
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 14.sp,
@@ -246,7 +247,7 @@ class _ReassureFamilySheetBodyState extends State<ReassureFamilySheetBody> {
 
           // ── Helper Text below button ───────────────────────────────────────
           Text(
-            'Sends via SMS and Email simultaneously.',
+            'reassure_sms_email_note'.tr(),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: 'Lexend',
@@ -264,7 +265,7 @@ class _ReassureFamilySheetBodyState extends State<ReassureFamilySheetBody> {
               foregroundColor: isDark ? Colors.white60 : const Color(0xFF475569),
             ),
             child: Text(
-              'Cancel',
+              'dialog_cancel'.tr(),
               style: TextStyle(
                 fontFamily: 'Lexend',
                 fontSize: 13.5.sp,

@@ -290,21 +290,7 @@ class _PilgrimProfileSheet extends ConsumerWidget {
 
                 SizedBox(height: 24.h),
 
-                // Visa Section
-                _SectionTitle(title: 'profile_visa_information'.tr(), isDark: isDark),
-                _ProfileInfoRow(
-                  icon: Symbols.verified_user,
-                  label: 'profile_visa_status'.tr(),
-                  value: pilgrim.visaStatus?.toUpperCase() ?? 'status_unknown'.tr().toUpperCase(),
-                  valueColor: _getVisaColor(pilgrim.visaStatus),
-                  isDark: isDark,
-                ),
-                _ProfileInfoRow(
-                  icon: Symbols.description,
-                  label: 'profile_visa_number'.tr(),
-                  value: pilgrim.visaNumber ?? 'profile_not_provided'.tr(),
-                  isDark: isDark,
-                ),
+
                 _ProfileInfoRow(
                   icon: Symbols.tag,
                   label: 'Tashera Number',
@@ -402,20 +388,6 @@ class _PilgrimProfileSheet extends ConsumerWidget {
     );
   }
 
-  Color _getVisaColor(String? status) {
-    switch (status?.toLowerCase()) {
-      case 'issued':
-        return AppColors.success;
-      case 'pending':
-        return AppColors.warning;
-      case 'rejected':
-      case 'expired':
-        return AppColors.error;
-      default:
-        return AppColors.textMutedLight;
-    }
-  }
-
   Color _getBatteryColor(BatteryStatus status) {
     return switch (status) {
       BatteryStatus.good => AppColors.success,
@@ -454,14 +426,12 @@ class _ProfileInfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
-  final Color? valueColor;
   final bool isDark;
 
   const _ProfileInfoRow({
     required this.icon,
     required this.label,
     required this.value,
-    this.valueColor,
     required this.isDark,
   });
 
@@ -499,7 +469,7 @@ class _ProfileInfoRow extends StatelessWidget {
                     fontFamily: 'Lexend',
                     fontWeight: FontWeight.w600,
                     fontSize: 14.sp,
-                    color: valueColor ?? (isDark ? Colors.white : AppColors.textDark),
+                    color: isDark ? Colors.white : AppColors.textDark,
                   ),
                 ),
               ],

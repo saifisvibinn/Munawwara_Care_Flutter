@@ -1,3 +1,5 @@
+import '../constants/asma_arabic_translations.dart';
+
 class PrayerTimesData {
   final String date;
   final Map<String, String> prayerTimes;
@@ -268,6 +270,13 @@ class AsmaName {
       meaning:
           json['meaning']?.toString() ?? json['english']?.toString() ?? '',
     );
+  }
+
+  String localizedMeaning(String lang) {
+    if (lang == 'ar') {
+      return asmaArabicMeanings[number] ?? meaning;
+    }
+    return meaning;
   }
 
   Map<String, dynamic> toJson() => {

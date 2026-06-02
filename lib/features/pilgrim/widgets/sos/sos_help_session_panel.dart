@@ -15,18 +15,20 @@ import '../../screens/live_translate_screen.dart';
 class RedesignedSosSentButton extends StatelessWidget {
   final AnimationController pulseController;
   final bool isResponding;
+  final bool isResolved;
   final double size;
 
   const RedesignedSosSentButton({
     super.key,
     required this.pulseController,
     required this.isResponding,
+    this.isResolved = false,
     this.size = 136,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = isResponding ? Colors.green.shade600 : const Color(0xFFF97316);
+    final color = (isResponding || isResolved) ? Colors.green.shade600 : const Color(0xFFF97316);
 
     return AnimatedBuilder(
       animation: pulseController,
@@ -104,7 +106,11 @@ class RedesignedSosSentButton extends StatelessWidget {
                     ),
                     SizedBox(height: 6.h),
                     Text(
-                      isResponding ? "ACTIVE" : "SENT",
+                      isResolved
+                          ? 'sos_btn_resolved'.tr()
+                          : isResponding
+                              ? 'sos_btn_active'.tr()
+                              : 'sos_btn_sent'.tr(),
                       style: TextStyle(
                         fontFamily: 'Lexend',
                         fontSize: (size * 0.11).sp,
@@ -293,17 +299,33 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
         ? AppColors.textMutedLight
         : AppColors.textMutedDark;
 
+    final isResolved = widget.statusKey == 'sos_status_resolved_friendly';
     final isResponding = widget.statusKey == 'sos_status_responding' ||
         widget.statusKey == 'sos_status_being_handled';
 
-    final String statusText;
-    if (isResponding) {
-      statusText = 'sos_status_responding'.tr();
+    final String titleText;
+    if (isResolved) {
+      final translated = 'sos_resolved_title'.tr();
+      titleText = translated == 'sos_resolved_title' ? 'Help request resolved' : translated;
     } else {
-      statusText = widget.statusKey.tr();
+      titleText = 'sos_help_title'.tr();
     }
 
-    final fullDesc = '${'sos_help_subtitle'.tr(namedArgs: {'name': brand})} $statusText';
+    final String fullDesc;
+    if (isResolved) {
+      final translated = 'sos_status_resolved_friendly'.tr();
+      fullDesc = translated == 'sos_status_resolved_friendly'
+          ? "you're request was resolved, thank you for using munawwara care care"
+          : translated;
+    } else {
+      final String statusText;
+      if (isResponding) {
+        statusText = 'sos_status_responding'.tr();
+      } else {
+        statusText = widget.statusKey.tr();
+      }
+      fullDesc = '${'sos_help_subtitle'.tr(namedArgs: {'name': brand})} $statusText';
+    }
 
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: 420.w),
@@ -319,12 +341,13 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
             RedesignedSosSentButton(
               pulseController: widget.pulseController,
               isResponding: isResponding,
+              isResolved: isResolved,
             ),
             SizedBox(height: 24.h),
 
             // ── Premium Green Heading ───────────────────────────────────────
             Text(
-              'sos_help_title'.tr(),
+              titleText,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: 'Lexend',
@@ -456,17 +479,17 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
               children: [
                 _buildMiniServiceButton(
                   icon: Icons.wb_sunny_rounded,
-                  label: 'Weather',
+                  label: 'label_weather'.tr(),
                   onTap: widget.onWeatherTap,
                 ),
                 _buildMiniServiceButton(
                   icon: Icons.explore_rounded,
-                  label: 'Explore',
+                  label: 'label_explore'.tr(),
                   onTap: widget.onHotspotsTap,
                 ),
                 _buildMiniServiceButton(
                   icon: Icons.translate_rounded,
-                  label: 'Translate',
+                  label: 'label_translate'.tr(),
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -477,7 +500,7 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
                 ),
                 _buildMiniServiceButton(
                   icon: Icons.people_alt_rounded,
-                  label: 'Reassure',
+                  label: 'label_reassure'.tr(),
                   onTap: () {
                     showReassureFamilyBottomSheet(context: context);
                   },

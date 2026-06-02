@@ -1193,7 +1193,7 @@ class _PilgrimCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (pilgrim.hotelName != null || pilgrim.busInfo != null || pilgrim.visaStatus != null) ...[
+                  if (pilgrim.hotelName != null || pilgrim.busInfo != null) ...[
                     SizedBox(height: 6.h),
                     Wrap(
                       spacing: 12.w,
@@ -1232,27 +1232,6 @@ class _PilgrimCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                        if (pilgrim.visaStatus != null)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Symbols.verified_user,
-                                size: 12.w,
-                                color: _getVisaColor(pilgrim.visaStatus),
-                              ),
-                              SizedBox(width: 4.w),
-                              Text(
-                                pilgrim.visaStatus!.toUpperCase(),
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontSize: 10.sp,
-                                  fontWeight: FontWeight.w700,
-                                  color: _getVisaColor(pilgrim.visaStatus),
-                                ),
-                              ),
-                            ],
-                          ),
                         ],
                       ),
                   ],
@@ -1275,20 +1254,6 @@ class _PilgrimCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Color _getVisaColor(String? status) {
-    switch (status?.toLowerCase()) {
-      case 'issued':
-        return Colors.green.shade600;
-      case 'pending':
-        return Colors.orange.shade600;
-      case 'rejected':
-      case 'expired':
-        return Colors.red.shade600;
-      default:
-        return Colors.grey.shade600;
-    }
   }
 }
 
@@ -1508,12 +1473,10 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
   String? _selectedRoomId;
   String? _selectedBusId;
   String? _selectedInsuranceCompanyId;
-  String _selectedVisaStatus = 'unknown';
 
   @override
   void initState() {
     super.initState();
-    _selectedVisaStatus = widget.pilgrim.visaStatus ?? 'unknown';
     _alternativePhoneCtrl.text = widget.pilgrim.alternativePhoneNumber ?? '';
     _tasheraNumberCtrl.text = widget.pilgrim.tasheraNumber ?? '';
     _selectedInsuranceCompanyId = widget.pilgrim.insuranceCompany?.id;
@@ -1625,10 +1588,6 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
         !_insurances.any((i) => i.id == _selectedInsuranceCompanyId)) {
       _selectedInsuranceCompanyId = null;
     }
-    const validVisa = {'pending', 'issued', 'rejected', 'expired', 'unknown'};
-    if (!validVisa.contains(_selectedVisaStatus)) {
-      _selectedVisaStatus = 'unknown';
-    }
   }
 
   Future<void> _save() async {
@@ -1641,9 +1600,6 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
       'hotel_name': hotel?.name,
       'room_number': room?.roomNumber,
       'bus_info': bus == null ? null : '${bus.busNumber} - ${bus.destination}',
-      'visa': {
-        'status': _selectedVisaStatus,
-      },
       'alternative_phone_number': _alternativePhoneCtrl.text.trim().isEmpty ? null : _alternativePhoneCtrl.text.trim(),
       'tashera_number': _tasheraNumberCtrl.text.trim().isEmpty ? null : _tasheraNumberCtrl.text.trim(),
       'insurance_company_id': _selectedInsuranceCompanyId,
@@ -1794,37 +1750,7 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
                     onChanged: (v) => setState(() => _selectedBusId = v),
                   ),
                   SizedBox(height: 12.h),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedVisaStatus,
-                    isExpanded: true,
-                    decoration: AppDropdownTheme.formFieldDecoration(
-                      isDark: isDark,
-                      labelText: 'profile_visa_status'.tr(),
-                      prefixIcon: Icon(Symbols.verified_user),
-                    ),
-                    icon: AppDropdownTheme.menuTrailingIcon(),
-                    dropdownColor: AppDropdownTheme.menuBackground(isDark),
-                    borderRadius: AppDropdownTheme.menuBorderRadius(),
-                    elevation: AppDropdownTheme.menuElevation(),
-                    menuMaxHeight: AppDropdownTheme.menuMaxHeight(),
-                    style: AppDropdownTheme.valueStyle(isDark, fontSize: 13),
-                    items: ['pending', 'issued', 'rejected', 'expired', 'unknown']
-                        .map(
-                          (s) => DropdownMenuItem(
-                            value: s,
-                            child: Text(
-                              s.toUpperCase(),
-                              style: AppDropdownTheme.menuItemStyle(
-                                isDark,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) => setState(() => _selectedVisaStatus = v!),
-                  ),
-                  SizedBox(height: 12.h),
+
                   TextFormField(
                     controller: _alternativePhoneCtrl,
                     keyboardType: TextInputType.phone,

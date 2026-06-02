@@ -27,8 +27,6 @@ class PilgrimInGroup {
   final String? hotelName;
   final String? roomNumber;
   final String? busInfo;
-  final String? visaNumber;
-  final String? visaStatus;
   final String language;
   final String ethnicity;
   final String? alternativePhoneNumber;
@@ -52,8 +50,6 @@ class PilgrimInGroup {
     this.hotelName,
     this.roomNumber,
     this.busInfo,
-    this.visaNumber,
-    this.visaStatus,
     this.language = 'en',
     this.ethnicity = 'Other',
     this.alternativePhoneNumber,
@@ -81,8 +77,6 @@ class PilgrimInGroup {
       hotelName: j['hotel_name']?.toString(),
       roomNumber: j['room_number']?.toString(),
       busInfo: j['bus_info']?.toString(),
-      visaNumber: j['visa']?['visa_number']?.toString(),
-      visaStatus: j['visa']?['status']?.toString(),
       language: j['language']?.toString() ?? 'en',
       ethnicity: j['ethnicity']?.toString() ?? 'Other',
       hasSOS:
@@ -122,8 +116,6 @@ class PilgrimInGroup {
     hotelName: hotelName,
     roomNumber: roomNumber,
     busInfo: busInfo,
-    visaNumber: visaNumber,
-    visaStatus: visaStatus,
     language: language,
     ethnicity: ethnicity,
     alternativePhoneNumber: alternativePhoneNumber ?? this.alternativePhoneNumber,

@@ -424,18 +424,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             ),
                             _divider(dividerColor),
                             _InfoTile(
-                              icon: Icons.assignment_ind_rounded,
-                              label: 'profile_national_id'.tr(), // Visa status section
-                              value: authState.visaStatus != null
-                                  ? authState.visaStatus!.toUpperCase()
-                                  : 'status_unknown'.tr(),
-                              isDark: isDark,
-                              textPrimary: textPrimary,
-                              textMuted: textMuted,
-                              valueColor: _getVisaColor(authState.visaStatus),
-                            ),
-                            _divider(dividerColor),
-                            _InfoTile(
                               icon: Icons.assignment_turned_in_rounded,
                               label: 'Tashera Number',
                               value: authState.tasheraNumber ?? 'profile_not_provided'.tr(),
@@ -612,20 +600,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
     );
   }
 
-  Color _getVisaColor(String? status) {
-    switch (status?.toLowerCase()) {
-      case 'issued':
-        return Colors.green;
-      case 'pending':
-        return Colors.orange;
-      case 'rejected':
-      case 'expired':
-        return Colors.red;
-      default:
-        return AppColors.primary;
-    }
-  }
-
   Widget _divider(Color color) => Divider(
         height: 1,
         thickness: 1,
@@ -642,7 +616,6 @@ class _InfoTile extends StatelessWidget {
   final bool isDark;
   final Color textPrimary;
   final Color textMuted;
-  final Color? valueColor;
 
   const _InfoTile({
     required this.icon,
@@ -651,7 +624,6 @@ class _InfoTile extends StatelessWidget {
     required this.isDark,
     required this.textPrimary,
     required this.textMuted,
-    this.valueColor,
   });
 
   @override
@@ -688,7 +660,7 @@ class _InfoTile extends StatelessWidget {
                     fontFamily: 'Lexend',
                     fontWeight: FontWeight.w600,
                     fontSize: 14.sp,
-                    color: valueColor ?? textPrimary,
+                    color: textPrimary,
                   ),
                 ),
               ],

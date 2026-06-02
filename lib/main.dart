@@ -31,6 +31,10 @@ void main() async {
 
   await Future.wait<void>([
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge),
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]),
     prepareCoreRuntime(),
   ]);
   AppLogger.i('Firebase initialized');

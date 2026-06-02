@@ -23,7 +23,6 @@ class DuaCard extends ConsumerWidget {
     final lang = context.locale.languageCode;
     final hideAuxiliary = hideDuaEnglishAuxiliary(lang);
     final displayTitle = localizedDuaTitle(dua, lang);
-    final displaySource = localizedDuaSource(dua, lang);
 
     return Material(
       color: context.mSurfaceContainerLowest,
@@ -91,17 +90,6 @@ class DuaCard extends ConsumerWidget {
                       height: 1.45,
                       color: context.mOnSurface,
                     ),
-                  ),
-                ),
-              ],
-              if (displaySource.isNotEmpty) ...[
-                SizedBox(height: 10.h),
-                Text(
-                  displaySource,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 11.sp,
-                    color: context.mOnSurfaceVariant,
                   ),
                 ),
               ],
