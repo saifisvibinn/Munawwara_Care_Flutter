@@ -235,6 +235,19 @@ class OemSettingsService {
     return Permission.ignoreBatteryOptimizations.isGranted;
   }
 
+  static Future<bool> openTtsSettings() async {
+    if (kIsWeb) return false;
+    if (Platform.isAndroid) {
+      try {
+        final opened = await _channel.invokeMethod<bool>('openTtsSettings');
+        return opened ?? false;
+      } on PlatformException {
+        return false;
+      }
+    }
+    return false;
+  }
+
   static Future<bool> isStepSatisfied(DeviceCareActionKind kind) async {
     if (kIsWeb) return true;
     final prefs = await SharedPreferences.getInstance();

@@ -135,9 +135,14 @@ class SosAlertCoordinator {
       );
 
       final c = CallingScope.riverpod;
+      final role = c?.read(authProvider).role;
+      final isModOrAdmin = role == 'moderator' || role == 'admin';
+
       final notif = c?.read(notificationProvider.notifier);
       final mod = c?.read(moderatorProvider.notifier);
-      mod?.markPilgrimSOS(pid, active: false);
+      if (isModOrAdmin) {
+        mod?.markPilgrimSOS(pid, active: false);
+      }
       await ModeratorSosEngagementStore.removeAllEntriesForPilgrim(pid);
       await _refreshEngagementUi();
       notif?.removeSosAlertsForPilgrim(
@@ -145,7 +150,9 @@ class SosAlertCoordinator {
         sosId: payload.sosId,
       );
       // Force dashboard sync so has_sos clears even if a recent load was throttled.
-      await mod?.loadDashboard(silently: true, force: true);
+      if (isModOrAdmin) {
+        await mod?.loadDashboard(silently: true, force: true);
+      }
       await notif?.fetchUnreadCount();
     }
 
@@ -163,6 +170,11 @@ class SosAlertCoordinator {
     if (pilgrimId.isEmpty) return true;
     final c = CallingScope.riverpod;
     if (c == null) return true;
+
+    final role = c.read(authProvider).role;
+    final isModOrAdmin = role == 'moderator' || role == 'admin';
+    if (!isModOrAdmin) return false;
+
     var groups = c.read(moderatorProvider).groups;
     if (groups.isEmpty) {
       await c.read(moderatorProvider.notifier).loadDashboard(silently: true);

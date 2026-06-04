@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:in_app_update/in_app_update.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -60,7 +62,21 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     ]);
   }
 
+  Future<void> _checkInAppUpdate() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final info = await InAppUpdate.checkForUpdate();
+      if (info.updateAvailability == UpdateAvailability.updateAvailable &&
+          info.immediateUpdateAllowed) {
+        await InAppUpdate.performImmediateUpdate();
+      }
+    } catch (e, st) {
+      AppLogger.e('InAppUpdate failed: $e\n$st');
+    }
+  }
+
   Future<void> _navigate() async {
+    await _checkInAppUpdate();
     AppLogger.d('SplashScreen waiting for startup coordinator');
     try {
       await Future.any<void>([
@@ -95,7 +111,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             pending['notification_type']?.toString() ??
             pending['type']?.toString() ??
             '';
-        if (type == 'sos_alert') {
+        if (type == 'sos_alert' &&
+            (auth.role == 'moderator' || auth.role == 'admin')) {
           unawaited(
             SosAlertCoordinator.queueSosAlertIfStillActive(pending),
           );

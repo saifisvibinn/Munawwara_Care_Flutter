@@ -80,6 +80,16 @@ class MainActivity : FlutterActivity() {
                     }
                     result.success(opened)
                 }
+                "openTtsSettings" -> {
+                    val intent = android.content.Intent("com.android.settings.TTS_SETTINGS")
+                    intent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                    try {
+                        startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
+                }
                 "getDeviceOemHaystack" ->
                     result.success(OemSettingsHelper.deviceOemHaystack())
                 "isBatteryUnrestricted" ->

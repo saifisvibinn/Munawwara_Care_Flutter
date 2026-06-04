@@ -69,6 +69,7 @@ dependencies:
   logger: any
   qr_flutter: ^4.1.0
   screenshot: ^3.0.0
+  pdf: ^3.11.0
   flutter_map_marker_cluster: ^1.4.0
   just_audio: ^0.10.5
   audio_session: ^0.2.3
@@ -76,6 +77,12 @@ dependencies:
   proximity_screen_lock: ^2.3.0
   webview_flutter: ^4.13.1
   package_info_plus: ^9.0.1
+  in_app_update: ^4.2.3
+  # On-device translation, language ID, speech-to-text, and connectivity dependencies
+  google_mlkit_translation: ^0.12.0
+  google_mlkit_language_id: ^0.12.0
+  speech_to_text: ^7.4.0
+  connectivity_plus: ^6.0.3
   flutter_compass_v2:
     path: ./plugins/flutter_compass_v2
 dependency_overrides:

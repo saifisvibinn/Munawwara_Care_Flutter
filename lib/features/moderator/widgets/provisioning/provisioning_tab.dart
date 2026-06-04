@@ -11,6 +11,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'dart:io';
 
 import '../../../../core/services/api_service.dart';
@@ -324,7 +326,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
     final mediaQuery = MediaQuery.of(context);
 
     try {
-      final files = <XFile>[];
+      final pdf = pw.Document();
       final tempDir = await getTemporaryDirectory();
 
       for (int i = 0; i < itemsToShare.length; i++) {
@@ -355,15 +357,30 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
         );
 
         if (imageBytes.isNotEmpty) {
-          final String fileName = 'login_${item.fullName.replaceAll(' ', '_')}.png';
-          final File file = File('${tempDir.path}/$fileName');
-          await file.writeAsBytes(imageBytes);
-          files.add(XFile(file.path));
+          final image = pw.MemoryImage(imageBytes);
+          pdf.addPage(
+            pw.Page(
+              pageFormat: PdfPageFormat.a4,
+              build: (pw.Context context) {
+                return pw.Center(
+                  child: pw.Image(
+                    image,
+                    fit: pw.BoxFit.contain,
+                  ),
+                );
+              },
+            ),
+          );
         }
       }
 
-      if (files.isNotEmpty) {
-        await Share.shareXFiles(files, text: 'provisioning_share_caption_group'.tr(args: [groupName]));
+      if (itemsToShare.isNotEmpty) {
+        final pdfBytes = await pdf.save();
+        final String safeGroupName = groupName.replaceAll(RegExp(r'[^\w\s\-]'), '').replaceAll(' ', '_');
+        final String fileName = 'login_credentials_$safeGroupName.pdf';
+        final File file = File('${tempDir.path}/$fileName');
+        await file.writeAsBytes(pdfBytes);
+        await Share.shareXFiles([XFile(file.path)], text: 'provisioning_share_caption_group'.tr(args: [groupName]));
       }
     } catch (e) {
       if (mounted) StandardSnackBar.showError(context, 'provisioning_generate_images_failed'.tr(args: ['$e']));
@@ -433,6 +450,59 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
       if (mounted) StandardSnackBar.showSuccess(context, 'provisioning_pilgrim_removed'.tr());
     } on DioException catch (e) {
       if (mounted) StandardSnackBar.showError(context, ApiService.parseError(e));
+    }
+  }
+
+  Future<void> _handleRefreshSelected() async {
+    final groupId = _selectedGroupId;
+    if (groupId == null) return;
+
+    final selectedItems = _items.where((i) => _selectedPilgrimIds.contains(i.pilgrimId)).toList();
+    if (selectedItems.isEmpty) {
+      StandardSnackBar.showError(context, 'provisioning_no_valid_accounts'.tr());
+      return;
+    }
+
+    final confirmed = await StandardDialog.show(
+      context: context,
+      title: 'provisioning_refresh_selected_title',
+      confirmText: 'provisioning_refresh_confirm',
+      content: 'provisioning_refresh_selected_body',
+      contentArgs: [selectedItems.length.toString()],
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isLoadingStatus = true;
+    });
+
+    int successCount = 0;
+    final errors = <String>[];
+
+    for (final item in selectedItems) {
+      try {
+        await ApiService.dio.post('/auth/groups/$groupId/pilgrims/${item.pilgrimId}/reissue-login');
+        successCount++;
+      } on DioException catch (e) {
+        errors.add('${item.fullName}: ${ApiService.parseError(e)}');
+      }
+    }
+
+    await _loadProvisioningStatus();
+
+    if (mounted) {
+      if (errors.isEmpty) {
+        StandardSnackBar.showSuccess(
+          context,
+          'provisioning_refresh_success'.tr(args: [successCount.toString()]),
+        );
+      } else {
+        StandardSnackBar.showError(
+          context,
+          'Failed to refresh ${errors.length} of ${selectedItems.length} codes:\n${errors.join('\n')}',
+        );
+      }
     }
   }
 
@@ -659,8 +729,18 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
                 isLoading: _isLoadingStatus,
                 isDark: isDark,
                 filterStatus: _filterStatus,
-                onFilterChanged: (v) => setState(() => _filterStatus = v),
-                onRefresh: _loadProvisioningStatus,
+                onFilterChanged: (val) {
+                  setState(() {
+                    _filterStatus = val;
+                  });
+                },
+                onRefresh: () {
+                  if (_isSelectionMode) {
+                    _handleRefreshSelected();
+                  } else {
+                    _loadProvisioningStatus();
+                  }
+                },
                 onShowQr: (item) =>
                     _showCredentialDialog(item, groupName, modName),
                 onShareQr: _handleShareQr,
@@ -696,6 +776,12 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
                     } else {
                       _selectedPilgrimIds.addAll(itemsWithTokens);
                     }
+                  });
+                },
+                onLongPressSelect: (id) {
+                  setState(() {
+                    _isSelectionMode = true;
+                    _selectedPilgrimIds.add(id);
                   });
                 },
               ),

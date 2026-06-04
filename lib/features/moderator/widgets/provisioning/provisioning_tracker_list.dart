@@ -25,6 +25,7 @@ class ProvisioningTrackerList extends StatelessWidget {
   final VoidCallback onToggleSelectionMode;
   final Function(String id, bool selected) onSelectionChanged;
   final VoidCallback onSelectAll;
+  final Function(String id)? onLongPressSelect;
 
   const ProvisioningTrackerList({
     super.key,
@@ -45,6 +46,7 @@ class ProvisioningTrackerList extends StatelessWidget {
     required this.onToggleSelectionMode,
     required this.onSelectionChanged,
     required this.onSelectAll,
+    this.onLongPressSelect,
   });
 
   @override
@@ -136,7 +138,7 @@ class ProvisioningTrackerList extends StatelessWidget {
                   PopupMenuItem(
                     value: 'share_images',
                     child: AppPopupMenu.actionRow(
-                      icon: Symbols.image,
+                      icon: Symbols.picture_as_pdf,
                       label: 'provisioning_share_selected_images'.tr(),
                       isDark: isDark,
                     ),
@@ -172,7 +174,7 @@ class ProvisioningTrackerList extends StatelessWidget {
                   PopupMenuItem(
                     value: 'share_images',
                     child: AppPopupMenu.actionRow(
-                      icon: Symbols.image,
+                      icon: Symbols.picture_as_pdf,
                       label: 'provisioning_share_pending_images'.tr(),
                       isDark: isDark,
                     ),
@@ -191,7 +193,9 @@ class ProvisioningTrackerList extends StatelessWidget {
                   value: 'refresh',
                   child: AppPopupMenu.actionRow(
                     icon: Symbols.refresh,
-                    label: 'group_refresh_status'.tr(),
+                    label: isSelectionMode
+                        ? 'provisioning_refresh_selected_codes'.tr()
+                        : 'group_refresh_status'.tr(),
                     isDark: isDark,
                   ),
                 ),
@@ -229,6 +233,11 @@ class ProvisioningTrackerList extends StatelessWidget {
                 isSelectionMode: isSelectionMode,
                 isSelected: selectedIds.contains(item.pilgrimId),
                 onSelectionChanged: (selected) => onSelectionChanged(item.pilgrimId, selected ?? false),
+                onLongPress: () {
+                  if (onLongPressSelect != null) {
+                    onLongPressSelect!(item.pilgrimId);
+                  }
+                },
               );
             },
           ),
@@ -328,6 +337,7 @@ class _TrackerItemCard extends StatelessWidget {
   final bool isSelectionMode;
   final bool isSelected;
   final Function(bool?)? onSelectionChanged;
+  final VoidCallback? onLongPress;
 
   const _TrackerItemCard({
     required this.item,
@@ -339,6 +349,7 @@ class _TrackerItemCard extends StatelessWidget {
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onSelectionChanged,
+    this.onLongPress,
   });
 
   @override
@@ -514,11 +525,18 @@ class _TrackerItemCard extends StatelessWidget {
       ),
     );
 
-    if (isSelectionMode && isSelectable) {
+    if (isSelectable) {
       return GestureDetector(
-        onTap: () {
-          if (onSelectionChanged != null) {
-            onSelectionChanged!(!isSelected);
+        onTap: isSelectionMode
+            ? () {
+                if (onSelectionChanged != null) {
+                  onSelectionChanged!(!isSelected);
+                }
+              }
+            : null,
+        onLongPress: () {
+          if (!isSelectionMode && onLongPress != null) {
+            onLongPress!();
           }
         },
         child: cardContent,
