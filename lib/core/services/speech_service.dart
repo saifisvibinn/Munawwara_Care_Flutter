@@ -453,6 +453,8 @@ class SpeechService {
     };
   }
 
+  static Future<bool> isDismissed() => _isDismissed();
+
   static Future<bool> _isDismissed() async {
     try {
       final prefs = await SharedPreferences.getInstance();

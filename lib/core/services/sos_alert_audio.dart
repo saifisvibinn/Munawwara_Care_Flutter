@@ -150,8 +150,22 @@ class SosAlertAudio {
 
     try {
       await SpeechService.stop();
-      AppLogger.i('[SosAlertAudio] Foreground urgent: $_urgentAsset');
-      await SpeechService.playAsset(assetPath: _urgentAsset, isUrgent: true);
+      AppLogger.i('[SosAlertAudio] Foreground urgent (3 times): $_urgentAsset');
+      for (int i = 0; i < 3; i++) {
+        if (!isAppInForeground) break;
+        if (!_keysInFlight.contains(storageKey)) break;
+        if (await SpeechService.isDismissed()) break;
+
+        await SpeechService.playAsset(assetPath: _urgentAsset, isUrgent: true);
+
+        if (i < 2 && isAppInForeground && _keysInFlight.contains(storageKey)) {
+          for (int ms = 0; ms < 500; ms += 100) {
+            await Future.delayed(const Duration(milliseconds: 100));
+            if (!_keysInFlight.contains(storageKey)) break;
+            if (await SpeechService.isDismissed()) break;
+          }
+        }
+      }
     } finally {
       _releaseSyncGate(storageKey);
     }
@@ -177,12 +191,33 @@ class SosAlertAudio {
 
       await SpeechService.stop();
 
-      AppLogger.i('[SosAlertAudio] Background urgent: $_urgentAsset');
-      await SpeechService.playAsset(assetPath: _urgentAsset, isUrgent: true);
+      AppLogger.i('[SosAlertAudio] Background urgent (3 times): $_urgentAsset');
+      for (int i = 0; i < 3; i++) {
+        if (await wasHandledByMainIsolate(storageKey)) return;
+        if (!_keysInFlight.contains(storageKey)) break;
+        if (await SpeechService.isDismissed()) break;
+
+        await SpeechService.playAsset(assetPath: _urgentAsset, isUrgent: true);
+
+        if (i < 2) {
+          for (int ms = 0; ms < 500; ms += 100) {
+            await Future.delayed(const Duration(milliseconds: 100));
+            if (await wasHandledByMainIsolate(storageKey)) return;
+            if (!_keysInFlight.contains(storageKey)) break;
+            if (await SpeechService.isDismissed()) break;
+          }
+        }
+      }
 
       if (await wasHandledByMainIsolate(storageKey)) return;
+      if (!_keysInFlight.contains(storageKey)) return;
+      if (await SpeechService.isDismissed()) return;
 
       await Future.delayed(const Duration(seconds: 3));
+
+      if (await wasHandledByMainIsolate(storageKey)) return;
+      if (!_keysInFlight.contains(storageKey)) return;
+      if (await SpeechService.isDismissed()) return;
 
       final lang = await _resolveBackgroundLanguage();
       final path = assetPathForLang(lang);
