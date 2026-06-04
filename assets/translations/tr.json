@@ -1541,5 +1541,10 @@
   "Download": "İndir",
   "Cancel": "İptal",
   "Hold and speak, release to translate.": "Konuşmak için basılı tutun, çevirmek için bırakın.",
-  "translate_to_connector": "->"
+  "translate_to_connector": "->",
+  "morafeq_companion_info": "Refakatçi Bilgileri (Morafeq)",
+  "morafeq_name": "Refakatçi Adı",
+  "morafeq_phone": "Refakatçi Telefonu",
+  "morafeq_email": "Refakatçi E-postası",
+  "morafeq_subtitle": "İkincil refakatçi iletişim bilgileri"
 }

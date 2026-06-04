@@ -58,7 +58,9 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _alternativePhoneCtrl = TextEditingController();
+  final _morafeqNameCtrl = TextEditingController();
+  final _morafeqPhoneCtrl = TextEditingController();
+  final _morafeqEmailCtrl = TextEditingController();
   final _tasheraNumberCtrl = TextEditingController();
   final _ageCtrl = TextEditingController();
   final _nationalIdCtrl = TextEditingController();
@@ -76,7 +78,9 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
   void dispose() {
     _fullNameCtrl.dispose();
     _phoneCtrl.dispose();
-    _alternativePhoneCtrl.dispose();
+    _morafeqNameCtrl.dispose();
+    _morafeqPhoneCtrl.dispose();
+    _morafeqEmailCtrl.dispose();
     _tasheraNumberCtrl.dispose();
     _ageCtrl.dispose();
     _nationalIdCtrl.dispose();
@@ -176,7 +180,9 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
     final data = {
       'full_name': _fullNameCtrl.text.trim(),
       'phone_number': _phoneCtrl.text.trim(),
-      'alternative_phone_number': _alternativePhoneCtrl.text.trim().isEmpty ? null : _alternativePhoneCtrl.text.trim(),
+      'morafeq_name': _morafeqNameCtrl.text.trim().isEmpty ? null : _morafeqNameCtrl.text.trim(),
+      'morafeq_phone': _morafeqPhoneCtrl.text.trim().isEmpty ? null : _morafeqPhoneCtrl.text.trim(),
+      'morafeq_email': _morafeqEmailCtrl.text.trim().isEmpty ? null : _morafeqEmailCtrl.text.trim(),
       'tashera_number': _tasheraNumberCtrl.text.trim().isEmpty ? null : _tasheraNumberCtrl.text.trim(),
       'insurance_company_id': _selectedInsuranceCompanyId,
       'national_id': _nationalIdCtrl.text.trim(),
@@ -316,18 +322,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                             ? 'provisioning_required'.tr()
                             : null,
                       ),
-                      SizedBox(height: g),
-                      TextFormField(
-                        controller: _alternativePhoneCtrl,
-                        keyboardType: TextInputType.phone,
-                        textInputAction: TextInputAction.next,
-                        decoration: ProvisioningFormTheme.fieldDecoration(
-                          context: context,
-                          isDark: widget.isDark,
-                          hintText: 'Alternative Phone (Optional)',
-                          prefixIcon: _prefix(Symbols.phone, textMuted),
-                        ),
-                      ),
+
                     ],
                   ),
                 ),
@@ -442,6 +437,75 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                       ),
                     ),
                   ],
+                ),
+                SizedBox(height: g),
+                _MorafeqInfoExpansion(
+                  isDark: widget.isDark,
+                  textPrimary: textPrimary,
+                  textMuted: textMuted,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextFormField(
+                        controller: _morafeqNameCtrl,
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'morafeq_name'.tr(),
+                          prefixIcon: _prefix(Symbols.person, textMuted),
+                        ),
+                        validator: (v) {
+                          final phone = _morafeqPhoneCtrl.text.trim();
+                          if (phone.isNotEmpty && (v == null || v.trim().isEmpty)) {
+                            return 'provisioning_required'.tr();
+                          }
+                          return null;
+                        },
+                      ),
+                      SizedBox(height: g),
+                      TextFormField(
+                        controller: _morafeqPhoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.next,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'morafeq_phone'.tr(),
+                          prefixIcon: _prefix(Symbols.phone, textMuted),
+                        ),
+                        validator: (v) {
+                          final name = _morafeqNameCtrl.text.trim();
+                          if (name.isNotEmpty && (v == null || v.trim().isEmpty)) {
+                            return 'provisioning_required'.tr();
+                          }
+                          return null;
+                        },
+                      ),
+                      SizedBox(height: g),
+                      TextFormField(
+                        controller: _morafeqEmailCtrl,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: '${'morafeq_email'.tr()} (Optional)',
+                          prefixIcon: _prefix(Symbols.mail, textMuted),
+                        ),
+                        validator: (v) {
+                          if (v != null && v.trim().isNotEmpty) {
+                            final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+                            if (!emailRegex.hasMatch(v.trim())) {
+                              return 'provisioning_invalid'.tr();
+                            }
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
                 ),
                 SizedBox(height: g),
                 _AdditionalDetailsExpansion(
@@ -837,6 +901,72 @@ class _AdditionalDetailsExpansion extends StatelessWidget {
               padding: EdgeInsets.only(top: 4.h),
               child: Text(
                 'provisioning_optional_logistics'.tr(),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w500,
+                      fontSize: 12.5.sp,
+                      color: textMuted.withValues(alpha: 0.95),
+                    ),
+              ),
+            ),
+            children: [child],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MorafeqInfoExpansion extends StatelessWidget {
+  const _MorafeqInfoExpansion({
+    required this.isDark,
+    required this.textPrimary,
+    required this.textMuted,
+    required this.child,
+  });
+
+  final bool isDark;
+  final Color textPrimary;
+  final Color textMuted;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final dividerClr =
+        isDark ? AppColors.dividerDark : AppColors.dividerLight;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(bottom: 4.h),
+          child: Divider(height: 1, thickness: 1, color: dividerClr),
+        ),
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            maintainState: true,
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: EdgeInsets.only(top: 4.h, bottom: 4.h),
+            backgroundColor: Colors.transparent,
+            collapsedBackgroundColor: Colors.transparent,
+            shape: const RoundedRectangleBorder(side: BorderSide.none),
+            collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+            iconColor: AppColors.primary,
+            collapsedIconColor: AppColors.primary,
+            initiallyExpanded: false,
+            title: Text(
+              'morafeq_companion_info'.tr(),
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w700,
+                    color: textPrimary,
+                  ),
+            ),
+            subtitle: Padding(
+              padding: EdgeInsets.only(top: 4.h),
+              child: Text(
+                'morafeq_subtitle'.tr(),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontFamily: 'Lexend',
                       fontWeight: FontWeight.w500,

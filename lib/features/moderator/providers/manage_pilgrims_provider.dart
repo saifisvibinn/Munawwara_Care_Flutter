@@ -24,6 +24,9 @@ class ManagedPilgrimItem {
   final String? busInfo;
   final String? medicalHistory;
   final String? alternativePhoneNumber;
+  final String? morafeqName;
+  final String? morafeqPhone;
+  final String? morafeqEmail;
   final String? tasheraNumber;
   final InsuranceCompany? insuranceCompany;
 
@@ -45,6 +48,9 @@ class ManagedPilgrimItem {
     this.busInfo,
     this.medicalHistory,
     this.alternativePhoneNumber,
+    this.morafeqName,
+    this.morafeqPhone,
+    this.morafeqEmail,
     this.tasheraNumber,
     this.insuranceCompany,
   });
@@ -69,6 +75,9 @@ class ManagedPilgrimItem {
       busInfo: m['bus_info']?.toString(),
       medicalHistory: m['medical_history']?.toString(),
       alternativePhoneNumber: m['alternative_phone_number']?.toString(),
+      morafeqName: m['morafeq_name']?.toString(),
+      morafeqPhone: m['morafeq_phone']?.toString(),
+      morafeqEmail: m['morafeq_email']?.toString(),
       tasheraNumber: m['tashera_number']?.toString(),
       insuranceCompany: m['insurance_company_id'] != null
           ? InsuranceCompany.fromJson(Map<String, dynamic>.from(m['insurance_company_id']))
@@ -93,6 +102,9 @@ class ManagedPilgrimItem {
         medicalHistory: medicalHistory,
         age: age,
         alternativePhoneNumber: alternativePhoneNumber,
+        morafeqName: morafeqName,
+        morafeqPhone: morafeqPhone,
+        morafeqEmail: morafeqEmail,
         tasheraNumber: tasheraNumber,
         insuranceCompany: insuranceCompany,
       );

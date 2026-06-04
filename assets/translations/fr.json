@@ -1540,5 +1540,10 @@
   "Download": "Télécharger",
   "Cancel": "Annuler",
   "Hold and speak, release to translate.": "Maintenez pour parler, relâchez pour traduire.",
-  "translate_to_connector": "en"
+  "translate_to_connector": "en",
+  "morafeq_companion_info": "Informations sur le compagnon (Morafeq)",
+  "morafeq_name": "Nom du compagnon",
+  "morafeq_phone": "Téléphone du compagnon",
+  "morafeq_email": "Email du compagnon",
+  "morafeq_subtitle": "Coordonnées du compagnon secondaire"
 }

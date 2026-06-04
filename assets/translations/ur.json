@@ -1542,5 +1542,10 @@
   "Download": "ڈاؤن لوڈ کریں",
   "Cancel": "منسوخ کریں",
   "Hold and speak, release to translate.": "دبائے رکھیں اور بولیں، ترجمہ کرنے کے لیے چھوڑ دیں۔",
-  "translate_to_connector": "کو"
+  "translate_to_connector": "کو",
+  "morafeq_companion_info": "مرافق (ساتھی) کی معلومات",
+  "morafeq_name": "ساتھی کا نام",
+  "morafeq_phone": "ساتھی کا فون نمبر",
+  "morafeq_email": "ساتھی کا ای میل",
+  "morafeq_subtitle": "ثانوی ساتھی کے رابطے کی تفصیلات"
 }

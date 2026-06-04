@@ -1540,5 +1540,10 @@
   "Download": "Unduh",
   "Cancel": "Batal",
   "Hold and speak, release to translate.": "Tekan dan tahan untuk berbicara, lepaskan untuk menerjemahkan.",
-  "translate_to_connector": "ke"
+  "translate_to_connector": "ke",
+  "morafeq_companion_info": "Informasi Pendamping (Morafeq)",
+  "morafeq_name": "Nama Pendamping",
+  "morafeq_phone": "Telepon Pendamping",
+  "morafeq_email": "Email Pendamping",
+  "morafeq_subtitle": "Detail kontak pendamping sekunder"
 }

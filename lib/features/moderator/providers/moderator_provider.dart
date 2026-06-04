@@ -30,6 +30,9 @@ class PilgrimInGroup {
   final String language;
   final String ethnicity;
   final String? alternativePhoneNumber;
+  final String? morafeqName;
+  final String? morafeqPhone;
+  final String? morafeqEmail;
   final String? tasheraNumber;
   final InsuranceCompany? insuranceCompany;
 
@@ -53,6 +56,9 @@ class PilgrimInGroup {
     this.language = 'en',
     this.ethnicity = 'Other',
     this.alternativePhoneNumber,
+    this.morafeqName,
+    this.morafeqPhone,
+    this.morafeqEmail,
     this.tasheraNumber,
     this.insuranceCompany,
   });
@@ -82,6 +88,9 @@ class PilgrimInGroup {
       hasSOS:
           j['has_sos'] == true || j['sos_active'] == true || j['sos'] == true,
       alternativePhoneNumber: j['alternative_phone_number']?.toString(),
+      morafeqName: j['morafeq_name']?.toString(),
+      morafeqPhone: j['morafeq_phone']?.toString(),
+      morafeqEmail: j['morafeq_email']?.toString(),
       tasheraNumber: j['tashera_number']?.toString(),
       insuranceCompany: j['insurance_company_id'] != null
           ? InsuranceCompany.fromJson(Map<String, dynamic>.from(j['insurance_company_id']))
@@ -97,6 +106,9 @@ class PilgrimInGroup {
     DateTime? lastUpdated,
     bool? isOnline,
     String? alternativePhoneNumber,
+    String? morafeqName,
+    String? morafeqPhone,
+    String? morafeqEmail,
     String? tasheraNumber,
     InsuranceCompany? insuranceCompany,
   }) => PilgrimInGroup(
@@ -119,6 +131,9 @@ class PilgrimInGroup {
     language: language,
     ethnicity: ethnicity,
     alternativePhoneNumber: alternativePhoneNumber ?? this.alternativePhoneNumber,
+    morafeqName: morafeqName ?? this.morafeqName,
+    morafeqPhone: morafeqPhone ?? this.morafeqPhone,
+    morafeqEmail: morafeqEmail ?? this.morafeqEmail,
     tasheraNumber: tasheraNumber ?? this.tasheraNumber,
     insuranceCompany: insuranceCompany ?? this.insuranceCompany,
   );

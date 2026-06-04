@@ -41,6 +41,9 @@ class AuthState {
   final String? language;
   final String? ethnicity;
   final String? alternativePhoneNumber;
+  final String? morafeqName;
+  final String? morafeqPhone;
+  final String? morafeqEmail;
   final String? tasheraNumber;
   final InsuranceCompany? insuranceCompany;
 
@@ -67,6 +70,9 @@ class AuthState {
     this.language,
     this.ethnicity,
     this.alternativePhoneNumber,
+    this.morafeqName,
+    this.morafeqPhone,
+    this.morafeqEmail,
     this.tasheraNumber,
     this.insuranceCompany,
   });
@@ -96,6 +102,9 @@ class AuthState {
     String? language,
     String? ethnicity,
     String? alternativePhoneNumber,
+    String? morafeqName,
+    String? morafeqPhone,
+    String? morafeqEmail,
     String? tasheraNumber,
     InsuranceCompany? insuranceCompany,
     bool clearError = false,
@@ -131,6 +140,9 @@ class AuthState {
       ethnicity: ethnicity ?? this.ethnicity,
       alternativePhoneNumber:
           alternativePhoneNumber ?? this.alternativePhoneNumber,
+      morafeqName: morafeqName ?? this.morafeqName,
+      morafeqPhone: morafeqPhone ?? this.morafeqPhone,
+      morafeqEmail: morafeqEmail ?? this.morafeqEmail,
       tasheraNumber: tasheraNumber ?? this.tasheraNumber,
       insuranceCompany: insuranceCompany ?? this.insuranceCompany,
     );
@@ -262,6 +274,9 @@ class AuthNotifier extends Notifier<AuthState> {
         language: data['language']?.toString(),
         ethnicity: data['ethnicity']?.toString(),
         alternativePhoneNumber: data['alternative_phone_number']?.toString(),
+        morafeqName: data['morafeq_name']?.toString(),
+        morafeqPhone: data['morafeq_phone']?.toString(),
+        morafeqEmail: data['morafeq_email']?.toString(),
         tasheraNumber: data['tashera_number']?.toString(),
         insuranceCompany: data['insurance_company_id'] != null
             ? InsuranceCompany.fromJson(
@@ -338,6 +353,9 @@ class AuthNotifier extends Notifier<AuthState> {
       ethnicity: data['ethnicity']?.toString() ?? state.ethnicity,
       alternativePhoneNumber: data['alternative_phone_number']?.toString() ??
           state.alternativePhoneNumber,
+      morafeqName: data['morafeq_name']?.toString() ?? state.morafeqName,
+      morafeqPhone: data['morafeq_phone']?.toString() ?? state.morafeqPhone,
+      morafeqEmail: data['morafeq_email']?.toString() ?? state.morafeqEmail,
       tasheraNumber:
           data['tashera_number']?.toString() ?? state.tasheraNumber,
       insuranceCompany: data['insurance_company_id'] != null
@@ -562,6 +580,9 @@ class AuthNotifier extends Notifier<AuthState> {
         language: data['language']?.toString(),
         ethnicity: data['ethnicity']?.toString(),
         alternativePhoneNumber: data['alternative_phone_number']?.toString(),
+        morafeqName: data['morafeq_name']?.toString(),
+        morafeqPhone: data['morafeq_phone']?.toString(),
+        morafeqEmail: data['morafeq_email']?.toString(),
         tasheraNumber: data['tashera_number']?.toString(),
         insuranceCompany: data['insurance_company_id'] != null
             ? InsuranceCompany.fromJson(

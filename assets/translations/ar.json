@@ -1539,5 +1539,10 @@
   "Download": "تنزيل",
   "Cancel": "إلغاء",
   "Hold and speak, release to translate.": "اضغط مع الاستمرار وتحدث، ثم أفلت للترجمة.",
-  "translate_to_connector": "إلى"
+  "translate_to_connector": "إلى",
+  "morafeq_companion_info": "بيانات المرافق (مرافق)",
+  "morafeq_name": "اسم المرافق",
+  "morafeq_phone": "هاتف المرافق",
+  "morafeq_email": "بريد المرافق",
+  "morafeq_subtitle": "بيانات الاتصال الإضافية للمرافق"
 }

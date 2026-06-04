@@ -349,9 +349,21 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                   isDark: isDark,
                 ),
                 _ProfileInfoRow(
-                  icon: Symbols.phone,
-                  label: 'Alternative Phone',
-                  value: pilgrim.alternativePhoneNumber ?? 'profile_not_provided'.tr(),
+                  icon: Symbols.assignment_ind,
+                  label: 'morafeq_name'.tr(),
+                  value: pilgrim.morafeqName ?? 'profile_not_provided'.tr(),
+                  isDark: isDark,
+                ),
+                _ProfileInfoRow(
+                  icon: Symbols.phone_callback,
+                  label: 'morafeq_phone'.tr(),
+                  value: pilgrim.morafeqPhone ?? 'profile_not_provided'.tr(),
+                  isDark: isDark,
+                ),
+                _ProfileInfoRow(
+                  icon: Symbols.mail,
+                  label: 'morafeq_email'.tr(),
+                  value: pilgrim.morafeqEmail ?? 'profile_not_provided'.tr(),
                   isDark: isDark,
                 ),
                 _ProfileInfoRow(

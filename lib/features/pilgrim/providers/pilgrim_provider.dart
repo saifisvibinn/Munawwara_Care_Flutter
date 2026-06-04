@@ -18,6 +18,9 @@ class PilgrimProfile {
   final int? age;
   final String? gender;
   final String? alternativePhoneNumber;
+  final String? morafeqName;
+  final String? morafeqPhone;
+  final String? morafeqEmail;
   final String? tasheraNumber;
   final InsuranceCompany? insuranceCompany;
 
@@ -31,6 +34,9 @@ class PilgrimProfile {
     this.age,
     this.gender,
     this.alternativePhoneNumber,
+    this.morafeqName,
+    this.morafeqPhone,
+    this.morafeqEmail,
     this.tasheraNumber,
     this.insuranceCompany,
   });
@@ -45,6 +51,9 @@ class PilgrimProfile {
     age: j['age'] as int?,
     gender: j['gender']?.toString(),
     alternativePhoneNumber: j['alternative_phone_number']?.toString(),
+    morafeqName: j['morafeq_name']?.toString(),
+    morafeqPhone: j['morafeq_phone']?.toString(),
+    morafeqEmail: j['morafeq_email']?.toString(),
     tasheraNumber: j['tashera_number']?.toString(),
     insuranceCompany: j['insurance_company_id'] != null
         ? InsuranceCompany.fromJson(

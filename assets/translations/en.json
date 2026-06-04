@@ -1531,5 +1531,10 @@
   "Download": "Download",
   "Cancel": "Cancel",
   "Hold and speak, release to translate.": "Hold and speak, release to translate.",
-  "translate_to_connector": "to"
+  "translate_to_connector": "to",
+  "morafeq_companion_info": "Morafeq Companion Info",
+  "morafeq_name": "Companion Name",
+  "morafeq_phone": "Companion Phone",
+  "morafeq_email": "Companion Email",
+  "morafeq_subtitle": "Secondary companion contact details"
 }

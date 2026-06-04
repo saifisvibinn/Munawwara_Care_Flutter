@@ -1461,12 +1461,15 @@ class _EditLogisticsContent extends ConsumerStatefulWidget {
 }
 
 class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
+  final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   List<_HotelOption> _hotels = [];
   List<_BusOption> _buses = [];
   List<InsuranceCompany> _insurances = [];
 
-  final _alternativePhoneCtrl = TextEditingController();
+  final _morafeqNameCtrl = TextEditingController();
+  final _morafeqPhoneCtrl = TextEditingController();
+  final _morafeqEmailCtrl = TextEditingController();
   final _tasheraNumberCtrl = TextEditingController();
 
   String? _selectedHotelId;
@@ -1477,7 +1480,9 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
   @override
   void initState() {
     super.initState();
-    _alternativePhoneCtrl.text = widget.pilgrim.alternativePhoneNumber ?? '';
+    _morafeqNameCtrl.text = widget.pilgrim.morafeqName ?? '';
+    _morafeqPhoneCtrl.text = widget.pilgrim.morafeqPhone ?? '';
+    _morafeqEmailCtrl.text = widget.pilgrim.morafeqEmail ?? '';
     _tasheraNumberCtrl.text = widget.pilgrim.tasheraNumber ?? '';
     _selectedInsuranceCompanyId = widget.pilgrim.insuranceCompany?.id;
     if (widget.pilgrim.currentGroupId != null) {
@@ -1487,7 +1492,9 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
 
   @override
   void dispose() {
-    _alternativePhoneCtrl.dispose();
+    _morafeqNameCtrl.dispose();
+    _morafeqPhoneCtrl.dispose();
+    _morafeqEmailCtrl.dispose();
     _tasheraNumberCtrl.dispose();
     super.dispose();
   }
@@ -1591,6 +1598,7 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
   }
 
   Future<void> _save() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _isLoading = true);
     final hotel = _hotels.where((h) => h.id == _selectedHotelId).firstOrNull;
     final room = hotel?.rooms.where((r) => r.id == _selectedRoomId).firstOrNull;
@@ -1600,7 +1608,9 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
       'hotel_name': hotel?.name,
       'room_number': room?.roomNumber,
       'bus_info': bus == null ? null : '${bus.busNumber} - ${bus.destination}',
-      'alternative_phone_number': _alternativePhoneCtrl.text.trim().isEmpty ? null : _alternativePhoneCtrl.text.trim(),
+      'morafeq_name': _morafeqNameCtrl.text.trim().isEmpty ? null : _morafeqNameCtrl.text.trim(),
+      'morafeq_phone': _morafeqPhoneCtrl.text.trim().isEmpty ? null : _morafeqPhoneCtrl.text.trim(),
+      'morafeq_email': _morafeqEmailCtrl.text.trim().isEmpty ? null : _morafeqEmailCtrl.text.trim(),
       'tashera_number': _tasheraNumberCtrl.text.trim().isEmpty ? null : _tasheraNumberCtrl.text.trim(),
       'insurance_company_id': _selectedInsuranceCompanyId,
     };
@@ -1629,9 +1639,11 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
     }
 
     return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
                   DropdownButtonFormField<String?>(
                     initialValue: _selectedHotelId,
                     isExpanded: true,
@@ -1751,19 +1763,87 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
                   ),
                   SizedBox(height: 12.h),
 
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.h),
+                      child: Text(
+                        'morafeq_companion_info'.tr(),
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.sp,
+                          color: isDark ? Colors.white70 : AppColors.textMutedDark,
+                        ),
+                      ),
+                    ),
+                  ),
                   TextFormField(
-                    controller: _alternativePhoneCtrl,
-                    keyboardType: TextInputType.phone,
+                    controller: _morafeqNameCtrl,
+                    textCapitalization: TextCapitalization.words,
                     decoration: AppDropdownTheme.formFieldDecoration(
                       isDark: isDark,
-                      labelText: 'Alternative Phone',
-                      prefixIcon: Icon(Symbols.phone),
+                      labelText: 'morafeq_name'.tr(),
+                      prefixIcon: const Icon(Symbols.person),
                     ),
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontSize: 14.sp,
                       color: isDark ? Colors.white : AppColors.textDark,
                     ),
+                    validator: (v) {
+                      final phone = _morafeqPhoneCtrl.text.trim();
+                      if (phone.isNotEmpty && (v == null || v.trim().isEmpty)) {
+                        return 'provisioning_required'.tr();
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 12.h),
+                  TextFormField(
+                    controller: _morafeqPhoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    decoration: AppDropdownTheme.formFieldDecoration(
+                      isDark: isDark,
+                      labelText: 'morafeq_phone'.tr(),
+                      prefixIcon: const Icon(Symbols.phone),
+                    ),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 14.sp,
+                      color: isDark ? Colors.white : AppColors.textDark,
+                    ),
+                    validator: (v) {
+                      final name = _morafeqNameCtrl.text.trim();
+                      if (name.isNotEmpty && (v == null || v.trim().isEmpty)) {
+                        return 'provisioning_required'.tr();
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 12.h),
+                  TextFormField(
+                    controller: _morafeqEmailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: AppDropdownTheme.formFieldDecoration(
+                      isDark: isDark,
+                      labelText: '${'morafeq_email'.tr()} (${'provisioning_optional_logistics'.tr()})',
+                      prefixIcon: const Icon(Symbols.mail),
+                    ),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 14.sp,
+                      color: isDark ? Colors.white : AppColors.textDark,
+                    ),
+                    validator: (v) {
+                      if (v != null && v.trim().isNotEmpty) {
+                        final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+                        if (!emailRegex.hasMatch(v.trim())) {
+                          return 'provisioning_invalid'.tr();
+                        }
+                      }
+                      return null;
+                    },
                   ),
                   SizedBox(height: 12.h),
                   TextFormField(
@@ -1854,7 +1934,8 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
                   ),
                 ],
               ),
-            );
+            ),
+          );
   }
 
 }
