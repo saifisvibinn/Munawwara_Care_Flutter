@@ -87,62 +87,53 @@ class _SosButtonState extends State<SosButton>
         widget.onHoldEnd();
       },
       child: AnimatedBuilder(
-        animation: _scaleAnim,
-        builder: (_, child) =>
-            Transform.scale(scale: _scaleAnim.value, child: child),
+        animation: Listenable.merge([_scaleAnim, widget.pulseController]),
+        builder: (context, child) {
+          final pulseCurve = Curves.easeInOut.transform(widget.pulseController.value);
+          final double scale = widget.isHolding
+              ? _scaleAnim.value
+              : (1.0 + (pulseCurve * 0.045));
+          return Transform.scale(scale: scale, child: child);
+        },
         child: SizedBox(
-          width: size.w,
-          height: size.w,
+          width: (size + 16).w,
+          height: (size + 16).w,
           child: Stack(
             alignment: Alignment.center,
             children: [
+              // ── Main Button Surface & Glow ──
+              AnimatedBuilder(
+                animation: widget.pulseController,
+                builder: (context, child) {
+                  final pulseValue = widget.pulseController.value;
+                  final double glowRadius = 28.0 + (pulseValue * 18.0); // 28 to 46
+                  final double spreadRadius = 6.0 + (pulseValue * 8.0); // 6 to 14
+                  final double glowAlpha = widget.sosActive ? 0.35 : (0.45 + (pulseValue * 0.15));
 
-
-              // ── Holding Progress Ring ─────────────────────────────────────
-              if (widget.isHolding)
-                AnimatedBuilder(
-                  animation: widget.holdController,
-                  builder: (_, _) => SizedBox(
+                  return Container(
                     width: size.w,
                     height: size.w,
-                    child: CircularProgressIndicator(
-                      value: widget.holdController.value,
-                      strokeWidth: ringStroke.w,
-                      color: Colors.white,
-                      backgroundColor: Colors.white24,
-                      strokeCap: StrokeCap.round,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: widget.sosActive
+                          ? const Color(0xFFD32F2F)
+                          : const Color(0xFFE02020),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFE02020).withValues(alpha: glowAlpha),
+                          blurRadius: glowRadius.w,
+                          spreadRadius: spreadRadius.w,
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.16),
+                          blurRadius: 10.w,
+                          offset: Offset(0, 4.w),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-
-              // ── Main Button Surface (solid red, thin white ring — design mock) ──
-              Container(
-                width: size.w,
-                height: size.w,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: widget.sosActive
-                      ? const Color(0xFFD32F2F)
-                      : const Color(0xFFE02020),
-                  border: Border.all(
-                    color: Colors.white,
-                    width: 2.5.w,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFE02020).withValues(
-                        alpha: widget.sosActive ? 0.32 : 0.42,
-                      ),
-                      blurRadius: 28,
-                      spreadRadius: 6,
-                    ),
-                    BoxShadow(
-                      color: const Color(0xFFE02020).withValues(alpha: 0.18),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
+                    child: child,
+                  );
+                },
                 child: widget.isLoading
                     ? Center(
                         child: SizedBox(
@@ -158,6 +149,31 @@ class _SosButtonState extends State<SosButton>
                         ? SosHoldingContent(countdown: widget.countdown, size: size)
                         : SosIdleContent(sosActive: widget.sosActive, size: size),
               ),
+
+              // ── Holding Progress Ring (Rendered on top for visibility) ──
+              if (widget.isHolding)
+                IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: widget.holdController,
+                    builder: (_, _) {
+                      final rotationAngle = widget.holdController.value * 2.0 * 3.14159265;
+                      return Transform.rotate(
+                        angle: rotationAngle,
+                        child: SizedBox(
+                          width: (size + 10).w,
+                          height: (size + 10).w,
+                          child: CircularProgressIndicator(
+                            value: widget.holdController.value,
+                            strokeWidth: ringStroke.w,
+                            color: Colors.white,
+                            backgroundColor: Colors.white.withValues(alpha: 0.2),
+                            strokeCap: StrokeCap.round,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
             ],
           ),
         ),
