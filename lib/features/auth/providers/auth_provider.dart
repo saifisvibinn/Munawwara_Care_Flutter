@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../pilgrim/models/insurance_company.dart';
+import '../models/wakel_info.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/app_data_cache.dart';
 import '../../../core/services/notification_service.dart';
@@ -46,6 +47,7 @@ class AuthState {
   final String? morafeqEmail;
   final String? tasheraNumber;
   final InsuranceCompany? insuranceCompany;
+  final WakelInfo? wakelInfo;
 
   const AuthState({
     this.isLoading = false,
@@ -75,6 +77,7 @@ class AuthState {
     this.morafeqEmail,
     this.tasheraNumber,
     this.insuranceCompany,
+    this.wakelInfo,
   });
 
   bool get isAuthenticated => token != null;
@@ -107,6 +110,7 @@ class AuthState {
     String? morafeqEmail,
     String? tasheraNumber,
     InsuranceCompany? insuranceCompany,
+    WakelInfo? wakelInfo,
     bool clearError = false,
     bool clearPhoneNumber = false,
     bool clearEmail = false,
@@ -145,6 +149,7 @@ class AuthState {
       morafeqEmail: morafeqEmail ?? this.morafeqEmail,
       tasheraNumber: tasheraNumber ?? this.tasheraNumber,
       insuranceCompany: insuranceCompany ?? this.insuranceCompany,
+      wakelInfo: wakelInfo ?? this.wakelInfo,
     );
   }
 }
@@ -283,6 +288,11 @@ class AuthNotifier extends Notifier<AuthState> {
                 Map<String, dynamic>.from(data['insurance_company_id']),
               )
             : null,
+        wakelInfo: data['wakel_id'] != null
+            ? WakelInfo.fromJson(
+                Map<String, dynamic>.from(data['wakel_id']),
+              )
+            : null,
       );
 
       if (data['full_name'] != null) {
@@ -363,6 +373,11 @@ class AuthNotifier extends Notifier<AuthState> {
               Map<String, dynamic>.from(data['insurance_company_id']),
             )
           : state.insuranceCompany,
+      wakelInfo: data['wakel_id'] != null
+          ? WakelInfo.fromJson(
+              Map<String, dynamic>.from(data['wakel_id']),
+            )
+          : state.wakelInfo,
     );
   }
 
@@ -587,6 +602,11 @@ class AuthNotifier extends Notifier<AuthState> {
         insuranceCompany: data['insurance_company_id'] != null
             ? InsuranceCompany.fromJson(
                 Map<String, dynamic>.from(data['insurance_company_id']),
+              )
+            : null,
+        wakelInfo: data['wakel_id'] != null
+            ? WakelInfo.fromJson(
+                Map<String, dynamic>.from(data['wakel_id']),
               )
             : null,
       );

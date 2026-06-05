@@ -1,13 +1,16 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../helpers/moderator_navigation.dart';
 import '../providers/pilgrim_provider.dart';
 import '../widgets/moderator_navigate_button.dart';
+import '../../auth/models/wakel_info.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Group details — bottom sheet (same pattern as weather detail sheet)
@@ -24,6 +27,10 @@ void showGroupDetailsBottomSheet(
   String? checkIn,
   String? checkOut,
   int? daysRemaining,
+  double? hotelLatitude,
+  double? hotelLongitude,
+  String? hotelAddress,
+  WakelInfo? wakelInfo,
 }) {
   final theme = Theme.of(context);
   final isDark = theme.brightness == Brightness.dark;
@@ -110,6 +117,10 @@ void showGroupDetailsBottomSheet(
                   checkIn: checkIn,
                   checkOut: checkOut,
                   daysRemaining: daysRemaining,
+                  hotelLatitude: hotelLatitude,
+                  hotelLongitude: hotelLongitude,
+                  hotelAddress: hotelAddress,
+                  wakelInfo: wakelInfo,
                 ),
                 SizedBox(height: MediaQuery.paddingOf(ctx).bottom + 8.h),
               ],
@@ -131,6 +142,10 @@ class _GroupDetailsBody extends StatelessWidget {
   final String? checkIn;
   final String? checkOut;
   final int? daysRemaining;
+  final double? hotelLatitude;
+  final double? hotelLongitude;
+  final String? hotelAddress;
+  final WakelInfo? wakelInfo;
 
   const _GroupDetailsBody({
     required this.moderators,
@@ -142,6 +157,10 @@ class _GroupDetailsBody extends StatelessWidget {
     this.checkIn,
     this.checkOut,
     this.daysRemaining,
+    this.hotelLatitude,
+    this.hotelLongitude,
+    this.hotelAddress,
+    this.wakelInfo,
   });
 
   @override
@@ -149,37 +168,47 @@ class _GroupDetailsBody extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final noRecordsText = 'no_records_available'.tr();
     final hotelText = hotelName?.trim().isNotEmpty == true ? hotelName! : noRecordsText;
-    final roomText = roomNumber?.trim().isNotEmpty == true ? roomNumber! : noRecordsText;
     final checkInText = checkIn?.trim().isNotEmpty == true ? checkIn! : '—';
     final checkOutText = checkOut?.trim().isNotEmpty == true ? checkOut! : '—';
-    final daysRemainingText = daysRemaining != null ? daysRemaining.toString() : '—';
 
     // Theme values for colored cards
-    final modBg = isDark ? const Color(0xFF13251A) : const Color(0xFFEAF6ED);
-    final modTitle = isDark ? const Color(0xFF8CE3A3) : const Color(0xFF2D6A4F);
-    final modText = isDark ? Colors.white : const Color(0xFF1B4332);
-    final modAvatarBg = isDark ? const Color(0xFF1B3B2B) : const Color(0xFFD8F3DC);
-
-    final hotelBg = isDark ? const Color(0xFF112233) : const Color(0xFFE5F2FF);
-    final hotelTitle = isDark ? const Color(0xFF8CC5FF) : const Color(0xFF1A5F7A);
-    final hotelTextCol = isDark ? Colors.white : const Color(0xFF1A365D);
-    final hotelAvatarBg = isDark ? const Color(0xFF1A3355) : const Color(0xFFCCE4FF);
-
-    final stayBg = isDark ? const Color(0xFF2E1719) : const Color(0xFFFFEBEA);
-    final stayTitle = isDark ? const Color(0xFFFF9EA6) : const Color(0xFFC0392B);
-    final stayAvatarBg = isDark ? const Color(0xFF4A2326) : const Color(0xFFFFD1CF);
-
-    final labelStyle = TextStyle(
-      fontFamily: 'Lexend',
-      fontSize: 12.sp,
-      fontWeight: FontWeight.w600,
-      color: isDark ? Colors.white60 : Colors.black45,
-    );
+    final modBg = isDark ? AppColors.surfaceDark : Colors.white;
+    final modTitle = isDark ? Colors.white70 : AppColors.textDark;
+    final modText = isDark ? Colors.white : AppColors.textDark;
+    final modAvatarBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── Card 1: Moderators ───────────────────────────────────────────────
+        // ── Card 1: Moderators Section ───────────────────────────────────────
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _SectionLabel(
+              label: 'group_moderators'.tr().toUpperCase(),
+              textMuted: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : const Color(0xFFEBE6FF),
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: Text(
+                "${moderators.length + (wakelInfo != null ? 1 : 0)} ASSIGNED",
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? const Color(0xFF8C73FF) : const Color(0xFF5B3EFF),
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 8.h),
         _GroupModeratorsCard(
           moderators: moderators,
           createdBy: createdBy,
@@ -190,215 +219,328 @@ class _GroupDetailsBody extends StatelessWidget {
           modText: modText,
           modAvatarBg: modAvatarBg,
           isDark: isDark,
+          wakelInfo: wakelInfo,
         ),
-        SizedBox(height: 12.h),
+        SizedBox(height: 20.h),
 
-        // ── Card 2: Hotel Information Card ───────────────────────────────────
+        // ── Card 2: Hotel Information Section ────────────────────────────────
+        _SectionLabel(
+          label: 'group_hotel_info'.tr().toUpperCase(),
+          textMuted: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
+        ),
+        SizedBox(height: 8.h),
         Container(
-          padding: EdgeInsets.all(14.w),
+          padding: EdgeInsets.all(16.w),
           decoration: BoxDecoration(
-            color: hotelBg,
+            color: isDark ? AppColors.surfaceDark : Colors.white,
             borderRadius: BorderRadius.circular(20.r),
             border: Border.all(
-              color: isDark ? const Color(0xFF1E354F) : const Color(0xFFD6E9FF),
+              color: isDark ? const Color(0xFF25303A) : const Color(0xFFE2E8F0),
+              width: 1,
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40.w,
-                    height: 40.w,
-                    decoration: BoxDecoration(
-                      color: hotelAvatarBg,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Symbols.hotel,
-                      size: 20.w,
-                      color: hotelTitle,
-                      fill: 1,
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Text(
-                    'group_hotel_info'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w800,
-                      color: hotelTitle,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 12.h),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('group_hotel_name'.tr(), style: labelStyle),
-                  Text(
-                    hotelText,
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w700,
-                      color: hotelTextCol,
-                      fontStyle: hotelName?.trim().isNotEmpty == true ? FontStyle.normal : FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8.h),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('group_room_number'.tr(), style: labelStyle),
-                  Text(
-                    roomText,
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w700,
-                      color: hotelTextCol,
-                      fontStyle: roomNumber?.trim().isNotEmpty == true ? FontStyle.normal : FontStyle.italic,
-                    ),
-                  ),
-                ],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.03),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-        ),
-        SizedBox(height: 12.h),
-
-        // ── Card 4: Stay Duration Card ───────────────────────────────────────
-        Container(
-          padding: EdgeInsets.all(14.w),
-          decoration: BoxDecoration(
-            color: stayBg,
-            borderRadius: BorderRadius.circular(20.r),
-            border: Border.all(
-              color: isDark ? const Color(0xFF432224) : const Color(0xFFFFDBDA),
-            ),
-          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 40.w,
-                    height: 40.w,
+                    width: 44.w,
+                    height: 44.w,
                     decoration: BoxDecoration(
-                      color: stayAvatarBg,
-                      shape: BoxShape.circle,
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE0F2FE),
+                      borderRadius: BorderRadius.circular(12.r),
                     ),
                     child: Icon(
-                      Symbols.calendar_today,
-                      size: 20.w,
-                      color: stayTitle,
-                      fill: 1,
+                      Icons.hotel_rounded,
+                      color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                      size: 22.sp,
                     ),
                   ),
                   SizedBox(width: 12.w),
-                  Text(
-                    'group_stay_duration'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w800,
-                      color: stayTitle,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          hotelText,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : AppColors.textDark,
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          hotelAddress ?? "Madinah Central Area, Saudi Arabia",
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 12.sp,
+                            color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                          ),
+                        ),
+                        if (hotelLatitude != null && hotelLongitude != null) ...[
+                          SizedBox(height: 8.h),
+                          ElevatedButton.icon(
+                            onPressed: () => launchModeratorWalkingDirections(
+                              lat: hotelLatitude!,
+                              lng: hotelLongitude!,
+                            ),
+                            icon: Icon(
+                              Icons.near_me_rounded,
+                              size: 14.sp,
+                              color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                            ),
+                            label: Text(
+                              "Navigate",
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE0F2FE),
+                              elevation: 0,
+                              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20.r),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
               ),
               SizedBox(height: 16.h),
-              // Horizontal stay columns grid
               Row(
                 children: [
                   Expanded(
-                    child: _StayColumn(
-                      title: 'group_checkin'.tr(),
-                      value: checkInText,
-                      alignStart: true,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "CHECK IN",
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 9.sp,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? Colors.white54 : const Color(0xFF94A3B8),
+                            ),
+                          ),
+                          SizedBox(height: 4.h),
+                          Text(
+                            checkInText,
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? Colors.white : AppColors.textDark,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
+                  SizedBox(width: 10.w),
                   Expanded(
-                    child: _StayColumn(
-                      title: 'group_days_remaining'.tr(),
-                      value: daysRemainingText,
-                    ),
-                  ),
-                  Expanded(
-                    child: _StayColumn(
-                      title: 'group_checkout'.tr(),
-                      value: checkOutText,
-                      alignStart: false,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "CHECK OUT",
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 9.sp,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? Colors.white54 : const Color(0xFF94A3B8),
+                            ),
+                          ),
+                          SizedBox(height: 4.h),
+                          Text(
+                            checkOutText,
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? Colors.white : AppColors.textDark,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
+
             ],
           ),
         ),
+        SizedBox(height: 20.h),
+
+        // ── Card 4: Stay Duration Section ────────────────────────────────────
+        _SectionLabel(
+          label: 'group_stay_duration'.tr().toUpperCase(),
+          textMuted: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
+        ),
+        SizedBox(height: 8.h),
+        Builder(
+          builder: (context) {
+            int totalDays = 0;
+            int? dynamicDaysRemaining;
+            if (checkIn != null && checkOut != null) {
+              try {
+                final inDate = DateTime.parse(checkIn!);
+                final outDate = DateTime.parse(checkOut!);
+                
+                final now = DateTime.now();
+                final todayMidnight = DateTime(now.year, now.month, now.day);
+                final inMidnight = DateTime(inDate.year, inDate.month, inDate.day);
+                final outMidnight = DateTime(outDate.year, outDate.month, outDate.day);
+                
+                totalDays = outMidnight.difference(inMidnight).inDays;
+                
+                if (todayMidnight.isBefore(inMidnight)) {
+                  dynamicDaysRemaining = totalDays;
+                } else if (todayMidnight.isAfter(outMidnight)) {
+                  dynamicDaysRemaining = 0;
+                } else {
+                  dynamicDaysRemaining = outMidnight.difference(todayMidnight).inDays;
+                }
+              } catch (_) {}
+            }
+            
+            final finalDaysRemaining = dynamicDaysRemaining ?? daysRemaining;
+            final localDaysRemainingText = finalDaysRemaining != null ? finalDaysRemaining.toString() : '—';
+            
+            double progressVal = 0.0;
+            if (totalDays > 0 && finalDaysRemaining != null) {
+              progressVal = ((totalDays - finalDaysRemaining) / totalDays).clamp(0.0, 1.0);
+            }
+
+            return Container(
+              padding: EdgeInsets.all(16.w),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.surfaceDark : Colors.white,
+                borderRadius: BorderRadius.circular(20.r),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF25303A) : const Color(0xFFE2E8F0),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.03),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  // Days left
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Text(
+                          localDaysRemainingText,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 24.sp,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? const Color(0xFFF97316) : const Color(0xFFC2410C),
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          "DAYS LEFT",
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 9.sp,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? Colors.white54 : const Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Progress bar
+                  Expanded(
+                    flex: 2,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10.w),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4.r),
+                        child: LinearProgressIndicator(
+                          value: progressVal,
+                          backgroundColor: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
+                          color: const Color(0xFF92600A),
+                          minHeight: 8.h,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Total days
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Text(
+                          totalDays > 0 ? totalDays.toString() : "—",
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 24.sp,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : AppColors.textDark,
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          "TOTAL",
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 9.sp,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? Colors.white54 : const Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ],
     );
   }
 }
 
-class _StayColumn extends StatelessWidget {
-  final String title;
-  final String value;
-  final bool? alignStart;
 
-  const _StayColumn({
-    required this.title,
-    required this.value,
-    this.alignStart,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final alignment = alignStart == null
-        ? CrossAxisAlignment.center
-        : (alignStart! ? CrossAxisAlignment.start : CrossAxisAlignment.end);
-    return Column(
-      crossAxisAlignment: alignment,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontSize: 11.sp,
-            color: isDark ? Colors.white54 : Colors.black45,
-            fontWeight: FontWeight.w600,
-          ),
-          textAlign: alignStart == null
-              ? TextAlign.center
-              : (alignStart! ? TextAlign.left : TextAlign.right),
-        ),
-        SizedBox(height: 4.h),
-        Text(
-          value,
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontSize: 15.sp,
-            fontWeight: FontWeight.w800,
-            color: isDark ? Colors.white : AppColors.textDark,
-          ),
-          textAlign: alignStart == null
-              ? TextAlign.center
-              : (alignStart! ? TextAlign.left : TextAlign.right),
-        ),
-      ],
-    );
-  }
-}
-
-class _GroupModeratorsCard extends StatelessWidget {
+class _GroupModeratorsCard extends StatefulWidget {
   const _GroupModeratorsCard({
     required this.moderators,
     required this.createdBy,
@@ -409,6 +551,7 @@ class _GroupModeratorsCard extends StatelessWidget {
     required this.modText,
     required this.modAvatarBg,
     required this.isDark,
+    this.wakelInfo,
   });
 
   final List<ModeratorInfo> moderators;
@@ -420,88 +563,232 @@ class _GroupModeratorsCard extends StatelessWidget {
   final Color modText;
   final Color modAvatarBg;
   final bool isDark;
+  final WakelInfo? wakelInfo;
+
+  @override
+  State<_GroupModeratorsCard> createState() => _GroupModeratorsCardState();
+}
+
+class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
+  String? _copiedModId;
+  Timer? _timer;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _copyPhoneNumber(String modId, String phoneNumber) {
+    Clipboard.setData(ClipboardData(text: phoneNumber));
+    _timer?.cancel();
+    setState(() {
+      _copiedModId = modId;
+    });
+    _timer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _copiedModId = null;
+        });
+      }
+    });
+  }
+
+  Widget _buildWakelPlaceholder() {
+    return Center(
+      child: Icon(
+        Icons.explore_rounded,
+        color: const Color(0xFF0F3A5F),
+        size: 20.w,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final noRecordsText = 'no_records_available'.tr();
-    final sorted = sortedGroupModerators(moderators, createdBy: createdBy);
+    final sorted = sortedGroupModerators(widget.moderators, createdBy: widget.createdBy);
 
     return Container(
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: modBg,
+        color: widget.modBg,
         borderRadius: BorderRadius.circular(20.r),
         border: Border.all(
-          color: isDark ? const Color(0xFF1B3D2B) : const Color(0xFFD0ECDA),
+          color: widget.isDark ? const Color(0xFF25303A) : const Color(0xFFE2E8F0),
+          width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: widget.isDark ? 0.25 : 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 40.w,
-                height: 40.w,
-                decoration: BoxDecoration(
-                  color: modAvatarBg,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Symbols.group,
-                  size: 20.w,
-                  color: modTitle,
-                  fill: 1,
-                ),
-              ),
-              SizedBox(width: 12.w),
-              Text(
-                'group_moderators'.tr(),
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w800,
-                  color: modTitle,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 12.h),
-          if (sorted.isEmpty)
+          if (widget.wakelInfo == null && sorted.isEmpty)
             Text(
               noRecordsText,
               style: TextStyle(
                 fontFamily: 'Lexend',
                 fontSize: 14.sp,
-                color: isDark ? Colors.white70 : AppColors.textMutedDark,
+                color: widget.isDark ? Colors.white70 : AppColors.textMutedDark,
               ),
             )
-          else
+          else ...[
+            if (widget.wakelInfo != null) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 36.w,
+                    height: 36.w,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: widget.isDark ? Colors.white24 : Colors.black12,
+                        width: 1,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: widget.wakelInfo!.profilePicture != null &&
+                            widget.wakelInfo!.profilePicture!.isNotEmpty
+                        ? Image.network(
+                            widget.wakelInfo!.profilePicture!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (ctx, err, stack) => _buildWakelPlaceholder(),
+                          )
+                        : _buildWakelPlaceholder(),
+                  ),
+                  SizedBox(width: 10.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.wakelInfo!.name,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 15.sp,
+                            fontWeight: FontWeight.w800,
+                            color: widget.modText,
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          "Administrative Coordinator",
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 12.sp,
+                            color: widget.isDark ? Colors.white70 : const Color(0xFF64748B),
+                          ),
+                        ),
+                        if (widget.wakelInfo!.contactNumber.trim().isNotEmpty) ...[
+                          SizedBox(height: 6.h),
+                          GestureDetector(
+                            onTap: () => _copyPhoneNumber(
+                              widget.wakelInfo!.id,
+                              widget.wakelInfo!.contactNumber,
+                            ),
+                            behavior: HitTestBehavior.opaque,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Symbols.call,
+                                  size: 13.w,
+                                  color: widget.isDark ? const Color(0xFFF97316) : const Color(0xFFC2410C),
+                                ),
+                                SizedBox(width: 6.w),
+                                Text(
+                                  widget.wakelInfo!.contactNumber,
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w600,
+                                    color: widget.modText.withValues(alpha: 0.85),
+                                  ),
+                                ),
+                                SizedBox(width: 6.w),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 200),
+                                  child: Icon(
+                                    _copiedModId == widget.wakelInfo!.id ? Icons.check_rounded : Symbols.content_copy,
+                                    key: ValueKey<bool>(_copiedModId == widget.wakelInfo!.id),
+                                    size: 11.w,
+                                    color: _copiedModId == widget.wakelInfo!.id
+                                        ? AppColors.primary
+                                        : widget.modText.withValues(alpha: 0.4),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                    decoration: BoxDecoration(
+                      color: widget.isDark
+                          ? const Color(0xFF8C73FF).withValues(alpha: 0.15)
+                          : const Color(0xFFEBE6FF),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    child: Text(
+                      "AGENCY",
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w700,
+                        color: widget.isDark ? const Color(0xFFB3A3FF) : const Color(0xFF5B3EFF),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (sorted.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  child: Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: widget.isDark ? Colors.white12 : Colors.black12,
+                  ),
+                ),
+            ],
             ...sorted.asMap().entries.map((entry) {
               final index = entry.key;
               final mod = entry.value;
               final isCreator = isGroupLeaderModerator(
                 moderatorId: mod.id,
-                createdBy: createdBy,
+                createdBy: widget.createdBy,
               );
-              final beacon = navBeacons[mod.id];
+              final beacon = widget.navBeacons[mod.id];
               final distance = distanceToModerator(
-                from: pilgrimLocation,
+                from: widget.pilgrimLocation,
                 moderator: mod,
-                navBeacons: navBeacons,
+                navBeacons: widget.navBeacons,
               );
               final initial = mod.fullName.isNotEmpty
                   ? mod.fullName[0].toUpperCase()
                   : '?';
+              final isCopied = _copiedModId == mod.id;
 
               return Column(
                 children: [
                   if (index > 0)
                     Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10.h),
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
                       child: Divider(
                         height: 1,
-                        color: isDark ? Colors.white12 : Colors.black12,
+                        thickness: 1,
+                        color: widget.isDark ? Colors.white12 : Colors.black12,
                       ),
                     ),
                   Row(
@@ -509,14 +796,14 @@ class _GroupModeratorsCard extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: 18.r,
-                        backgroundColor: modAvatarBg,
+                        backgroundColor: widget.modAvatarBg,
                         child: Text(
                           initial,
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontWeight: FontWeight.w800,
                             fontSize: 13.sp,
-                            color: modTitle,
+                            color: widget.isDark ? const Color(0xFFF97316) : const Color(0xFFC2410C),
                           ),
                         ),
                       ),
@@ -531,7 +818,7 @@ class _GroupModeratorsCard extends StatelessWidget {
                                 fontFamily: 'Lexend',
                                 fontSize: 15.sp,
                                 fontWeight: FontWeight.w800,
-                                color: modText,
+                                color: widget.modText,
                               ),
                             ),
                             SizedBox(height: 4.h),
@@ -539,7 +826,7 @@ class _GroupModeratorsCard extends StatelessWidget {
                               children: [
                                 _ModeratorRoleChip(
                                   isCreator: isCreator,
-                                  isDark: isDark,
+                                  isDark: widget.isDark,
                                 ),
                                 if (distance != null) ...[
                                   SizedBox(width: 6.w),
@@ -548,7 +835,7 @@ class _GroupModeratorsCard extends StatelessWidget {
                                     style: TextStyle(
                                       fontFamily: 'Lexend',
                                       fontSize: 11.sp,
-                                      color: isDark
+                                      color: widget.isDark
                                           ? Colors.white60
                                           : Colors.black45,
                                     ),
@@ -556,6 +843,46 @@ class _GroupModeratorsCard extends StatelessWidget {
                                 ],
                               ],
                             ),
+                            if (mod.phoneNumber != null &&
+                                mod.phoneNumber!.trim().isNotEmpty) ...[
+                              SizedBox(height: 6.h),
+                              GestureDetector(
+                                onTap: () => _copyPhoneNumber(mod.id, mod.phoneNumber!),
+                                behavior: HitTestBehavior.opaque,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Symbols.call,
+                                      size: 13.w,
+                                      color: widget.isDark ? const Color(0xFFF97316) : const Color(0xFFC2410C),
+                                    ),
+                                    SizedBox(width: 6.w),
+                                    Text(
+                                      mod.phoneNumber!,
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontSize: 12.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: widget.modText.withValues(alpha: 0.85),
+                                      ),
+                                    ),
+                                    SizedBox(width: 6.w),
+                                    AnimatedSwitcher(
+                                      duration: const Duration(milliseconds: 200),
+                                      child: Icon(
+                                        isCopied ? Icons.check_rounded : Symbols.content_copy,
+                                        key: ValueKey<bool>(isCopied),
+                                        size: 11.w,
+                                        color: isCopied
+                                            ? AppColors.primary
+                                            : widget.modText.withValues(alpha: 0.4),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -570,6 +897,7 @@ class _GroupModeratorsCard extends StatelessWidget {
                 ],
               );
             }),
+          ],
         ],
       ),
     );
@@ -610,6 +938,29 @@ class _ModeratorRoleChip extends StatelessWidget {
           fontSize: 10.sp,
           fontWeight: FontWeight.w700,
           color: fg,
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.label, required this.textMuted});
+  final String label;
+  final Color textMuted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(left: 4.w),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: 'Lexend',
+          fontWeight: FontWeight.w600,
+          fontSize: 11.sp,
+          letterSpacing: 1.2,
+          color: textMuted,
         ),
       ),
     );

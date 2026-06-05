@@ -9,14 +9,14 @@ import '../../../core/widgets/custom_dialog.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/legal_support_section.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/services/locale_prefs.dart';
 import '../../../core/services/sos_alert_audio.dart';
 import '../../auth/providers/auth_provider.dart';
-import 'moderator_profile_edit_screen.dart';
+import '../../auth/models/wakel_info.dart';
 import '../../shared/widgets/moderator_avatar.dart';
+import 'moderator_profile_edit_screen.dart';
 
 class ModeratorProfileScreen extends ConsumerStatefulWidget {
   const ModeratorProfileScreen({super.key});
@@ -59,11 +59,6 @@ class _ModeratorProfileScreenState
   void didChangeDependencies() {
     super.didChangeDependencies();
     _selectedLocale = context.locale.languageCode;
-  }
-
-  // Language is applied immediately on tap — this just closes the screen
-  void _saveChanges() {
-    Navigator.of(context).maybePop();
   }
 
   Future<void> _signOut() async {
@@ -135,6 +130,19 @@ class _ModeratorProfileScreenState
 
                     SizedBox(height: 28.h),
 
+                    // ── EL WAKEL SERVICE section ─────────────────────────────
+                    _SectionLabel(
+                      label: 'EL WAKEL SERVICE',
+                      textMuted: textMuted,
+                    ),
+                    SizedBox(height: 8.h),
+                    _WakelCard(
+                      wakelInfo: authState.wakelInfo,
+                      isDark: isDark,
+                    ),
+
+                    SizedBox(height: 28.h),
+
                     // ── APPEARANCE section ───────────────────────────────────
                     _SectionLabel(
                       label: 'settings_appearance'.tr(),
@@ -148,7 +156,7 @@ class _ModeratorProfileScreenState
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 
-                              isDark ? 0.3 : 0.06,
+                              isDark ? 0.3 : 0.04,
                             ),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
@@ -162,59 +170,27 @@ class _ModeratorProfileScreenState
                         ),
                         child: Row(
                           children: [
-                            Container(
-                              width: 40.w,
-                              height: 40.w,
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? AppColors.surfaceDark
-                                    : AppColors.primary.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12.r),
-                              ),
-                              child: Icon(
-                                Icons.dark_mode_rounded,
-                                color: AppColors.primary,
-                                size: 20.sp,
-                              ),
+                            Icon(
+                              Icons.dark_mode_outlined,
+                              color: isDark ? Colors.white70 : const Color(0xFF475569),
+                              size: 22.sp,
                             ),
                             SizedBox(width: 14.w),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'settings_dark_mode'.tr(),
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 15.sp,
-                                      color: textPrimary,
-                                    ),
-                                  ),
-                                  SizedBox(height: 2.h),
-                                  Text(
-                                    'settings_dark_mode_sub'.tr(),
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      fontSize: 12.sp,
-                                      color: textMuted,
-                                    ),
-                                  ),
-                                ],
+                              child: Text(
+                                'settings_dark_mode'.tr(),
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15.sp,
+                                  color: textPrimary,
+                                ),
                               ),
                             ),
                             Switch(
                               value: isDark,
                               activeThumbColor: AppColors.primary,
-                              activeTrackColor: AppColors.primary.withValues(alpha: 
-                                0.3,
-                              ),
-                              inactiveThumbColor: isDark
-                                  ? AppColors.textLight
-                                  : Colors.grey,
-                              inactiveTrackColor: isDark
-                                  ? AppColors.surfaceDark
-                                  : Colors.grey.shade300,
+                              activeTrackColor: AppColors.primary.withValues(alpha: 0.3),
                               onChanged: (_) => themeNotifier.toggle(),
                             ),
                           ],
@@ -237,7 +213,7 @@ class _ModeratorProfileScreenState
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 
-                              isDark ? 0.3 : 0.06,
+                              isDark ? 0.3 : 0.04,
                             ),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
@@ -284,68 +260,87 @@ class _ModeratorProfileScreenState
 
                     SizedBox(height: 28.h),
 
-                    LegalSupportSection(
-                      isDark: isDark,
-                      cardBg: cardBg,
-                      textPrimary: textPrimary,
+                    // ── SUPPORT & INFO section ──────────────────────────────
+                    _SectionLabel(
+                      label: 'SUPPORT & INFO',
                       textMuted: textMuted,
-                      dividerColor: dividerColor,
-                      showAccountDeletion: true,
                     ),
-
-                    SizedBox(height: 32.h),
-
-                    // ── Save Changes button ───────────────────────────────────
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52.h,
-                      child: ElevatedButton(
-                        onPressed: _saveChanges,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14.r),
+                    SizedBox(height: 8.h),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(16.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 
+                              isDark ? 0.3 : 0.04,
+                            ),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
-                        ),
-                        child: Text(
-                          'settings_save'.tr(),
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16.sp,
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          _SupportRow(
+                            icon: Icons.shield_outlined,
+                            label: 'legal_privacy_policy'.tr(),
+                            textPrimary: textPrimary,
+                            textMuted: textMuted,
+                            onTap: () => context.push('/privacy-policy'),
+                            isLast: false,
+                            dividerColor: dividerColor,
                           ),
-                        ),
+                          _SupportRow(
+                            icon: Icons.info_outline_rounded,
+                            label: 'about_title'.tr(),
+                            textPrimary: textPrimary,
+                            textMuted: textMuted,
+                            onTap: () => context.push(
+                              '/about',
+                              extra: true, // showAccountDeletion
+                            ),
+                            isLast: true,
+                            dividerColor: dividerColor,
+                          ),
+                        ],
                       ),
                     ),
 
-                    SizedBox(height: 16.h),
+                    SizedBox(height: 32.h),
 
                     // ── Sign Out button ───────────────────────────────────────
                     SizedBox(
                       width: double.infinity,
                       height: 52.h,
-                      child: OutlinedButton.icon(
+                      child: TextButton.icon(
                         onPressed: _signOut,
                         icon: Icon(
                           Icons.logout_rounded,
                           size: 18.sp,
-                          color: Colors.red,
+                          color: const Color(0xFFE11D48),
                         ),
                         label: Text(
                           'settings_sign_out'.tr(),
                           style: TextStyle(
                             fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w700,
                             fontSize: 16.sp,
-                            color: Colors.red,
+                            color: const Color(0xFFE11D48),
                           ),
                         ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.red, width: 1.5),
+                        style: TextButton.styleFrom(
+                          backgroundColor: isDark
+                              ? const Color(0xFF4C1D24)
+                              : const Color(0xFFFFF1F2),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14.r),
+                            borderRadius: BorderRadius.circular(16.r),
+                            side: BorderSide(
+                              color: isDark
+                                  ? const Color(0xFF881337)
+                                  : const Color(0xFFFECDD3),
+                              width: 1.5,
+                            ),
                           ),
                         ),
                       ),
@@ -380,51 +375,28 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(8.w, 8.h, 20.w, 0),
+      padding: EdgeInsets.fromLTRB(8.w, 8.h, 12.w, 0),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          GestureDetector(
-            onTap: () => Navigator.of(context).maybePop(),
-            child: Container(
-              width: 42.w,
-              height: 42.w,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceDark : Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isDark
-                      ? AppColors.backgroundDark
-                      : const Color(0xFFE2E2F0),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: textPrimary,
-                size: 20.sp,
-              ),
+          IconButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: Icon(
+              Icons.arrow_back,
+              color: textPrimary,
+              size: 24.sp,
             ),
           ),
-          Expanded(
-            child: Center(
-              child: Text(
-                'settings_title'.tr(),
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 20.sp,
-                  color: textPrimary,
-                ),
-              ),
+          Text(
+            "Munawwara Care",
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontWeight: FontWeight.w700,
+              fontSize: 20.sp,
+              color: textPrimary,
             ),
           ),
-          SizedBox(width: 44.w), // balance the back button
+          const SizedBox(width: 48),
         ],
       ),
     );
@@ -454,75 +426,193 @@ class _ProfileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 16.w),
+      padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 16.w),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(24.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Centered Avatar with edit icon overlay
+          Stack(
+            children: [
+              Container(
+                width: 90.w,
+                height: 90.w,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isDark ? Colors.white12 : const Color(0xFFD4E3FC),
+                  border: Border.all(
+                    color: isDark ? Colors.white24 : const Color(0xFF94B9FA),
+                    width: 2.w,
+                  ),
+                ),
+                child: Center(
+                  child: ModeratorAvatar(
+                    size: 86.w,
+                    initials: initials,
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: onEditTap,
+                  child: Container(
+                    padding: EdgeInsets.all(7.w),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primary,
+                    ),
+                    child: Icon(
+                      Icons.edit_rounded,
+                      color: Colors.white,
+                      size: 14.sp,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16.h),
+          // Moderator Name
+          Text(
+            fullName,
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontWeight: FontWeight.w800,
+              fontSize: 20.sp,
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 8.h),
+          // Moderator Role Chip
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 14.w,
+              vertical: 4.h,
+            ),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF452D15)
+                  : const Color(0xFFFFF2E6),
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+            child: Text(
+              'settings_role_moderator'.tr().toUpperCase(),
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontWeight: FontWeight.w800,
+                fontSize: 11.sp,
+                color: isDark ? const Color(0xFFF97316) : const Color(0xFFC2410C),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WakelCard extends StatelessWidget {
+  const _WakelCard({required this.wakelInfo, required this.isDark});
+  final WakelInfo? wakelInfo;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = wakelInfo?.name ?? "El Wakel";
+    final contact = wakelInfo?.contactNumber ?? "Travel & Pilgrimage Services";
+    final imageUrl = wakelInfo?.profilePicture;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [const Color(0xFF0F172A), const Color(0xFF1E293B)]
+              : [const Color(0xFF051D2D), const Color(0xFF0F3A5F)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Row(
         children: [
-          // Avatar
-          ModeratorAvatar(size: 56.w, initials: initials),
+          // Wakel Logo / Profile picture
+          Container(
+            width: 50.w,
+            height: 50.w,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: imageUrl != null && imageUrl.isNotEmpty
+                ? Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (ctx, err, stack) => _buildPlaceholderLogo(),
+                  )
+                : _buildPlaceholderLogo(),
+          ),
           SizedBox(width: 16.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  fullName,
+                  name,
                   style: TextStyle(
                     fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w800,
                     fontSize: 16.sp,
-                    color: textPrimary,
+                    color: Colors.white,
                   ),
                 ),
                 SizedBox(height: 4.h),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 10.w,
-                    vertical: 3.h,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8.r),
-                  ),
-                  child: Text(
-                    'settings_role_moderator'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12.sp,
-                      color: AppColors.primary,
-                    ),
+                Text(
+                  contact,
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 12.sp,
+                    color: Colors.white.withValues(alpha: 0.7),
                   ),
                 ),
               ],
             ),
           ),
-          GestureDetector(
-            onTap: onEditTap,
-            child: Container(
-              padding: EdgeInsets.all(8.r),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceDark : const Color(0xFFEEEEFB),
-                borderRadius: BorderRadius.circular(10.r),
-              ),
-              child: Icon(
-                Icons.edit_rounded,
-                color: AppColors.primary,
-                size: 18.sp,
-              ),
-            ),
-          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPlaceholderLogo() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(4.w),
+        child: Icon(
+          Icons.explore_rounded,
+          color: const Color(0xFF0F3A5F),
+          size: 26.w,
+        ),
       ),
     );
   }
@@ -580,12 +670,12 @@ class _LanguageRow extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.vertical(
             top: isLast == false && lang['code'] == 'en'
-                ? const Radius.circular(16)
+                ? Radius.circular(16.r)
                 : Radius.zero,
-            bottom: isLast ? const Radius.circular(16) : Radius.zero,
+            bottom: isLast ? Radius.circular(16.r) : Radius.zero,
           ),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
             child: Row(
               children: [
                 // Flag circle
@@ -594,9 +684,7 @@ class _LanguageRow extends StatelessWidget {
                   height: 40.w,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isDark
-                        ? AppColors.surfaceDark
-                        : AppColors.backgroundLight,
+                    color: isDark ? Colors.white12 : const Color(0xFFF1F5F9),
                   ),
                   child: Center(
                     child: Text(
@@ -607,28 +695,14 @@ class _LanguageRow extends StatelessWidget {
                 ),
                 SizedBox(width: 14.w),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        lang['name']!,
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14.sp,
-                          color: textPrimary,
-                        ),
-                      ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        lang['native']!,
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 12.sp,
-                          color: textMuted,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    lang['name']!,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15.sp,
+                      color: textPrimary,
+                    ),
                   ),
                 ),
                 if (isSelected)
@@ -639,6 +713,78 @@ class _LanguageRow extends StatelessWidget {
                   )
                 else
                   SizedBox(width: 22.sp),
+              ],
+            ),
+          ),
+        ),
+        if (!isLast)
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: dividerColor,
+            indent: 16.w,
+            endIndent: 16.w,
+          ),
+      ],
+    );
+  }
+}
+
+class _SupportRow extends StatelessWidget {
+  const _SupportRow({
+    required this.icon,
+    required this.label,
+    required this.textPrimary,
+    required this.textMuted,
+    required this.onTap,
+    required this.isLast,
+    required this.dividerColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color textPrimary;
+  final Color textMuted;
+  final VoidCallback onTap;
+  final bool isLast;
+  final Color dividerColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.vertical(
+            top: !isLast ? Radius.circular(16.r) : Radius.zero,
+            bottom: isLast ? Radius.circular(16.r) : Radius.zero,
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  color: textPrimary.withValues(alpha: 0.7),
+                  size: 22.sp,
+                ),
+                SizedBox(width: 14.w),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15.sp,
+                      color: textPrimary,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: textMuted,
+                  size: 22.sp,
+                ),
               ],
             ),
           ),

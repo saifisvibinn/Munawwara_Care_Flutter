@@ -5,6 +5,7 @@ import '../../../core/services/app_data_cache.dart';
 import '../../../core/services/secure_session_store.dart';
 import '../models/insurance_company.dart';
 import '../helpers/user_ref.dart';
+import '../../auth/models/wakel_info.dart';
 
 // ── Pilgrim Profile Model ─────────────────────────────────────────────────────
 
@@ -82,10 +83,14 @@ class GroupInfo {
   final List<ModeratorInfo> moderators;
   final String? createdBy;
   final String? hotelName;
+  final String? hotelAddress;
   final String? roomNumber;
   final String? checkIn;
   final String? checkOut;
   final int? daysRemaining;
+  final double? hotelLatitude;
+  final double? hotelLongitude;
+  final WakelInfo? wakelInfo;
 
   const GroupInfo({
     required this.groupId,
@@ -94,10 +99,14 @@ class GroupInfo {
     required this.moderators,
     this.createdBy,
     this.hotelName,
+    this.hotelAddress,
     this.roomNumber,
     this.checkIn,
     this.checkOut,
     this.daysRemaining,
+    this.hotelLatitude,
+    this.hotelLongitude,
+    this.wakelInfo,
   });
 
   factory GroupInfo.fromJson(Map<String, dynamic> j) {
@@ -124,6 +133,19 @@ class GroupInfo {
       return null;
     }
 
+    double? firstDouble(List<String> keys) {
+      for (final key in keys) {
+        final value = j[key];
+        if (value is double) return value;
+        if (value is num) return value.toDouble();
+        if (value is String) {
+          final parsed = double.tryParse(value);
+          if (parsed != null) return parsed;
+        }
+      }
+      return null;
+    }
+
     final createdById = parseUserRefId(j['created_by']);
     var moderators = (j['moderators'] as List<dynamic>? ?? [])
         .map((m) => ModeratorInfo.fromJson(m as Map<String, dynamic>))
@@ -144,10 +166,14 @@ class GroupInfo {
       moderators: moderators,
       createdBy: createdById,
       hotelName: firstString(['hotel_name', 'hotelName']),
+      hotelAddress: firstString(['hotel_address', 'hotelAddress']),
       roomNumber: firstString(['room_number', 'room_no', 'roomNumber']),
       checkIn: firstString(['checkin_date', 'check_in', 'checkIn']),
       checkOut: firstString(['checkout_date', 'check_out', 'checkOut']),
       daysRemaining: firstInt(['days_remaining', 'stay_days', 'daysRemaining']),
+      hotelLatitude: firstDouble(['hotel_latitude', 'hotelLatitude']),
+      hotelLongitude: firstDouble(['hotel_longitude', 'hotelLongitude']),
+      wakelInfo: j['wakel'] != null ? WakelInfo.fromJson(j['wakel'] as Map<String, dynamic>) : null,
     );
   }
 }

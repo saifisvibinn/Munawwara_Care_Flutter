@@ -1726,6 +1726,10 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               checkIn: group.checkIn,
               checkOut: group.checkOut,
               daysRemaining: group.daysRemaining,
+              hotelLatitude: group.hotelLatitude,
+              hotelLongitude: group.hotelLongitude,
+              hotelAddress: group.hotelAddress,
+              wakelInfo: group.wakelInfo,
             );
           } else {
             // No group — do nothing (limbo state, moderator will assign)

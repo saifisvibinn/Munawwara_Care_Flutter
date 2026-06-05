@@ -175,7 +175,7 @@ class _ModeratorProfileEditScreenState
 
                       // ── PERSONAL INFO section ──────────────────────────────
                       _SectionLabel(
-                        label: 'edit_profile_section'.tr(),
+                        label: 'edit_profile_section'.tr().toUpperCase(),
                         textMuted: textMuted,
                       ),
                       SizedBox(height: 10.h),
@@ -184,12 +184,16 @@ class _ModeratorProfileEditScreenState
                           decoration: BoxDecoration(
                             color: cardBg,
                             borderRadius: BorderRadius.circular(16.r),
+                            border: Border.all(
+                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                              width: 1,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(
-                                  alpha: isDark ? 0.3 : 0.06,
+                                  alpha: isDark ? 0.25 : 0.03,
                                 ),
-                                blurRadius: 12,
+                                blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
                             ],
@@ -208,7 +212,8 @@ class _ModeratorProfileEditScreenState
                                   controller: _nameCtrl,
                                   style: TextStyle(
                                     fontFamily: 'Lexend',
-                                    fontSize: 14.sp,
+                                    fontSize: 15.sp,
+                                    fontWeight: FontWeight.w600,
                                     color: textPrimary,
                                   ),
                                   decoration: const InputDecoration(
@@ -238,7 +243,8 @@ class _ModeratorProfileEditScreenState
                                   keyboardType: TextInputType.phone,
                                   style: TextStyle(
                                     fontFamily: 'Lexend',
-                                    fontSize: 14.sp,
+                                    fontSize: 15.sp,
+                                    fontWeight: FontWeight.w600,
                                     color: textPrimary,
                                   ),
                                   decoration: const InputDecoration(
@@ -260,30 +266,34 @@ class _ModeratorProfileEditScreenState
                                   hasDivider: true,
                                   trailing: Container(
                                     padding: EdgeInsets.symmetric(
-                                      horizontal: 7.w,
-                                      vertical: 3.h,
+                                      horizontal: 8.w,
+                                      vertical: 4.h,
                                     ),
                                     decoration: BoxDecoration(
                                       color: isDark
-                                          ? AppColors.iconBgDark
-                                          : AppColors.iconBgLight,
+                                          ? const Color(0xFF1E293B)
+                                          : const Color(0xFFF1F5F9),
                                       borderRadius: BorderRadius.circular(6.r),
                                     ),
                                     child: Text(
-                                      'edit_profile_email_verified'.tr(),
+                                      'edit_profile_email_verified'.tr().toUpperCase(),
                                       style: TextStyle(
                                         fontFamily: 'Lexend',
-                                        fontSize: 10.sp,
-                                        color: textMuted,
+                                        fontSize: 9.sp,
+                                        fontWeight: FontWeight.w700,
+                                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
                                       ),
                                     ),
                                   ),
                                   child: Text(
                                     authState.email!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontFamily: 'Lexend',
-                                      fontSize: 14.sp,
-                                      color: textMuted,
+                                      fontSize: 15.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: textPrimary,
                                     ),
                                   ),
                                 ),
@@ -291,7 +301,7 @@ class _ModeratorProfileEditScreenState
                               // Reset Password (action)
                               _ProfileInfoRow(
                                 label: 'forgot_password_title'.tr(),
-                                icon: Icons.lock_reset_rounded,
+                                icon: Icons.lock_rounded,
                                 isDark: isDark,
                                 textPrimary: textPrimary,
                                 textMuted: textMuted,
@@ -299,15 +309,16 @@ class _ModeratorProfileEditScreenState
                                 onTap: () => context.push('/forgot-password'),
                                 trailing: Icon(
                                   Icons.chevron_right_rounded,
-                                  size: 20.sp,
-                                  color: textMuted,
+                                  size: 22.sp,
+                                  color: textMuted.withValues(alpha: 0.7),
                                 ),
                                 child: Text(
                                   '••••••••',
                                   style: TextStyle(
                                     fontFamily: 'Lexend',
-                                    fontSize: 14.sp,
-                                    color: textMuted,
+                                    fontSize: 15.sp,
+                                    fontWeight: FontWeight.w600,
+                                    color: textPrimary,
                                   ),
                                 ),
                               ),
@@ -431,21 +442,25 @@ class _ProfileInfoRow extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // Icon Container
                 Container(
-                  width: 38.w,
-                  height: 38.w,
+                  width: 40.w,
+                  height: 40.w,
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.iconBgDark : AppColors.iconBgLight,
-                    borderRadius: BorderRadius.circular(10.r),
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12.r),
                   ),
-                  child: Icon(icon, color: AppColors.primary, size: 18.sp),
+                  child: Icon(
+                    icon,
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF334155),
+                    size: 18.sp,
+                  ),
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 16.w),
 
                 // Label and Value
                 Expanded(
@@ -454,12 +469,13 @@ class _ProfileInfoRow extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        label,
+                        label.toUpperCase(),
                         style: TextStyle(
                           fontFamily: 'Lexend',
-                          fontSize: 11.sp,
+                          fontSize: 10.sp,
                           color: textMuted,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
                         ),
                       ),
                       SizedBox(height: 2.h),
@@ -481,7 +497,7 @@ class _ProfileInfoRow extends StatelessWidget {
               height: 1,
               thickness: 1,
               color: dividerColor,
-              indent: 66.w, // Align with the start of the text
+              indent: 72.w, // Align with the start of the text (16 padding + 40 container + 16 spacing)
               endIndent: 16.w,
             ),
         ],
