@@ -83,8 +83,6 @@ class GroupInfo {
   final String? createdBy;
   final String? hotelName;
   final String? roomNumber;
-  final String? busNumber;
-  final String? driverName;
   final String? checkIn;
   final String? checkOut;
   final int? daysRemaining;
@@ -97,8 +95,6 @@ class GroupInfo {
     this.createdBy,
     this.hotelName,
     this.roomNumber,
-    this.busNumber,
-    this.driverName,
     this.checkIn,
     this.checkOut,
     this.daysRemaining,
@@ -149,8 +145,6 @@ class GroupInfo {
       createdBy: createdById,
       hotelName: firstString(['hotel_name', 'hotelName']),
       roomNumber: firstString(['room_number', 'room_no', 'roomNumber']),
-      busNumber: firstString(['bus_number', 'bus_no', 'busNumber']),
-      driverName: firstString(['driver_name', 'driverName']),
       checkIn: firstString(['checkin_date', 'check_in', 'checkIn']),
       checkOut: firstString(['checkout_date', 'check_out', 'checkOut']),
       daysRemaining: firstInt(['days_remaining', 'stay_days', 'daysRemaining']),

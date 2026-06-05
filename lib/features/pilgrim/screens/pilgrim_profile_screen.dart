@@ -415,15 +415,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             ),
                             _divider(dividerColor),
                             _InfoTile(
-                              icon: Icons.directions_bus_rounded,
-                              label: 'group_bus_number'.tr(),
-                              value: authState.busInfo ?? 'profile_not_assigned'.tr(),
-                              isDark: isDark,
-                              textPrimary: textPrimary,
-                              textMuted: textMuted,
-                            ),
-                            _divider(dividerColor),
-                            _InfoTile(
                               icon: Icons.assignment_turned_in_rounded,
                               label: 'Tashera Number',
                               value: authState.tasheraNumber ?? 'profile_not_provided'.tr(),
