@@ -1193,47 +1193,23 @@ class _PilgrimCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (pilgrim.hotelName != null || pilgrim.busInfo != null) ...[
+                  if (pilgrim.hotelName != null) ...[
                     SizedBox(height: 6.h),
-                    Wrap(
-                      spacing: 12.w,
-                      runSpacing: 4.h,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (pilgrim.hotelName != null)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Symbols.apartment, size: 12.w, color: textMuted),
-                              SizedBox(width: 4.w),
-                              Text(
-                                '${pilgrim.hotelName}${pilgrim.roomNumber != null ? ' (${ 'group_room_number'.tr() }: ${pilgrim.roomNumber})' : ''}',
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontSize: 10.sp,
-                                  color: textMuted,
-                                ),
-                              ),
-                            ],
+                        Icon(Symbols.apartment, size: 12.w, color: textMuted),
+                        SizedBox(width: 4.w),
+                        Text(
+                          '${pilgrim.hotelName}${pilgrim.roomNumber != null ? ' (${ 'group_room_number'.tr() }: ${pilgrim.roomNumber})' : ''}',
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 10.sp,
+                            color: textMuted,
                           ),
-                        if (pilgrim.busInfo != null)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Symbols.directions_bus, size: 12.w, color: textMuted),
-                              SizedBox(width: 4.w),
-                              Text(
-                                pilgrim.busInfo!,
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontSize: 10.sp,
-                                  color: textMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
+                    ),
                   ],
                 ],
               ),
@@ -1444,13 +1420,6 @@ class _RoomOption {
   });
 }
 
-class _BusOption {
-  final String id;
-  final String busNumber;
-  final String destination;
-  const _BusOption({required this.id, required this.busNumber, required this.destination});
-}
-
 class _EditLogisticsContent extends ConsumerStatefulWidget {
   final ManagedPilgrimItem pilgrim;
   final VoidCallback onSaved;
@@ -1464,7 +1433,6 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   List<_HotelOption> _hotels = [];
-  List<_BusOption> _buses = [];
   List<InsuranceCompany> _insurances = [];
 
   final _morafeqNameCtrl = TextEditingController();
@@ -1474,7 +1442,6 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
 
   String? _selectedHotelId;
   String? _selectedRoomId;
-  String? _selectedBusId;
   String? _selectedInsuranceCompanyId;
 
   @override
@@ -1512,7 +1479,6 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
           : <String, dynamic>{};
 
       final hotelsRaw = (payload['hotels'] as List<dynamic>? ?? []);
-      final busesRaw = (payload['buses'] as List<dynamic>? ?? []);
       final insurancesRaw = (payload['insurances'] as List<dynamic>? ?? []);
 
       _hotels = hotelsRaw.map((h) {
@@ -1534,15 +1500,6 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
         );
       }).toList();
 
-      _buses = busesRaw.map((b) {
-        final map = b as Map<String, dynamic>;
-        return _BusOption(
-          id: map['_id']?.toString() ?? '',
-          busNumber: map['bus_number']?.toString() ?? '-',
-          destination: map['destination']?.toString() ?? '',
-        );
-      }).toList();
-
       _insurances = insurancesRaw.map((i) {
         return InsuranceCompany.fromJson(Map<String, dynamic>.from(i as Map));
       }).toList();
@@ -1561,14 +1518,6 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
         }
       }
 
-      for (final b in _buses) {
-        final info = '${b.busNumber} - ${b.destination}';
-        if (info == widget.pilgrim.busInfo || b.busNumber == widget.pilgrim.busInfo) {
-          _selectedBusId = b.id;
-          break;
-        }
-      }
-
       _syncSelectionsWithOptions();
     } catch (e) {
       // ignore
@@ -1578,19 +1527,6 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
   }
 
   void _syncSelectionsWithOptions() {
-    if (_selectedHotelId != null &&
-        !_hotels.any((h) => h.id == _selectedHotelId)) {
-      _selectedHotelId = null;
-      _selectedRoomId = null;
-    }
-    final hotel = _hotels.where((h) => h.id == _selectedHotelId).firstOrNull;
-    final rooms = hotel?.rooms ?? [];
-    if (_selectedRoomId != null && !rooms.any((r) => r.id == _selectedRoomId)) {
-      _selectedRoomId = null;
-    }
-    if (_selectedBusId != null && !_buses.any((b) => b.id == _selectedBusId)) {
-      _selectedBusId = null;
-    }
     if (_selectedInsuranceCompanyId != null &&
         !_insurances.any((i) => i.id == _selectedInsuranceCompanyId)) {
       _selectedInsuranceCompanyId = null;
@@ -1602,12 +1538,10 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
     setState(() => _isLoading = true);
     final hotel = _hotels.where((h) => h.id == _selectedHotelId).firstOrNull;
     final room = hotel?.rooms.where((r) => r.id == _selectedRoomId).firstOrNull;
-    final bus = _buses.where((b) => b.id == _selectedBusId).firstOrNull;
 
     final updates = {
       'hotel_name': hotel?.name,
       'room_number': room?.roomNumber,
-      'bus_info': bus == null ? null : '${bus.busNumber} - ${bus.destination}',
       'morafeq_name': _morafeqNameCtrl.text.trim().isEmpty ? null : _morafeqNameCtrl.text.trim(),
       'morafeq_phone': _morafeqPhoneCtrl.text.trim().isEmpty ? null : _morafeqPhoneCtrl.text.trim(),
       'morafeq_email': _morafeqEmailCtrl.text.trim().isEmpty ? null : _morafeqEmailCtrl.text.trim(),
@@ -1724,42 +1658,6 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
                     onChanged: _selectedHotelId == null
                         ? null
                         : (v) => setState(() => _selectedRoomId = v),
-                  ),
-                  SizedBox(height: 12.h),
-                  DropdownButtonFormField<String?>(
-                    initialValue: _selectedBusId,
-                    isExpanded: true,
-                    decoration: AppDropdownTheme.formFieldDecoration(
-                      isDark: isDark,
-                      labelText: 'group_bus_number'.tr(),
-                      prefixIcon: Icon(Symbols.directions_bus),
-                    ),
-                    icon: AppDropdownTheme.menuTrailingIcon(),
-                    dropdownColor: AppDropdownTheme.menuBackground(isDark),
-                    borderRadius: AppDropdownTheme.menuBorderRadius(),
-                    elevation: AppDropdownTheme.menuElevation(),
-                    menuMaxHeight: AppDropdownTheme.menuMaxHeight(),
-                    style: AppDropdownTheme.valueStyle(isDark),
-                    items: [
-                      DropdownMenuItem(
-                        value: null,
-                        child: Text(
-                          'group_no_bus'.tr(),
-                          style: AppDropdownTheme.menuItemStyle(isDark),
-                        ),
-                      ),
-                      ..._buses.map(
-                        (b) => DropdownMenuItem(
-                          value: b.id,
-                          child: Text(
-                            '${b.busNumber} - ${b.destination}',
-                            overflow: TextOverflow.ellipsis,
-                            style: AppDropdownTheme.menuItemStyle(isDark),
-                          ),
-                        ),
-                      ),
-                    ],
-                    onChanged: (v) => setState(() => _selectedBusId = v),
                   ),
                   SizedBox(height: 12.h),
 

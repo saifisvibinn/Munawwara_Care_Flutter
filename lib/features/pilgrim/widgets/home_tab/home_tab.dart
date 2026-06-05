@@ -378,7 +378,6 @@ class _HomeBody extends StatelessWidget {
               moderators: g?.moderators ?? const [],
               createdBy: g?.createdBy,
               hotelName: g?.hotelName ?? '',
-              busNumber: g?.busNumber ?? '',
               checkIn: g?.checkIn ?? '',
               onTap: onGroupCardTap,
             ),

@@ -21,8 +21,6 @@ void showGroupDetailsBottomSheet(
   LatLng? pilgrimLocation,
   String? hotelName,
   String? roomNumber,
-  String? busNumber,
-  String? driverName,
   String? checkIn,
   String? checkOut,
   int? daysRemaining,
@@ -109,8 +107,6 @@ void showGroupDetailsBottomSheet(
                   pilgrimLocation: pilgrimLocation,
                   hotelName: hotelName,
                   roomNumber: roomNumber,
-                  busNumber: busNumber,
-                  driverName: driverName,
                   checkIn: checkIn,
                   checkOut: checkOut,
                   daysRemaining: daysRemaining,
@@ -132,8 +128,6 @@ class _GroupDetailsBody extends StatelessWidget {
   final LatLng? pilgrimLocation;
   final String? hotelName;
   final String? roomNumber;
-  final String? busNumber;
-  final String? driverName;
   final String? checkIn;
   final String? checkOut;
   final int? daysRemaining;
@@ -145,8 +139,6 @@ class _GroupDetailsBody extends StatelessWidget {
     this.pilgrimLocation,
     this.hotelName,
     this.roomNumber,
-    this.busNumber,
-    this.driverName,
     this.checkIn,
     this.checkOut,
     this.daysRemaining,
@@ -158,8 +150,6 @@ class _GroupDetailsBody extends StatelessWidget {
     final noRecordsText = 'no_records_available'.tr();
     final hotelText = hotelName?.trim().isNotEmpty == true ? hotelName! : noRecordsText;
     final roomText = roomNumber?.trim().isNotEmpty == true ? roomNumber! : noRecordsText;
-    final busText = busNumber?.trim().isNotEmpty == true ? busNumber! : noRecordsText;
-    final driverText = driverName?.trim().isNotEmpty == true ? driverName! : noRecordsText;
     final checkInText = checkIn?.trim().isNotEmpty == true ? checkIn! : '—';
     final checkOutText = checkOut?.trim().isNotEmpty == true ? checkOut! : '—';
     final daysRemainingText = daysRemaining != null ? daysRemaining.toString() : '—';
@@ -174,11 +164,6 @@ class _GroupDetailsBody extends StatelessWidget {
     final hotelTitle = isDark ? const Color(0xFF8CC5FF) : const Color(0xFF1A5F7A);
     final hotelTextCol = isDark ? Colors.white : const Color(0xFF1A365D);
     final hotelAvatarBg = isDark ? const Color(0xFF1A3355) : const Color(0xFFCCE4FF);
-
-    final transportBg = isDark ? const Color(0xFF2D2214) : const Color(0xFFFFF2E5);
-    final transportTitle = isDark ? const Color(0xFFFFD1A9) : const Color(0xFFB05C1A);
-    final transportTextCol = isDark ? Colors.white : const Color(0xFF5C2D12);
-    final transportAvatarBg = isDark ? const Color(0xFF402E1D) : const Color(0xFFFFE6D5);
 
     final stayBg = isDark ? const Color(0xFF2E1719) : const Color(0xFFFFEBEA);
     final stayTitle = isDark ? const Color(0xFFFF9EA6) : const Color(0xFFC0392B);
@@ -279,86 +264,6 @@ class _GroupDetailsBody extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: hotelTextCol,
                       fontStyle: roomNumber?.trim().isNotEmpty == true ? FontStyle.normal : FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: 12.h),
-
-        // ── Card 3: Transportation Card ──────────────────────────────────────
-        Container(
-          padding: EdgeInsets.all(14.w),
-          decoration: BoxDecoration(
-            color: transportBg,
-            borderRadius: BorderRadius.circular(20.r),
-            border: Border.all(
-              color: isDark ? const Color(0xFF3F3221) : const Color(0xFFFFECCE),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40.w,
-                    height: 40.w,
-                    decoration: BoxDecoration(
-                      color: transportAvatarBg,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Symbols.directions_bus,
-                      size: 20.w,
-                      color: transportTitle,
-                      fill: 1,
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Text(
-                    'group_transport_details'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w800,
-                      color: transportTitle,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 12.h),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('group_bus_number'.tr(), style: labelStyle),
-                  Text(
-                    busText,
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w700,
-                      color: transportTextCol,
-                      fontStyle: busNumber?.trim().isNotEmpty == true ? FontStyle.normal : FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8.h),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('group_driver_name'.tr(), style: labelStyle),
-                  Text(
-                    driverText,
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w700,
-                      color: transportTextCol,
-                      fontStyle: driverName?.trim().isNotEmpty == true ? FontStyle.normal : FontStyle.italic,
                     ),
                   ),
                 ],

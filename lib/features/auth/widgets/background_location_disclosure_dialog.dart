@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -11,6 +12,7 @@ Future<bool> showBackgroundLocationDisclosure(BuildContext context) async {
   final result = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
+    useSafeArea: false,
     builder: (ctx) => const _BackgroundLocationDisclosureDialog(),
   );
   return result ?? false;
@@ -28,11 +30,30 @@ class _BackgroundLocationDisclosureDialog extends StatelessWidget {
     final bodyColor =
         isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
 
-    return Dialog.fullscreen(
-      backgroundColor: background,
-      child: SafeArea(
+    // In edge-to-edge mode, SafeArea inside Dialog.fullscreen may not
+    // reliably reflect the system nav bar inset. We read it directly.
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarIconBrightness:
+            isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarContrastEnforced: false,
+      ),
+      child: Dialog.fullscreen(
+        backgroundColor: background,
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
+          padding: EdgeInsets.fromLTRB(
+            24.w,
+            MediaQuery.of(context).padding.top + 32.h,
+            24.w,
+            bottomInset + 24.h,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

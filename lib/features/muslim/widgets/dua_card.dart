@@ -17,8 +17,9 @@ class DuaCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final counter = ref.watch(duaTapCounterProvider.notifier);
-    final remaining = counter.remaining(dua);
+    final tapCounts = ref.watch(duaTapCounterProvider);
+    final counter = ref.read(duaTapCounterProvider.notifier);
+    final remaining = tapCounts['${dua.category}_${dua.id}'] ?? dua.repeat;
     final complete = remaining <= 0;
     final lang = context.locale.languageCode;
     final hideAuxiliary = hideDuaEnglishAuxiliary(lang);

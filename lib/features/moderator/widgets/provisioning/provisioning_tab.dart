@@ -52,7 +52,6 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
   List<PilgrimLanguageOption> _languageOptions =
       PilgrimFieldOptions.fallback().languages;
   List<HotelOption> _hotels = const [];
-  List<BusOption> _buses = const [];
   List<InsuranceCompany> _insurances = const [];
   List<ProvisioningItem> _items = const [];
   ProvisioningSummary _summary = const ProvisioningSummary();
@@ -160,7 +159,6 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
     if (groupId == null) {
       setState(() {
         _hotels = const [];
-        _buses = const [];
         _insurances = const [];
       });
       return;
@@ -176,7 +174,6 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
           : <String, dynamic>{};
 
       final hotelsRaw = (payload['hotels'] as List<dynamic>? ?? const []);
-      final busesRaw = (payload['buses'] as List<dynamic>? ?? const []);
       final insurancesRaw = (payload['insurances'] as List<dynamic>? ?? const []);
 
       if (!mounted) return;
@@ -198,15 +195,6 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
                 currentOccupancy: (room['current_occupancy'] as num?)?.toInt() ?? 0,
               );
             }).toList(),
-          );
-        }).toList();
-
-        _buses = busesRaw.whereType<Map>().map((b) {
-          final map = Map<String, dynamic>.from(b);
-          return BusOption(
-            id: map['_id']?.toString() ?? '',
-            busNumber: map['bus_number']?.toString() ?? '-',
-            destination: map['destination']?.toString() ?? '',
           );
         }).toList();
 
@@ -672,7 +660,6 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
             isDark: isDark,
             isProvisioning: _isProvisioning,
             hotels: _hotels,
-            buses: _buses,
             insurances: _insurances,
             isLoadingResources: _isLoadingResources,
             ethnicityOptions: _ethnicityOptions,

@@ -667,7 +667,6 @@ class GroupCard extends StatelessWidget {
   final List<ModeratorInfo> moderators;
   final String? createdBy;
   final String hotelName;
-  final String busNumber;
   final String checkIn;
   final VoidCallback onTap;
 
@@ -677,7 +676,6 @@ class GroupCard extends StatelessWidget {
     required this.moderators,
     this.createdBy,
     required this.hotelName,
-    required this.busNumber,
     required this.checkIn,
     required this.onTap,
   });
@@ -872,36 +870,6 @@ class GroupCard extends StatelessWidget {
                                   fontWeight: FontWeight.w700,
                                   color: bodyValueColor,
                                   fontStyle: checkIn.isEmpty
-                                      ? FontStyle.italic
-                                      : FontStyle.normal,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(width: 12.w),
-                        // Bus
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'group_bus_label'.tr().toUpperCase(),
-                                style: labelStyle,
-                              ),
-                              SizedBox(height: 4.h),
-                              Text(
-                                busNumber.isNotEmpty
-                                    ? busNumber
-                                    : 'group_not_set'.tr(),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w700,
-                                  color: bodyValueColor,
-                                  fontStyle: busNumber.isEmpty
                                       ? FontStyle.italic
                                       : FontStyle.normal,
                                 ),

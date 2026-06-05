@@ -1723,8 +1723,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
               pilgrimLocation: _myLatLng,
               hotelName: group.hotelName,
               roomNumber: group.roomNumber,
-              busNumber: group.busNumber,
-              driverName: group.driverName,
               checkIn: group.checkIn,
               checkOut: group.checkOut,
               daysRemaining: group.daysRemaining,

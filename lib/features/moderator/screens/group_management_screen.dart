@@ -35,6 +35,7 @@ import '../../calling/providers/call_provider.dart';
 import '../../calling/screens/voice_call_screen.dart';
 import '../../shared/providers/suggested_area_provider.dart';
 import 'group_messages_screen.dart';
+import 'group_logistics_screen.dart';
 import 'individual_messages_screen.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
 import '../widgets/area_picker_screen.dart';
@@ -1753,6 +1754,8 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                         _toggleNavBeacon(group);
                       case 'manage':
                         _showManageSheet(group);
+                      case 'logistics':
+                        _openLogisticsScreen(group);
                       case 'areas':
                         _showAreaActions(group, areaState);
                       case 'leave':
@@ -1780,6 +1783,14 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                       child: AppPopupMenu.actionRow(
                         icon: Symbols.settings,
                         label: 'group_menu_manage'.tr(),
+                        isDark: isDark,
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'logistics',
+                      child: AppPopupMenu.actionRow(
+                        icon: Symbols.domain,
+                        label: 'group_menu_logistics'.tr(),
                         isDark: isDark,
                       ),
                     ),
@@ -2223,6 +2234,17 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
             ), // NotificationListener
           ), // Positioned.fill
         ],
+      ),
+    );
+  }
+
+  void _openLogisticsScreen(ModeratorGroup group) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GroupLogisticsScreen(
+          groupId: group.id,
+          groupName: group.groupName,
+        ),
       ),
     );
   }
