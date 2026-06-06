@@ -75,9 +75,8 @@ class _SosButtonState extends State<SosButton>
   @override
   Widget build(BuildContext context) {
     final double size = widget.size;
-    final double ringStroke = (size * 0.042).clamp(4.0, 8.0);
 
-    Widget disc = GestureDetector(
+    return GestureDetector(
       onLongPressDown: (_) => _onDown(),
       onLongPressStart: (_) {
         HapticFeedback.heavyImpact();
@@ -111,8 +110,8 @@ class _SosButtonState extends State<SosButton>
                 animation: widget.pulseController,
                 builder: (context, child) {
                   final pulseValue = widget.pulseController.value;
-                  final double glowRadius = 28.0 + (pulseValue * 18.0); // 28 to 46
-                  final double spreadRadius = 6.0 + (pulseValue * 8.0); // 6 to 14
+                  final double glowRadius = 28.0 + (pulseValue * 18.0);
+                  final double spreadRadius = 6.0 + (pulseValue * 8.0);
                   final double glowAlpha = widget.sosActive ? 0.35 : (0.45 + (pulseValue * 0.15));
 
                   return Container(
@@ -174,6 +173,7 @@ class _SosButtonState extends State<SosButton>
                   child: AnimatedBuilder(
                     animation: widget.holdController,
                     builder: (_, _) {
+                      final ringStroke = (size * 0.042).clamp(4.0, 8.0);
                       final rotationAngle = widget.holdController.value * 2.0 * 3.14159265;
                       return Transform.rotate(
                         angle: rotationAngle,
@@ -197,8 +197,6 @@ class _SosButtonState extends State<SosButton>
         ),
       ),
     );
-
-    return disc;
   }
 }
 
