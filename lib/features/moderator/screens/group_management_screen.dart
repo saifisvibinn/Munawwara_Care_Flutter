@@ -36,6 +36,7 @@ import '../../calling/screens/voice_call_screen.dart';
 import '../../shared/providers/suggested_area_provider.dart';
 import 'group_messages_screen.dart';
 import 'group_logistics_screen.dart';
+import 'bus_attendance_screen.dart';
 import 'individual_messages_screen.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
 import '../widgets/area_picker_screen.dart';
@@ -1756,6 +1757,15 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                         _showManageSheet(group);
                       case 'logistics':
                         _openLogisticsScreen(group);
+                      case 'attendance':
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => BusAttendanceScreen(
+                              groupId: group.id,
+                              groupName: group.groupName,
+                            ),
+                          ),
+                        );
                       case 'areas':
                         _showAreaActions(group, areaState);
                       case 'leave':
@@ -1791,6 +1801,14 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                       child: AppPopupMenu.actionRow(
                         icon: Symbols.domain,
                         label: 'group_menu_logistics'.tr(),
+                        isDark: isDark,
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'attendance',
+                      child: AppPopupMenu.actionRow(
+                        icon: Symbols.fact_check,
+                        label: 'attendance_title'.tr(),
                         isDark: isDark,
                       ),
                     ),
