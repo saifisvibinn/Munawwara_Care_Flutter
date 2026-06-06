@@ -1005,3 +1005,160 @@ class ExploreCard extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Active Attendance Card (Pilgrim-side)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class ActiveAttendanceCard extends StatefulWidget {
+  final ActiveBoardingSession session;
+  final VoidCallback onTap;
+
+  const ActiveAttendanceCard({
+    super.key,
+    required this.session,
+    required this.onTap,
+  });
+
+  @override
+  State<ActiveAttendanceCard> createState() => _ActiveAttendanceCardState();
+}
+
+class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1E1E2D) : Colors.white;
+    final borderColor = isDark
+        ? AppColors.primary.withValues(alpha: 0.4)
+        : const Color(0xFFFFEDD5);
+
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: 16.h),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(24.r),
+        border: Border.all(
+          color: borderColor,
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24.r),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onTap,
+            splashColor: AppColors.primary.withValues(alpha: 0.12),
+            highlightColor: AppColors.primary.withValues(alpha: 0.06),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 18.h),
+              child: Row(
+                children: [
+                  // Icon container
+                  Container(
+                    padding: EdgeInsets.all(12.w),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.directions_bus_rounded,
+                      color: AppColors.primary,
+                      size: 28.sp,
+                    ),
+                  ),
+                  SizedBox(width: 16.w),
+                  // Text details
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'attendance_title'.tr(),
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.white : AppColors.textDark,
+                              ),
+                            ),
+                            SizedBox(width: 8.w),
+                            // Blinking active indicator
+                            FadeTransition(
+                              opacity: _pulseAnimation,
+                              child: Container(
+                                width: 8.w,
+                                height: 8.w,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.success,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          widget.session.busIdentifier.isNotEmpty
+                              ? widget.session.busIdentifier
+                              : 'Bus / Trip Boarding',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 13.sp,
+                            color: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Action indicator / arrow
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 16.sp,
+                    color: AppColors.primary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -14,6 +14,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:gal/gal.dart';
 
 import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -29,11 +30,13 @@ import '../providers/bus_attendance_provider.dart';
 class BusAttendanceScreen extends ConsumerStatefulWidget {
   final String groupId;
   final String groupName;
+  final String? pastSessionId;
 
   const BusAttendanceScreen({
     super.key,
     required this.groupId,
     required this.groupName,
+    this.pastSessionId,
   });
 
   @override
@@ -47,6 +50,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
   late final TextEditingController _busController;
   Timer? _elapsedTimer;
   Duration _elapsed = Duration.zero;
+  bool _showAllHistory = false;
 
   bool get isDark => Theme.of(context).brightness == Brightness.dark;
 
@@ -58,22 +62,49 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     _busController = TextEditingController(text: 'Trip - $today');
 
-    // Listen for real-time boarding updates
-    SocketService.on('bus_boarding_update', _onBoardingUpdate);
+    if (widget.pastSessionId == null) {
+      // Listen for real-time boarding updates
+      SocketService.on('bus_boarding_update', _onBoardingUpdate);
+    }
 
-    // Check if there's already an active session
+    // Load active/created session or past session details
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkOrStartSession();
+      _loadData();
     });
   }
 
   @override
   void dispose() {
-    SocketService.off('bus_boarding_update');
+    if (widget.pastSessionId == null) {
+      SocketService.off('bus_boarding_update');
+    }
     _elapsedTimer?.cancel();
     _tabController.dispose();
     _busController.dispose();
+    ref.read(busAttendanceProvider.notifier).reset();
     super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    if (widget.pastSessionId != null) {
+      await ref
+          .read(busAttendanceProvider.notifier)
+          .fetchSessionDetails(widget.groupId, widget.pastSessionId!);
+      if (!mounted) return;
+
+      final session = ref.read(busAttendanceProvider).session;
+      if (session != null && session.startedAt != null && session.completedAt != null) {
+        setState(() {
+          _elapsed = session.completedAt!.difference(session.startedAt!);
+        });
+      }
+    } else {
+      await _checkOrStartSession();
+      if (!mounted) return;
+      await ref
+          .read(busAttendanceProvider.notifier)
+          .fetchHistory(widget.groupId);
+    }
   }
 
   // ── Session management ──────────────────────────────────────────────────
@@ -172,6 +203,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
           context,
           'Trip cancelled successfully',
         );
+        ref.read(busAttendanceProvider.notifier).fetchHistory(widget.groupId);
       }
     }
   }
@@ -398,20 +430,18 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
         delay: const Duration(milliseconds: 100),
       );
 
-      Directory? dir;
-      try {
-        dir = await getDownloadsDirectory();
-      } catch (_) {}
-      dir ??= await getApplicationDocumentsDirectory();
-
+      final tempDir = await getTemporaryDirectory();
       final fileName = '${st.session?.busIdentifier ?? 'trip'}_qr'.replaceAll(RegExp(r'[^\w\-_]'), '_');
-      final file = File('${dir.path}/$fileName.png');
+      final file = File('${tempDir.path}/$fileName.png');
       await file.writeAsBytes(bytes);
+
+      // Save to gallery
+      await Gal.putImage(file.path);
 
       if (mounted) {
         StandardSnackBar.showSuccess(
           context,
-          'QR Code card saved to: ${file.path}',
+          'QR Code card successfully saved to gallery!',
         );
       }
     } catch (e) {
@@ -445,20 +475,25 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
       backgroundColor:
           isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
       appBar: _buildAppBar(st),
-      body: !st.hasAnySession && !st.isStarting
-          ? _buildNoSession(st)
-          : st.isStarting
+      body: widget.pastSessionId != null
+          ? (st.isLoading && st.session == null
               ? _buildLoading()
-              : _buildActiveSession(st),
+              : _buildActiveSession(st))
+          : (!st.hasFetched || st.isStarting
+              ? _buildLoading()
+              : (!st.hasAnySession
+                  ? _buildNoSession(st)
+                  : _buildActiveSession(st))),
     );
   }
 
   PreferredSizeWidget _buildAppBar(BusAttendanceState st) {
     final isCreated = st.hasCreatedSession;
+    final isPast = widget.pastSessionId != null;
 
     return AppBar(
       title: Text(
-        'attendance_title'.tr(),
+        isPast ? (st.session?.busIdentifier ?? 'Trip Details') : 'attendance_title'.tr(),
         style: TextStyle(
           fontFamily: 'Lexend',
           fontWeight: FontWeight.w700,
@@ -469,8 +504,8 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
       elevation: 0,
       backgroundColor: Colors.transparent,
       foregroundColor: isDark ? Colors.white : AppColors.textDark,
-      leadingWidth: isCreated ? 80.w : 56.w,
-      leading: isCreated
+      leadingWidth: (isCreated && !isPast) ? 80.w : 56.w,
+      leading: (isCreated && !isPast)
           ? Align(
               alignment: Alignment.centerLeft,
               child: Padding(
@@ -499,7 +534,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
               onPressed: () => Navigator.pop(context),
             ),
       actions: [
-        if (st.hasActiveSession)
+        if (st.hasActiveSession && !isPast)
           TextButton(
             onPressed: _endSession,
             child: Text(
@@ -659,6 +694,157 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
                 ),
               ),
             ),
+
+            // History section starts here
+            if (st.history.isNotEmpty) ...[
+              SizedBox(height: 36.h),
+              const Divider(),
+              SizedBox(height: 20.h),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Symbols.history,
+                        size: 20.w,
+                        color: isDark ? Colors.white70 : AppColors.textMutedDark,
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        'Trip History',
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15.sp,
+                          color: isDark ? Colors.white : AppColors.textDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (st.history.length > 3)
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _showAllHistory = !_showAllHistory;
+                        });
+                      },
+                      child: Text(
+                        _showAllHistory ? 'Show Less' : 'Show More',
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12.sp,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              SizedBox(height: 12.h),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _showAllHistory
+                    ? st.history.length
+                    : (st.history.length > 3 ? 3 : st.history.length),
+                itemBuilder: (context, index) {
+                  final session = st.history[index];
+                  final formattedDate = session.startedAt != null
+                      ? DateFormat('MMM dd, yyyy · HH:mm').format(session.startedAt!.toLocal())
+                      : (session.completedAt != null
+                          ? DateFormat('MMM dd, yyyy · HH:mm').format(session.completedAt!.toLocal())
+                          : 'Unknown Date');
+
+                  final boardedCount = session.boardedPilgrims.length;
+                  final totalPilgrims = session.totalPilgrims;
+
+                  return Container(
+                    margin: EdgeInsets.only(bottom: 12.h),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.surfaceDark
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(14.r),
+                      border: Border.all(
+                        color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
+                        width: 0.5,
+                      ),
+                    ),
+                    child: ListTile(
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                      leading: Container(
+                        width: 40.w,
+                        height: 40.w,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Symbols.directions_bus,
+                          size: 20.w,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      title: Text(
+                        session.busIdentifier,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13.sp,
+                          color: isDark ? Colors.white : AppColors.textDark,
+                        ),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: 4.h),
+                          Text(
+                            formattedDate,
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 11.sp,
+                              color: isDark ? Colors.white54 : AppColors.textMutedDark,
+                            ),
+                          ),
+                          SizedBox(height: 2.h),
+                          Text(
+                            'Present: $boardedCount / $totalPilgrims',
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 11.sp,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      trailing: Icon(
+                        Symbols.arrow_forward_ios,
+                        size: 14.w,
+                        color: isDark ? Colors.white30 : AppColors.textMutedLight,
+                      ),
+                      onTap: () {
+                        // Open the read-only details screen
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => BusAttendanceScreen(
+                              groupId: widget.groupId,
+                              groupName: widget.groupName,
+                              pastSessionId: session.id,
+                            ),
+                          ),
+                        ).then((_) {
+                          // Re-fetch history to ensure up-to-date lists if they go back
+                          ref.read(busAttendanceProvider.notifier).fetchHistory(widget.groupId);
+                        });
+                      },
+                    ),
+                  );
+                },
+              ),
+            ],
           ],
         ),
       ),
@@ -669,16 +855,17 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
 
   Widget _buildActiveSession(BusAttendanceState st) {
     final isActive = st.hasActiveSession;
+    final isPast = widget.pastSessionId != null;
 
     return Column(
       children: [
         // Header: bus name + elapsed time
         _buildSessionHeader(st),
 
-        // QR + Code section
-        _buildQrSection(st),
+        // QR + Code section (ONLY if NOT past session)
+        if (!isPast) _buildQrSection(st),
 
-        if (!isActive) ...[
+        if (!isActive && !isPast) ...[
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h),
             child: SizedBox(
@@ -718,7 +905,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
           ),
         ],
 
-        if (isActive) ...[
+        if (isActive || isPast) ...[
           // Counter bar
           _buildCounterBar(st),
 
@@ -736,8 +923,13 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
     final ss = (_elapsed.inSeconds % 60).toString().padLeft(2, '0');
 
     final isActive = st.hasActiveSession;
-    final statusColor = isActive ? AppColors.success : Colors.amber;
-    final statusText = isActive ? 'attendance_session_active'.tr() : 'attendance_session_created'.tr();
+    final isPast = widget.pastSessionId != null;
+    final statusColor = isPast
+        ? Colors.grey
+        : (isActive ? AppColors.success : Colors.amber);
+    final statusText = isPast
+        ? 'Completed'
+        : (isActive ? 'attendance_session_active'.tr() : 'attendance_session_created'.tr());
 
     return Container(
       margin: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
@@ -825,7 +1017,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
                 ),
                 SizedBox(width: 4.w),
                 Text(
-                  isActive ? '$hh:$mm:$ss' : '--:--:--',
+                  (isActive || isPast) ? '$hh:$mm:$ss' : '--:--:--',
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
@@ -1205,15 +1397,17 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
           gender: p.gender,
           subtitle: '${'attendance_checked_in'.tr()} · $time',
           subtitleColor: AppColors.success,
-          trailing: IconButton(
-            icon: Icon(
-              Symbols.person_remove,
-              size: 20.w,
-              color: AppColors.error.withValues(alpha: 0.7),
-            ),
-            tooltip: 'attendance_manual_checkout'.tr(),
-            onPressed: () => _manualToggle(p.id, false),
-          ),
+          trailing: widget.pastSessionId != null
+              ? null
+              : IconButton(
+                  icon: Icon(
+                    Symbols.person_remove,
+                    size: 20.w,
+                    color: AppColors.error.withValues(alpha: 0.7),
+                  ),
+                  tooltip: 'attendance_manual_checkout'.tr(),
+                  onPressed: () => _manualToggle(p.id, false),
+                ),
           leadingIcon: Symbols.check_circle,
           leadingIconColor: AppColors.success,
         );
@@ -1264,15 +1458,16 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
                     if (await canLaunchUrl(uri)) launchUrl(uri);
                   },
                 ),
-              IconButton(
-                icon: Icon(
-                  Symbols.person_add,
-                  size: 20.w,
-                  color: AppColors.success,
+              if (widget.pastSessionId == null)
+                IconButton(
+                  icon: Icon(
+                    Symbols.person_add,
+                    size: 20.w,
+                    color: AppColors.success,
+                  ),
+                  tooltip: 'attendance_manual_checkin'.tr(),
+                  onPressed: () => _manualToggle(p.id, true),
                 ),
-                tooltip: 'attendance_manual_checkin'.tr(),
-                onPressed: () => _manualToggle(p.id, true),
-              ),
             ],
           ),
           leadingIcon: Symbols.radio_button_unchecked,

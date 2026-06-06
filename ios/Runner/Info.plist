@@ -72,6 +72,10 @@
 	<string>Microphone access is required for recording voice messages and making group voice calls.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Speech recognition is required to translate your spoken words in real time.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Munawwara Care needs permission to save QR codes to your photo library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Munawwara Care needs permission to save QR codes to your photo library.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

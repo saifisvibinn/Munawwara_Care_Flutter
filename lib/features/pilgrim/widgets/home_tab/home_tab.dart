@@ -14,6 +14,7 @@ import '../sos/sos_help_session_panel.dart';
 import 'home_cards.dart';
 import 'reassure_family_sheet.dart';
 import '../../screens/live_translate_screen.dart';
+import '../../screens/scan_trip_qr_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Home Tab — fixed app bar; greeting + dashboard scroll below
@@ -386,6 +387,21 @@ class _HomeBody extends StatelessWidget {
               ModeratorNavigateBeaconList(
                 beacons: activeBeacons,
                 onNavigate: onNavigateToModerator,
+              ),
+            ],
+            if (group?.activeBoardingSession != null) ...[
+              SizedBox(height: 12.h),
+              ActiveAttendanceCard(
+                session: group!.activeBoardingSession!,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ScanTripQrScreen(
+                        session: group!.activeBoardingSession!,
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
             SizedBox(height: 26.h), // Pushed grid down slightly from GroupCard

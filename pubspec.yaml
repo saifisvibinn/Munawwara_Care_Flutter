@@ -85,6 +85,7 @@ dependencies:
   connectivity_plus: ^6.0.3
   flutter_compass_v2:
     path: ./plugins/flutter_compass_v2
+  gal: ^2.3.2
 dependency_overrides:
   # Local copy of flutter_callkit_incoming with native Android HTTP decline fix.
   # The BroadcastReceiver now posts to /call-history/decline when the pilgrim
