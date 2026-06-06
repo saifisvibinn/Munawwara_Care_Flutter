@@ -83,8 +83,7 @@ dependencies:
   google_mlkit_language_id: ^0.12.0
   speech_to_text: ^7.4.0
   connectivity_plus: ^6.0.3
-  flutter_compass_v2:
-    path: ./plugins/flutter_compass_v2
+  sensors_plus: ^6.1.1
   flutter_background_service: ^5.1.0
   workmanager: ^0.9.0+3
   http: ^1.6.0

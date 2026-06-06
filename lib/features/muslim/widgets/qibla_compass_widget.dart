@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_compass_v2/flutter_compass_v2.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -24,11 +24,18 @@ class QiblaCompassWidget extends StatefulWidget {
 class _QiblaCompassWidgetState extends State<QiblaCompassWidget> {
   static const _alignToleranceDeg = 5.0;
 
-  StreamSubscription<CompassEvent>? _compassSub;
+  StreamSubscription<AccelerometerEvent>? _accelSub;
+  StreamSubscription<MagnetometerEvent>? _magSub;
   Timer? _sensorTimeout;
   double? _heading;
   bool _sensorUnavailable = false;
   bool _wasAligned = false;
+
+  final List<double> _latestAccel = [0.0, 0.0, 0.0];
+  final List<double> _latestMag = [0.0, 0.0, 0.0];
+  bool _hasAccel = false;
+  bool _hasMag = false;
+  static const double _alpha = 0.15; // Tunable low-pass filter constant
 
   @override
   void initState() {
@@ -37,28 +44,45 @@ class _QiblaCompassWidgetState extends State<QiblaCompassWidget> {
   }
 
   void _startCompass() {
-    final stream = FlutterCompass.events;
-    if (stream == null) {
-      _sensorUnavailable = true;
-      return;
-    }
+    _accelSub = accelerometerEventStream().listen(
+      (event) {
+        if (!mounted) return;
+        if (!_hasAccel) {
+          _latestAccel[0] = event.x;
+          _latestAccel[1] = event.y;
+          _latestAccel[2] = event.z;
+          _hasAccel = true;
+        } else {
+          _latestAccel[0] = _latestAccel[0] + _alpha * (event.x - _latestAccel[0]);
+          _latestAccel[1] = _latestAccel[1] + _alpha * (event.y - _latestAccel[1]);
+          _latestAccel[2] = _latestAccel[2] + _alpha * (event.z - _latestAccel[2]);
+        }
+        _calculateTiltCompensatedHeading();
+      },
+      onError: (error) {
+        setState(() => _sensorUnavailable = true);
+      },
+    );
 
-    _compassSub = stream.listen((event) {
-      if (!mounted) return;
-      final heading = event.heading;
-      if (heading == null) return;
-
-      final aligned = _isAligned(heading);
-      if (aligned && !_wasAligned) {
-        HapticFeedback.lightImpact();
-      }
-      _wasAligned = aligned;
-
-      setState(() {
-        _heading = heading;
-        _sensorUnavailable = false;
-      });
-    });
+    _magSub = magnetometerEventStream().listen(
+      (event) {
+        if (!mounted) return;
+        if (!_hasMag) {
+          _latestMag[0] = event.x;
+          _latestMag[1] = event.y;
+          _latestMag[2] = event.z;
+          _hasMag = true;
+        } else {
+          _latestMag[0] = _latestMag[0] + _alpha * (event.x - _latestMag[0]);
+          _latestMag[1] = _latestMag[1] + _alpha * (event.y - _latestMag[1]);
+          _latestMag[2] = _latestMag[2] + _alpha * (event.z - _latestMag[2]);
+        }
+        _calculateTiltCompensatedHeading();
+      },
+      onError: (error) {
+        setState(() => _sensorUnavailable = true);
+      },
+    );
 
     _sensorTimeout = Timer(const Duration(seconds: 4), () {
       if (!mounted) return;
@@ -68,9 +92,50 @@ class _QiblaCompassWidgetState extends State<QiblaCompassWidget> {
     });
   }
 
+  void _calculateTiltCompensatedHeading() {
+    if (!_hasAccel || !_hasMag) return;
+
+    final ax = _latestAccel[0];
+    final ay = _latestAccel[1];
+    final az = _latestAccel[2];
+
+    final mx = _latestMag[0];
+    final my = _latestMag[1];
+    final mz = _latestMag[2];
+
+    // Compute pitch and roll in radians
+    final roll = math.atan2(ay, az);
+    final pitch = math.atan2(-ax, math.sqrt(ay * ay + az * az));
+
+    final sinRoll = math.sin(roll);
+    final cosRoll = math.cos(roll);
+    final sinPitch = math.sin(pitch);
+    final cosPitch = math.cos(pitch);
+
+    // Tilt-compensated horizontal magnetometer components
+    final xh = mx * cosPitch + my * sinRoll * sinPitch + mz * cosRoll * sinPitch;
+    final yh = my * cosRoll - mz * sinRoll;
+
+    // Heading in degrees (clockwise from North: 0 = North, 90 = East, etc.)
+    double headingDeg = math.atan2(-xh, yh) * 180 / math.pi;
+    headingDeg = (headingDeg + 360) % 360;
+
+    final aligned = _isAligned(headingDeg);
+    if (aligned && !_wasAligned) {
+      HapticFeedback.lightImpact();
+    }
+    _wasAligned = aligned;
+
+    setState(() {
+      _heading = headingDeg;
+      _sensorUnavailable = false;
+    });
+  }
+
   @override
   void dispose() {
-    _compassSub?.cancel();
+    _accelSub?.cancel();
+    _magSub?.cancel();
     _sensorTimeout?.cancel();
     super.dispose();
   }
