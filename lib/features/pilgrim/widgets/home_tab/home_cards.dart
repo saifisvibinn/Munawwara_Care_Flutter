@@ -1050,10 +1050,19 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? const Color(0xFF1E1E2D) : Colors.white;
-    final borderColor = isDark
-        ? AppColors.primary.withValues(alpha: 0.4)
-        : const Color(0xFFFFEDD5);
+    final isAttended = widget.session.attended;
+
+    final cardBg = isAttended
+        ? (isDark
+            ? AppColors.success.withValues(alpha: 0.08)
+            : AppColors.success.withValues(alpha: 0.04))
+        : (isDark ? const Color(0xFF1E1E2D) : Colors.white);
+
+    final borderColor = isAttended
+        ? AppColors.success.withValues(alpha: 0.35)
+        : (isDark
+            ? AppColors.primary.withValues(alpha: 0.4)
+            : const Color(0xFFFFEDD5));
 
     return Container(
       width: double.infinity,
@@ -1067,7 +1076,9 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.08),
+            color: isAttended
+                ? AppColors.success.withValues(alpha: 0.04)
+                : AppColors.primary.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -1078,7 +1089,7 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: widget.onTap,
+            onTap: isAttended ? null : widget.onTap,
             splashColor: AppColors.primary.withValues(alpha: 0.12),
             highlightColor: AppColors.primary.withValues(alpha: 0.06),
             child: Padding(
@@ -1089,12 +1100,14 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
                   Container(
                     padding: EdgeInsets.all(12.w),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
+                      color: isAttended
+                          ? AppColors.success.withValues(alpha: 0.12)
+                          : AppColors.primary.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.directions_bus_rounded,
-                      color: AppColors.primary,
+                      isAttended ? Icons.check_circle_rounded : Icons.directions_bus_rounded,
+                      color: isAttended ? AppColors.success : AppColors.primary,
                       size: 28.sp,
                     ),
                   ),
@@ -1107,27 +1120,31 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
                         Row(
                           children: [
                             Text(
-                              'attendance_title'.tr(),
+                              isAttended ? 'attendance_checked_in'.tr() : 'attendance_title'.tr(),
                               style: TextStyle(
                                 fontFamily: 'Lexend',
                                 fontSize: 16.sp,
                                 fontWeight: FontWeight.w800,
-                                color: isDark ? Colors.white : AppColors.textDark,
+                                color: isAttended
+                                    ? AppColors.success
+                                    : (isDark ? Colors.white : AppColors.textDark),
                               ),
                             ),
-                            SizedBox(width: 8.w),
-                            // Blinking active indicator
-                            FadeTransition(
-                              opacity: _pulseAnimation,
-                              child: Container(
-                                width: 8.w,
-                                height: 8.w,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.success,
-                                  shape: BoxShape.circle,
+                            if (!isAttended) ...[
+                              SizedBox(width: 8.w),
+                              // Blinking active indicator
+                              FadeTransition(
+                                opacity: _pulseAnimation,
+                                child: Container(
+                                  width: 8.w,
+                                  height: 8.w,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.success,
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                         SizedBox(height: 4.h),
@@ -1140,7 +1157,9 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 13.sp,
-                            color: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
+                            color: isAttended
+                                ? (isDark ? Colors.white60 : AppColors.textMutedDark)
+                                : (isDark ? AppColors.textMutedLight : AppColors.textMutedDark),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -1148,11 +1167,12 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
                     ),
                   ),
                   // Action indicator / arrow
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 16.sp,
-                    color: AppColors.primary,
-                  ),
+                  if (!isAttended)
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 16.sp,
+                      color: AppColors.primary,
+                    ),
                 ],
               ),
             ),

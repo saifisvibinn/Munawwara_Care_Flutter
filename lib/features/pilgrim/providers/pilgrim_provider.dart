@@ -81,12 +81,14 @@ class ActiveBoardingSession {
   final String busIdentifier;
   final String status;
   final DateTime? startedAt;
+  final bool attended;
 
   const ActiveBoardingSession({
     required this.sessionId,
     required this.busIdentifier,
     required this.status,
     this.startedAt,
+    this.attended = false,
   });
 
   factory ActiveBoardingSession.fromJson(Map<String, dynamic> j) => ActiveBoardingSession(
@@ -94,6 +96,7 @@ class ActiveBoardingSession {
     busIdentifier: j['bus_identifier']?.toString() ?? '',
     status: j['status']?.toString() ?? '',
     startedAt: j['started_at'] != null ? DateTime.tryParse(j['started_at'].toString()) : null,
+    attended: j['attended'] == true,
   );
 }
 
