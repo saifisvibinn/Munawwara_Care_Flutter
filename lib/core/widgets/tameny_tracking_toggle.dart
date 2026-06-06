@@ -80,7 +80,7 @@ class _TamenyTrackingToggleState extends State<TamenyTrackingToggle> {
                     : Switch(
                         value: _isEnabled,
                         onChanged: _handleToggle,
-                        activeColor: const Color(0xFF2E7D32),
+                        activeThumbColor: const Color(0xFF2E7D32),
                       ),
               ],
             ),
