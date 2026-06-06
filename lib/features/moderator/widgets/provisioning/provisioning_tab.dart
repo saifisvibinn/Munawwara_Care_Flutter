@@ -246,7 +246,27 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
     setState(() => _isProvisioning = true);
 
     try {
-      await ApiService.dio.post('/auth/groups/$groupId/provision-pilgrim', data: data);
+      final Map<String, dynamic> formMap = {};
+      for (final entry in data.entries) {
+        if (entry.value == null) continue;
+        if (entry.key == 'tashera_document') {
+          final String filePath = entry.value as String;
+          final file = File(filePath);
+          if (await file.exists()) {
+            final fileName = filePath.split(Platform.pathSeparator).last;
+            formMap[entry.key] = await MultipartFile.fromFile(
+              filePath,
+              filename: fileName,
+            );
+          }
+        } else {
+          formMap[entry.key] = entry.value.toString();
+        }
+      }
+
+      final formData = FormData.fromMap(formMap);
+
+      await ApiService.dio.post('/auth/groups/$groupId/provision-pilgrim', data: formData);
       await ref.read(moderatorProvider.notifier).syncAfterMutation(groupId: groupId);
       await _loadProvisioningStatus();
       if (mounted) {

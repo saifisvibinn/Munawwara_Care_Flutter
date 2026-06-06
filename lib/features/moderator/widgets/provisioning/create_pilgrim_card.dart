@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -56,6 +58,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _altPhoneCtrl = TextEditingController();
   final _morafeqNameCtrl = TextEditingController();
   final _morafeqPhoneCtrl = TextEditingController();
   final _morafeqEmailCtrl = TextEditingController();
@@ -71,10 +74,14 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
   String? _selectedInsuranceCompanyId;
   Set<String> _genderSelection = {'male'};
 
+  File? _tasheraDocument;
+  String? _tasheraDocumentName;
+
   @override
   void dispose() {
     _fullNameCtrl.dispose();
     _phoneCtrl.dispose();
+    _altPhoneCtrl.dispose();
     _morafeqNameCtrl.dispose();
     _morafeqPhoneCtrl.dispose();
     _morafeqEmailCtrl.dispose();
@@ -83,6 +90,23 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
     _nationalIdCtrl.dispose();
     _medicalHistoryCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickTasheraDocument() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+      );
+      if (result != null && result.files.single.path != null) {
+        setState(() {
+          _tasheraDocument = File(result.files.single.path!);
+          _tasheraDocumentName = result.files.single.name;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking file: $e');
+    }
   }
 
   @override
@@ -172,6 +196,8 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
     final data = {
       'full_name': _fullNameCtrl.text.trim(),
       'phone_number': _phoneCtrl.text.trim(),
+      'alternative_phone_number': _altPhoneCtrl.text.trim().isEmpty ? null : _altPhoneCtrl.text.trim(),
+      'tashera_document': _tasheraDocument?.path,
       'morafeq_name': _morafeqNameCtrl.text.trim().isEmpty ? null : _morafeqNameCtrl.text.trim(),
       'morafeq_phone': _morafeqPhoneCtrl.text.trim().isEmpty ? null : _morafeqPhoneCtrl.text.trim(),
       'morafeq_email': _morafeqEmailCtrl.text.trim().isEmpty ? null : _morafeqEmailCtrl.text.trim(),
@@ -263,7 +289,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                     ),
                   ],
                 ),
-                SizedBox(height: ProvisioningFormTheme.gapLg(context)),
+                 SizedBox(height: ProvisioningFormTheme.gapLg(context)),
                 Text(
                   'provisioning_basic_information'.tr(),
                   style: theme.textTheme.labelLarge?.copyWith(
@@ -308,7 +334,26 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                             ? 'provisioning_required'.tr()
                             : null,
                       ),
-
+                      SizedBox(height: g),
+                      TextFormField(
+                        controller: _altPhoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.next,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
+                          context: context,
+                          isDark: widget.isDark,
+                          hintText: 'provisioning_alt_phone'.tr(),
+                          prefixIcon: _prefix(Symbols.phone, textMuted),
+                        ),
+                        validator: (v) {
+                          if (v != null && v.trim().isNotEmpty) {
+                            if (v.trim() == _phoneCtrl.text.trim()) {
+                              return 'provisioning_invalid'.tr();
+                            }
+                          }
+                          return null;
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -666,8 +711,72 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                         decoration: ProvisioningFormTheme.fieldDecoration(
                           context: context,
                           isDark: widget.isDark,
-                          hintText: 'Tashera Number (Optional)',
+                          hintText: 'provisioning_tashera_number'.tr(),
                           prefixIcon: _prefix(Symbols.tag, textMuted),
+                        ),
+                      ),
+                      SizedBox(height: g),
+                      InkWell(
+                        onTap: _pickTasheraDocument,
+                        borderRadius: BorderRadius.circular(12.r),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12.r),
+                            border: Border.all(
+                              color: outline.withValues(alpha: 0.8),
+                              style: BorderStyle.solid,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Symbols.upload_file,
+                                color: _tasheraDocument != null ? AppColors.primary : textMuted,
+                                size: 22.sp,
+                              ),
+                              SizedBox(width: 12.w),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'provisioning_tashera_document'.tr(),
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontSize: 13.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: textPrimary,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2.h),
+                                    Text(
+                                      _tasheraDocumentName ?? 'provisioning_tashera_tap_to_upload'.tr(),
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontSize: 11.5.sp,
+                                        color: _tasheraDocument != null ? AppColors.primary : textMuted,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (_tasheraDocument != null) ...[
+                                SizedBox(width: 8.w),
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _tasheraDocument = null;
+                                      _tasheraDocumentName = null;
+                                    });
+                                  },
+                                  child: Icon(Symbols.close, color: Colors.red, size: 20.sp),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
                       SizedBox(height: g),
@@ -677,7 +786,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                         decoration: ProvisioningFormTheme.fieldDecoration(
                           context: context,
                           isDark: widget.isDark,
-                          hintText: 'Insurance Company',
+                          hintText: 'provisioning_insurance_company'.tr(),
                           prefixIcon: _prefix(Symbols.health_and_safety, textMuted),
                         ),
                         icon: AppDropdownTheme.menuTrailingIcon(),
@@ -689,7 +798,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                           DropdownMenuItem<String?>(
                             value: null,
                             child: Text(
-                              'No Insurance',
+                              'provisioning_no_insurance'.tr(),
                               style: AppDropdownTheme.menuItemStyle(widget.isDark),
                             ),
                           ),
