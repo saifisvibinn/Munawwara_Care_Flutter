@@ -1,7 +1,7 @@
 # Privacy Policy for Munawwara Care
 
 **Effective Date:** May 17, 2026  
-**Last updated:** May 20, 2026
+**Last updated:** June 7, 2026
 
 Munawwara Care (“we”, “our”, or “us”) operates the Munawwara Care mobile application (the “App”) and related services for organized Hajj and Umrah travel groups. This Privacy Policy explains what personal information we collect, how we use it, who we share it with, and your choices.
 
@@ -26,12 +26,14 @@ The App is intended for **adults** participating in organized Hajj or Umrah trav
 - Email address (typically for moderators; pilgrims may not have an email on file)
 - Gender, age, and optional travel/logistics details (such as nationality/ID, visa information, hotel, room, bus assignment, ethnicity, and optional medical notes) when provided by your travel operator during account setup
 - Account login and device binding data (including a device identifier used to bind a pilgrim account to one phone)
+- Emergency contact information (such as full name, phone number, and email address of designated family members or contacts) when provided during account setup or profile update, used for the "Reassure Family" feature
 
 ### B. Location information
 
 - **Precise location (GPS)**, including **background location** when permitted
 - **Pilgrims:** Background location is used so authorized moderators can see your position for group safety, including during an SOS alert, when the App is in the background or not actively in use
 - **Moderators:** Location may be used when you use map and navigation features (for example, navigation beacons shown to pilgrims)
+- **Prayer Times & Qibla Direction:** When you access the Prayer Times or Qibla features, your device’s current latitude and longitude are used to retrieve local prayer schedules and determine the Qibla bearing
 
 ### C. Safety and coordination data
 
@@ -39,6 +41,7 @@ The App is intended for **adults** participating in organized Hajj or Umrah trav
 - Battery level (pilgrim devices), shared with moderators for operational awareness
 - Group membership and online/presence indicators
 - Meetpoint and area alerts (location-related notifications sent by moderators to the group)
+- Reassurance updates: Your safety status messages (default or custom) sent to designated family contacts, along with the timestamp of the broadcast
 
 ### D. Communications
 
@@ -47,6 +50,7 @@ The App is intended for **adults** participating in organized Hajj or Umrah trav
 - **Moderator messages:** Text messages, voice messages, text-to-speech (TTS) announcements, and meetpoint messages sent by moderators to the group or to individual pilgrims. Pilgrims **receive** these messages; the App is **not** designed for pilgrims to send group chat messages. We do **not** support sending or receiving photo or image messages in the App.
 - **SOS alerts to moderators:** After the urgent notification sound, the App may play a short **pre-recorded** safety message in the moderator’s selected app language (not live text-to-speech of your personal data).
 - **Push notifications:** Firebase Cloud Messaging device tokens and notification delivery data
+- **Reassurance broadcasts:** Outgoing SMS and email notifications generated when you broadcast a "Reassure Family" status update to your designated emergency contacts
 
 ### E. Technical and usage data
 
@@ -70,6 +74,8 @@ We use personal information only to operate group safety and coordination featur
 - Sending push notifications for safety, calls, and operator messages
 - Processing in-app support and account-deletion requests
 - Maintaining service security and reliability
+- Retrieving prayer times and Qibla direction based on device coordinates
+- Broadcasting safety and reassurance updates to your designated family emergency contacts
 
 ### Safety disclaimer
 
@@ -99,6 +105,9 @@ We share information only as follows:
   - **Agora** — voice (WebRTC) calls
   - **Gmail SMTP** — password-reset email, in-app support requests, and account-deletion requests delivered to our support inbox
   - **OpenStreetMap / Nominatim** — map tiles and place search (requests may include your general map area or search terms; see their policies)
+  - **UmmahAPI** — prayer times, Hijri calendar, and Qibla lookup (requests include your latitude and longitude, but no personal identifiers such as name or account tokens)
+  - **Twilio** (or similar SMS gateway) — routing outgoing SMS notifications to emergency contacts when using the "Reassure Family" feature
+  - **SendGrid** (or SMTP email provider) — routing outgoing email notifications to emergency contacts for the "Reassure Family" feature
 - **Legal requirements:** When required by law or valid legal process
 
 When you open **Google Maps** or your phone’s dialer from the App, those services are governed by their own policies.
