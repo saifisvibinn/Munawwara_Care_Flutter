@@ -1972,7 +1972,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                       Text(
                                         group.totalPilgrims == 0
                                             ? 'group_no_pilgrims'.tr()
-                                            : '${group.totalPilgrims} Pilgrims',
+                                            : 'group_pilgrims_count'.tr(args: [group.totalPilgrims.toString()]),
                                         style: TextStyle(
                                           fontFamily: 'Lexend',
                                           fontWeight: FontWeight.w700,

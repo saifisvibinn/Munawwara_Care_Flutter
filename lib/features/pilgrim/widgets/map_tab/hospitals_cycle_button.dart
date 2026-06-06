@@ -59,7 +59,7 @@ void showHospitalInfo(BuildContext context, HospitalLocation hospital) {
               borderRadius: BorderRadius.circular(8.r),
             ),
             child: Text(
-              'Covered Hospital',
+              'group_covered_hospital'.tr(),
               style: TextStyle(
                 fontFamily: 'Lexend',
                 fontWeight: FontWeight.w700,
@@ -174,7 +174,7 @@ class _HospitalsCycleButtonState extends State<HospitalsCycleButton> {
             ),
             SizedBox(height: 16.h),
             Text(
-              'Covered Hospitals',
+              'group_covered_hospitals'.tr(),
               style: TextStyle(
                 fontFamily: 'Lexend',
                 fontWeight: FontWeight.w700,
@@ -189,7 +189,7 @@ class _HospitalsCycleButtonState extends State<HospitalsCycleButton> {
                       child: Padding(
                         padding: EdgeInsets.all(24.w),
                         child: Text(
-                          'No covered hospitals listed',
+                          'group_no_covered_hospitals'.tr(),
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 13.sp,

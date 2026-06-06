@@ -421,7 +421,7 @@ class _ModeratorGroupMapScreenState
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
-                                    '${widget.group.onlineCount}/${widget.group.totalPilgrims} Online',
+                                    '${widget.group.onlineCount}/${widget.group.totalPilgrims} ${'dashboard_stat_online'.tr()}',
                                     style: TextStyle(
                                       fontFamily: 'Lexend',
                                       fontSize: 11.sp,
@@ -548,7 +548,7 @@ class _ModeratorGroupMapScreenState
                     child: Row(
                       children: [
                         Text(
-                          '${widget.group.totalPilgrims} Pilgrims',
+                          'group_pilgrims_count'.tr(args: [widget.group.totalPilgrims.toString()]),
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontWeight: FontWeight.w700,

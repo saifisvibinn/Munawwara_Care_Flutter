@@ -832,7 +832,7 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Covered Hospitals'.toUpperCase(),
+                  'logistics_covered_hospitals'.tr().toUpperCase(),
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
@@ -844,7 +844,7 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                 SizedBox(height: 8.h),
                 if (ins.hospitals.isEmpty)
                   Text(
-                    'No whitelisted hospitals.',
+                    'logistics_no_hospitals'.tr(),
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontSize: 11.sp,
