@@ -142,7 +142,8 @@
         <service
             android:name="id.flutter.flutter_background_service.BackgroundService"
             android:foregroundServiceType="location"
-            android:exported="false" />
+            android:exported="false"
+            tools:replace="android:exported" />
 
         <!-- WorkManager BroadcastReceiver to survive device reboot -->
         <receiver

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:dio/dio.dart';
@@ -13,7 +14,7 @@ import 'scan_trip_qr_screen.dart';
 // Enter Trip Code Screen
 // ─────────────────────────────────────────────────────────────────────────────
 
-class EnterTripCodeScreen extends StatefulWidget {
+class EnterTripCodeScreen extends ConsumerStatefulWidget {
   final ActiveBoardingSession session;
 
   const EnterTripCodeScreen({
@@ -22,10 +23,10 @@ class EnterTripCodeScreen extends StatefulWidget {
   });
 
   @override
-  State<EnterTripCodeScreen> createState() => _EnterTripCodeScreenState();
+  ConsumerState<EnterTripCodeScreen> createState() => _EnterTripCodeScreenState();
 }
 
-class _EnterTripCodeScreenState extends State<EnterTripCodeScreen> {
+class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
   final TextEditingController _codeController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   bool _isLoading = false;
@@ -88,11 +89,15 @@ class _EnterTripCodeScreenState extends State<EnterTripCodeScreen> {
         setState(() {
           _isLoading = false;
         });
-        StandardSnackBar.showSuccess(
-          context,
-          'Successfully checked in to trip!',
-        );
-        Navigator.of(context).pop(); // Go back to Home
+        // Force-refresh the pilgrim dashboard so attended status updates immediately
+        await ref.read(pilgrimProvider.notifier).loadDashboard(force: true);
+        if (mounted) {
+          StandardSnackBar.showSuccess(
+            context,
+            'Successfully checked in to trip!',
+          );
+          Navigator.of(context).pop(); // Go back to Home
+        }
       }
     } on DioException catch (e) {
       if (mounted) {

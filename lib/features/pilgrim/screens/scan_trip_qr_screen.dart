@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -16,7 +17,7 @@ import 'enter_trip_code_screen.dart';
 // Scan Trip QR Screen
 // ─────────────────────────────────────────────────────────────────────────────
 
-class ScanTripQrScreen extends StatefulWidget {
+class ScanTripQrScreen extends ConsumerStatefulWidget {
   final ActiveBoardingSession session;
 
   const ScanTripQrScreen({
@@ -25,10 +26,10 @@ class ScanTripQrScreen extends StatefulWidget {
   });
 
   @override
-  State<ScanTripQrScreen> createState() => _ScanTripQrScreenState();
+  ConsumerState<ScanTripQrScreen> createState() => _ScanTripQrScreenState();
 }
 
-class _ScanTripQrScreenState extends State<ScanTripQrScreen> {
+class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
   final MobileScannerController _scannerController = MobileScannerController();
   bool _isLoading = false;
   bool _scanHandled = false;
@@ -55,11 +56,15 @@ class _ScanTripQrScreenState extends State<ScanTripQrScreen> {
         setState(() {
           _isLoading = false;
         });
-        StandardSnackBar.showSuccess(
-          context,
-          'Successfully checked in to trip!',
-        );
-        Navigator.of(context).pop(); // Go back to Home
+        // Force-refresh the pilgrim dashboard so attended status updates immediately
+        await ref.read(pilgrimProvider.notifier).loadDashboard(force: true);
+        if (mounted) {
+          StandardSnackBar.showSuccess(
+            context,
+            'Successfully checked in to trip!',
+          );
+          Navigator.of(context).pop(); // Go back to Home
+        }
       }
     } on DioException catch (e) {
       if (mounted) {
