@@ -23,6 +23,7 @@ import 'features/calling/calling_scope.dart';
 import 'features/calling/native_call_coordinator.dart';
 import 'features/calling/providers/call_provider.dart';
 import 'features/moderator/services/sos_alert_coordinator.dart';
+import 'core/services/tameny_location_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -92,6 +93,14 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         unawaited(
           ref.read(authProvider.notifier).ensureFcmTokenRegistered(),
         );
+        if (next.token != null) {
+          unawaited(
+            TamenyLocationService.initialize(
+              serverUrl: ApiService.baseUrl,
+              authToken: next.token!,
+            ),
+          );
+        }
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {

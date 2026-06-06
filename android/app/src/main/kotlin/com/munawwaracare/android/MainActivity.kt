@@ -7,9 +7,11 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
+import androidx.work.*
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.util.concurrent.TimeUnit
 
 class MainActivity : FlutterActivity() {
     companion object {
@@ -19,6 +21,8 @@ class MainActivity : FlutterActivity() {
             "com.munawwaracare.android/oem_settings"
         private const val NOTIFICATION_TRAY_CHANNEL =
             "com.munawwaracare.android/notification_tray"
+        private const val WORK_MANAGER_CHANNEL =
+            "com.munawwaracare/workmanager"
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -116,6 +120,23 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            WORK_MANAGER_CHANNEL
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startPeriodicLocation" -> {
+                    val intervalMinutes = call.argument<Int>("intervalMinutes") ?: 60
+                    startPeriodicLocationWork(intervalMinutes.toLong())
+                    result.success(true)
+                }
+                "stopPeriodicLocation" -> {
+                    stopPeriodicLocationWork()
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -171,5 +192,31 @@ class MainActivity : FlutterActivity() {
             }
             nm.createNotificationChannel(urgent)
         }
+    }
+
+    private fun startPeriodicLocationWork(intervalMinutes: Long) {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+        
+        val workRequest = PeriodicWorkRequestBuilder<LocationHeartbeatWorker>(
+            intervalMinutes, TimeUnit.MINUTES,
+            15, TimeUnit.MINUTES
+        )
+            .setConstraints(constraints)
+            .addTag(LocationHeartbeatWorker.WORK_NAME)
+            .setBackoffCriteria(BackoffPolicy.LINEAR, 15, TimeUnit.MINUTES)
+            .build()
+        
+        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+            LocationHeartbeatWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.UPDATE,
+            workRequest
+        )
+    }
+    
+    private fun stopPeriodicLocationWork() {
+        WorkManager.getInstance(applicationContext)
+            .cancelUniqueWork(LocationHeartbeatWorker.WORK_NAME)
     }
 }
