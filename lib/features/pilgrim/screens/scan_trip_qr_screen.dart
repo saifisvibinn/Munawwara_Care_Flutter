@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -48,7 +49,7 @@ class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
 
     try {
       await ApiService.dio.post(
-        '/pilgrim/bus-attendance/board',
+          '/pilgrim/bus-attendance/board',
         data: {'session_id': sessionId},
       );
 
@@ -61,7 +62,7 @@ class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
         if (mounted) {
           StandardSnackBar.showSuccess(
             context,
-            'Successfully checked in to trip!',
+            'scan_trip_qr_success'.tr(),
           );
           Navigator.of(context).pop(); // Go back to Home
         }
@@ -76,7 +77,7 @@ class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
         final errorMsg = ApiService.parseError(e);
         StandardSnackBar.showError(
           context,
-          errorMsg.isNotEmpty ? errorMsg : 'Failed to check in. Please try again.',
+          errorMsg.isNotEmpty ? errorMsg : 'scan_trip_qr_failed'.tr(),
         );
       }
     } catch (e) {
@@ -88,7 +89,7 @@ class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
         _scannerController.start(); // Resume scanning
         StandardSnackBar.showError(
           context,
-          'An unexpected error occurred.',
+          'scan_trip_qr_unexpected_error'.tr(),
         );
       }
     }
@@ -135,7 +136,7 @@ class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
       backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xfff1f5f3),
       appBar: AppBar(
         title: Text(
-          'Scan Trip QR',
+          'scan_trip_qr_appbar_title'.tr(),
           style: TextStyle(
             fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
@@ -161,7 +162,7 @@ class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Check-in to Your Trip',
+                'scan_trip_qr_subtitle'.tr(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Lexend',
@@ -172,7 +173,7 @@ class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
               ),
               SizedBox(height: 8.h),
               Text(
-                'Align the QR code from your itinerary within the frame to automatically check in.',
+                'scan_trip_qr_body'.tr(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Lexend',
@@ -212,7 +213,9 @@ class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
                     size: 20.sp,
                   ),
                   label: Text(
-                    _isTorchOn ? 'Close Flashlight' : 'Open Flashlight',
+                    _isTorchOn
+                        ? 'scan_trip_qr_flashlight_close'.tr()
+                        : 'scan_trip_qr_flashlight_open'.tr(),
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontWeight: FontWeight.w600,
@@ -248,7 +251,7 @@ class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Not working? Enter code instead',
+                      'scan_trip_qr_enter_code_instead'.tr(),
                       style: TextStyle(
                         fontFamily: 'Lexend',
                         fontWeight: FontWeight.w700,

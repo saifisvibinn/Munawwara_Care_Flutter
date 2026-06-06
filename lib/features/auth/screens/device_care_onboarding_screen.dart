@@ -141,7 +141,7 @@ class _DeviceCareOnboardingScreenState
                     color: muted,
                   ),
                 ),
-                SizedBox(height: 24.h),
+                SizedBox(height: 20.h),
                 Expanded(
                   child: _steps.isEmpty
                       ? Center(

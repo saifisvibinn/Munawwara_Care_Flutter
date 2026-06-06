@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'native_prefs_bridge.dart';
 import 'battery_optimization_helper.dart';
 
+@pragma('vm:entry-point')
 class TamenyLocationService {
   
   static const _androidWorkManagerChannel = MethodChannel('com.munawwaracare/workmanager');
@@ -46,10 +47,15 @@ class TamenyLocationService {
   }
 
   /// Enable the full tracking stack (toggle ON)
-  static Future<bool> enableTracking(BuildContext context) async {
+  static Future<bool> enableTracking(
+    BuildContext context, {
+    bool forceSkipDisclosure = false,
+  }) async {
     // 1. Show prominent disclosure dialog first
-    final confirmed = await _showProminentDisclosure(context);
-    if (!confirmed) return false;
+    if (!forceSkipDisclosure) {
+      final confirmed = await _showProminentDisclosure(context);
+      if (!confirmed) return false;
+    }
     
     // 2. Request permissions
     final hasPermission = await _requestPermissions();

@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 
 import 'location_permission_service.dart';
+import 'tameny_location_service.dart';
 
 /// OEM families that need extra autostart / background guidance on Android.
 enum DeviceOemProfile {
@@ -479,7 +480,11 @@ class OemSettingsService {
     if (kIsWeb) return false;
     switch (kind) {
       case DeviceCareActionKind.location:
-        return requestLocationPermissionsFlow(context);
+        final granted = await requestLocationPermissionsFlow(context);
+        if (granted && context.mounted) {
+          await TamenyLocationService.enableTracking(context, forceSkipDisclosure: true);
+        }
+        return granted;
       case DeviceCareActionKind.notifications:
         noteOpenedSettings(kind);
         if (Platform.isAndroid) {

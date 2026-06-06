@@ -188,10 +188,10 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
   Future<void> _cancelCreatedSession(BusAttendanceState st) async {
     final confirmed = await StandardDialog.show<bool>(
       context: context,
-      title: 'Cancel Trip?',
-      content: 'This will delete the pre-created trip session. The QR code and entry code will no longer be valid.',
-      confirmText: 'Cancel Trip',
-      cancelText: 'Keep Trip',
+      title: 'attendance_cancel_trip_title',
+      content: 'attendance_cancel_trip_body',
+      confirmText: 'attendance_cancel_trip_btn',
+      cancelText: 'attendance_keep_trip_btn',
       isDestructive: true,
     );
     if (confirmed == true && st.session != null && mounted) {
@@ -201,9 +201,15 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
       if (ok && mounted) {
         StandardSnackBar.showSuccess(
           context,
-          'Trip cancelled successfully',
+          'attendance_cancelled_success'.tr(),
         );
-        ref.read(busAttendanceProvider.notifier).fetchHistory(widget.groupId);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ref
+                .read(busAttendanceProvider.notifier)
+                .fetchHistory(widget.groupId);
+          }
+        });
       }
     }
   }
@@ -313,9 +319,9 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
           ),
           const SizedBox(height: 40),
 
-          const Text(
-            'SCAN TO RECORD ATTENDANCE',
-            style: TextStyle(
+          Text(
+            'attendance_scan_to_record'.tr(),
+            style: const TextStyle(
               fontFamily: 'Lexend',
               fontWeight: FontWeight.w700,
               fontSize: 12,
@@ -338,9 +344,9 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
             ),
             child: Column(
               children: [
-                const Text(
-                  'ATTENDANCE CODE',
-                  style: TextStyle(
+                Text(
+                  'attendance_code_label'.tr(),
+                  style: const TextStyle(
                     fontFamily: 'Lexend',
                     fontWeight: FontWeight.w600,
                     fontSize: 10,
@@ -402,7 +408,10 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
       );
     } catch (e) {
       if (mounted) {
-        StandardSnackBar.showError(context, 'Failed to share QR Code: $e');
+        StandardSnackBar.showError(
+          context,
+          'attendance_share_qr_failed'.tr(args: [e.toString()]),
+        );
       }
     }
   }
@@ -441,12 +450,15 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
       if (mounted) {
         StandardSnackBar.showSuccess(
           context,
-          'QR Code card successfully saved to gallery!',
+          'attendance_qr_saved_gallery'.tr(),
         );
       }
     } catch (e) {
       if (mounted) {
-        StandardSnackBar.showError(context, 'Failed to save QR Code: $e');
+        StandardSnackBar.showError(
+          context,
+          'attendance_save_qr_failed'.tr(args: [e.toString()]),
+        );
       }
     }
   }
@@ -461,7 +473,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
           boarded: board,
         );
     if (!ok && mounted) {
-      StandardSnackBar.showError(context, 'Error updating attendance');
+      StandardSnackBar.showError(context, 'attendance_update_error'.tr());
     }
   }
 
@@ -493,7 +505,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
 
     return AppBar(
       title: Text(
-        isPast ? (st.session?.busIdentifier ?? 'Trip Details') : 'attendance_title'.tr(),
+        isPast ? (st.session?.busIdentifier ?? 'attendance_trip_details'.tr()) : 'attendance_title'.tr(),
         style: TextStyle(
           fontFamily: 'Lexend',
           fontWeight: FontWeight.w700,
@@ -518,7 +530,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: Text(
-                    'Cancel',
+                    'cancel'.tr(),
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontWeight: FontWeight.w700,
@@ -712,7 +724,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
                       ),
                       SizedBox(width: 8.w),
                       Text(
-                        'Trip History',
+                        'attendance_trip_history'.tr(),
                         style: TextStyle(
                           fontFamily: 'Lexend',
                           fontWeight: FontWeight.w700,
@@ -730,7 +742,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
                         });
                       },
                       child: Text(
-                        _showAllHistory ? 'Show Less' : 'Show More',
+                        _showAllHistory ? 'attendance_show_less'.tr() : 'attendance_show_more'.tr(),
                         style: TextStyle(
                           fontFamily: 'Lexend',
                           fontWeight: FontWeight.w600,
@@ -754,7 +766,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
                       ? DateFormat('MMM dd, yyyy · HH:mm').format(session.startedAt!.toLocal())
                       : (session.completedAt != null
                           ? DateFormat('MMM dd, yyyy · HH:mm').format(session.completedAt!.toLocal())
-                          : 'Unknown Date');
+                          : 'attendance_unknown_date'.tr());
 
                   final boardedCount = session.boardedPilgrims.length;
                   final totalPilgrims = session.totalPilgrims;
@@ -809,7 +821,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
                           ),
                           SizedBox(height: 2.h),
                           Text(
-                            'Present: $boardedCount / $totalPilgrims',
+                            '${'attendance_present'.tr()}: $boardedCount / $totalPilgrims',
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 11.sp,
@@ -837,7 +849,11 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
                           ),
                         ).then((_) {
                           // Re-fetch history to ensure up-to-date lists if they go back
-                          ref.read(busAttendanceProvider.notifier).fetchHistory(widget.groupId);
+                          if (mounted) {
+                            ref
+                                .read(busAttendanceProvider.notifier)
+                                .fetchHistory(widget.groupId);
+                          }
                         });
                       },
                     ),
@@ -928,7 +944,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
         ? Colors.grey
         : (isActive ? AppColors.success : Colors.amber);
     final statusText = isPast
-        ? 'Completed'
+        ? 'attendance_status_completed'.tr()
         : (isActive ? 'attendance_session_active'.tr() : 'attendance_session_created'.tr());
 
     return Container(
@@ -1110,7 +1126,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
                   onPressed: () => _downloadQrCode(st),
                   icon: Icon(Symbols.download, size: 18.w, color: AppColors.primary),
                   label: Text(
-                    'Download QR',
+                    'attendance_download_qr'.tr(),
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontWeight: FontWeight.w600,
@@ -1131,7 +1147,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
                   onPressed: () => _shareQrCode(st),
                   icon: Icon(Symbols.share, size: 18.w, color: Colors.white),
                   label: Text(
-                    'Share QR',
+                    'attendance_share_qr_btn'.tr(),
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontWeight: FontWeight.w600,

@@ -31,8 +31,14 @@ class MarkerTailPainter extends CustomPainter {
 class CircleButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  final bool matchTextDirection;
 
-  const CircleButton({super.key, required this.icon, required this.onTap});
+  const CircleButton({
+    super.key,
+    required this.icon,
+    required this.onTap,
+    this.matchTextDirection = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +46,7 @@ class CircleButton extends StatelessWidget {
     final bg = isDark ? AppColors.surfaceDark : Colors.white;
     final fg = isDark ? Colors.white : AppColors.textDark;
     final sz = 42.w;
+    final iconWidget = Icon(icon, size: sz * 0.48, color: fg);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -58,7 +65,12 @@ class CircleButton extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(icon, size: sz * 0.48, color: fg),
+        child: matchTextDirection
+            ? Transform.flip(
+                flipX: Directionality.of(context) == TextDirection.rtl,
+                child: iconWidget,
+              )
+            : iconWidget,
       ),
     );
   }

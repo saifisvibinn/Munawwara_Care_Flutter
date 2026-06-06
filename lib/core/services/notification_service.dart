@@ -727,10 +727,21 @@ class NotificationService {
       ledColor: const Color(0xFFF97316),
     );
 
+    // Tameny Location Sharing background service channel
+    final tamenyChannel = AndroidNotificationChannel(
+      'tameny_location_channel',
+      'Tameny Location Sharing',
+      description: 'Background location tracking notification channel',
+      importance: Importance.low,
+      playSound: false,
+      enableVibration: false,
+    );
+
     await androidPlugin.createNotificationChannel(defaultChannel);
     await androidPlugin.createNotificationChannel(urgentChannel);
     await androidPlugin.createNotificationChannel(callChannel);
     await androidPlugin.createNotificationChannel(sosChannel);
+    await androidPlugin.createNotificationChannel(tamenyChannel);
 
     AppLogger.i('✅ Notification channels created (v2)');
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -56,13 +57,13 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
   Future<void> _handleCheckIn() async {
     final entered = _currentCode.trim();
     if (entered.length != 6) {
-      StandardSnackBar.showWarning(context, 'Please enter the full 6-digit code.');
+      StandardSnackBar.showWarning(context, 'enter_trip_code_warning_length'.tr());
       return;
     }
 
     final fullSessionId = widget.session.sessionId;
     if (fullSessionId.length < 6) {
-      StandardSnackBar.showError(context, 'Invalid session state.');
+      StandardSnackBar.showError(context, 'enter_trip_code_error_session'.tr());
       return;
     }
 
@@ -70,7 +71,7 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
     if (entered != targetSuffix) {
       StandardSnackBar.showError(
         context,
-        'Invalid code. Please enter the code shown on the moderator\'s screen.',
+        'enter_trip_code_error_incorrect'.tr(),
       );
       return;
     }
@@ -94,7 +95,7 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
         if (mounted) {
           StandardSnackBar.showSuccess(
             context,
-            'Successfully checked in to trip!',
+            'scan_trip_qr_success'.tr(),
           );
           Navigator.of(context).pop(); // Go back to Home
         }
@@ -107,7 +108,7 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
         final errorMsg = ApiService.parseError(e);
         StandardSnackBar.showError(
           context,
-          errorMsg.isNotEmpty ? errorMsg : 'Failed to check in. Please try again.',
+          errorMsg.isNotEmpty ? errorMsg : 'scan_trip_qr_failed'.tr(),
         );
       }
     } catch (e) {
@@ -117,7 +118,7 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
         });
         StandardSnackBar.showError(
           context,
-          'An unexpected error occurred.',
+          'scan_trip_qr_unexpected_error'.tr(),
         );
       }
     }
@@ -132,7 +133,7 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
       backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xfff1f5f3),
       appBar: AppBar(
         title: Text(
-          'Enter Trip Code',
+          'enter_trip_code_appbar_title'.tr(),
           style: TextStyle(
             fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
@@ -176,7 +177,7 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
                 ),
                 SizedBox(height: 24.h),
                 Text(
-                  'Enter the 6-digit code shown on the moderator\'s screen.',
+                  'enter_trip_code_body'.tr(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: 'Lexend',
@@ -274,7 +275,7 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
                       ),
                       SizedBox(width: 8.w),
                       Text(
-                        'Codes are valid for 5 minutes',
+                        'enter_trip_code_validity'.tr(),
                         style: TextStyle(
                           fontFamily: 'Lexend',
                           fontSize: 12.sp,
@@ -312,7 +313,7 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              'Check In',
+                              'enter_trip_code_btn'.tr(),
                               style: TextStyle(
                                 fontFamily: 'Lexend',
                                 fontWeight: FontWeight.w800,
@@ -341,7 +342,7 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
                     );
                   },
                   child: Text(
-                    'RE-SCAN QR CODE',
+                    'enter_trip_code_rescan_qr'.tr(),
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontWeight: FontWeight.w700,

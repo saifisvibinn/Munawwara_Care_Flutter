@@ -132,7 +132,7 @@ class _ModeratorProfileScreenState
 
                     // ── EL WAKEL SERVICE section ─────────────────────────────
                     _SectionLabel(
-                      label: 'EL WAKEL SERVICE',
+                      label: 'settings_wakel_service'.tr(),
                       textMuted: textMuted,
                     ),
                     SizedBox(height: 8.h),
@@ -262,7 +262,7 @@ class _ModeratorProfileScreenState
 
                     // ── SUPPORT & INFO section ──────────────────────────────
                     _SectionLabel(
-                      label: 'SUPPORT & INFO',
+                      label: 'settings_support_info'.tr(),
                       textMuted: textMuted,
                     ),
                     SizedBox(height: 8.h),
@@ -696,7 +696,7 @@ class _LanguageRow extends StatelessWidget {
                 SizedBox(width: 14.w),
                 Expanded(
                   child: Text(
-                    lang['name']!,
+                    'lang_${lang['code']}'.tr(),
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontWeight: FontWeight.w700,

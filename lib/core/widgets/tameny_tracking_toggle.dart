@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../../core/services/tameny_location_service.dart';
 
 class TamenyTrackingToggle extends StatefulWidget {
@@ -55,21 +56,19 @@ class _TamenyTrackingToggleState extends State<TamenyTrackingToggle> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'مشاركة الموقع دائماً',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'tameny_toggle_title'.tr(),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Always Share Location',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 _isLoading
                     ? const SizedBox(
@@ -87,8 +86,8 @@ class _TamenyTrackingToggleState extends State<TamenyTrackingToggle> {
             const SizedBox(height: 8),
             Text(
               _isEnabled
-                  ? '✓ موقعك يُرسل لقائد المجموعة حتى عند إغلاق التطبيق\n(Location sent even when app is closed)'
-                  : 'فعّل لمشاركة موقعك حتى عند إغلاق التطبيق\n(Enable to share location even when closed)',
+                  ? '✓ ${'tameny_toggle_desc_enabled'.tr()}'
+                  : 'tameny_toggle_desc_disabled'.tr(),
               style: TextStyle(
                 fontSize: 13,
                 color: _isEnabled ? Colors.green[700] : Colors.grey[600],

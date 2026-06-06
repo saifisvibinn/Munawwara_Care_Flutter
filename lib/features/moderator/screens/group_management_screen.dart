@@ -1654,9 +1654,10 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                   alignment: Alignment.center,
                   children: [
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: CircleButton(
                         icon: Symbols.arrow_back,
+                        matchTextDirection: true,
                         onTap: () => Navigator.of(context).pop(),
                       ),
                     ),
@@ -1735,9 +1736,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
           _buildMapControls(),
 
           // ── Top-right 3-dot menu ──────────────────────────────────────────
-          Positioned(
+          PositionedDirectional(
             top: 12.h,
-            right: 14.w,
+            end: 14.w,
             child: SafeArea(
               child: SizedBox(
                 width: 40.w,

@@ -16,6 +16,7 @@ import '../../../core/services/sos_alert_audio.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
+import '../../../core/widgets/tameny_tracking_toggle.dart';
 class PilgrimProfileScreen extends ConsumerStatefulWidget {
   const PilgrimProfileScreen({super.key});
 
@@ -202,6 +203,15 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                       ),
                     ),
 
+                    SizedBox(height: 28.h),
+
+                    // ── LOCATION SHARING section ─────────────────────────
+                    _SectionLabel(
+                      label: 'settings_location_sharing'.tr(),
+                      textMuted: textMuted,
+                    ),
+                    SizedBox(height: 8.h),
+                    const TamenyTrackingToggle(),
                     SizedBox(height: 28.h),
 
                     // ── APPEARANCE section ───────────────────────────────

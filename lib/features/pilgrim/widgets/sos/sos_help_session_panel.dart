@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/standard_snackbar.dart';
 import '../../screens/live_translate_screen.dart';
 

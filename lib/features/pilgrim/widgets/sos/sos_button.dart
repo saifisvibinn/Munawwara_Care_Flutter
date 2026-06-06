@@ -39,16 +39,19 @@ class _SosButtonState extends State<SosButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _scaleController;
   late Animation<double> _scaleAnim;
+  bool _isPressed = false;
 
   @override
   void initState() {
     super.initState();
     _scaleController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 120),
+      reverseDuration: const Duration(milliseconds: 250),
     );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.92).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.easeOutBack),
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.90).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.easeOut,
+        reverseCurve: Curves.easeOutBack),
     );
   }
 
@@ -59,11 +62,13 @@ class _SosButtonState extends State<SosButton>
   }
 
   void _onDown() {
+    setState(() => _isPressed = true);
     _scaleController.forward();
     HapticFeedback.mediumImpact();
   }
 
   void _onUp() {
+    setState(() => _isPressed = false);
     _scaleController.reverse();
   }
 
@@ -90,10 +95,10 @@ class _SosButtonState extends State<SosButton>
         animation: Listenable.merge([_scaleAnim, widget.pulseController]),
         builder: (context, child) {
           final pulseCurve = Curves.easeInOut.transform(widget.pulseController.value);
-          final double scale = widget.isHolding
-              ? _scaleAnim.value
-              : (1.0 + (pulseCurve * 0.045));
-          return Transform.scale(scale: scale, child: child);
+          // Press scale always wins; pulse breathes underneath when idle
+          final double pressScale = _isPressed ? _scaleAnim.value : 1.0;
+          final double pulseScale = _isPressed ? 1.0 : (1.0 + (pulseCurve * 0.045));
+          return Transform.scale(scale: pressScale * pulseScale, child: child);
         },
         child: SizedBox(
           width: (size + 16).w,
@@ -145,12 +150,25 @@ class _SosButtonState extends State<SosButton>
                           ),
                         ),
                       )
-                    : widget.isHolding
-                        ? SosHoldingContent(countdown: widget.countdown, size: size)
-                        : SosIdleContent(sosActive: widget.sosActive, size: size),
+                    : AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        child: widget.isHolding
+                            ? SosHoldingContent(
+                                key: const ValueKey('holding'),
+                                countdown: widget.countdown,
+                                size: size,
+                              )
+                            : SosIdleContent(
+                                key: const ValueKey('idle'),
+                                sosActive: widget.sosActive,
+                                size: size,
+                              ),
+                      ),
               ),
 
-              // ── Holding Progress Ring (Rendered on top for visibility) ──
+              // ── Holding Progress Ring (only when actually holding) ──
               if (widget.isHolding)
                 IgnorePointer(
                   child: AnimatedBuilder(
