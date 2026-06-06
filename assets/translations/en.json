@@ -1602,5 +1602,6 @@
   "attendance_share_qr": "Share QR Code",
   "attendance_start_desc": "Start a new attendance session for this group",
   "attendance_create_session": "Create & Get QR",
-  "attendance_session_created": "Session Created"
+  "attendance_session_created": "Session Created",
+  "coming_soon": "Coming Soon"
 }

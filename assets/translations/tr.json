@@ -1612,5 +1612,6 @@
   "attendance_share_qr": "QR Kodunu Paylaş",
   "attendance_start_desc": "Bu grup için yeni bir katılım oturumu başlatın",
   "attendance_create_session": "Oturum Oluştur ve QR Al",
-  "attendance_session_created": "Oturum Oluşturuldu"
+  "attendance_session_created": "Oturum Oluşturuldu",
+  "coming_soon": "Çok Yakında"
 }

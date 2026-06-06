@@ -1611,5 +1611,6 @@
   "attendance_share_qr": "Bagikan Kode QR",
   "attendance_start_desc": "Mulai sesi kehadiran baru untuk grup ini",
   "attendance_create_session": "Buat & Dapatkan QR",
-  "attendance_session_created": "Sesi Dibuat"
+  "attendance_session_created": "Sesi Dibuat",
+  "coming_soon": "Segera Hadir"
 }

@@ -12,9 +12,9 @@ import '../moderator_navigate_button.dart';
 import '../sos/sos_button.dart';
 import '../sos/sos_help_session_panel.dart';
 import 'home_cards.dart';
-import 'reassure_family_sheet.dart';
 import '../../screens/live_translate_screen.dart';
 import '../../screens/scan_trip_qr_screen.dart';
+import '../../../../core/widgets/standard_snackbar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Home Tab — fixed app bar; greeting + dashboard scroll below
@@ -483,7 +483,10 @@ class _HomeBody extends StatelessWidget {
                             title: 'reassure_family'.tr(),
                             subtext: 'reassure_family_sub'.tr(),
                             onTap: () {
-                              showReassureFamilyBottomSheet(context: context);
+                              StandardSnackBar.showInfo(
+                                context,
+                                'coming_soon'.tr(),
+                              );
                             },
                           ),
                           sosButton: SosButton(

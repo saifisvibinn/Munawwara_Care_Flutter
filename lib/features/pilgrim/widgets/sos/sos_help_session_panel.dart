@@ -4,8 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../home_tab/reassure_family_sheet.dart';
+import '../../../../core/widgets/standard_snackbar.dart';
 import '../../screens/live_translate_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -502,7 +501,10 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
                   icon: Icons.people_alt_rounded,
                   label: 'label_reassure'.tr(),
                   onTap: () {
-                    showReassureFamilyBottomSheet(context: context);
+                    StandardSnackBar.showInfo(
+                      context,
+                      'coming_soon'.tr(),
+                    );
                   },
                 ),
               ],

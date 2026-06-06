@@ -1610,5 +1610,6 @@
   "attendance_share_qr": "مشاركة رمز QR",
   "attendance_start_desc": "بدء جلسة حضور جديدة لهذه المجموعة",
   "attendance_create_session": "إنشاء والحصول على QR",
-  "attendance_session_created": "تم إنشاء الجلسة"
+  "attendance_session_created": "تم إنشاء الجلسة",
+  "coming_soon": "قريباً"
 }
