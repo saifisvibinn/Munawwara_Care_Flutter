@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/services/api_service.dart';
 import '../../../../core/theme/app_colors.dart';
+import 'document_viewer_screen.dart';
 
 // ── Models for Logistics ─────────────────────────────────────────────────────
 
@@ -93,12 +94,36 @@ class LogisticsInsurance {
   final String id;
   final String name;
   final List<LogisticsInsuranceHospital> hospitals;
+  final String? policyDocumentUrl;
+  final String? policyDocumentName;
 
   LogisticsInsurance({
     required this.id,
     required this.name,
     required this.hospitals,
+    this.policyDocumentUrl,
+    this.policyDocumentName,
   });
+
+  String? get policyDocumentProxyUrl {
+    if (policyDocumentUrl == null || policyDocumentUrl!.isEmpty) return null;
+    if (policyDocumentUrl!.startsWith('http') && policyDocumentUrl!.contains('/api/documents/')) {
+      return policyDocumentUrl;
+    }
+    if (policyDocumentUrl!.contains('storage.googleapis.com')) {
+      try {
+        final uri = Uri.parse(policyDocumentUrl!);
+        final segments = uri.pathSegments;
+        final index = segments.indexOf('insurance-policies');
+        if (index != -1 && index < segments.length - 1) {
+          final filename = segments.sublist(index + 1).join('/');
+          final base = ApiService.baseUrl;
+          return '$base/documents/insurance-policies/$filename';
+        }
+      } catch (_) {}
+    }
+    return policyDocumentUrl;
+  }
 
   factory LogisticsInsurance.fromJson(Map<String, dynamic> json) {
     final hospRaw = json['hospitals'] as List<dynamic>? ?? const [];
@@ -109,6 +134,8 @@ class LogisticsInsurance {
           .whereType<Map>()
           .map((h) => LogisticsInsuranceHospital.fromJson(Map<String, dynamic>.from(h)))
           .toList(),
+      policyDocumentUrl: json['policy_document_url']?.toString(),
+      policyDocumentName: json['policy_document_name']?.toString(),
     );
   }
 }
@@ -699,21 +726,73 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                         ),
                       ),
                       SizedBox(height: 2.h),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFDE8E8),
-                          borderRadius: BorderRadius.circular(4.r),
-                        ),
-                        child: Text(
-                          'Active policy'.toUpperCase(),
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 7.sp,
-                            color: const Color(0xFF993356),
+                      Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFDE8E8),
+                              borderRadius: BorderRadius.circular(4.r),
+                            ),
+                            child: Text(
+                              'Active policy'.toUpperCase(),
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 7.sp,
+                                color: const Color(0xFF993356),
+                              ),
+                            ),
                           ),
-                        ),
+                          if (ins.policyDocumentUrl != null && ins.policyDocumentUrl!.isNotEmpty) ...[
+                            SizedBox(width: 6.w),
+                            InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => DocumentViewerScreen(
+                                      url: ins.policyDocumentProxyUrl!,
+                                      title: ins.policyDocumentName ?? 'Insurance Policy',
+                                    ),
+                                  ),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(4.r),
+                              child: Container(
+                                padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(4.r),
+                                  border: Border.all(
+                                    color: isDark ? Colors.white10 : const Color(0xFFBFDBFE),
+                                    width: 0.5,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Symbols.picture_as_pdf,
+                                      size: 10.w,
+                                      color: const Color(0xFF2563EB),
+                                    ),
+                                    SizedBox(width: 3.w),
+                                    Text(
+                                      'View Policy'.toUpperCase(),
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 7.sp,
+                                        color: const Color(0xFF2563EB),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),

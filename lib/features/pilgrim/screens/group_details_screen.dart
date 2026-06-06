@@ -12,6 +12,10 @@ import '../helpers/moderator_navigation.dart';
 import '../providers/pilgrim_provider.dart';
 import '../widgets/moderator_navigate_button.dart';
 import '../../auth/models/wakel_info.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../moderator/screens/document_viewer_screen.dart';
+import '../../../core/utils/open_maps_navigation.dart';
+import '../models/insurance_company.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Group details — bottom sheet (same pattern as weather detail sheet)
@@ -53,6 +57,7 @@ void showGroupDetailsBottomSheet(
           return Consumer(
             builder: (context, ref, child) {
               final pilgrimState = ref.watch(pilgrimProvider);
+              final authState = ref.watch(authProvider);
               final group = pilgrimState.groupInfo;
 
               final currentMods = group?.moderators ?? moderators;
@@ -142,6 +147,7 @@ void showGroupDetailsBottomSheet(
                       hotelLongitude: currentHotelLng,
                       hotelAddress: currentHotelAddress,
                       wakelInfo: currentWakelInfo,
+                      insuranceCompany: authState.insuranceCompany,
                     ),
                     SizedBox(height: MediaQuery.paddingOf(ctx).bottom + 8.h),
                   ],
@@ -169,6 +175,7 @@ class _GroupDetailsBody extends StatelessWidget {
   final double? hotelLongitude;
   final String? hotelAddress;
   final WakelInfo? wakelInfo;
+  final InsuranceCompany? insuranceCompany;
 
   const _GroupDetailsBody({
     required this.moderators,
@@ -184,6 +191,7 @@ class _GroupDetailsBody extends StatelessWidget {
     this.hotelLongitude,
     this.hotelAddress,
     this.wakelInfo,
+    this.insuranceCompany,
   });
 
   @override
@@ -556,6 +564,211 @@ class _GroupDetailsBody extends StatelessWidget {
               ),
             );
           },
+        ),
+        SizedBox(height: 20.h),
+        _SectionLabel(
+          label: 'Insurance Details'.toUpperCase(),
+          textMuted: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
+        ),
+        SizedBox(height: 8.h),
+        Container(
+          padding: EdgeInsets.all(16.w),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : Colors.white,
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(
+              color: isDark ? const Color(0xFF25303A) : const Color(0xFFE2E8F0),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.03),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44.w,
+                    height: 44.w,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    child: Icon(
+                      Icons.health_and_safety_rounded,
+                      color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706),
+                      size: 22.sp,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          insuranceCompany?.name ?? 'profile_not_provided'.tr(),
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : AppColors.textDark,
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          insuranceCompany != null ? "Active Coverage" : "No active policy assigned",
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 12.sp,
+                            color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                          ),
+                        ),
+                        if (insuranceCompany?.policyDocumentUrl != null && insuranceCompany!.policyDocumentUrl!.isNotEmpty) ...[
+                          SizedBox(height: 8.h),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => DocumentViewerScreen(
+                                    url: insuranceCompany!.policyDocumentProxyUrl!,
+                                    title: insuranceCompany!.policyDocumentName ?? 'Insurance Policy',
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: Icon(
+                              Icons.picture_as_pdf_rounded,
+                              size: 14.sp,
+                              color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                            ),
+                            label: Text(
+                              "View Policy Document",
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE0F2FE),
+                              elevation: 0,
+                              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20.r),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (insuranceCompany != null && insuranceCompany!.hospitals.isNotEmpty) ...[
+                SizedBox(height: 16.h),
+                Divider(
+                  color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
+                  height: 1,
+                ),
+                SizedBox(height: 12.h),
+                Text(
+                  "Covered Hospitals".toUpperCase(),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10.sp,
+                    color: isDark ? Colors.white38 : AppColors.textMutedDark,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                ...insuranceCompany!.hospitals.map((hospital) {
+                  return Container(
+                    margin: EdgeInsets.only(bottom: 8.h),
+                    padding: EdgeInsets.all(10.w),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.02)
+                          : const Color(0xFFF7F8FC),
+                      borderRadius: BorderRadius.circular(8.r),
+                      border: Border.all(
+                        color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32.w,
+                          height: 32.w,
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50.withValues(alpha: 0.8),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.local_hospital_rounded,
+                            color: Colors.red.shade600,
+                            size: 16.sp,
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                hospital.name,
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13.sp,
+                                  color: isDark ? Colors.white : AppColors.textDark,
+                                ),
+                              ),
+                              if (hospital.address != null && hospital.address!.isNotEmpty)
+                                Text(
+                                  hospital.address!,
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 11.sp,
+                                    color: isDark ? Colors.white54 : AppColors.textMutedDark,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            OpenMapsNavigation.confirmAndLaunch(
+                              context,
+                              hospital.latitude,
+                              hospital.longitude,
+                            );
+                          },
+                          icon: Icon(
+                            Symbols.navigation,
+                            color: AppColors.primary,
+                            size: 20.sp,
+                            fill: 1.0,
+                          ),
+                          tooltip: 'Navigate',
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ],
+          ),
         ),
       ],
     );
