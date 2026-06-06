@@ -1,4 +1,4 @@
-{
+﻿{
   "nat_albanian": "الألبانية",
   "nat_algerian": "جزائري",
   "nat_american": "أمريكي",
@@ -1670,5 +1670,18 @@
   "attendance_unknown_date": "تاريخ غير معروف",
   "attendance_status_completed": "مكتمل",
   "attendance_share_qr_failed": "فشل مشاركة رمز QR: {}",
-  "attendance_save_qr_failed": "فشل حفظ رمز QR: {}"
+  "attendance_save_qr_failed": "فشل حفظ رمز QR: {}",
+  "resources_title": "الموارد",
+  "resources_subtitle": "الفنادق والتأمين",
+  "resources_hotels": "الفنادق",
+  "resources_insurances": "التأمين",
+  "resources_no_hotels": "لا توجد فنادق متاحة",
+  "resources_no_insurances": "لا توجد شركات تأمين متاحة",
+  "resources_rooms": "غرف",
+  "resources_hospitals": "مستشفيات",
+  "resources_rooms_list": "الغرف",
+  "resources_hospitals_list": "المستشفيات",
+  "resources_room_number": "غرفة {0}",
+  "resources_floor": "الطابق {0}",
+  "resources_capacity": "سعة {0}"
 }

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -24,6 +26,7 @@ class _ModeratorProfileEditScreenState
   late final TextEditingController _phoneCtrl;
 
   bool _saving = false;
+  File? _localProfilePictureFile;
 
   @override
   void initState() {
@@ -40,27 +43,220 @@ class _ModeratorProfileEditScreenState
     super.dispose();
   }
 
+  bool _hasUnsavedChanges() {
+    final auth = ref.read(authProvider);
+    final nameChanged = _nameCtrl.text.trim() != (auth.fullName ?? '');
+    final phoneChanged = _phoneCtrl.text.trim() != (auth.phoneNumber ?? '');
+    final pfpChanged = _localProfilePictureFile != null;
+    return nameChanged || phoneChanged || pfpChanged;
+  }
+
+  Future<bool> _showDiscardConfirmationDialog() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: cardBg,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.r),
+          ),
+          title: Text(
+            'profile_discard_title'.tr() == 'profile_discard_title'
+                ? 'Discard Changes?'
+                : 'profile_discard_title'.tr(),
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontWeight: FontWeight.w700,
+              color: textPrimary,
+              fontSize: 18.sp,
+            ),
+          ),
+          content: Text(
+            'profile_discard_msg'.tr() == 'profile_discard_msg'
+                ? 'Changes will be discarded until saved.'
+                : 'profile_discard_msg'.tr(),
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              color: textPrimary.withValues(alpha: 0.8),
+              fontSize: 14.sp,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                'profile_discard_cancel'.tr() == 'profile_discard_cancel'
+                    ? 'Keep Editing'
+                    : 'profile_discard_cancel'.tr(),
+                style: const TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(
+                'profile_discard_confirm'.tr() == 'profile_discard_confirm'
+                    ? 'Discard'
+                    : 'profile_discard_confirm'.tr(),
+                style: const TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    return result ?? false;
+  }
+
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _saving = true);
 
-    final success = await ref
-        .read(authProvider.notifier)
-        .updateProfile(
-          fullName: _nameCtrl.text.trim(),
-          phoneNumber: _phoneCtrl.text.trim(),
-        );
+    final auth = ref.read(authProvider);
+    final nameChanged = _nameCtrl.text.trim() != (auth.fullName ?? '');
+    final phoneChanged = _phoneCtrl.text.trim() != (auth.phoneNumber ?? '');
+
+    bool success = true;
+
+    if (nameChanged || phoneChanged) {
+      success = await ref
+          .read(authProvider.notifier)
+          .updateProfile(
+            fullName: _nameCtrl.text.trim(),
+            phoneNumber: _phoneCtrl.text.trim(),
+          );
+    }
+
+    if (!success) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      final error =
+          ref.read(authProvider).error ?? 'edit_profile_error_generic'.tr();
+      StandardSnackBar.showError(context, error);
+      return;
+    }
+
+    if (_localProfilePictureFile != null) {
+      final pfpSuccess = await ref
+          .read(authProvider.notifier)
+          .updateProfilePicture(_localProfilePictureFile!);
+      if (!pfpSuccess) {
+        if (!mounted) return;
+        setState(() => _saving = false);
+        final error =
+            ref.read(authProvider).error ?? 'Failed to update profile picture';
+        StandardSnackBar.showError(context, error);
+        return;
+      }
+    }
 
     if (!mounted) return;
     setState(() => _saving = false);
 
-    if (success) {
-      StandardSnackBar.showSuccess(context, 'edit_profile_success'.tr());
-      Navigator.of(context).pop();
-    } else {
-      final error =
-          ref.read(authProvider).error ?? 'edit_profile_error_generic'.tr();
-      StandardSnackBar.showError(context, error);
+    StandardSnackBar.showSuccess(context, 'edit_profile_success'.tr());
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _onAvatarTap() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cardBg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: EdgeInsets.only(top: 8.h, bottom: 16.h),
+                width: 40.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+              Text(
+                'profile_picture_title'.tr() == 'profile_picture_title'
+                    ? 'Profile Picture'
+                    : 'profile_picture_title'.tr(),
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16.sp,
+                  color: textPrimary,
+                ),
+              ),
+              SizedBox(height: 16.h),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_rounded, color: AppColors.primary),
+                title: Text(
+                  'profile_picture_camera'.tr() == 'profile_picture_camera'
+                      ? 'Take Photo'
+                      : 'profile_picture_camera'.tr(),
+                  style: TextStyle(fontFamily: 'Lexend', color: textPrimary),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_rounded, color: AppColors.primary),
+                title: Text(
+                  'profile_picture_gallery'.tr() == 'profile_picture_gallery'
+                      ? 'Choose from Gallery'
+                      : 'profile_picture_gallery'.tr(),
+                  style: TextStyle(fontFamily: 'Lexend', color: textPrimary),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              SizedBox(height: 8.h),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    try {
+      final XFile? image = await picker.pickImage(
+        source: source,
+        maxWidth: 1000,
+        maxHeight: 1000,
+        imageQuality: 85,
+      );
+      if (image == null) return;
+
+      setState(() {
+        _localProfilePictureFile = File(image.path);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      StandardSnackBar.showError(context, 'Error selecting image: $e');
     }
   }
 
@@ -79,24 +275,33 @@ class _ModeratorProfileEditScreenState
     final fullName = authState.fullName ?? 'Moderator';
     final initials = _initials(fullName);
 
-    return Scaffold(
-      backgroundColor: bg,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Header ────────────────────────────────────────────────────────
-            Padding(
-              padding: EdgeInsets.fromLTRB(8.w, 12.h, 20.w, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: textPrimary,
-                      size: 20.sp,
+    return PopScope(
+      canPop: !_hasUnsavedChanges(),
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final discard = await _showDiscardConfirmationDialog();
+        if (discard && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: bg,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // ── Header ────────────────────────────────────────────────────────
+              Padding(
+                padding: EdgeInsets.fromLTRB(8.w, 12.h, 20.w, 0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: textPrimary,
+                        size: 20.sp,
+                      ),
+                      onPressed: () => Navigator.of(context).maybePop(),
                     ),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
                   Expanded(
                     child: Center(
                       child: Text(
@@ -128,11 +333,53 @@ class _ModeratorProfileEditScreenState
 
                       // ── Avatar ─────────────────────────────────────────────
                       Center(
-                        child: Stack(
-                          children: [
-                            ModeratorAvatar(size: 88.w, initials: initials),
-                            // Camera badge removed per UI request
-                          ],
+                        child: GestureDetector(
+                          onTap: _saving ? null : _onAvatarTap,
+                          child: Stack(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white24
+                                        : AppColors.primary.withValues(alpha: 0.24),
+                                    width: 2.w,
+                                  ),
+                                ),
+                                child: _localProfilePictureFile != null
+                                    ? ClipOval(
+                                        child: Image.file(
+                                          _localProfilePictureFile!,
+                                          width: 88.w,
+                                          height: 88.w,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      )
+                                    : ModeratorAvatar(
+                                        size: 88.w,
+                                        initials: initials,
+                                        imageUrl: authState.profilePicture,
+                                      ),
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: EdgeInsets.all(6.w),
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: AppColors.primary,
+                                  ),
+                                  child: Icon(
+                                    Icons.camera_alt_rounded,
+                                    color: Colors.white,
+                                    size: 14.sp,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
 
@@ -373,7 +620,8 @@ class _ModeratorProfileEditScreenState
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   static String _initials(String name) {

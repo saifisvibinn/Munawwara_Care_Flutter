@@ -30,6 +30,7 @@ class AuthState {
   final String? email;
   final bool emailVerified;
   final String? phoneNumber;
+  final String? profilePicture;
   final int? age;
   final String? gender;
   final String? medicalHistory;
@@ -60,6 +61,7 @@ class AuthState {
     this.email,
     this.emailVerified = false,
     this.phoneNumber,
+    this.profilePicture,
     this.age,
     this.gender,
     this.medicalHistory,
@@ -93,6 +95,7 @@ class AuthState {
     String? email,
     bool? emailVerified,
     String? phoneNumber,
+    String? profilePicture,
     int? age,
     String? gender,
     String? medicalHistory,
@@ -117,6 +120,7 @@ class AuthState {
     bool clearAge = false,
     bool clearGender = false,
     bool clearMedicalHistory = false,
+    bool clearProfilePicture = false,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
@@ -129,6 +133,7 @@ class AuthState {
       email: clearEmail ? null : (email ?? this.email),
       emailVerified: emailVerified ?? this.emailVerified,
       phoneNumber: clearPhoneNumber ? null : (phoneNumber ?? this.phoneNumber),
+      profilePicture: clearProfilePicture ? null : (profilePicture ?? this.profilePicture),
       age: clearAge ? null : (age ?? this.age),
       gender: clearGender ? null : (gender ?? this.gender),
       medicalHistory: clearMedicalHistory
@@ -264,6 +269,7 @@ class AuthNotifier extends Notifier<AuthState> {
         role: resolvedRole,
         userId: resolvedId,
         fullName: resolvedName,
+        profilePicture: data['profile_picture'] as String?,
         email: data['email'] as String?,
         emailVerified: data['email_verified'] as bool? ?? false,
         phoneNumber: data['phone_number'] as String?,
@@ -347,6 +353,7 @@ class AuthNotifier extends Notifier<AuthState> {
     state = state.copyWith(
       fullName: (data['full_name'] ?? state.fullName)?.toString(),
       email: data['email'] as String? ?? state.email,
+      profilePicture: data['profile_picture'] as String? ?? state.profilePicture,
       emailVerified: data['email_verified'] as bool? ?? state.emailVerified,
       phoneNumber: data['phone_number'] as String? ?? state.phoneNumber,
       age: (data['age'] as num?)?.toInt() ?? state.age,
@@ -580,6 +587,7 @@ class AuthNotifier extends Notifier<AuthState> {
       final data = response.data as Map<String, dynamic>;
       state = state.copyWith(
         fullName: data['full_name'] as String?,
+        profilePicture: data['profile_picture'] as String?,
         email: data['email'] as String?,
         emailVerified: data['email_verified'] as bool? ?? false,
         phoneNumber: data['phone_number'] as String?,
@@ -683,6 +691,46 @@ class AuthNotifier extends Notifier<AuthState> {
         medicalHistory: newMedical,
         clearError: true,
       );
+      return true;
+    } on DioException catch (e) {
+      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
+      return false;
+    }
+  }
+
+  // ── Update profile picture ──────────────────────────────────────────────────
+  Future<bool> updateProfilePicture(File file) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final fileName = file.path.split(Platform.pathSeparator).last;
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(file.path, filename: fileName),
+      });
+      final response = await ApiService.dio.put(
+        '/auth/profile-picture',
+        data: formData,
+      );
+      final data = response.data as Map<String, dynamic>;
+      final payload = data['data'] as Map<String, dynamic>? ?? data;
+      final newPicUrl = payload['profile_picture'] as String?;
+
+      state = state.copyWith(
+        isLoading: false,
+        profilePicture: newPicUrl,
+        clearError: true,
+      );
+
+      final uid = state.userId;
+      if (uid != null && uid.isNotEmpty) {
+        final cachedData = await AppDataCache.readData(uid, AppDataCache.authMeFile);
+        if (cachedData is Map) {
+          final updatedCached = Map<String, dynamic>.from(cachedData);
+          updatedCached['profile_picture'] = newPicUrl;
+          await AppDataCache.write(uid, AppDataCache.authMeFile, updatedCached);
+        }
+      }
+
+      await fetchProfile();
       return true;
     } on DioException catch (e) {
       state = state.copyWith(isLoading: false, error: ApiService.parseError(e));

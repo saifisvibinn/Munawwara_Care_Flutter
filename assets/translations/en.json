@@ -1,4 +1,4 @@
-{
+﻿{
   "nat_afghan": "Afghan",
   "nat_albanian": "Albanian",
   "nat_algerian": "Algerian",
@@ -1662,5 +1662,18 @@
   "attendance_unknown_date": "Unknown Date",
   "attendance_status_completed": "Completed",
   "attendance_share_qr_failed": "Failed to share QR Code: {}",
-  "attendance_save_qr_failed": "Failed to save QR Code: {}"
+  "attendance_save_qr_failed": "Failed to save QR Code: {}",
+  "resources_title": "Resources",
+  "resources_subtitle": "Hotels & Insurance",
+  "resources_hotels": "Hotels",
+  "resources_insurances": "Insurance",
+  "resources_no_hotels": "No hotels available",
+  "resources_no_insurances": "No insurance providers available",
+  "resources_rooms": "rooms",
+  "resources_hospitals": "hospitals",
+  "resources_rooms_list": "Rooms",
+  "resources_hospitals_list": "Hospitals",
+  "resources_room_number": "Room {0}",
+  "resources_floor": "Floor {0}",
+  "resources_capacity": "Cap. {0}"
 }

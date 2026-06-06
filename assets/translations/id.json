@@ -1,4 +1,4 @@
-{
+﻿{
   "nat_afghan": "Afganistan",
   "nat_algerian": "Aljazair",
   "nat_american": "Amerika",
@@ -1671,5 +1671,18 @@
   "attendance_unknown_date": "Tanggal Tidak Diketahui",
   "attendance_status_completed": "Selesai",
   "attendance_share_qr_failed": "Gagal membagikan kode QR: {}",
-  "attendance_save_qr_failed": "Gagal menyimpan kode QR: {}"
+  "attendance_save_qr_failed": "Gagal menyimpan kode QR: {}",
+  "resources_title": "Sumber Daya",
+  "resources_subtitle": "Hotel & Asuransi",
+  "resources_hotels": "Hotel",
+  "resources_insurances": "Asuransi",
+  "resources_no_hotels": "Tidak ada hotel yang tersedia",
+  "resources_no_insurances": "Tidak ada asuransi yang tersedia",
+  "resources_rooms": "kamar",
+  "resources_hospitals": "rumah sakit",
+  "resources_rooms_list": "Kamar",
+  "resources_hospitals_list": "Rumah Sakit",
+  "resources_room_number": "Kamar {0}",
+  "resources_floor": "Lantai {0}",
+  "resources_capacity": "Kap. {0}"
 }

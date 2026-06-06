@@ -249,7 +249,17 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
       final Map<String, dynamic> formMap = {};
       for (final entry in data.entries) {
         if (entry.value == null) continue;
-        if (entry.key == 'tashera_document') {
+        if (entry.key == 'profile_picture') {
+          final String filePath = entry.value as String;
+          final file = File(filePath);
+          if (await file.exists()) {
+            final fileName = filePath.split(Platform.pathSeparator).last;
+            formMap[entry.key] = await MultipartFile.fromFile(
+              filePath,
+              filename: fileName,
+            );
+          }
+        } else if (entry.key == 'tashera_document') {
           final String filePath = entry.value as String;
           final file = File(filePath);
           if (await file.exists()) {

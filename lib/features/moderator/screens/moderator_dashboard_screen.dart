@@ -39,6 +39,7 @@ import 'group_management_screen.dart';
 import 'group_messages_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'system_reminders_screen.dart';
+import '../../pilgrim/screens/resources_screen.dart';
 import '../widgets/moderator_groups_speed_dial.dart';
 import '../services/moderator_global_nav_beacon_controller.dart';
 import '../services/moderator_sos_engagement_store.dart';
@@ -412,6 +413,14 @@ class _ModeratorDashboardScreenState
           }
           _refreshRealtimeState();
         });
+        SocketService.on('profile_updated', (_) {
+          ref.read(authProvider.notifier).fetchProfile();
+          _refreshRealtimeState();
+        });
+        SocketService.on('wakel_updated', (_) {
+          ref.read(authProvider.notifier).fetchProfile();
+          _refreshRealtimeState();
+        });
         SocketService.on('removed-from-group', (_) {
           _refreshRealtimeState();
         });
@@ -501,6 +510,8 @@ class _ModeratorDashboardScreenState
     SocketService.off('added-to-group');
     SocketService.off('removed-from-group');
     SocketService.off('new_message');
+    SocketService.off('profile_updated');
+    SocketService.off('wakel_updated');
     SocketService.offConnected(_onSocketConnected);
     _globalNavBeacon?.dispose();
     _globalNavBeacon = null;
@@ -1108,6 +1119,47 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const ResourcesScreen(),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                width: 44.w,
+                                height: 44.w,
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? AppColors.iconBgDark
+                                      : AppColors.iconBgLight,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isDark
+                                        ? AppColors.backgroundDark
+                                        : const Color(0xFFD0D0F0),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.06,
+                                      ),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.business_center_rounded,
+                                  size: 22.w,
+                                  color: isDark
+                                      ? AppColors.primary
+                                      : const Color(0xFF8A6A30),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 8.w),
                             GestureDetector(
                               onTap: widget.onNotificationTap,
                               child: Stack(

@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dropdown_theme.dart';
 import '../../../../core/widgets/app_popup_menu.dart';
 import '../../models/provisioning_models.dart';
+import '../../../shared/widgets/pilgrim_gender_avatar.dart';
 
 class ProvisioningTrackerList extends StatelessWidget {
   final List<ProvisioningItem> items;
@@ -394,7 +395,11 @@ class _TrackerItemCard extends StatelessWidget {
                 ),
                 SizedBox(width: 4.w),
               ],
-              _Avatar(initials: _getInitials(item.fullName), isDark: isDark),
+              PilgrimGenderAvatar(
+                gender: item.gender,
+                size: 42.w,
+                imageUrl: item.profilePicture,
+              ),
               SizedBox(width: 12.w),
               Expanded(
                 child: Column(
@@ -544,42 +549,6 @@ class _TrackerItemCard extends StatelessWidget {
     }
 
     return cardContent;
-  }
-
-  String _getInitials(String name) {
-    final parts = name.trim().split(' ');
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return (parts[0][0] + parts.last[0]).toUpperCase();
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  final String initials;
-  final bool isDark;
-  const _Avatar({required this.initials, required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 42.w,
-      height: 42.w,
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: Text(
-          initials,
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontWeight: FontWeight.w700,
-            fontSize: 16.sp,
-            color: AppColors.primary,
-          ),
-        ),
-      ),
-    );
   }
 }
 

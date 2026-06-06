@@ -1,4 +1,4 @@
-{
+﻿{
   "nat_albanian": "البانوی",
   "nat_algerian": "الجزائری",
   "nat_american": "امریکی",
@@ -1673,5 +1673,18 @@
   "attendance_unknown_date": "نامعلوم تاریخ",
   "attendance_status_completed": "مکمل",
   "attendance_share_qr_failed": "کیو آر کوڈ شیئر کرنے میں ناکامی: {}",
-  "attendance_save_qr_failed": "کیو آر کوڈ محفوظ کرنے میں ناکامی: {}"
+  "attendance_save_qr_failed": "کیو آر کوڈ محفوظ کرنے میں ناکامی: {}",
+  "resources_title": "وسائل",
+  "resources_subtitle": "ہوٹل اور بیمہ",
+  "resources_hotels": "ہوٹل",
+  "resources_insurances": "بیمہ",
+  "resources_no_hotels": "کوئی ہوٹل دستیاب نہیں",
+  "resources_no_insurances": "کوئی بیمہ فراہم کنندہ دستیاب نہیں",
+  "resources_rooms": "کمرے",
+  "resources_hospitals": "ہسپتال",
+  "resources_rooms_list": "کمرے",
+  "resources_hospitals_list": "ہسپتال",
+  "resources_room_number": "کمرہ {0}",
+  "resources_floor": "منزل {0}",
+  "resources_capacity": "گنجائش {0}"
 }

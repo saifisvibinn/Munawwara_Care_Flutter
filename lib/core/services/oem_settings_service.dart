@@ -482,7 +482,11 @@ class OemSettingsService {
       case DeviceCareActionKind.location:
         final granted = await requestLocationPermissionsFlow(context);
         if (granted && context.mounted) {
-          await TamenyLocationService.enableTracking(context, forceSkipDisclosure: true);
+          await TamenyLocationService.enableTracking(
+            context,
+            forceSkipDisclosure: true,
+            requestBatteryOptimization: false,
+          );
         }
         return granted;
       case DeviceCareActionKind.notifications:

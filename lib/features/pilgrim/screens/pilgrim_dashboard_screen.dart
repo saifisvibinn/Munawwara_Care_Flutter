@@ -773,6 +773,12 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         SocketService.on('bus_boarding_ended', (_) {
           _refreshRealtimeState(forceDashboard: true);
         });
+        SocketService.on('profile_updated', (_) {
+          _refreshRealtimeState(forceDashboard: true);
+        });
+        SocketService.on('wakel_updated', (_) {
+          _refreshRealtimeState(forceDashboard: true);
+        });
 
         // Listen for remote force logout (e.g., code refreshed by moderator)
         SocketService.on('force_logout', (_) {
@@ -922,6 +928,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     SocketService.off('bus_boarding_ended');
     SocketService.off('added-to-group');
     SocketService.off('force_logout');
+    SocketService.off('profile_updated');
+    SocketService.off('wakel_updated');
     SocketService.off('sos-handling');
     SocketService.off('sos-resolved');
     SocketService.offConnected(_onSocketConnected);

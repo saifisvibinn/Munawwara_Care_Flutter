@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -49,82 +50,104 @@ void showGroupDetailsBottomSheet(
         snap: true,
         snapSizes: const [0.35, 0.78, 0.92],
         builder: (context, scrollController) {
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.backgroundDark
-                  : const Color(0xFFFFF7ED),
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(28.r),
-              ),
-            ),
-            child: ListView(
-              controller: scrollController,
-              padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 20.h),
-              children: [
-                Center(
-                  child: Container(
-                    width: 36.w,
-                    height: 4.h,
-                    margin: EdgeInsets.only(bottom: 16.h),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white30 : Colors.black12,
-                      borderRadius: BorderRadius.circular(2.r),
-                    ),
+          return Consumer(
+            builder: (context, ref, child) {
+              final pilgrimState = ref.watch(pilgrimProvider);
+              final group = pilgrimState.groupInfo;
+
+              final currentMods = group?.moderators ?? moderators;
+              final currentCreatedBy = group?.createdBy ?? createdBy;
+              final currentBeacons = pilgrimState.navBeacons.isNotEmpty
+                  ? pilgrimState.navBeacons
+                  : navBeacons;
+              final currentHotelName = group?.hotelName ?? hotelName;
+              final currentRoomNumber = group?.roomNumber ?? roomNumber;
+              final currentCheckIn = group?.checkIn ?? checkIn;
+              final currentCheckOut = group?.checkOut ?? checkOut;
+              final currentDaysRemaining = group?.daysRemaining ?? daysRemaining;
+              final currentHotelLat = group?.hotelLatitude ?? hotelLatitude;
+              final currentHotelLng = group?.hotelLongitude ?? hotelLongitude;
+              final currentHotelAddress = group?.hotelAddress ?? hotelAddress;
+              final currentWakelInfo = group?.wakelInfo ?? wakelInfo;
+
+              return DecoratedBox(
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.backgroundDark
+                      : const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(28.r),
                   ),
                 ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: ListView(
+                  controller: scrollController,
+                  padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 20.h),
                   children: [
-                    Text(
-                      'group_details_title'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 22.sp,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : AppColors.textDark,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(ctx),
+                    Center(
                       child: Container(
-                        padding: EdgeInsets.all(6.w),
+                        width: 36.w,
+                        height: 4.h,
+                        margin: EdgeInsets.only(bottom: 16.h),
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.1)
-                              : Colors.black.withValues(alpha: 0.05),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.close,
-                          size: 18.w,
-                          color: isDark
-                              ? Colors.white70
-                              : AppColors.textMutedDark,
+                          color: isDark ? Colors.white30 : Colors.black12,
+                          borderRadius: BorderRadius.circular(2.r),
                         ),
                       ),
                     ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'group_details_title'.tr(),
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 22.sp,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : AppColors.textDark,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(ctx),
+                          child: Container(
+                            padding: EdgeInsets.all(6.w),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : Colors.black.withValues(alpha: 0.05),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.close,
+                              size: 18.w,
+                              color: isDark
+                                  ? Colors.white70
+                                  : AppColors.textMutedDark,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 18.h),
+                    _GroupDetailsBody(
+                      moderators: currentMods,
+                      createdBy: currentCreatedBy,
+                      navBeacons: currentBeacons,
+                      pilgrimLocation: pilgrimLocation,
+                      hotelName: currentHotelName,
+                      roomNumber: currentRoomNumber,
+                      checkIn: currentCheckIn,
+                      checkOut: currentCheckOut,
+                      daysRemaining: currentDaysRemaining,
+                      hotelLatitude: currentHotelLat,
+                      hotelLongitude: currentHotelLng,
+                      hotelAddress: currentHotelAddress,
+                      wakelInfo: currentWakelInfo,
+                    ),
+                    SizedBox(height: MediaQuery.paddingOf(ctx).bottom + 8.h),
                   ],
                 ),
-                SizedBox(height: 18.h),
-                _GroupDetailsBody(
-                  moderators: moderators,
-                  createdBy: createdBy,
-                  navBeacons: navBeacons,
-                  pilgrimLocation: pilgrimLocation,
-                  hotelName: hotelName,
-                  roomNumber: roomNumber,
-                  checkIn: checkIn,
-                  checkOut: checkOut,
-                  daysRemaining: daysRemaining,
-                  hotelLatitude: hotelLatitude,
-                  hotelLongitude: hotelLongitude,
-                  hotelAddress: hotelAddress,
-                  wakelInfo: wakelInfo,
-                ),
-                SizedBox(height: MediaQuery.paddingOf(ctx).bottom + 8.h),
-              ],
-            ),
+              );
+            },
           );
         },
       );

@@ -50,6 +50,7 @@ class TamenyLocationService {
   static Future<bool> enableTracking(
     BuildContext context, {
     bool forceSkipDisclosure = false,
+    bool requestBatteryOptimization = true,
   }) async {
     // 1. Show prominent disclosure dialog first
     if (!forceSkipDisclosure) {
@@ -62,7 +63,9 @@ class TamenyLocationService {
     if (!hasPermission) return false;
     
     // 3. Request battery optimization
-    await BatteryOptimizationHelper.requestDisableBatteryOptimization();
+    if (requestBatteryOptimization) {
+      await BatteryOptimizationHelper.requestDisableBatteryOptimization();
+    }
     
     // 4. Start foreground service (handles backgrounded state)
     await _startForegroundService();

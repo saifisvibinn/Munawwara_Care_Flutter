@@ -46,6 +46,8 @@ class ProvisioningItem {
   final String? busInfo;
   final String? visaNumber;
   final String? visaStatus;
+  final String? profilePicture;
+  final String? gender;
 
   const ProvisioningItem({
     required this.pilgrimId,
@@ -60,6 +62,8 @@ class ProvisioningItem {
     this.busInfo,
     this.visaNumber,
     this.visaStatus,
+    this.profilePicture,
+    this.gender,
   });
 
   ProvisioningItem copyWith({
@@ -75,6 +79,8 @@ class ProvisioningItem {
     String? busInfo,
     String? visaNumber,
     String? visaStatus,
+    String? profilePicture,
+    String? gender,
   }) {
     return ProvisioningItem(
       pilgrimId: pilgrimId ?? this.pilgrimId,
@@ -89,6 +95,8 @@ class ProvisioningItem {
       busInfo: busInfo ?? this.busInfo,
       visaNumber: visaNumber ?? this.visaNumber,
       visaStatus: visaStatus ?? this.visaStatus,
+      profilePicture: profilePicture ?? this.profilePicture,
+      gender: gender ?? this.gender,
     );
   }
 
@@ -111,6 +119,8 @@ class ProvisioningItem {
       busInfo: pilgrim['bus_info']?.toString(),
       visaNumber: pilgrim['visa']?['visa_number']?.toString(),
       visaStatus: pilgrim['visa']?['status']?.toString(),
+      profilePicture: pilgrim['profile_picture']?.toString(),
+      gender: pilgrim['gender']?.toString(),
     );
   }
 }

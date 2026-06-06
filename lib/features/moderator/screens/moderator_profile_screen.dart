@@ -121,6 +121,7 @@ class _ModeratorProfileScreenState
                       cardBg: cardBg,
                       textPrimary: textPrimary,
                       textMuted: textMuted,
+                      imageUrl: authState.profilePicture,
                       onEditTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const ModeratorProfileEditScreen(),
@@ -412,6 +413,7 @@ class _ProfileCard extends StatelessWidget {
     required this.textPrimary,
     required this.textMuted,
     required this.onEditTap,
+    this.imageUrl,
   });
 
   final String initials;
@@ -421,6 +423,7 @@ class _ProfileCard extends StatelessWidget {
   final Color textPrimary;
   final Color textMuted;
   final VoidCallback onEditTap;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -448,9 +451,13 @@ class _ProfileCard extends StatelessWidget {
                 height: 90.w,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isDark ? Colors.white12 : const Color(0xFFD4E3FC),
+                  color: isDark
+                      ? Colors.white12
+                      : AppColors.primary.withValues(alpha: 0.08),
                   border: Border.all(
-                    color: isDark ? Colors.white24 : const Color(0xFF94B9FA),
+                    color: isDark
+                        ? Colors.white24
+                        : AppColors.primary.withValues(alpha: 0.24),
                     width: 2.w,
                   ),
                 ),
@@ -458,6 +465,7 @@ class _ProfileCard extends StatelessWidget {
                   child: ModeratorAvatar(
                     size: 86.w,
                     initials: initials,
+                    imageUrl: imageUrl,
                   ),
                 ),
               ),

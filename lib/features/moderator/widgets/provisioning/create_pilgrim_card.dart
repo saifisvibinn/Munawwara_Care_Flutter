@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dropdown_theme.dart';
@@ -77,6 +78,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
   File? _tasheraDocument;
   String? _tasheraDocumentName;
   final List<File> _documents = [];
+  File? _profilePicture;
 
   @override
   void dispose() {
@@ -124,6 +126,95 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
       }
     } catch (e) {
       debugPrint('Error picking file: $e');
+    }
+  }
+
+  Future<void> _pickProfilePicture() async {
+    final isDark = widget.isDark;
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cardBg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: EdgeInsets.only(top: 8.h, bottom: 16.h),
+                width: 40.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+              Text(
+                'profile_picture_title'.tr() == 'profile_picture_title'
+                    ? 'Profile Picture'
+                    : 'profile_picture_title'.tr(),
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16.sp,
+                  color: textPrimary,
+                ),
+              ),
+              SizedBox(height: 16.h),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_rounded, color: AppColors.primary),
+                title: Text(
+                  'profile_picture_camera'.tr() == 'profile_picture_camera'
+                      ? 'Take Photo'
+                      : 'profile_picture_camera'.tr(),
+                  style: TextStyle(fontFamily: 'Lexend', color: textPrimary),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_rounded, color: AppColors.primary),
+                title: Text(
+                  'profile_picture_gallery'.tr() == 'profile_picture_gallery'
+                      ? 'Choose from Gallery'
+                      : 'profile_picture_gallery'.tr(),
+                  style: TextStyle(fontFamily: 'Lexend', color: textPrimary),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              SizedBox(height: 8.h),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    try {
+      final XFile? image = await picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 80,
+      );
+      if (image == null) return;
+      setState(() {
+        _profilePicture = File(image.path);
+      });
+    } catch (e) {
+      debugPrint('Error picking profile picture: $e');
     }
   }
 
@@ -215,6 +306,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
       'full_name': _fullNameCtrl.text.trim(),
       'phone_number': _phoneCtrl.text.trim(),
       'alternative_phone_number': _altPhoneCtrl.text.trim().isEmpty ? null : _altPhoneCtrl.text.trim(),
+      'profile_picture': _profilePicture?.path,
       'tashera_document': _tasheraDocument?.path,
       'documents': _documents.map((f) => f.path).toList(),
       'morafeq_name': _morafeqNameCtrl.text.trim().isEmpty ? null : _morafeqNameCtrl.text.trim(),
@@ -309,6 +401,87 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                   ],
                 ),
                  SizedBox(height: ProvisioningFormTheme.gapLg(context)),
+                 Center(
+                   child: Stack(
+                     children: [
+                       GestureDetector(
+                         onTap: _pickProfilePicture,
+                         child: Container(
+                           width: 80.w,
+                           height: 80.w,
+                           decoration: BoxDecoration(
+                             shape: BoxShape.circle,
+                             color: widget.isDark
+                                 ? Colors.white12
+                                 : AppColors.primary.withValues(alpha: 0.08),
+                             border: Border.all(
+                               color: widget.isDark
+                                   ? Colors.white24
+                                   : AppColors.primary.withValues(alpha: 0.24),
+                               width: 2.w,
+                             ),
+                           ),
+                           clipBehavior: Clip.antiAlias,
+                           child: _profilePicture != null
+                               ? Image.file(
+                                   _profilePicture!,
+                                   fit: BoxFit.cover,
+                                   width: 80.w,
+                                   height: 80.w,
+                                 )
+                               : Image.asset(
+                                   _genderSelection.first == 'female'
+                                       ? 'assets/static/pilgrim_female.png'
+                                       : 'assets/static/pilgrim_male.png',
+                                   fit: BoxFit.cover,
+                                   width: 80.w,
+                                   height: 80.w,
+                                 ),
+                         ),
+                       ),
+                       Positioned(
+                         bottom: 0,
+                         right: 0,
+                         child: GestureDetector(
+                           onTap: _pickProfilePicture,
+                           child: Container(
+                             padding: EdgeInsets.all(6.w),
+                             decoration: const BoxDecoration(
+                               shape: BoxShape.circle,
+                               color: AppColors.primary,
+                             ),
+                             child: Icon(
+                               Symbols.camera_enhance,
+                               color: Colors.white,
+                               size: 14.sp,
+                             ),
+                           ),
+                         ),
+                       ),
+                       if (_profilePicture != null)
+                         Positioned(
+                           top: 0,
+                           right: 0,
+                           child: GestureDetector(
+                             onTap: () => setState(() => _profilePicture = null),
+                             child: Container(
+                               padding: EdgeInsets.all(4.w),
+                               decoration: const BoxDecoration(
+                                 shape: BoxShape.circle,
+                                 color: Colors.red,
+                               ),
+                               child: Icon(
+                                 Symbols.close,
+                                 color: Colors.white,
+                                 size: 12.sp,
+                               ),
+                             ),
+                           ),
+                         ),
+                     ],
+                   ),
+                 ),
+                 SizedBox(height: ProvisioningFormTheme.gapMd(context)),
                 Text(
                   'provisioning_basic_information'.tr(),
                   style: theme.textTheme.labelLarge?.copyWith(

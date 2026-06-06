@@ -1,4 +1,4 @@
-{
+﻿{
   "nat_afghan": "Afgan",
   "nat_albanian": "Arnavut",
   "nat_american": "Amerikan",
@@ -1672,5 +1672,18 @@
   "attendance_unknown_date": "Bilinmeyen Tarih",
   "attendance_status_completed": "Tamamlandı",
   "attendance_share_qr_failed": "QR Kodu paylaşılamadı: {}",
-  "attendance_save_qr_failed": "QR Kodu kaydedilemedi: {}"
+  "attendance_save_qr_failed": "QR Kodu kaydedilemedi: {}",
+  "resources_title": "Kaynaklar",
+  "resources_subtitle": "Oteller & Sigorta",
+  "resources_hotels": "Oteller",
+  "resources_insurances": "Sigorta",
+  "resources_no_hotels": "Mevcut otel yok",
+  "resources_no_insurances": "Mevcut sigorta sağlayıcısı yok",
+  "resources_rooms": "oda",
+  "resources_hospitals": "hastane",
+  "resources_rooms_list": "Odalar",
+  "resources_hospitals_list": "Hastaneler",
+  "resources_room_number": "Oda {0}",
+  "resources_floor": "Kat {0}",
+  "resources_capacity": "Kap. {0}"
 }
