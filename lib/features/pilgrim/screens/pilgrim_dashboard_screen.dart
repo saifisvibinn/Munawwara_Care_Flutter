@@ -205,7 +205,13 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   void _refreshRealtimeState({bool forceDashboard = false}) {
     if (!mounted) return;
     ref.read(notificationProvider.notifier).refetch();
-    ref.read(pilgrimProvider.notifier).loadDashboard(force: forceDashboard);
+    ref.read(pilgrimProvider.notifier).loadDashboard(force: forceDashboard).then((_) {
+      if (!mounted) return;
+      final gId = ref.read(pilgrimProvider).groupInfo?.groupId;
+      if (gId != null) {
+        ref.read(suggestedAreaProvider.notifier).load(gId);
+      }
+    });
   }
 
   /// Urgent socket messages received while !resumed are queued; see
@@ -465,6 +471,12 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         }
         if (nextGroupId != null) {
           SocketService.emit('join_group', nextGroupId);
+          // Load areas for the new group immediately so they appear on the
+          // map without needing a manual refresh.
+          ref.read(suggestedAreaProvider.notifier).load(nextGroupId);
+        } else {
+          // Pilgrim left/was removed from group — clear stale areas.
+          ref.read(suggestedAreaProvider.notifier).clear();
         }
       }
       final chatGid = next.groupInfo?.groupId;

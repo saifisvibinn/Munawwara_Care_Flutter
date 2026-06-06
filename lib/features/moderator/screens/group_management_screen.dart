@@ -1555,7 +1555,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     final filtered = _getFiltered(group);
     final areaState = _scopedAreaState(ref.watch(suggestedAreaProvider));
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final headerHeight = 24.h + 54.h + 60.h + (areaState.activeMeetpoint != null ? 65.h : 0);
+    final headerHeight = 24.h + 54.h + 60.h + (areaState.activeMeetpoint != null ? 90.h : 0);
 
     return Scaffold(
       body: Stack(
