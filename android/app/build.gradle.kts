@@ -25,10 +25,8 @@ val apiBaseUrlFromDartDefine = dartDefines["API_BASE_URL"] ?: ""
 
 plugins {
     id("com.android.application")
-    id("kotlin-android")
     id("com.google.gms.google-services")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin
-    // plugins.
+    // The Flutter Gradle Plugin must be applied after the Android plugin.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -56,9 +54,6 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
 
     defaultConfig {
         applicationId = "com.munawwaracare.android"
@@ -97,6 +92,12 @@ android {
                 signingConfigs.getByName("debug")
             }
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
