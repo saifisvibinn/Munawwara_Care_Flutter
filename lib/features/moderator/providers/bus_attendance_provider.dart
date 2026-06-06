@@ -368,7 +368,13 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
   // ── Fetch specific past session details ──────────────────────────────────
 
   Future<void> fetchSessionDetails(String groupId, String sessionId) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      clearSession: true,
+      boarded: const [],
+      missing: const [],
+    );
     try {
       final resp = await ApiService.dio.get(
         '/groups/$groupId/bus-attendance/session/$sessionId',
