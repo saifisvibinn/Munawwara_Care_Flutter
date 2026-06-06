@@ -1005,3 +1005,180 @@ class ExploreCard extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Active Attendance Card (Pilgrim-side)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class ActiveAttendanceCard extends StatefulWidget {
+  final ActiveBoardingSession session;
+  final VoidCallback onTap;
+
+  const ActiveAttendanceCard({
+    super.key,
+    required this.session,
+    required this.onTap,
+  });
+
+  @override
+  State<ActiveAttendanceCard> createState() => _ActiveAttendanceCardState();
+}
+
+class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAttended = widget.session.attended;
+
+    final cardBg = isAttended
+        ? (isDark
+            ? AppColors.success.withValues(alpha: 0.08)
+            : AppColors.success.withValues(alpha: 0.04))
+        : (isDark ? const Color(0xFF1E1E2D) : Colors.white);
+
+    final borderColor = isAttended
+        ? AppColors.success.withValues(alpha: 0.35)
+        : (isDark
+            ? AppColors.primary.withValues(alpha: 0.4)
+            : const Color(0xFFFFEDD5));
+
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: 16.h),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(24.r),
+        border: Border.all(
+          color: borderColor,
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isAttended
+                ? AppColors.success.withValues(alpha: 0.04)
+                : AppColors.primary.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24.r),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: isAttended ? null : widget.onTap,
+            splashColor: AppColors.primary.withValues(alpha: 0.12),
+            highlightColor: AppColors.primary.withValues(alpha: 0.06),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 18.h),
+              child: Row(
+                children: [
+                  // Icon container
+                  Container(
+                    padding: EdgeInsets.all(12.w),
+                    decoration: BoxDecoration(
+                      color: isAttended
+                          ? AppColors.success.withValues(alpha: 0.12)
+                          : AppColors.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isAttended ? Icons.check_circle_rounded : Icons.directions_bus_rounded,
+                      color: isAttended ? AppColors.success : AppColors.primary,
+                      size: 28.sp,
+                    ),
+                  ),
+                  SizedBox(width: 16.w),
+                  // Text details
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              isAttended ? 'attendance_checked_in'.tr() : 'attendance_title'.tr(),
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w800,
+                                color: isAttended
+                                    ? AppColors.success
+                                    : (isDark ? Colors.white : AppColors.textDark),
+                              ),
+                            ),
+                            if (!isAttended) ...[
+                              SizedBox(width: 8.w),
+                              // Blinking active indicator
+                              FadeTransition(
+                                opacity: _pulseAnimation,
+                                child: Container(
+                                  width: 8.w,
+                                  height: 8.w,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.success,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          widget.session.busIdentifier.isNotEmpty
+                              ? widget.session.busIdentifier
+                              : 'Bus / Trip Boarding',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 13.sp,
+                            color: isAttended
+                                ? (isDark ? Colors.white60 : AppColors.textMutedDark)
+                                : (isDark ? AppColors.textMutedLight : AppColors.textMutedDark),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Action indicator / arrow
+                  if (!isAttended)
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 16.sp,
+                      color: AppColors.primary,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

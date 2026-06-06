@@ -36,6 +36,7 @@ class BoardingSession {
   final DateTime? startedAt;
   final DateTime? completedAt;
   final List<BoardedPilgrimEntry> boardedPilgrims;
+  final int totalPilgrims;
 
   const BoardingSession({
     required this.id,
@@ -46,6 +47,7 @@ class BoardingSession {
     this.startedAt,
     this.completedAt,
     this.boardedPilgrims = const [],
+    this.totalPilgrims = 0,
   });
 
   factory BoardingSession.fromJson(Map<String, dynamic> j) {
@@ -66,6 +68,7 @@ class BoardingSession {
           ? DateTime.tryParse(j['completed_at'].toString())
           : null,
       boardedPilgrims: boarded,
+      totalPilgrims: (j['total_pilgrims'] as num?)?.toInt() ?? 0,
     );
   }
 

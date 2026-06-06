@@ -25,6 +25,12 @@ class BusAttendanceState {
   final List<BoardedPilgrim> boarded;
   final List<MissingPilgrim> missing;
 
+  /// Boarding session history list for the group
+  final List<BoardingSession> history;
+
+  /// Whether status has been fetched at least once.
+  final bool hasFetched;
+
   const BusAttendanceState({
     this.isLoading = false,
     this.isStarting = false,
@@ -34,6 +40,8 @@ class BusAttendanceState {
     this.attendanceCode,
     this.boarded = const [],
     this.missing = const [],
+    this.history = const [],
+    this.hasFetched = false,
   });
 
   BusAttendanceState copyWith({
@@ -47,6 +55,8 @@ class BusAttendanceState {
     String? attendanceCode,
     List<BoardedPilgrim>? boarded,
     List<MissingPilgrim>? missing,
+    List<BoardingSession>? history,
+    bool? hasFetched,
   }) =>
       BusAttendanceState(
         isLoading: isLoading ?? this.isLoading,
@@ -57,6 +67,8 @@ class BusAttendanceState {
         attendanceCode: clearSession ? null : (attendanceCode ?? this.attendanceCode),
         boarded: boarded ?? this.boarded,
         missing: missing ?? this.missing,
+        history: history ?? this.history,
+        hasFetched: hasFetched ?? this.hasFetched,
       );
 
   int get totalPilgrims => boarded.length + missing.length;
@@ -189,6 +201,7 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
 
       state = state.copyWith(
         isLoading: false,
+        hasFetched: true,
         session: session ?? state.session,
         boarded: boardedRaw
             .whereType<Map<String, dynamic>>()
@@ -200,9 +213,9 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
             .toList(),
       );
     } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
+      state = state.copyWith(isLoading: false, hasFetched: true, error: ApiService.parseError(e));
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, hasFetched: true, error: e.toString());
     }
   }
 
@@ -323,6 +336,73 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
       final updatedBoarded = [...state.boarded]..removeAt(boardedIdx);
       final updatedMissing = [newMissing, ...state.missing];
       state = state.copyWith(boarded: updatedBoarded, missing: updatedMissing);
+    }
+  }
+
+  // ── Fetch history sessions ─────────────────────────────────────────────
+
+  Future<void> fetchHistory(String groupId) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final resp = await ApiService.dio.get(
+        '/groups/$groupId/bus-attendance/history',
+      );
+      final body = _extractData(resp.data);
+      final listRaw = body['sessions'] as List<dynamic>? ?? [];
+      final list = listRaw
+          .whereType<Map<String, dynamic>>()
+          .map(BoardingSession.fromJson)
+          .toList();
+
+      state = state.copyWith(
+        isLoading: false,
+        history: list,
+      );
+    } on DioException catch (e) {
+      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  // ── Fetch specific past session details ──────────────────────────────────
+
+  Future<void> fetchSessionDetails(String groupId, String sessionId) async {
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      clearSession: true,
+      boarded: const [],
+      missing: const [],
+    );
+    try {
+      final resp = await ApiService.dio.get(
+        '/groups/$groupId/bus-attendance/session/$sessionId',
+      );
+      final body = _extractData(resp.data);
+
+      final sessionRaw = body['session'] as Map<String, dynamic>?;
+      final session = sessionRaw != null ? BoardingSession.fromJson(sessionRaw) : null;
+
+      final boardedRaw = body['boarded'] as List<dynamic>? ?? [];
+      final missingRaw = body['missing'] as List<dynamic>? ?? [];
+
+      state = state.copyWith(
+        isLoading: false,
+        session: session,
+        boarded: boardedRaw
+            .whereType<Map<String, dynamic>>()
+            .map(BoardedPilgrim.fromJson)
+            .toList(),
+        missing: missingRaw
+            .whereType<Map<String, dynamic>>()
+            .map(MissingPilgrim.fromJson)
+            .toList(),
+      );
+    } on DioException catch (e) {
+      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 

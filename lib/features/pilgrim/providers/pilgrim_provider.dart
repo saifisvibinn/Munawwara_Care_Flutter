@@ -74,6 +74,32 @@ class PilgrimProfile {
   }
 }
 
+// ── Active Boarding Session Model ───────────────────────────────────────────
+
+class ActiveBoardingSession {
+  final String sessionId;
+  final String busIdentifier;
+  final String status;
+  final DateTime? startedAt;
+  final bool attended;
+
+  const ActiveBoardingSession({
+    required this.sessionId,
+    required this.busIdentifier,
+    required this.status,
+    this.startedAt,
+    this.attended = false,
+  });
+
+  factory ActiveBoardingSession.fromJson(Map<String, dynamic> j) => ActiveBoardingSession(
+    sessionId: j['_id']?.toString() ?? j['session_id']?.toString() ?? '',
+    busIdentifier: j['bus_identifier']?.toString() ?? '',
+    status: j['status']?.toString() ?? '',
+    startedAt: j['started_at'] != null ? DateTime.tryParse(j['started_at'].toString()) : null,
+    attended: j['attended'] == true,
+  );
+}
+
 // ── Group Info Model ──────────────────────────────────────────────────────────
 
 class GroupInfo {
@@ -91,6 +117,7 @@ class GroupInfo {
   final double? hotelLatitude;
   final double? hotelLongitude;
   final WakelInfo? wakelInfo;
+  final ActiveBoardingSession? activeBoardingSession;
 
   const GroupInfo({
     required this.groupId,
@@ -107,6 +134,7 @@ class GroupInfo {
     this.hotelLatitude,
     this.hotelLongitude,
     this.wakelInfo,
+    this.activeBoardingSession,
   });
 
   factory GroupInfo.fromJson(Map<String, dynamic> j) {
@@ -174,6 +202,9 @@ class GroupInfo {
       hotelLatitude: firstDouble(['hotel_latitude', 'hotelLatitude']),
       hotelLongitude: firstDouble(['hotel_longitude', 'hotelLongitude']),
       wakelInfo: j['wakel'] != null ? WakelInfo.fromJson(j['wakel'] as Map<String, dynamic>) : null,
+      activeBoardingSession: j['active_boarding_session'] != null
+          ? ActiveBoardingSession.fromJson(j['active_boarding_session'] as Map<String, dynamic>)
+          : null,
     );
   }
 }

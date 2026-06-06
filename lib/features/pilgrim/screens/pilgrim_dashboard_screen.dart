@@ -767,6 +767,12 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         SocketService.on('group_deleted', (_) {
           _refreshRealtimeState(forceDashboard: true);
         });
+        SocketService.on('bus_boarding_started', (_) {
+          _refreshRealtimeState(forceDashboard: true);
+        });
+        SocketService.on('bus_boarding_ended', (_) {
+          _refreshRealtimeState(forceDashboard: true);
+        });
 
         // Listen for remote force logout (e.g., code refreshed by moderator)
         SocketService.on('force_logout', (_) {
@@ -912,6 +918,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     SocketService.off('missed-call-received');
     SocketService.off('group_updated');
     SocketService.off('group_deleted');
+    SocketService.off('bus_boarding_started');
+    SocketService.off('bus_boarding_ended');
     SocketService.off('added-to-group');
     SocketService.off('force_logout');
     SocketService.off('sos-handling');
