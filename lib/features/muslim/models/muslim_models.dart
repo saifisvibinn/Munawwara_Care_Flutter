@@ -99,28 +99,7 @@ class TodayHijriData {
   }
 }
 
-class QiblaData {
-  final double qiblaDirection;
-  final String compassBearing;
-  final double distanceKm;
-  final String? message;
 
-  const QiblaData({
-    required this.qiblaDirection,
-    required this.compassBearing,
-    required this.distanceKm,
-    this.message,
-  });
-
-  factory QiblaData.fromJson(Map<String, dynamic> json) {
-    return QiblaData(
-      qiblaDirection: (json['qibla_direction'] as num?)?.toDouble() ?? 0,
-      compassBearing: json['compass_bearing']?.toString() ?? '',
-      distanceKm: (json['distance_km'] as num?)?.toDouble() ?? 0,
-      message: json['message']?.toString(),
-    );
-  }
-}
 
 class DuaItem {
   final int id;

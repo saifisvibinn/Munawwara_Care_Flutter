@@ -72,12 +72,10 @@ class PrayerBundle {
   const PrayerBundle({
     required this.prayerTimes,
     required this.hijri,
-    required this.qibla,
   });
 
   final PrayerTimesData prayerTimes;
   final TodayHijriData hijri;
-  final QiblaData qibla;
 }
 
 final prayerBundleProvider = FutureProvider<PrayerBundle>((ref) async {
@@ -86,12 +84,10 @@ final prayerBundleProvider = FutureProvider<PrayerBundle>((ref) async {
   final results = await Future.wait([
     api.fetchPrayerTimes(lat: lat, lng: lng),
     api.fetchTodayHijri(),
-    api.fetchQibla(lat: lat, lng: lng),
   ]);
   return PrayerBundle(
     prayerTimes: results[0] as PrayerTimesData,
     hijri: results[1] as TodayHijriData,
-    qibla: results[2] as QiblaData,
   );
 });
 

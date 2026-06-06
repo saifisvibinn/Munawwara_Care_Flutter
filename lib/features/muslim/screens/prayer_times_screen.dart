@@ -8,7 +8,6 @@ import '../constants/muslim_colors.dart';
 import '../providers/muslim_providers.dart';
 import '../utils/muslim_localization.dart';
 import '../widgets/muslim_widgets.dart';
-import '../widgets/qibla_compass_widget.dart';
 
 class PrayerTimesScreen extends ConsumerWidget {
   const PrayerTimesScreen({super.key});
@@ -135,8 +134,7 @@ class PrayerTimesScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              SizedBox(height: 24.h),
-              QiblaCompassWidget(qibla: bundle.qibla),
+
             ],
           );
         },

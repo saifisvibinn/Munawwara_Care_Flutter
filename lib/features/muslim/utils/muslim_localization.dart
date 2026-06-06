@@ -108,9 +108,3 @@ String formatHijriDateLocalized(HijriDate hijri) {
   return hijri.formatted;
 }
 
-List<String> localizedQiblaCardinals() => [
-      'muslim_qibla_north'.tr(),
-      'muslim_qibla_east'.tr(),
-      'muslim_qibla_south'.tr(),
-      'muslim_qibla_west'.tr(),
-    ];

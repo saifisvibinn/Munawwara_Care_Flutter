@@ -91,16 +91,7 @@ class UmmahApiService {
     return _unwrap('/today-hijri', parse: TodayHijriData.fromJson);
   }
 
-  Future<QiblaData> fetchQibla({
-    required double lat,
-    required double lng,
-  }) {
-    return _unwrap(
-      '/qibla',
-      query: {'lat': lat, 'lng': lng},
-      parse: QiblaData.fromJson,
-    );
-  }
+
 
   Future<List<DuaItem>> fetchDuasByCategory(String categoryId) {
     return _unwrapList(
