@@ -9,6 +9,32 @@ import '../../../core/services/caller_gender_cache.dart';
 import '../../../core/services/secure_session_store.dart';
 import '../../pilgrim/models/insurance_company.dart';
 
+// ── Pilgrim Document model ───────────────────────────────────────────────────
+class PilgrimDocument {
+  final String name;
+  final String fileUrl;
+  final String fileType;
+  final DateTime? uploadedAt;
+
+  const PilgrimDocument({
+    required this.name,
+    required this.fileUrl,
+    required this.fileType,
+    this.uploadedAt,
+  });
+
+  factory PilgrimDocument.fromJson(Map<String, dynamic> j) {
+    return PilgrimDocument(
+      name: j['name']?.toString() ?? '',
+      fileUrl: j['file_url']?.toString() ?? '',
+      fileType: j['file_type']?.toString() ?? '',
+      uploadedAt: j['uploaded_at'] != null
+          ? DateTime.tryParse(j['uploaded_at'].toString())
+          : null,
+    );
+  }
+}
+
 // ── Pilgrim-in-group model ────────────────────────────────────────────────────
 class PilgrimInGroup {
   final String id;
@@ -35,6 +61,9 @@ class PilgrimInGroup {
   final String? morafeqEmail;
   final String? tasheraNumber;
   final InsuranceCompany? insuranceCompany;
+  final String? tasheraDocumentUrl;
+  final String? tasheraDocumentType;
+  final List<PilgrimDocument> documents;
 
   const PilgrimInGroup({
     required this.id,
@@ -61,6 +90,9 @@ class PilgrimInGroup {
     this.morafeqEmail,
     this.tasheraNumber,
     this.insuranceCompany,
+    this.tasheraDocumentUrl,
+    this.tasheraDocumentType,
+    this.documents = const [],
   });
 
   factory PilgrimInGroup.fromJson(Map<String, dynamic> j) {
@@ -95,6 +127,13 @@ class PilgrimInGroup {
       insuranceCompany: j['insurance_company_id'] != null
           ? InsuranceCompany.fromJson(Map<String, dynamic>.from(j['insurance_company_id']))
           : null,
+      tasheraDocumentUrl: j['tashera_document_url']?.toString(),
+      tasheraDocumentType: j['tashera_document_type']?.toString(),
+      documents: j['documents'] != null
+          ? (j['documents'] as List)
+              .map((d) => PilgrimDocument.fromJson(Map<String, dynamic>.from(d)))
+              .toList()
+          : const [],
     );
   }
 

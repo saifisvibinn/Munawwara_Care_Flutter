@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../calling/providers/call_provider.dart';
 import '../../calling/screens/voice_call_screen.dart';
 import '../providers/moderator_provider.dart';
+import '../screens/document_viewer_screen.dart';
 import '../screens/individual_messages_screen.dart';
 
 void showPilgrimProfileSheet(
@@ -390,6 +391,160 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                   value: pilgrim.ethnicity,
                   isDark: isDark,
                 ),
+
+                SizedBox(height: 24.h),
+                _SectionTitle(title: 'profile_documents'.tr(), isDark: isDark),
+                if ((pilgrim.tasheraDocumentUrl == null || pilgrim.tasheraDocumentUrl!.isEmpty) && pilgrim.documents.isEmpty) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(vertical: 16.h),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'profile_no_documents'.tr(),
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 13.sp,
+                        color: textMuted,
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  if (pilgrim.tasheraDocumentUrl != null && pilgrim.tasheraDocumentUrl!.isNotEmpty) ...[
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 8.h),
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DocumentViewerScreen(
+                                url: pilgrim.tasheraDocumentUrl!,
+                                title: 'provisioning_tashera_document'.tr(),
+                              ),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(12.r),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.surfaceDark : AppColors.primary.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(12.r),
+                            border: Border.all(
+                              color: isDark ? AppColors.dividerDark : AppColors.primary.withValues(alpha: 0.1),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                pilgrim.tasheraDocumentType == 'pdf' ? Symbols.picture_as_pdf : Symbols.image,
+                                color: AppColors.primary,
+                                size: 22.sp,
+                              ),
+                              SizedBox(width: 12.w),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'provisioning_tashera_document'.tr(),
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontSize: 13.5.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: textPrimary,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2.h),
+                                    Text(
+                                      'profile_view_document'.tr(),
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontSize: 11.5.sp,
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(Symbols.open_in_new, color: textMuted, size: 18.sp),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  ...pilgrim.documents.map((doc) {
+                    final isPdf = doc.fileType == 'pdf' || doc.fileUrl.toLowerCase().endsWith('.pdf');
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: 8.h),
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DocumentViewerScreen(
+                                url: doc.fileUrl,
+                                title: doc.name,
+                              ),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(12.r),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.surfaceDark : AppColors.primary.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(12.r),
+                            border: Border.all(
+                              color: isDark ? AppColors.dividerDark : AppColors.primary.withValues(alpha: 0.1),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isPdf ? Symbols.picture_as_pdf : Symbols.image,
+                                color: AppColors.primary,
+                                size: 22.sp,
+                              ),
+                              SizedBox(width: 12.w),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      doc.name,
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontSize: 13.5.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: textPrimary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    SizedBox(height: 2.h),
+                                    Text(
+                                      'profile_view_document'.tr(),
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontSize: 11.5.sp,
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(Symbols.open_in_new, color: textMuted, size: 18.sp),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
 
                 SizedBox(height: 40.h),
               ],

@@ -259,6 +259,22 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
               filename: fileName,
             );
           }
+        } else if (entry.key == 'documents') {
+          final List<String> filePaths = List<String>.from(entry.value as List);
+          final List<MultipartFile> multipartFiles = [];
+          for (final path in filePaths) {
+            final file = File(path);
+            if (await file.exists()) {
+              final fileName = path.split(Platform.pathSeparator).last;
+              multipartFiles.add(await MultipartFile.fromFile(
+                path,
+                filename: fileName,
+              ));
+            }
+          }
+          if (multipartFiles.isNotEmpty) {
+            formMap[entry.key] = multipartFiles;
+          }
         } else {
           formMap[entry.key] = entry.value.toString();
         }

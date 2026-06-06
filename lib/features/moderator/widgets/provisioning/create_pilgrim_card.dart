@@ -76,6 +76,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
 
   File? _tasheraDocument;
   String? _tasheraDocumentName;
+  final List<File> _documents = [];
 
   @override
   void dispose() {
@@ -102,6 +103,23 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
         setState(() {
           _tasheraDocument = File(result.files.single.path!);
           _tasheraDocumentName = result.files.single.name;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking file: $e');
+    }
+  }
+
+  Future<void> _pickDocument() async {
+    if (_documents.length >= 3) return;
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+      );
+      if (result != null && result.files.single.path != null) {
+        setState(() {
+          _documents.add(File(result.files.single.path!));
         });
       }
     } catch (e) {
@@ -198,6 +216,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
       'phone_number': _phoneCtrl.text.trim(),
       'alternative_phone_number': _altPhoneCtrl.text.trim().isEmpty ? null : _altPhoneCtrl.text.trim(),
       'tashera_document': _tasheraDocument?.path,
+      'documents': _documents.map((f) => f.path).toList(),
       'morafeq_name': _morafeqNameCtrl.text.trim().isEmpty ? null : _morafeqNameCtrl.text.trim(),
       'morafeq_phone': _morafeqPhoneCtrl.text.trim().isEmpty ? null : _morafeqPhoneCtrl.text.trim(),
       'morafeq_email': _morafeqEmailCtrl.text.trim().isEmpty ? null : _morafeqEmailCtrl.text.trim(),
@@ -779,6 +798,112 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                           ),
                         ),
                       ),
+                      if (_documents.isNotEmpty) ...[
+                        SizedBox(height: gSm),
+                        ..._documents.asMap().entries.map((entry) {
+                          final idx = entry.key;
+                          final file = entry.value;
+                          final name = file.path.split(Platform.pathSeparator).last;
+                          final isPdf = name.toLowerCase().endsWith('.pdf');
+                          return Padding(
+                            padding: EdgeInsets.only(bottom: 8.h),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8.r),
+                                color: widget.isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.02),
+                                border: Border.all(
+                                  color: outline.withValues(alpha: 0.5),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    isPdf ? Symbols.picture_as_pdf : Symbols.image,
+                                    color: AppColors.primary,
+                                    size: 20.sp,
+                                  ),
+                                  SizedBox(width: 10.w),
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontSize: 12.sp,
+                                        color: textPrimary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _documents.removeAt(idx);
+                                      });
+                                    },
+                                    child: Icon(Symbols.close, color: Colors.red, size: 18.sp),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                      if (_documents.length < 3) ...[
+                        SizedBox(height: gSm),
+                        InkWell(
+                          onTap: _pickDocument,
+                          borderRadius: BorderRadius.circular(12.r),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12.r),
+                              border: Border.all(
+                                color: outline.withValues(alpha: 0.8),
+                                style: BorderStyle.solid,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Symbols.upload_file,
+                                  color: textMuted,
+                                  size: 22.sp,
+                                ),
+                                SizedBox(width: 12.w),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'provisioning_documents'.tr(),
+                                        style: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          fontSize: 13.sp,
+                                          fontWeight: FontWeight.w600,
+                                          color: textPrimary,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2.h),
+                                      Text(
+                                        'provisioning_tap_to_upload_doc'.tr(),
+                                        style: TextStyle(
+                                          fontFamily: 'Lexend',
+                                          fontSize: 11.5.sp,
+                                          color: textMuted,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                       SizedBox(height: g),
                       DropdownButtonFormField<String?>(
                         isExpanded: true,
