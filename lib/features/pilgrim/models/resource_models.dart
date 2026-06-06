@@ -1,3 +1,5 @@
+import '../../../../core/services/api_service.dart';
+
 class HotelRoom {
   final String id;
   final String roomNumber;
@@ -125,6 +127,26 @@ class Insurance {
     this.policyDocumentUrl,
     required this.hospitals,
   });
+
+  String? get policyDocumentProxyUrl {
+    if (policyDocumentUrl == null || policyDocumentUrl!.isEmpty) return null;
+    if (policyDocumentUrl!.startsWith('http') && policyDocumentUrl!.contains('/api/documents/')) {
+      return policyDocumentUrl;
+    }
+    if (policyDocumentUrl!.contains('storage.googleapis.com')) {
+      try {
+        final uri = Uri.parse(policyDocumentUrl!);
+        final segments = uri.pathSegments;
+        final index = segments.indexOf('insurance-policies');
+        if (index != -1 && index < segments.length - 1) {
+          final filename = segments.sublist(index + 1).join('/');
+          final base = ApiService.baseUrl;
+          return '$base/documents/insurance-policies/$filename';
+        }
+      } catch (_) {}
+    }
+    return policyDocumentUrl;
+  }
 
   factory Insurance.fromJson(Map<String, dynamic> j) => Insurance(
     id: j['_id']?.toString() ?? '',

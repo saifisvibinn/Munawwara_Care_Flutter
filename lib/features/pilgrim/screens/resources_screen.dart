@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../auth/providers/auth_provider.dart';
 
 import '../models/resource_models.dart';
+import '../../moderator/screens/document_viewer_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Models (Typedefs for public models)
@@ -752,6 +753,56 @@ class _InsuranceCardState extends State<_InsuranceCard> {
                                   isDark: isDark,
                                   color: const Color(0xFF16A34A),
                                 ),
+                                if (widget.isModerator &&
+                                    widget.insurance.policyDocumentUrl != null &&
+                                    widget.insurance.policyDocumentUrl!.isNotEmpty) ...[
+                                  SizedBox(width: 8.w),
+                                  InkWell(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => DocumentViewerScreen(
+                                            url: widget.insurance.policyDocumentProxyUrl!,
+                                            title: widget.insurance.policyDocumentName ?? 'Insurance Policy',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    borderRadius: BorderRadius.circular(6.r),
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                      decoration: BoxDecoration(
+                                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+                                        borderRadius: BorderRadius.circular(6.r),
+                                        border: Border.all(
+                                          color: isDark ? Colors.white10 : const Color(0xFFBFDBFE),
+                                          width: 0.5,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Symbols.picture_as_pdf,
+                                            size: 12.w,
+                                            color: const Color(0xFF2563EB),
+                                          ),
+                                          SizedBox(width: 4.w),
+                                          Text(
+                                            'View Policy'.toUpperCase(),
+                                            style: TextStyle(
+                                              fontFamily: 'Lexend',
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 9.sp,
+                                              color: const Color(0xFF2563EB),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 if (widget.isModerator && !widget.insurance.active) ...[
                                   SizedBox(width: 8.w),
                                   Container(
