@@ -202,7 +202,8 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
       state = state.copyWith(
         isLoading: false,
         hasFetched: true,
-        session: session ?? state.session,
+        session: session,
+        clearSession: session == null,
         boarded: boardedRaw
             .whereType<Map<String, dynamic>>()
             .map(BoardedPilgrim.fromJson)

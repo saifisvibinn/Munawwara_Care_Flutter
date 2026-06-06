@@ -228,7 +228,7 @@ class _GroupDetailsBody extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12.r),
               ),
               child: Text(
-                "${moderators.length + (wakelInfo != null ? 1 : 0)} ASSIGNED",
+                'group_assigned_count'.tr(args: [(moderators.length + (wakelInfo != null ? 1 : 0)).toString()]).toUpperCase(),
                 style: TextStyle(
                   fontFamily: 'Lexend',
                   fontSize: 10.sp,
@@ -319,6 +319,42 @@ class _GroupDetailsBody extends StatelessWidget {
                             color: isDark ? Colors.white70 : const Color(0xFF64748B),
                           ),
                         ),
+                        if (roomNumber != null && roomNumber!.trim().isNotEmpty) ...[
+                          SizedBox(height: 8.h),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xFF1E293B)
+                                  : const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(8.r),
+                              border: Border.all(
+                                color: isDark ? Colors.white10 : const Color(0xFFBFDBFE),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.meeting_room_rounded,
+                                  size: 13.sp,
+                                  color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+                                ),
+                                SizedBox(width: 6.w),
+                                Text(
+                                  '${'group_room_number'.tr()}: $roomNumber',
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 11.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         if (hotelLatitude != null && hotelLongitude != null) ...[
                           SizedBox(height: 8.h),
                           ElevatedButton.icon(
@@ -332,7 +368,7 @@ class _GroupDetailsBody extends StatelessWidget {
                               color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
                             ),
                             label: Text(
-                              "Navigate",
+                              'group_navigate'.tr(),
                               style: TextStyle(
                                 fontFamily: 'Lexend',
                                 fontSize: 12.sp,
@@ -369,7 +405,7 @@ class _GroupDetailsBody extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "CHECK IN",
+                            'group_checkin'.tr().toUpperCase(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 9.sp,
@@ -403,7 +439,7 @@ class _GroupDetailsBody extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "CHECK OUT",
+                            'group_checkout'.tr().toUpperCase(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontSize: 9.sp,
@@ -507,7 +543,7 @@ class _GroupDetailsBody extends StatelessWidget {
                         ),
                         SizedBox(height: 4.h),
                         Text(
-                          "DAYS LEFT",
+                          'group_days_left'.tr().toUpperCase(),
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 9.sp,
@@ -549,7 +585,7 @@ class _GroupDetailsBody extends StatelessWidget {
                         ),
                         SizedBox(height: 4.h),
                         Text(
-                          "TOTAL",
+                          'group_total_days'.tr().toUpperCase(),
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 9.sp,
@@ -567,7 +603,7 @@ class _GroupDetailsBody extends StatelessWidget {
         ),
         SizedBox(height: 20.h),
         _SectionLabel(
-          label: 'Insurance Details'.toUpperCase(),
+          label: 'group_insurance_details'.tr().toUpperCase(),
           textMuted: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
         ),
         SizedBox(height: 8.h),
@@ -623,7 +659,7 @@ class _GroupDetailsBody extends StatelessWidget {
                         ),
                         SizedBox(height: 4.h),
                         Text(
-                          insuranceCompany != null ? "Active Coverage" : "No active policy assigned",
+                          insuranceCompany != null ? 'group_active_coverage'.tr() : 'group_no_active_policy'.tr(),
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 12.sp,
@@ -650,7 +686,7 @@ class _GroupDetailsBody extends StatelessWidget {
                               color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
                             ),
                             label: Text(
-                              "View Policy Document",
+                              'group_view_policy_document'.tr(),
                               style: TextStyle(
                                 fontFamily: 'Lexend',
                                 fontSize: 12.sp,
@@ -681,7 +717,7 @@ class _GroupDetailsBody extends StatelessWidget {
                 ),
                 SizedBox(height: 12.h),
                 Text(
-                  "Covered Hospitals".toUpperCase(),
+                  'group_covered_hospitals'.tr().toUpperCase(),
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
@@ -760,7 +796,7 @@ class _GroupDetailsBody extends StatelessWidget {
                             size: 20.sp,
                             fill: 1.0,
                           ),
-                          tooltip: 'Navigate',
+                          tooltip: 'group_navigate'.tr(),
                         ),
                       ],
                     ),
@@ -916,7 +952,7 @@ class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
                         ),
                         SizedBox(height: 4.h),
                         Text(
-                          "Administrative Coordinator",
+                          'group_admin_coordinator'.tr(),
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 12.sp,
@@ -977,7 +1013,7 @@ class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
                       borderRadius: BorderRadius.circular(12.r),
                     ),
                     child: Text(
-                      "AGENCY",
+                      'group_agency'.tr().toUpperCase(),
                       style: TextStyle(
                         fontFamily: 'Lexend',
                         fontSize: 10.sp,

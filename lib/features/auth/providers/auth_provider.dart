@@ -500,6 +500,8 @@ class AuthNotifier extends Notifier<AuthState> {
         fullName: data['full_name'] as String,
       );
 
+      await fetchProfile();
+
       _schedulePostLoginSetup();
 
       return true;
@@ -540,6 +542,8 @@ class AuthNotifier extends Notifier<AuthState> {
         userId: data['user_id'] as String,
         fullName: data['full_name'] as String,
       );
+
+      await fetchProfile();
 
       _schedulePostLoginSetup();
 

@@ -275,13 +275,7 @@ class PilgrimHomeTab extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (navBeacons.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _homeBody(group),
-                      )
-                    else
-                      SliverToBoxAdapter(child: _homeBody(group)),
+                    SliverToBoxAdapter(child: _homeBody(group)),
                   ],
                 ),
               ),
