@@ -1943,9 +1943,11 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                             },
                             child: Container(
                               color: isDark ? AppColors.surfaceDark : Colors.white,
-                              child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
+                              child: SingleChildScrollView(
+                                physics: const NeverScrollableScrollPhysics(),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
                                 // Drag handle
                                 Center(
                                   child: Padding(
@@ -2159,9 +2161,10 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                     ),
                                   ),
                                 ),
-                              ],
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
                         ),
                       ),
                     ),
