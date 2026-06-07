@@ -33,7 +33,7 @@ The App is intended for **adults** participating in organized Hajj or Umrah trav
 - **Precise location (GPS)**, including **background location** when permitted
 - **Pilgrims:** Background location is used so authorized moderators can see your position for group safety, including during an SOS alert, when the App is in the background or not actively in use
 - **Moderators:** Location may be used when you use map and navigation features (for example, navigation beacons shown to pilgrims)
-- **Prayer Times & Qibla Direction:** When you access the Prayer Times or Qibla features, your device’s current latitude and longitude are used to retrieve local prayer schedules and determine the Qibla bearing
+- **Prayer Times:** When you access the Prayer Times feature, your device’s current latitude and longitude are used to retrieve local prayer schedules
 
 ### C. Safety and coordination data
 
@@ -74,7 +74,7 @@ We use personal information only to operate group safety and coordination featur
 - Sending push notifications for safety, calls, and operator messages
 - Processing in-app support and account-deletion requests
 - Maintaining service security and reliability
-- Retrieving prayer times and Qibla direction based on device coordinates
+- Retrieving prayer times based on device coordinates
 - Broadcasting safety and reassurance updates to your designated family emergency contacts
 
 ### Safety disclaimer
@@ -105,7 +105,7 @@ We share information only as follows:
   - **Agora** — voice (WebRTC) calls
   - **Gmail SMTP** — password-reset email, in-app support requests, and account-deletion requests delivered to our support inbox
   - **OpenStreetMap / Nominatim** — map tiles and place search (requests may include your general map area or search terms; see their policies)
-  - **UmmahAPI** — prayer times, Hijri calendar, and Qibla lookup (requests include your latitude and longitude, but no personal identifiers such as name or account tokens)
+  - **UmmahAPI** — prayer times and Hijri calendar lookup (requests include your latitude and longitude, but no personal identifiers such as name or account tokens)
   - **Twilio** (or similar SMS gateway) — routing outgoing SMS notifications to emergency contacts when using the "Reassure Family" feature
   - **SendGrid** (or SMTP email provider) — routing outgoing email notifications to emergency contacts for the "Reassure Family" feature
 - **Legal requirements:** When required by law or valid legal process
