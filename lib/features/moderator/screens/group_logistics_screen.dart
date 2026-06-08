@@ -779,7 +779,7 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                                     ),
                                     SizedBox(width: 3.w),
                                     Text(
-                                      'View Policy'.toUpperCase(),
+                                      'view_policy'.tr().toUpperCase(),
                                       style: TextStyle(
                                         fontFamily: 'Lexend',
                                         fontWeight: FontWeight.w700,

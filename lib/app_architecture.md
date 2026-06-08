@@ -70,7 +70,7 @@ Durrah care mob app/
 
 **`main.dart`** bootstraps:
 - `ScreenUtilInit` (375 x 812 design baseline)
-- `EasyLocalization` (6 language JSON files under `assets/translations/`)
+- `EasyLocalization` (8 language JSON files under `assets/translations/`: en, ar, ur, fr, id, tr, fa, ms)
 - `ProviderScope` (Riverpod root)
 - `GoRouter` (declarative routing, role-based guards)
 

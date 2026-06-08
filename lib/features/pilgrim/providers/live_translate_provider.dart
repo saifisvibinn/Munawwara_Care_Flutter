@@ -108,6 +108,10 @@ TranslateLanguage _mapCodeToTranslateLanguage(String code) {
       return TranslateLanguage.indonesian;
     case 'fr':
       return TranslateLanguage.french;
+    case 'fa':
+      return TranslateLanguage.persian;
+    case 'ms':
+      return TranslateLanguage.malay;
     default:
       return TranslateLanguage.english;
   }

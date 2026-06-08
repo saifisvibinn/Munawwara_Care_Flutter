@@ -13,6 +13,7 @@ import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/legal_support_section.dart';
+import '../../../core/config/app_locales.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/locale_prefs.dart';
 import '../../../core/services/sos_alert_audio.dart';
@@ -37,19 +38,17 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
   /// Matches [PilgrimDashboardScreen] scaffold background in light mode.
   static const Color _lightBg = Color(0xfff1f5f3);
 
-  static const _languages = [
-    {'code': 'en', 'name': 'English', 'native': 'English', 'flag': '🇬🇧'},
-    {'code': 'ar', 'name': 'Arabic', 'native': 'العربية', 'flag': '🇸🇦'},
-    {'code': 'ur', 'name': 'Urdu', 'native': 'اردو', 'flag': '🇵🇰'},
-    {'code': 'fr', 'name': 'French', 'native': 'Français', 'flag': '🇫🇷'},
-    {
-      'code': 'id',
-      'name': 'Indonesian',
-      'native': 'Bahasa Indonesia',
-      'flag': '🇮🇩',
-    },
-    {'code': 'tr', 'name': 'Turkish', 'native': 'Türkçe', 'flag': '🇹🇷'},
-  ];
+  static List<Map<String, String>> get _languages =>
+      AppLocales.profileLanguages
+          .map(
+            (AppLanguageOption lang) => {
+              'code': lang.code,
+              'name': lang.menuLabel,
+              'native': lang.nativeName,
+              'flag': lang.flag,
+            },
+          )
+          .toList();
 
   @override
   void initState() {

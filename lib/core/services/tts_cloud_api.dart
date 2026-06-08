@@ -9,7 +9,7 @@ import 'api_service.dart';
 class TtsCloudApi {
   TtsCloudApi._();
 
-  static const _supported = {'en', 'ar', 'ur', 'fr', 'id', 'tr'};
+  static const _supported = {'en', 'ar', 'ur', 'fr', 'id', 'tr', 'fa', 'ms'};
 
   /// API accepts same short codes as [tts_service] / Joi schema.
   static String normalizeLang(String lang) {

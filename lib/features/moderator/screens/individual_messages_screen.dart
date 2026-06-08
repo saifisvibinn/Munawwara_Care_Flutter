@@ -595,7 +595,7 @@ class _IndividualMessagesScreenState
             ),
             SizedBox(height: 12.h),
             Text(
-              'No messages yet',
+              'inbox_empty'.tr(),
               style: TextStyle(
                 fontFamily: 'Lexend',
                 fontSize: 14.sp,

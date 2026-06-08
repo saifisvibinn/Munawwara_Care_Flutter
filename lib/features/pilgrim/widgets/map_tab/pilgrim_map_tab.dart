@@ -235,7 +235,7 @@ class PilgrimMapTab extends StatelessWidget {
                             borderRadius: BorderRadius.circular(6.r),
                           ),
                           child: Text(
-                            'You',
+                            'you'.tr(),
                             style: TextStyle(
                               fontFamily: 'Lexend',
                               fontWeight: FontWeight.w700,

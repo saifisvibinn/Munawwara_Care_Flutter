@@ -7,6 +7,7 @@ import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
+import '../../../core/config/app_locales.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dropdown_theme.dart';
 import '../../../core/widgets/standard_snackbar.dart';
@@ -54,6 +55,8 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
       case 'tr': return 'turkish';
       case 'id': return 'indonesian';
       case 'fr': return 'french';
+      case 'fa': return 'persian';
+      case 'ms': return 'malay';
       default: return 'english';
     }
   }
@@ -65,10 +68,14 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
       case 'tr': return ['tr-TR', 'tr'];
       case 'id': return ['id-ID', 'id'];
       case 'fr': return ['fr-FR', 'fr-CA', 'fr'];
+      case 'fa': return ['fa-IR', 'fa-AF', 'fa'];
+      case 'ms': return ['ms-MY', 'ms-SG', 'ms'];
       case 'en': return ['en-US', 'en-GB', 'en'];
       default: return [code];
     }
   }
+
+  bool _isRtlLang(String code) => AppLocales.isRtl(code);
 
   Future<void> _speak(String text, String langCode) async {
     if (text.isEmpty) return;
@@ -274,7 +281,7 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                             icon: AppDropdownTheme.menuTrailingIcon(),
                             style: AppDropdownTheme.valueStyle(isDark),
                             isDense: true,
-                            items: ['en', 'ar', 'ur', 'tr', 'id', 'fr'].map((code) {
+                            items: AppLocales.liveTranslateLanguageCodes.map((code) {
                               return DropdownMenuItem<String>(
                                 value: code,
                                 child: Text(
@@ -330,7 +337,7 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                             icon: AppDropdownTheme.menuTrailingIcon(),
                             style: AppDropdownTheme.valueStyle(isDark),
                             isDense: true,
-                            items: ['en', 'ar', 'ur', 'tr', 'id', 'fr'].map((code) {
+                            items: AppLocales.liveTranslateLanguageCodes.map((code) {
                               return DropdownMenuItem<String>(
                                 value: code,
                                 child: Text(
@@ -432,10 +439,10 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                             focusNode: _inputFocusNode,
                             maxLines: null,
                             keyboardType: TextInputType.multiline,
-                            textDirection: (state.fromLang == 'ar' || state.fromLang == 'ur')
+                            textDirection: _isRtlLang(state.fromLang)
                                 ? TextDirection.rtl
                                 : TextDirection.ltr,
-                            textAlign: (state.fromLang == 'ar' || state.fromLang == 'ur')
+                            textAlign: _isRtlLang(state.fromLang)
                                 ? TextAlign.right
                                 : TextAlign.left,
                             onChanged: (text) {
@@ -519,14 +526,14 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                             child: SingleChildScrollView(
                               physics: const BouncingScrollPhysics(),
                               child: Align(
-                                alignment: (state.toLang == 'ar' || state.toLang == 'ur')
+                                alignment: _isRtlLang(state.toLang)
                                     ? Alignment.centerRight
                                     : Alignment.centerLeft,
                                 child: Text(
                                   state.translatedText.isEmpty
                                       ? "No translation yet".tr()
                                       : state.translatedText,
-                                  textDirection: (state.toLang == 'ar' || state.toLang == 'ur')
+                                  textDirection: _isRtlLang(state.toLang)
                                       ? TextDirection.rtl
                                       : TextDirection.ltr,
                                   style: TextStyle(

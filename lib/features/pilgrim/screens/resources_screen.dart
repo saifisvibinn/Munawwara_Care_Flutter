@@ -791,7 +791,7 @@ class _InsuranceCardState extends State<_InsuranceCard> {
                                           ),
                                           SizedBox(width: 4.w),
                                           Text(
-                                            'View Policy'.toUpperCase(),
+                                            'view_policy'.tr().toUpperCase(),
                                             style: TextStyle(
                                               fontFamily: 'Lexend',
                                               fontWeight: FontWeight.w700,

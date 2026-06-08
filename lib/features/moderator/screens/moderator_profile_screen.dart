@@ -9,6 +9,7 @@ import '../../../core/widgets/custom_dialog.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/config/app_locales.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/services/locale_prefs.dart';
@@ -30,19 +31,17 @@ class _ModeratorProfileScreenState
     extends ConsumerState<ModeratorProfileScreen> {
   late String _selectedLocale;
 
-  static const _languages = [
-    {'code': 'en', 'name': 'English', 'native': 'English', 'flag': '🇬🇧'},
-    {'code': 'ar', 'name': 'Arabic', 'native': 'العربية', 'flag': '🇸🇦'},
-    {'code': 'ur', 'name': 'Urdu', 'native': 'اردو', 'flag': '🇵🇰'},
-    {'code': 'fr', 'name': 'French', 'native': 'Français', 'flag': '🇫🇷'},
-    {
-      'code': 'id',
-      'name': 'Indonesian',
-      'native': 'Bahasa Indonesia',
-      'flag': '🇮🇩',
-    },
-    {'code': 'tr', 'name': 'Turkish', 'native': 'Türkçe', 'flag': '🇹🇷'},
-  ];
+  static List<Map<String, String>> get _languages =>
+      AppLocales.profileLanguages
+          .map(
+            (AppLanguageOption lang) => {
+              'code': lang.code,
+              'name': lang.menuLabel,
+              'native': lang.nativeName,
+              'flag': lang.flag,
+            },
+          )
+          .toList();
 
   @override
   void initState() {

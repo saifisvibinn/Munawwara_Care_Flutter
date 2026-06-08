@@ -23,6 +23,7 @@ import 'features/calling/calling_scope.dart';
 import 'features/calling/native_call_coordinator.dart';
 import 'features/calling/providers/call_provider.dart';
 import 'features/moderator/services/sos_alert_coordinator.dart';
+import 'core/config/app_locales.dart';
 import 'core/services/tameny_location_service.dart';
 
 void main() async {
@@ -54,14 +55,7 @@ void main() async {
 
   runApp(
     EasyLocalization(
-      supportedLocales: const [
-        Locale('en'),
-        Locale('ar'),
-        Locale('ur'),
-        Locale('fr'),
-        Locale('id'),
-        Locale('tr'),
-      ],
+      supportedLocales: AppLocales.supportedLocales,
       path: 'assets/translations',
       fallbackLocale: const Locale('en'),
       child: UncontrolledProviderScope(

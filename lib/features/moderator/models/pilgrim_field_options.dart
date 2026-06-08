@@ -40,6 +40,8 @@ class PilgrimFieldOptions {
         PilgrimLanguageOption(code: 'fr', label: 'French'),
         PilgrimLanguageOption(code: 'id', label: 'Bahasa Indonesia'),
         PilgrimLanguageOption(code: 'tr', label: 'Turkish'),
+        PilgrimLanguageOption(code: 'fa', label: 'Persian'),
+        PilgrimLanguageOption(code: 'ms', label: 'Bahasa Malaysia'),
       ],
     );
   }

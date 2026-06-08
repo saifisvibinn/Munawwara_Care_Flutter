@@ -8,6 +8,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../../core/config/app_locales.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/services/locale_prefs.dart';
 import '../../../core/services/oem_settings_service.dart';
@@ -577,14 +578,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildLanguageDropdown(bool isDark) {
-    final Map<String, Locale> supportedLanguages = {
-      'English': const Locale('en'),
-      'العربية': const Locale('ar'),
-      'اردو': const Locale('ur'),
-      'Français': const Locale('fr'),
-      'Bahasa': const Locale('id'),
-      'Türkçe': const Locale('tr'),
-    };
+    final supportedLanguages = AppLocales.loginMenuLocales;
 
     final currentLocale = context.locale;
     String currentLangName = supportedLanguages.entries
