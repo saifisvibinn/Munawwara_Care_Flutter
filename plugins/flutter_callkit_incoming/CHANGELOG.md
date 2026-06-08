@@ -1,3 +1,7 @@
+## 3.0.1 (Durrah fork)
+* Migrated Android build to built-in Kotlin (removed explicit KGP application).
+* Keeps existing HTTP decline fix from 3.0.0 when the app is killed.
+
 ## 3.0.0
 * Using Plugin DSL for Android, thank @AAkira https://github.com/hiennguyen92/flutter_callkit_incoming/pull/743
 * Add Android native callback, thank @joshoconnor89 https://github.com/hiennguyen92/flutter_callkit_incoming/pull/736

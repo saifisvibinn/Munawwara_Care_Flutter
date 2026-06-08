@@ -344,7 +344,11 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         _sosHomePhase = SosHomePhase.idle;
         _sosHelpStatusKey = 'sos_status_notifying';
       });
-      SupportDialogs.showRating(context, isContextual: true);
+      SupportDialogs.showRating(
+        context,
+        isContextual: true,
+        contextualSource: 'post_sos',
+      );
     });
   }
 

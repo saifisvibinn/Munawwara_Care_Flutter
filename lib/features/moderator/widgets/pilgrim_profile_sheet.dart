@@ -359,7 +359,7 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                     borderRadius: BorderRadius.circular(12.r),
                     border: Border.all(
                       color: medicalHistory != null &&
-                              medicalHistory!.isNotEmpty &&
+                              medicalHistory.isNotEmpty &&
                               !hasEncryptedMedicalHistory
                           ? AppColors.error.withValues(alpha: 0.2)
                           : Colors.transparent,
@@ -391,9 +391,9 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                               ),
                             )
                           : Text(
-                              (medicalHistory == null || medicalHistory!.isEmpty)
+                              (medicalHistory == null || medicalHistory.isEmpty)
                                   ? 'profile_no_medical_history'.tr()
-                                  : medicalHistory!,
+                                  : medicalHistory,
                               style: TextStyle(
                                 fontFamily: 'Lexend',
                                 fontSize: 14.sp,

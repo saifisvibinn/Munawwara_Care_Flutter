@@ -1,9 +1,15 @@
+import 'dart:async';
+
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../theme/app_colors.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../router/app_router.dart';
 import '../services/api_service.dart';
+import '../theme/app_colors.dart';
 import 'standard_snackbar.dart';
 
 class SupportDialogs {
@@ -80,7 +86,26 @@ class SupportDialogs {
     } catch (_) {}
   }
 
-  static void showRating(BuildContext context, {bool isContextual = false}) async {
+  /// Shows contextual rating on a stable route after [popRoute] completes.
+  static Future<void> showContextualRatingAfterPop({
+    required Future<void> Function() popRoute,
+    String contextualSource = 'post_call',
+  }) async {
+    await popRoute();
+    final ctx = AppRouter.navigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    await showRating(
+      ctx,
+      isContextual: true,
+      contextualSource: contextualSource,
+    );
+  }
+
+  static Future<void> showRating(
+    BuildContext context, {
+    bool isContextual = false,
+    String contextualSource = 'post_call',
+  }) async {
     if (isContextual) {
       final shouldShow = await shouldShowContextualRating();
       if (!shouldShow) return;
@@ -101,11 +126,12 @@ class SupportDialogs {
 
     if (!context.mounted) return;
 
-    showDialog(
+    await showDialog<void>(
       context: context,
+      useRootNavigator: true,
       barrierDismissible: true,
-      builder: (context) => AppRatingDialog(
-        source: isContextual ? 'post_action' : 'settings',
+      builder: (dialogContext) => AppRatingDialog(
+        source: isContextual ? contextualSource : 'settings',
       ),
     );
   }
@@ -160,7 +186,6 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
         'source': widget.source,
       });
 
-      // Mark the user as having successfully rated so they don't get contextual prompts anymore
       await SupportDialogs.markHasRated();
       await SupportDialogs.markRatingSubmitted();
 
@@ -183,6 +208,47 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
         setState(() {
           _isSubmitting = false;
         });
+      }
+    }
+  }
+
+  /// Records that the user opened the store listing — suppress future prompts.
+  Future<void> _openPlayStoreListing() async {
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+
+    await SupportDialogs.markHasRated();
+    await SupportDialogs.markRatingSubmitted();
+
+    unawaited(() async {
+      try {
+        await ApiService.dio.post('/support/feedback', data: {
+          'rating': _selectedRating,
+          'comments': 'User opened Play Store listing.',
+          'source': widget.source,
+        });
+      } catch (_) {}
+    }());
+
+    if (!mounted) return;
+    Navigator.pop(context);
+
+    try {
+      final packageName = (await PackageInfo.fromPlatform()).packageName;
+      final marketUri = Uri.parse('market://details?id=$packageName');
+      final webUri = Uri.parse(
+        'https://play.google.com/store/apps/details?id=$packageName',
+      );
+      if (await canLaunchUrl(marketUri)) {
+        await launchUrl(marketUri);
+      } else {
+        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      // Store opened or not — user already marked as rated.
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
       }
     }
   }
@@ -385,7 +451,9 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => _submitFeedback(finalComments: 'User skipped store redirect.'),
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
                           shape: RoundedRectangleBorder(
@@ -401,7 +469,7 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
                     SizedBox(width: 10.w),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _isSubmitting ? null : () => _submitFeedback(finalComments: 'User agreed to review on App Store.'),
+                        onPressed: _isSubmitting ? null : _openPlayStoreListing,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           shape: RoundedRectangleBorder(

@@ -246,7 +246,10 @@ Future<void> _playSosAlertAudioInBackground(RemoteMessage message) async {
         );
         return;
       }
-      await SosAlertAudio.playBackgroundSequence(storageKey: storageKey);
+      await SosAlertAudio.playAlertSequence(
+        storageKey: storageKey,
+        fromBackgroundIsolate: true,
+      );
     } finally {
       if (wakelockOn) {
         try {

@@ -191,7 +191,10 @@ class SpeechService {
 
   // ── Public: stop ──────────────────────────────────────────────────────────
 
-  /// Stops any in-progress cloud playback or TTS speech and marks dismissed.
+  /// Stops any in-progress cloud playback or TTS speech.
+  ///
+  /// Does not set the user-dismiss flag — use [markDismissed] for that so new
+  /// SOS sequences are not blocked after a preparatory [stop].
   static Future<void> stop() async {
     _playbackEpoch++;
 
@@ -205,11 +208,13 @@ class SpeechService {
       await _activeTts?.stop();
       _activeTts = null;
     } catch (_) {}
+  }
 
-    // Set dismiss flag so any ongoing background loop breaks early
+  /// Clears the user-dismiss flag before a new alert playback sequence.
+  static Future<void> clearDismissed() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_dismissedKey, true);
+      await prefs.setBool(_dismissedKey, false);
     } catch (_) {}
   }
 
@@ -499,6 +504,10 @@ class SpeechService {
 
   /// Call this when the pilgrim taps "Dismiss" or "Stop" on a TTS notification.
   static Future<void> markDismissed() async {
-    await stop(); // also stops any active audio
+    await stop();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_dismissedKey, true);
+    } catch (_) {}
   }
 }

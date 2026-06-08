@@ -1,7 +1,7 @@
 # Privacy Policy for Munawwara Care
 
 **Effective Date:** May 17, 2026  
-**Last updated:** June 7, 2026
+**Last updated:** June 8, 2026
 
 Munawwara Care (“we”, “our”, or “us”) operates the Munawwara Care mobile application (the “App”) and related services for organized Hajj and Umrah travel groups. This Privacy Policy explains what personal information we collect, how we use it, who we share it with, and your choices.
 
@@ -57,6 +57,22 @@ The App is intended for **adults** participating in organized Hajj or Umrah trav
 - App version, language preference, and authentication/session tokens (stored securely on your device where supported)
 - Information needed to operate the service (for example, IP address and request logs on our servers)
 - Locally cached data on your device so limited information may be shown when the network is unavailable
+- **On-device preferences** for optional rating prompts (for example, whether you have already rated or when a prompt was last shown). These are stored locally on your device and are not used for advertising or profiling
+
+### F. Voluntary feedback, ratings, and incident reports
+
+When you choose to contact us or improve the App, we may collect:
+
+- **App ratings and feedback:** Optional star rating (1–5), optional written comments, and whether the submission came from Settings or after certain in-app events (for example, after a completed voice call or a resolved SOS session). This is linked to your account on our servers.
+- **General feedback:** Free-text comments you submit from **About** in the App.
+- **Incident reports:** Category, subject, and description you submit through **Report issue** in the App (for example, medical, safety, transport, hotel, technical, or other). This is linked to your account on our servers.
+
+We do **not** require you to leave a public store review. If you choose **Rate on Play Store**, you are taken to **Google Play**, which is governed by Google’s policies. We do not receive your Play Store review content automatically.
+
+### G. Weather and on-device translation
+
+- **Weather:** When you view weather on the home screen, the App may send your current **latitude and longitude** to **Open-Meteo** to retrieve a local forecast. We do not send your name or account ID with that request.
+- **Offline Translator:** When you use this feature, **speech input** may be processed by your device’s speech-recognition service (for example, Google on Android). **Translation** is performed **on your device** using **Google ML Kit** language models you download; your typed or spoken text is not sent to our servers for translation. Microphone access is used only when you start voice input.
 
 **We do not use Google Analytics or a dedicated crash-reporting SDK in the App.** We do not sell your personal information and we do not use your data for advertising.
 
@@ -72,7 +88,10 @@ We use personal information only to operate group safety and coordination featur
 - Enabling **voice** calls between pilgrims and moderators
 - Authenticating users and assigning them to the correct travel group
 - Sending push notifications for safety, calls, and operator messages
-- Processing in-app support and account-deletion requests
+- Processing in-app support, feedback, ratings, incident reports, and account-deletion requests
+- Improving the App based on voluntary feedback you submit
+- Showing local weather information based on device coordinates
+- Operating the on-device Offline Translator feature
 - Maintaining service security and reliability
 - Retrieving prayer times based on device coordinates
 - Broadcasting safety and reassurance updates to your designated family emergency contacts
@@ -108,9 +127,11 @@ We share information only as follows:
   - **UmmahAPI** — prayer times and Hijri calendar lookup (requests include your latitude and longitude, but no personal identifiers such as name or account tokens)
   - **Twilio** (or similar SMS gateway) — routing outgoing SMS notifications to emergency contacts when using the "Reassure Family" feature
   - **SendGrid** (or SMTP email provider) — routing outgoing email notifications to emergency contacts for the "Reassure Family" feature
+  - **Open-Meteo** — weather forecast lookup (latitude and longitude only; no account identifiers)
+  - **Google ML Kit** — on-device translation and language identification in the Offline Translator (processing occurs on your device after you download language models)
 - **Legal requirements:** When required by law or valid legal process
 
-When you open **Google Maps** or your phone’s dialer from the App, those services are governed by their own policies.
+When you open **Google Maps**, **Google Play** (for example to rate the App), or your phone’s dialer from the App, those services are governed by their own policies. Your device’s **speech-recognition** service (used for Offline Translator voice input) is governed by your platform provider’s policies.
 
 ---
 
@@ -131,13 +152,15 @@ We keep personal information only as long as needed to provide the service and m
 - When a **moderator or administrator deletes a pilgrim account**, we delete that user’s account record from our systems
 - When a **travel group is deleted**, group-related content (such as messages, call history tied to the group, reminders, and notifications) is removed; **pilgrim account records may remain** in an unassigned state until deleted by an administrator or upon request
 - When you **log out**, session tokens are cleared on the device; some profile or location fields may remain on our servers until account deletion
+- **Feedback, ratings, and incident reports** you submit are retained on our servers for support and service improvement until your account is deleted or as required by law
 
 ### How to contact us or delete your account
 
-**In the App (recommended):** Open **Settings** (profile) → **Privacy & support**:
+**In the App (recommended):** Open **Profile** → **Privacy & support** → **About**:
 
 - **Contact support** — describe your issue; your account details are included automatically and sent to our team (no email app required on your phone).
 - **Request account deletion** — submit a deletion request; we process it according to this policy.
+- **Send feedback**, **Rate app**, and **Report issue** — optional tools on the same **About** screen; submissions are stored as described in Section 2(F).
 
 **By email:** You may also write to **munawwaracare@gmail.com**. For deletion, include your full name, phone number, and travel group name (if known).
 

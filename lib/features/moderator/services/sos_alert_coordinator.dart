@@ -363,9 +363,7 @@ class SosAlertCoordinator {
           sosId: payload.sosId,
         ),
       );
-      unawaited(
-        SosAlertAudio.playForegroundUrgentOnly(storageKey: storageKey),
-      );
+      unawaited(SosAlertAudio.playAlertSequence(storageKey: storageKey));
     }
 
     final groupLabel = payload.groupName.isEmpty ? '—' : payload.groupName;

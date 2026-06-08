@@ -209,25 +209,38 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
         } else {
           _autoPopTimer?.cancel();
           _autoPopTimer = Timer(const Duration(seconds: 2), () {
-            if (mounted) {
-              Navigator.of(context).maybePop();
-              if (isAutoRouteReason && widget.onAllBusy != null) {
-                widget.onAllBusy!();
-              }
-              if (_showRatingOnPop) {
-                SupportDialogs.showRating(context, isContextual: true);
-              }
+            if (!mounted) return;
+            if (isAutoRouteReason && widget.onAllBusy != null) {
+              widget.onAllBusy!();
             }
+            if (!_showRatingOnPop) {
+              unawaited(Navigator.of(context).maybePop());
+              return;
+            }
+            _showRatingOnPop = false;
+            unawaited(
+              SupportDialogs.showContextualRatingAfterPop(
+                popRoute: () => Navigator.of(context).maybePop(),
+                contextualSource: 'post_call',
+              ),
+            );
           });
         }
       }
       if (next.status == CallStatus.idle &&
           prev?.status != CallStatus.ended &&
           mounted) {
-        Navigator.of(context).maybePop();
-        if (_showRatingOnPop) {
-          SupportDialogs.showRating(context, isContextual: true);
+        if (!_showRatingOnPop) {
+          unawaited(Navigator.of(context).maybePop());
+          return;
         }
+        _showRatingOnPop = false;
+        unawaited(
+          SupportDialogs.showContextualRatingAfterPop(
+            popRoute: () => Navigator.of(context).maybePop(),
+            contextualSource: 'post_call',
+          ),
+        );
       }
     });
 

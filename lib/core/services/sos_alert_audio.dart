@@ -8,7 +8,7 @@ import 'speech_service.dart';
 import 'tts_cloud_api.dart';
 import '../utils/app_logger.dart';
 
-/// SOS moderator alert audio (foreground urgent chime; background urgent + speech).
+/// SOS moderator alert audio: one urgent chime, then one bundled language clip.
 class SosAlertAudio {
   SosAlertAudio._();
 
@@ -31,7 +31,7 @@ class SosAlertAudio {
     _keysInFlight.clear();
     _syncGateAt.clear();
     _mainHandledAtMs.clear();
-    await SpeechService.stop();
+    await SpeechService.markDismissed();
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_bundledClaimPrefsKey);
@@ -139,49 +139,25 @@ class SosAlertAudio {
     return TtsCloudApi.normalizeLang(await LocalePrefs.readLanguageCode());
   }
 
-  /// Foreground: in-app urgent chime only (no language MP3).
-  static Future<void> playForegroundUrgentOnly({
+  static const _gapBeforeLanguage = Duration(milliseconds: 500);
+
+  /// One urgent chime, then one bundled language clip (deduped per SOS).
+  static Future<void> playAlertSequence({
     required String storageKey,
-  }) async {
-    if (storageKey.isEmpty || !isAppInForeground) return;
-
-    markMainIsolateHandled(storageKey);
-    if (!_tryAcquireSyncGate(storageKey)) return;
-
-    try {
-      await SpeechService.stop();
-      AppLogger.i('[SosAlertAudio] Foreground urgent (3 times): $_urgentAsset');
-      for (int i = 0; i < 3; i++) {
-        if (!isAppInForeground) break;
-        if (!_keysInFlight.contains(storageKey)) break;
-        if (await SpeechService.isDismissed()) break;
-
-        await SpeechService.playAsset(assetPath: _urgentAsset, isUrgent: true);
-
-        if (i < 2 && isAppInForeground && _keysInFlight.contains(storageKey)) {
-          for (int ms = 0; ms < 500; ms += 100) {
-            await Future.delayed(const Duration(milliseconds: 100));
-            if (!_keysInFlight.contains(storageKey)) break;
-            if (await SpeechService.isDismissed()) break;
-          }
-        }
-      }
-    } finally {
-      _releaseSyncGate(storageKey);
-    }
-  }
-
-  /// Background: urgent wav then one language MP3 (prefs language at play time).
-  static Future<void> playBackgroundSequence({
-    required String storageKey,
+    bool fromBackgroundIsolate = false,
   }) async {
     if (storageKey.isEmpty) return;
 
-    if (await wasHandledByMainIsolate(storageKey)) {
-      AppLogger.i(
-        '[SosAlertAudio] Skip background sequence (main handled) $storageKey',
-      );
-      return;
+    if (fromBackgroundIsolate) {
+      if (await wasHandledByMainIsolate(storageKey)) {
+        AppLogger.i(
+          '[SosAlertAudio] Skip sequence (main isolate handled) $storageKey',
+        );
+        return;
+      }
+    } else {
+      if (!isAppInForeground) return;
+      markMainIsolateHandled(storageKey);
     }
 
     if (!_tryAcquireSyncGate(storageKey)) return;
@@ -189,41 +165,31 @@ class SosAlertAudio {
     try {
       if (!await _tryClaimBundledPlayback(storageKey)) return;
 
+      await SpeechService.clearDismissed();
       await SpeechService.stop();
 
-      AppLogger.i('[SosAlertAudio] Background urgent (3 times): $_urgentAsset');
-      for (int i = 0; i < 3; i++) {
-        if (await wasHandledByMainIsolate(storageKey)) return;
-        if (!_keysInFlight.contains(storageKey)) break;
-        if (await SpeechService.isDismissed()) break;
+      AppLogger.i('[SosAlertAudio] Urgent chime: $_urgentAsset');
+      await SpeechService.playAsset(assetPath: _urgentAsset, isUrgent: true);
 
-        await SpeechService.playAsset(assetPath: _urgentAsset, isUrgent: true);
-
-        if (i < 2) {
-          for (int ms = 0; ms < 500; ms += 100) {
-            await Future.delayed(const Duration(milliseconds: 100));
-            if (await wasHandledByMainIsolate(storageKey)) return;
-            if (!_keysInFlight.contains(storageKey)) break;
-            if (await SpeechService.isDismissed()) break;
-          }
-        }
+      if (fromBackgroundIsolate && await wasHandledByMainIsolate(storageKey)) {
+        return;
       }
-
-      if (await wasHandledByMainIsolate(storageKey)) return;
       if (!_keysInFlight.contains(storageKey)) return;
       if (await SpeechService.isDismissed()) return;
 
-      await Future.delayed(const Duration(seconds: 3));
+      await Future.delayed(_gapBeforeLanguage);
 
-      if (await wasHandledByMainIsolate(storageKey)) return;
+      if (fromBackgroundIsolate && await wasHandledByMainIsolate(storageKey)) {
+        return;
+      }
       if (!_keysInFlight.contains(storageKey)) return;
       if (await SpeechService.isDismissed()) return;
 
-      final lang = await _resolveBackgroundLanguage();
+      final lang = fromBackgroundIsolate
+          ? await _resolveBackgroundLanguage()
+          : TtsCloudApi.normalizeLang(await LocalePrefs.readLanguageCode());
       final path = assetPathForLang(lang);
-      AppLogger.i(
-        '[SosAlertAudio] Background language (lang=$lang, path=$path)',
-      );
+      AppLogger.i('[SosAlertAudio] Language clip (lang=$lang, path=$path)');
       await SpeechService.playAsset(assetPath: path, isUrgent: true);
     } finally {
       _releaseSyncGate(storageKey);
