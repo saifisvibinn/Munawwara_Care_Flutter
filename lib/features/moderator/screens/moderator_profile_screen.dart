@@ -376,29 +376,17 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(8.w, 8.h, 12.w, 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: Icon(
-              Icons.arrow_back,
-              color: textPrimary,
-              size: 24.sp,
-            ),
+      padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 0),
+      child: Center(
+        child: Text(
+          'Munawwara Care',
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontWeight: FontWeight.w700,
+            fontSize: 20.sp,
+            color: textPrimary,
           ),
-          Text(
-            "Munawwara Care",
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontWeight: FontWeight.w700,
-              fontSize: 20.sp,
-              color: textPrimary,
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
+        ),
       ),
     );
   }

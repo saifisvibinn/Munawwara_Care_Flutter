@@ -170,26 +170,9 @@ class _SosButtonState extends State<SosButton>
               // ── Holding Progress Ring (only when actually holding) ──
               if (widget.isHolding)
                 IgnorePointer(
-                  child: AnimatedBuilder(
-                    animation: widget.holdController,
-                    builder: (_, _) {
-                      final ringStroke = (size * 0.042).clamp(4.0, 8.0);
-                      final rotationAngle = widget.holdController.value * 2.0 * 3.14159265;
-                      return Transform.rotate(
-                        angle: rotationAngle,
-                        child: SizedBox(
-                          width: (size + 10).w,
-                          height: (size + 10).w,
-                          child: CircularProgressIndicator(
-                            value: widget.holdController.value,
-                            strokeWidth: ringStroke.w,
-                            color: Colors.white,
-                            backgroundColor: Colors.white.withValues(alpha: 0.2),
-                            strokeCap: StrokeCap.round,
-                          ),
-                        ),
-                      );
-                    },
+                  child: _SosHoldProgressRing(
+                    holdController: widget.holdController,
+                    size: size,
                   ),
                 ),
             ],
@@ -211,31 +194,83 @@ class SosHoldingContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double numberSize = (size * 0.34).clamp(44.0, 72.0).sp;
+    final double labelSize = (size * 0.072).clamp(9.0, 13.0).sp;
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutBack,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) {
+            return ScaleTransition(
+              scale: animation,
+              child: FadeTransition(opacity: animation, child: child),
+            );
+          },
+          child: Text(
+            '$countdown',
+            key: ValueKey<int>(countdown),
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: numberSize,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              height: 1.0,
+            ),
+          ),
+        ),
+        SizedBox(height: 4.h),
         Text(
           'sos_keep_holding'.tr(),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: 'Lexend',
-            fontSize: (size * 0.082).clamp(10.0, 16.0).sp,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
+            fontSize: labelSize,
+            fontWeight: FontWeight.w700,
+            color: Colors.white.withValues(alpha: 0.85),
             height: 1.2,
           ),
         ),
-        SizedBox(height: 6.h),
-        Text(
-          'sos_hold_seconds'.tr(namedArgs: {'n': '$countdown'}),
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontSize: (size * 0.071).clamp(9.0, 14.0).sp,
-            fontWeight: FontWeight.w600,
-            color: Colors.white.withValues(alpha: 0.75),
-          ),
-        ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SOS hold progress ring — shrinks as time runs out
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SosHoldProgressRing extends StatelessWidget {
+  final AnimationController holdController;
+  final double size;
+
+  const _SosHoldProgressRing({
+    required this.holdController,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: holdController,
+      builder: (_, _) {
+        final ringStroke = (size * 0.042).clamp(4.0, 8.0);
+        final timeLeft = 1.0 - holdController.value;
+        return SizedBox(
+          width: (size + 10).w,
+          height: (size + 10).w,
+          child: CircularProgressIndicator(
+            value: timeLeft,
+            strokeWidth: ringStroke.w,
+            color: Colors.white,
+            backgroundColor: Colors.white.withValues(alpha: 0.18),
+            strokeCap: StrokeCap.round,
+          ),
+        );
+      },
     );
   }
 }
