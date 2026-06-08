@@ -233,7 +233,10 @@ class PilgrimHomeTab extends StatelessWidget {
                               Align(
                                 alignment: AlignmentDirectional.centerStart,
                                 child: Container(
-                                  margin: EdgeInsets.only(top: 8.h, bottom: 8.h),
+                                  margin: EdgeInsets.only(
+                                    top: 8.h,
+                                    bottom: 8.h,
+                                  ),
                                   child: Material(
                                     color: Colors.red.shade100,
                                     borderRadius: BorderRadius.circular(12.r),
@@ -399,30 +402,34 @@ class _HomeBody extends StatelessWidget {
               ),
             ],
             SizedBox(height: 26.h), // Pushed grid down slightly from GroupCard
-
             // ── Animated Switcher for help mode vs normal side-by-side mode ──
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 400),
               switchInCurve: Curves.easeInOutCubic,
               switchOutCurve: Curves.easeInOutCubic,
               transitionBuilder: (Widget child, Animation<double> animation) {
-                final slideAnim = Tween<Offset>(
-                  begin: const Offset(0.0, 0.08),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutCubic,
-                ));
+                final slideAnim =
+                    Tween<Offset>(
+                      begin: const Offset(0.0, 0.08),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      ),
+                    );
 
                 return SlideTransition(
                   position: slideAnim,
                   child: FadeTransition(
                     opacity: animation,
                     child: ScaleTransition(
-                      scale: Tween<double>(begin: 0.96, end: 1.0).animate(CurvedAnimation(
-                        parent: animation,
-                        curve: Curves.easeOutBack,
-                      )),
+                      scale: Tween<double>(begin: 0.96, end: 1.0).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutBack,
+                        ),
+                      ),
                       child: child,
                     ),
                   ),
@@ -441,14 +448,19 @@ class _HomeBody extends StatelessWidget {
                                   ? Icons.wb_sunny_rounded
                                   : weatherAlert.icon,
                             ),
-                            title: weatherAlert.isLoading || weatherAlert.isError
+                            title:
+                                weatherAlert.isLoading || weatherAlert.isError
                                 ? 'label_weather'.tr()
-                                : 'weather_with_temp'.tr(namedArgs: {'temp': '${weatherAlert.temperatureC}'}),
+                                : 'weather_with_temp'.tr(
+                                    namedArgs: {
+                                      'temp': '${weatherAlert.temperatureC}',
+                                    },
+                                  ),
                             subtext: weatherAlert.isLoading
                                 ? 'weather_loading_forecast'.tr()
                                 : weatherAlert.isError
-                                    ? 'weather_forecast_unavailable'.tr()
-                                    : weatherAlert.conditionKey.tr(),
+                                ? 'weather_forecast_unavailable'.tr()
+                                : weatherAlert.conditionKey.tr(),
                             onTap: onWeatherTap,
                           ),
                           topRight: ScoopedGridCard(
@@ -512,62 +524,70 @@ class _HomeBody extends StatelessWidget {
                       ],
                     )
                   : (sosHelpStatusKey == 'sos_status_resolved_friendly'
-                      ? Column(
-                          key: const ValueKey<String>('sos_resolved'),
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Redesigned flush SOS Help Session panel
-                            Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8.h),
-                              child: SosHelpSessionPanel(
-                                isDark: isDark,
-                                statusKey: sosHelpStatusKey,
-                                moderatorName: sosModeratorName,
-                                onCancelRequest: onCancelSos,
-                                disableCancel:
-                                    sosHelpStatusKey == 'sos_status_being_handled',
-                                showCancel:
-                                    sosHelpStatusKey != 'sos_status_resolved_friendly',
-                                showCallBack:
-                                    sosHelpStatusKey == 'sos_status_callback_available',
-                                onCallBack: onCallBackSos,
-                                cooldownSeconds: callCooldownSeconds,
-                                pulseController: sosPulseController,
-                                onWeatherTap: onWeatherTap,
-                                onHotspotsTap: onHotspotsTap,
+                        ? Column(
+                            key: const ValueKey<String>('sos_resolved'),
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Redesigned flush SOS Help Session panel
+                              Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.h),
+                                child: SosHelpSessionPanel(
+                                  isDark: isDark,
+                                  statusKey: sosHelpStatusKey,
+                                  moderatorName: sosModeratorName,
+                                  onCancelRequest: onCancelSos,
+                                  disableCancel:
+                                      sosHelpStatusKey ==
+                                      'sos_status_being_handled',
+                                  showCancel:
+                                      sosHelpStatusKey !=
+                                      'sos_status_resolved_friendly',
+                                  showCallBack:
+                                      sosHelpStatusKey ==
+                                      'sos_status_callback_available',
+                                  onCallBack: onCallBackSos,
+                                  cooldownSeconds: callCooldownSeconds,
+                                  pulseController: sosPulseController,
+                                  onWeatherTap: onWeatherTap,
+                                  onHotspotsTap: onHotspotsTap,
+                                ),
                               ),
-                            ),
-                          ],
-                        )
-                      : Column(
-                          key: const ValueKey<String>('sos_sent'),
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Redesigned flush SOS Help Session panel
-                            Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8.h),
-                              child: SosHelpSessionPanel(
-                                isDark: isDark,
-                                statusKey: sosHelpStatusKey,
-                                moderatorName: sosModeratorName,
-                                onCancelRequest: onCancelSos,
-                                disableCancel:
-                                    sosHelpStatusKey == 'sos_status_being_handled',
-                                showCancel:
-                                    sosHelpStatusKey != 'sos_status_resolved_friendly',
-                                showCallBack:
-                                    sosHelpStatusKey == 'sos_status_callback_available',
-                                onCallBack: onCallBackSos,
-                                cooldownSeconds: callCooldownSeconds,
-                                pulseController: sosPulseController,
-                                onWeatherTap: onWeatherTap,
-                                onHotspotsTap: onHotspotsTap,
+                            ],
+                          )
+                        : Column(
+                            key: const ValueKey<String>('sos_sent'),
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Redesigned flush SOS Help Session panel
+                              Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.h),
+                                child: SosHelpSessionPanel(
+                                  isDark: isDark,
+                                  statusKey: sosHelpStatusKey,
+                                  moderatorName: sosModeratorName,
+                                  onCancelRequest: onCancelSos,
+                                  disableCancel:
+                                      sosHelpStatusKey ==
+                                      'sos_status_being_handled',
+                                  showCancel:
+                                      sosHelpStatusKey !=
+                                      'sos_status_resolved_friendly',
+                                  showCallBack:
+                                      sosHelpStatusKey ==
+                                      'sos_status_callback_available',
+                                  onCallBack: onCallBackSos,
+                                  cooldownSeconds: callCooldownSeconds,
+                                  pulseController: sosPulseController,
+                                  onWeatherTap: onWeatherTap,
+                                  onHotspotsTap: onHotspotsTap,
+                                ),
                               ),
-                            ),
-                          ],
-                        )),
+                            ],
+                          )),
             ),
-            SizedBox(height: 20.h), // Pushed SafetyDisclaimerBanner down slightly
+            SizedBox(
+              height: 20.h,
+            ), // Pushed SafetyDisclaimerBanner down slightly
 
             SafetyDisclaimerBanner(isDark: isDark),
           ],

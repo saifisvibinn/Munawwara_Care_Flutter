@@ -433,6 +433,7 @@ class ActionHubGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final outerRadius = BorderRadius.circular(28.r);
     const divider = VerticalDivider(
       width: 1,
@@ -454,9 +455,11 @@ class ActionHubGrid extends StatelessWidget {
             borderRadius: outerRadius,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? AppColors.surfaceDark : Colors.white,
                 borderRadius: outerRadius,
-                border: Border.all(color: _hubBorder, width: 1),
+                border: isDark
+                    ? null
+                    : Border.all(color: _hubBorder, width: 1),
               ),
               child: Column(
                 children: [
@@ -465,18 +468,18 @@ class ActionHubGrid extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Expanded(child: topLeft),
-                        divider,
+                        if (!isDark) divider,
                         Expanded(child: topRight),
                       ],
                     ),
                   ),
-                  rowDivider,
+                  if (!isDark) rowDivider,
                   Expanded(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Expanded(child: bottomLeft),
-                        divider,
+                        if (!isDark) divider,
                         Expanded(child: bottomRight),
                       ],
                     ),
