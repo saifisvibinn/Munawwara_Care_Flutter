@@ -406,11 +406,12 @@ class _HotelCardState extends State<_HotelCard> {
                           borderRadius: BorderRadius.circular(12.r),
                         ),
                         child: Icon(
-                          Icons.hotel_rounded,
+                          Symbols.hotel,
                           color: isDark
                               ? const Color(0xFF38BDF8)
                               : const Color(0xFF0284C7),
                           size: 22.sp,
+                          fill: 1,
                         ),
                       ),
                       SizedBox(width: 12.w),

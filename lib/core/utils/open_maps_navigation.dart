@@ -4,6 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../widgets/travel_mode_picker_dialog.dart';
 
+export '../widgets/travel_mode_picker_dialog.dart' show MapsTravelMode;
+
 /// Opens walking navigation to [lat],[lng] in an external maps app.
 class OpenMapsNavigation {
   OpenMapsNavigation._();

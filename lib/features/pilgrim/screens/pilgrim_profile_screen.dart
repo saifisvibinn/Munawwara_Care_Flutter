@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -588,7 +589,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           leading: Icon(Icons.travel_explore_rounded, color: AppColors.primary, size: 22.sp),
                           children: [
                             _InfoTile(
-                              icon: Icons.hotel_rounded,
+                              icon: Symbols.hotel,
                               label: 'group_hotel_name'.tr(),
                               value: authState.hotelName ?? 'profile_not_assigned'.tr(),
                               isDark: isDark,
