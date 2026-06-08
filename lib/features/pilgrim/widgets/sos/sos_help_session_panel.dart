@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/standard_snackbar.dart';
 import '../../screens/live_translate_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -495,16 +494,6 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
                       MaterialPageRoute(
                         builder: (_) => const LiveTranslateScreen(),
                       ),
-                    );
-                  },
-                ),
-                _buildMiniServiceButton(
-                  icon: Icons.people_alt_rounded,
-                  label: 'label_reassure'.tr(),
-                  onTap: () {
-                    StandardSnackBar.showInfo(
-                      context,
-                      'coming_soon'.tr(),
                     );
                   },
                 ),

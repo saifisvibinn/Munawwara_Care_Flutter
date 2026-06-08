@@ -14,6 +14,7 @@ import '../sos/sos_help_session_panel.dart';
 import 'home_cards.dart';
 import '../../screens/live_translate_screen.dart';
 import '../../screens/scan_trip_qr_screen.dart';
+import '../../../../core/utils/open_maps_navigation.dart';
 import '../../../../core/widgets/standard_snackbar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -485,13 +486,23 @@ class _HomeBody extends StatelessWidget {
                           ),
                           bottomRight: ScoopedGridCard(
                             position: CardPosition.bottomRight,
-                            icon: _cardIcon(Icons.people_alt_rounded),
-                            title: 'reassure_family'.tr(),
-                            subtext: 'reassure_family_sub'.tr(),
+                            icon: _cardIcon(Symbols.hotel),
+                            title: 'take_me_to_hotel'.tr(),
+                            subtext: 'take_me_to_hotel_sub'.tr(),
                             onTap: () {
-                              StandardSnackBar.showInfo(
+                              final lat = g?.hotelLatitude;
+                              final lng = g?.hotelLongitude;
+                              if (lat == null || lng == null) {
+                                StandardSnackBar.showWarning(
+                                  context,
+                                  'hotel_nav_unavailable'.tr(),
+                                );
+                                return;
+                              }
+                              OpenMapsNavigation.pickTravelModeAndLaunch(
                                 context,
-                                'coming_soon'.tr(),
+                                lat,
+                                lng,
                               );
                             },
                           ),
