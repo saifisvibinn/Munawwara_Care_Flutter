@@ -93,8 +93,15 @@ class LocationHeartbeatWorker(
         
         val body = json.toString().toRequestBody("application/json".toMediaType())
         
+        val cleanServerUrl = serverUrl.removeSuffix("/")
+        val baseUrl = if (cleanServerUrl.endsWith("/api")) {
+            cleanServerUrl
+        } else {
+            "$cleanServerUrl/api"
+        }
+        
         val request = Request.Builder()
-            .url("$serverUrl/api/location/heartbeat")
+            .url("$baseUrl/location/heartbeat")
             .post(body)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Content-Type", "application/json")
