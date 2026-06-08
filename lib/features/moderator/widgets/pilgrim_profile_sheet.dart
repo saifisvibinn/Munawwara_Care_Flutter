@@ -159,30 +159,11 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                   ),
                   child: Row(
                     children: [
-                      Container(
-                        width: 64.w,
-                        height: 64.w,
-                        decoration: BoxDecoration(
-                          color: _pilgrim.hasSOS
-                              ? AppColors.error
-                              : AppColors.primary.withValues(alpha: 0.12),
-                          shape: BoxShape.circle,
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: _pilgrim.hasSOS
-                            ? Center(
-                                child: Icon(
-                                  Symbols.warning,
-                                  color: Colors.white,
-                                  size: 28.w,
-                                  fill: 1,
-                                ),
-                              )
-                            : PilgrimGenderAvatar(
-                                gender: _pilgrim.gender,
-                                size: 64.w,
-                                imageUrl: _pilgrim.profilePicture,
-                              ),
+                      _PilgrimProfileAvatar(
+                        gender: _pilgrim.gender,
+                        imageUrl: _pilgrim.profilePicture,
+                        hasSos: _pilgrim.hasSOS,
+                        size: 64.w,
                       ),
                       SizedBox(width: 16.w),
                       Expanded(
@@ -668,6 +649,71 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
       BatteryStatus.low => AppColors.error,
       BatteryStatus.unknown => AppColors.textMutedLight,
     };
+  }
+}
+
+/// Pilgrim portrait with an optional SOS warning badge overlay.
+class _PilgrimProfileAvatar extends StatelessWidget {
+  final String? gender;
+  final String? imageUrl;
+  final bool hasSos;
+  final double size;
+
+  const _PilgrimProfileAvatar({
+    required this.gender,
+    required this.imageUrl,
+    required this.hasSos,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final badgeSize = size * 0.34;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: hasSos
+                  ? Border.all(color: AppColors.error, width: 2.5)
+                  : null,
+              color: AppColors.primary.withValues(alpha: 0.12),
+            ),
+            child: ClipOval(
+              child: PilgrimGenderAvatar(
+                gender: gender,
+                size: size,
+                imageUrl: imageUrl,
+              ),
+            ),
+          ),
+          if (hasSos)
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: badgeSize,
+                height: badgeSize,
+                decoration: BoxDecoration(
+                  color: AppColors.error,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: Icon(
+                  Symbols.warning,
+                  color: Colors.white,
+                  size: badgeSize * 0.62,
+                  fill: 1,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 
