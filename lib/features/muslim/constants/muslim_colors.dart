@@ -33,27 +33,77 @@ class MuslimColors {
 extension MuslimThemeExt on BuildContext {
   bool get isDark => Theme.of(this).brightness == Brightness.dark;
 
+  /// Accent text/icons on dark surfaces (mint in dark, forest in light).
   Color get mPrimary => isDark ? MuslimColors.primaryFixed : MuslimColors.primary;
-  Color get mPrimaryContainer => isDark ? const Color(0xFF1A3B18) : MuslimColors.primaryContainer;
-  Color get mOnPrimaryContainer => isDark ? MuslimColors.primaryFixed : MuslimColors.onPrimaryContainer;
 
-  Color get mSecondary => isDark ? MuslimColors.secondaryFixed : MuslimColors.secondary;
-  Color get mSecondaryContainer => isDark ? const Color(0xFF7A4000) : MuslimColors.secondaryContainer;
-  Color get mOnSecondaryContainer => isDark ? MuslimColors.secondaryFixed : MuslimColors.onSecondaryContainer;
+  Color get mPrimaryContainer =>
+      isDark ? const Color(0xFF1A3B18) : MuslimColors.primaryContainer;
 
-  Color get mTertiary => isDark ? MuslimColors.tertiaryFixed : MuslimColors.tertiary;
-  Color get mTertiaryContainer => isDark ? const Color(0xFF002B7A) : MuslimColors.tertiaryContainer;
-  Color get mOnTertiaryContainer => isDark ? MuslimColors.tertiaryFixed : MuslimColors.onTertiaryContainer;
+  Color get mOnPrimaryContainer =>
+      isDark ? MuslimColors.primaryFixed : MuslimColors.onPrimaryContainer;
+
+  Color get mSecondary =>
+      isDark ? MuslimColors.secondaryFixed : MuslimColors.secondary;
+
+  Color get mSecondaryContainer =>
+      isDark ? const Color(0xFF7A4000) : MuslimColors.secondaryContainer;
+
+  Color get mOnSecondaryContainer =>
+      isDark ? MuslimColors.secondaryFixed : MuslimColors.onSecondaryContainer;
+
+  Color get mTertiary =>
+      isDark ? MuslimColors.tertiaryFixed : MuslimColors.tertiary;
+
+  Color get mTertiaryContainer =>
+      isDark ? const Color(0xFF002B7A) : MuslimColors.tertiaryContainer;
+
+  Color get mOnTertiaryContainer =>
+      isDark ? MuslimColors.tertiaryFixed : MuslimColors.onTertiaryContainer;
 
   Color get mPrimaryFixed => MuslimColors.primaryFixed;
   Color get mSecondaryFixed => MuslimColors.secondaryFixed;
   Color get mTertiaryFixed => MuslimColors.tertiaryFixed;
 
-  Color get mSurface => isDark ? MuslimColors.surfaceDark : MuslimColors.surface;
-  Color get mSurfaceContainerLow => isDark ? const Color(0xFF1C2331) : MuslimColors.surfaceContainerLow;
-  Color get mSurfaceContainerLowest => isDark ? const Color(0xFF161D29) : MuslimColors.surfaceContainerLowest;
-  
-  Color get mOnSurface => isDark ? MuslimColors.onSurfaceDark : MuslimColors.onSurface;
-  Color get mOnSurfaceVariant => isDark ? const Color(0xFF9AA0A6) : MuslimColors.onSurfaceVariant;
-  Color get mOutlineVariant => isDark ? const Color(0xFF3C444D) : MuslimColors.outlineVariant;
+  Color get mSurface =>
+      isDark ? MuslimColors.surfaceDark : MuslimColors.surface;
+
+  Color get mSurfaceContainerLow =>
+      isDark ? const Color(0xFF1C2331) : MuslimColors.surfaceContainerLow;
+
+  Color get mSurfaceContainerLowest =>
+      isDark ? const Color(0xFF161D29) : MuslimColors.surfaceContainerLowest;
+
+  Color get mOnSurface =>
+      isDark ? MuslimColors.onSurfaceDark : MuslimColors.onSurface;
+
+  Color get mOnSurfaceVariant =>
+      isDark ? const Color(0xFFB8C0C8) : MuslimColors.onSurfaceVariant;
+
+  Color get mOutlineVariant =>
+      isDark ? const Color(0xFF3C444D) : MuslimColors.outlineVariant;
+
+  /// Arabic calligraphy — never use [mPrimary] fill green on dark cards.
+  Color get mArabicText =>
+      isDark ? MuslimColors.primaryFixed : MuslimColors.primary;
+
+  /// Next-prayer hero card background (not [mPrimary] in dark mode).
+  Color get mPrayerHeroFill =>
+      isDark ? const Color(0xFF1A3B18) : MuslimColors.primary;
+
+  Color get mPrayerHeroLabel =>
+      isDark
+          ? MuslimColors.primaryFixed.withValues(alpha: 0.9)
+          : MuslimColors.secondaryFixed.withValues(alpha: 0.9);
+
+  Color get mPrayerHeroAccent =>
+      isDark ? MuslimColors.secondaryFixed : MuslimColors.secondaryContainer;
+
+  Color get mPrayerHeroOnAccent =>
+      isDark ? const Color(0xFF4A2800) : MuslimColors.onSecondaryContainer;
+
+  /// Subtitles on tinted hub bento cards.
+  Color get mCardSubtitle =>
+      isDark
+          ? MuslimColors.onSurfaceDark.withValues(alpha: 0.78)
+          : MuslimColors.onSurfaceVariant;
 }

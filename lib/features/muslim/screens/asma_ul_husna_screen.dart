@@ -43,9 +43,17 @@ class _AsmaUlHusnaScreenState extends ConsumerState<AsmaUlHusnaScreen> {
               controller: _searchController,
               onChanged: (v) =>
                   ref.read(asmaSearchQueryProvider.notifier).setQuery(v),
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                color: context.mOnSurface,
+              ),
               decoration: InputDecoration(
                 hintText: 'muslim_search_names'.tr(),
-                prefixIcon: const Icon(Icons.search),
+                hintStyle: TextStyle(color: context.mOnSurfaceVariant),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: context.mOnSurfaceVariant,
+                ),
                 filled: true,
                 fillColor: context.mSurfaceContainerLowest,
                 border: OutlineInputBorder(
@@ -123,6 +131,7 @@ class _NameCard extends StatelessWidget {
               ArabicText(
                 name.nameArabic,
                 style: muslimArabicStyle(
+                  context,
                   fontSize: isAr ? 26.sp : 24.sp,
                   fontWeight: isAr ? FontWeight.bold : FontWeight.w400,
                 ),
@@ -178,6 +187,7 @@ class _NameCard extends StatelessWidget {
             ArabicText(
               name.nameArabic,
               style: muslimArabicStyle(
+                context,
                 fontSize: isAr ? 44.sp : 36.sp,
                 fontWeight: FontWeight.bold,
               ),

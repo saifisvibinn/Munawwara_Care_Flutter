@@ -32,22 +32,25 @@ class ArabicText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final base = style ?? TextStyle(fontSize: 20.sp);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Text(
         text,
         textAlign: textAlign,
         maxLines: maxLines,
-        style: (style ?? TextStyle(fontSize: 20.sp)).copyWith(
+        style: base.copyWith(
           fontFamily: 'Amiri',
           height: 1.8,
+          color: base.color ?? context.mArabicText,
         ),
       ),
     );
   }
 }
 
-TextStyle muslimArabicStyle({
+TextStyle muslimArabicStyle(
+  BuildContext context, {
   double? fontSize,
   Color? color,
   FontWeight fontWeight = FontWeight.w400,
@@ -55,7 +58,7 @@ TextStyle muslimArabicStyle({
   return TextStyle(
     fontFamily: 'Amiri',
     fontSize: fontSize ?? 20.sp,
-    color: color ?? MuslimColors.primary,
+    color: color ?? context.mArabicText,
     fontWeight: fontWeight,
     height: 1.8,
   );
