@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -14,6 +16,7 @@ import '../../../core/services/api_service.dart';
 import '../../../core/services/locale_prefs.dart';
 import '../../../core/services/sos_alert_audio.dart';
 import '../../../core/services/callkit_service.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../../../core/widgets/tameny_tracking_toggle.dart';
@@ -27,6 +30,8 @@ class PilgrimProfileScreen extends ConsumerStatefulWidget {
 
 class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
   late String _selectedLocale;
+  File? _localProfilePictureFile;
+  bool _uploadingPfp = false;
 
   /// Matches [PilgrimDashboardScreen] scaffold background in light mode.
   static const Color _lightBg = Color(0xfff1f5f3);
@@ -66,6 +71,126 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
     _selectedLocale = context.locale.languageCode;
   }
 
+  Future<void> _onAvatarTap() async {
+    if (_uploadingPfp) return;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: cardBg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (BuildContext sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: EdgeInsets.only(top: 8.h, bottom: 16.h),
+                width: 40.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+              Text(
+                'profile_picture_title'.tr(),
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16.sp,
+                  color: textPrimary,
+                ),
+              ),
+              SizedBox(height: 16.h),
+              ListTile(
+                leading: const Icon(
+                  Icons.camera_alt_rounded,
+                  color: AppColors.primary,
+                ),
+                title: Text(
+                  'profile_picture_camera'.tr(),
+                  style: TextStyle(fontFamily: 'Lexend', color: textPrimary),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickAndUploadProfilePicture(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.photo_library_rounded,
+                  color: AppColors.primary,
+                ),
+                title: Text(
+                  'profile_picture_gallery'.tr(),
+                  style: TextStyle(fontFamily: 'Lexend', color: textPrimary),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickAndUploadProfilePicture(ImageSource.gallery);
+                },
+              ),
+              SizedBox(height: 8.h),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickAndUploadProfilePicture(ImageSource source) async {
+    final picker = ImagePicker();
+    try {
+      final XFile? image = await picker.pickImage(
+        source: source,
+        maxWidth: 1000,
+        maxHeight: 1000,
+        imageQuality: 85,
+      );
+      if (image == null || !mounted) return;
+
+      setState(() {
+        _localProfilePictureFile = File(image.path);
+        _uploadingPfp = true;
+      });
+
+      final success = await ref
+          .read(authProvider.notifier)
+          .updateProfilePicture(_localProfilePictureFile!);
+
+      if (!mounted) return;
+
+      if (success) {
+        setState(() {
+          _localProfilePictureFile = null;
+          _uploadingPfp = false;
+        });
+        StandardSnackBar.showSuccess(context, 'edit_profile_success'.tr());
+        return;
+      }
+
+      setState(() {
+        _localProfilePictureFile = null;
+        _uploadingPfp = false;
+      });
+      final error =
+          ref.read(authProvider).error ?? 'edit_profile_error_generic'.tr();
+      StandardSnackBar.showError(context, error);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _localProfilePictureFile = null;
+        _uploadingPfp = false;
+      });
+      StandardSnackBar.showError(context, 'Error selecting image: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,25 +267,80 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            width: 56.w,
-                            height: 56.w,
-                            padding: EdgeInsets.all(2.5.w),
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppColors.primary,
-                                  AppColors.primaryDark,
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                            ),
-                            child: PilgrimGenderAvatar(
-                              gender: authState.gender,
-                              size: 51.w,
-                              imageUrl: authState.profilePicture,
+                          GestureDetector(
+                            onTap: _uploadingPfp ? null : _onAvatarTap,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  width: 56.w,
+                                  height: 56.w,
+                                  padding: EdgeInsets.all(2.5.w),
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        AppColors.primary,
+                                        AppColors.primaryDark,
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                  ),
+                                  child: _localProfilePictureFile != null
+                                      ? ClipOval(
+                                          child: Image.file(
+                                            _localProfilePictureFile!,
+                                            width: 51.w,
+                                            height: 51.w,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        )
+                                      : PilgrimGenderAvatar(
+                                          gender: authState.gender,
+                                          size: 51.w,
+                                          imageUrl: authState.profilePicture,
+                                        ),
+                                ),
+                                if (_uploadingPfp)
+                                  Positioned.fill(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.black.withValues(
+                                          alpha: 0.45,
+                                        ),
+                                      ),
+                                      child: Center(
+                                        child: SizedBox(
+                                          width: 20.w,
+                                          height: 20.w,
+                                          child: const CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Positioned(
+                                    bottom: -2.h,
+                                    right: -2.w,
+                                    child: Container(
+                                      padding: EdgeInsets.all(4.w),
+                                      decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: AppColors.primary,
+                                      ),
+                                      child: Icon(
+                                        Icons.camera_alt_rounded,
+                                        color: Colors.white,
+                                        size: 12.sp,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                           SizedBox(width: 16.w),

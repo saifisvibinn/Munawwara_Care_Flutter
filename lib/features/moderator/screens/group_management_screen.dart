@@ -3555,9 +3555,9 @@ class _PilgrimManageTile extends StatelessWidget {
                   ),
                 ),
               ),
-            ] else ...[
-              SizedBox(width: 4.w),
-              PopupMenuButton<String>(
+            ],
+            SizedBox(width: 4.w),
+            PopupMenuButton<String>(
                 tooltip: '',
                 padding: EdgeInsets.zero,
                 icon: Icon(
@@ -3635,7 +3635,6 @@ class _PilgrimManageTile extends StatelessWidget {
                     ),
                 ],
               ),
-            ],
           ],
         ),
       ),
