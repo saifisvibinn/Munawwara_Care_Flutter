@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../calling/providers/call_provider.dart';
 import '../../calling/screens/voice_call_screen.dart';
+import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../providers/moderator_provider.dart';
 import '../screens/document_viewer_screen.dart';
 import '../screens/individual_messages_screen.dart';
@@ -116,21 +117,26 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                         width: 64.w,
                         height: 64.w,
                         decoration: BoxDecoration(
-                          color: pilgrim.hasSOS ? AppColors.error : AppColors.primary,
+                          color: pilgrim.hasSOS
+                              ? AppColors.error
+                              : AppColors.primary.withValues(alpha: 0.12),
                           shape: BoxShape.circle,
                         ),
-                        child: Center(
-                          child: pilgrim.hasSOS
-                              ? Icon(Symbols.warning, color: Colors.white, size: 28.w, fill: 1)
-                              : Text(
-                                  pilgrim.initials,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 22.sp,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                        clipBehavior: Clip.antiAlias,
+                        child: pilgrim.hasSOS
+                            ? Center(
+                                child: Icon(
+                                  Symbols.warning,
+                                  color: Colors.white,
+                                  size: 28.w,
+                                  fill: 1,
                                 ),
-                        ),
+                              )
+                            : PilgrimGenderAvatar(
+                                gender: pilgrim.gender,
+                                size: 64.w,
+                                imageUrl: pilgrim.profilePicture,
+                              ),
                       ),
                       SizedBox(width: 16.w),
                       Expanded(
@@ -233,6 +239,8 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                                 remoteUserId: pilgrim.id,
                                 remoteUserName: pilgrim.fullName,
                                 remotePeerGender: pilgrim.gender,
+                                remotePeerProfilePicture:
+                                    pilgrim.profilePicture,
                               );
                           Navigator.push(
                             context,
@@ -240,6 +248,8 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                               builder: (_) => VoiceCallScreen(
                                 initialPeerName: pilgrim.fullName,
                                 initialPeerGender: pilgrim.gender,
+                                initialPeerProfilePicture:
+                                    pilgrim.profilePicture,
                               ),
                             ),
                           );

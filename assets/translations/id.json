@@ -782,7 +782,7 @@
   "explore_open_maps_open": "Buka",
   "explore_open_maps_failed_title": "Tidak dapat membuka peta",
   "explore_open_maps_failed_body": "Tidak ditemukan aplikasi peta untuk navigasi di perangkat ini.",
-  "explore_outside_ksa_warning": "Anda berada di luar Mekkah/Madinah. Menampilkan hotspot haji (Mekkah) alih-alih tempat terdekat.",
+  "explore_outside_ksa_warning": "Anda berada di luar Mekkah, Madinah, atau Jeddah. Menampilkan hotspot haji (Mekkah) alih-alih tempat terdekat.",
   "explore_outside_ksa_distance": "Di luar area cakupan",
   "sos_hold_label": "TAHAN",
   "sos_active_text": "AKTIF",

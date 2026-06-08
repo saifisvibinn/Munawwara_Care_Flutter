@@ -202,6 +202,7 @@ class PilgrimMapMarker extends StatelessWidget {
                   child: PilgrimGenderAvatar(
                     gender: pilgrim.gender,
                     size: diameter * 0.92,
+                    imageUrl: pilgrim.profilePicture,
                   ),
                 ),
         ),

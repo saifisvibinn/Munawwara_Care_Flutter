@@ -1411,6 +1411,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
           name: p.fullName,
           initials: p.initials,
           gender: p.gender,
+          profilePicture: p.profilePicture,
           subtitle: '${'attendance_checked_in'.tr()} · $time',
           subtitleColor: AppColors.success,
           trailing: widget.pastSessionId != null
@@ -1458,6 +1459,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
           name: p.fullName,
           initials: p.initials,
           gender: p.gender,
+          profilePicture: p.profilePicture,
           subtitle: parts.isEmpty ? null : parts,
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1532,6 +1534,7 @@ class _PilgrimTile extends StatelessWidget {
   final String name;
   final String initials;
   final String? gender;
+  final String? profilePicture;
   final String? subtitle;
   final Color? subtitleColor;
   final Widget? trailing;
@@ -1543,6 +1546,7 @@ class _PilgrimTile extends StatelessWidget {
     required this.name,
     required this.initials,
     this.gender,
+    this.profilePicture,
     this.subtitle,
     this.subtitleColor,
     this.trailing,
@@ -1571,7 +1575,11 @@ class _PilgrimTile extends StatelessWidget {
             height: 38.w,
             child: Stack(
               children: [
-                PilgrimGenderAvatar(gender: gender, size: 38.w),
+                PilgrimGenderAvatar(
+                  gender: gender,
+                  size: 38.w,
+                  imageUrl: profilePicture,
+                ),
                 Positioned(
                   right: 0,
                   bottom: 0,

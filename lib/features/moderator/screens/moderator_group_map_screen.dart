@@ -718,6 +718,7 @@ class _PilgrimListTile extends StatelessWidget {
                   : PilgrimGenderAvatar(
                       gender: pilgrim.gender,
                       size: 37.w,
+                      imageUrl: pilgrim.profilePicture,
                     ),
             ),
             SizedBox(width: 10.w),

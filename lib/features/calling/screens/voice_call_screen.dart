@@ -3,6 +3,7 @@ import 'dart:ui' show FilterQuality, FontFeature, ImageFilter;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -31,12 +32,16 @@ class VoiceCallScreen extends ConsumerStatefulWidget {
   /// Seeds pilgrim avatar before [CallState.remotePeerGender] is set.
   final String? initialPeerGender;
 
+  /// Seeds custom pilgrim portrait before [CallState.remotePeerProfilePicture].
+  final String? initialPeerProfilePicture;
+
   const VoiceCallScreen({
     super.key,
     this.autoRouteMods,
     this.onAllBusy,
     this.initialPeerName,
     this.initialPeerGender,
+    this.initialPeerProfilePicture,
   });
 
   @override
@@ -47,6 +52,7 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
   late List<Map<String, String>> _queue;
   String? _cachedName;
   String? _cachedGender;
+  String? _cachedProfilePicture;
   Timer? _autoPopTimer;
   bool _showRatingOnPop = false;
 
@@ -97,6 +103,10 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
     if (initialGender != null && initialGender.isNotEmpty) {
       _cachedGender = initialGender;
     }
+    final initialPicture = widget.initialPeerProfilePicture?.trim();
+    if (initialPicture != null && initialPicture.isNotEmpty) {
+      _cachedProfilePicture = initialPicture;
+    }
     final call = ref.read(callProvider);
     final resolved = resolveCallPeerDisplayName(
       call: call,
@@ -108,6 +118,10 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
     final gender = call.remotePeerGender?.trim();
     if (gender != null && gender.isNotEmpty) {
       _cachedGender = gender;
+    }
+    final picture = call.remotePeerProfilePicture?.trim();
+    if (picture != null && picture.isNotEmpty) {
+      _cachedProfilePicture = picture;
     }
   }
 
@@ -122,6 +136,10 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
     final gender = call.remotePeerGender?.trim();
     if (gender != null && gender.isNotEmpty) {
       _cachedGender = gender;
+    }
+    final picture = call.remotePeerProfilePicture?.trim();
+    if (picture != null && picture.isNotEmpty) {
+      _cachedProfilePicture = picture;
     }
   }
 
@@ -305,6 +323,8 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
                           else
                             _PilgrimPeerAvatar(
                               gender: _cachedGender ?? call.remotePeerGender,
+                              imageUrl: _cachedProfilePicture ??
+                                  call.remotePeerProfilePicture,
                               palette: c,
                             ),
                           SizedBox(height: 22.h),
@@ -381,11 +401,12 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
                             SizedBox(height: 28.h),
                           ],
                           if (call.status != CallStatus.ended) ...[
-                            GestureDetector(
-                              onTap: () {
-                                if (isCancelDisabled) return;
+                            _EndCallButton(
+                              isDisabled: isCancelDisabled,
+                              onPressed: () {
                                 _queue.clear();
-                                final notifier = ref.read(callProvider.notifier);
+                                final notifier =
+                                    ref.read(callProvider.notifier);
                                 if (call.status == CallStatus.calling) {
                                   notifier.cancelOutgoingRing();
                                 } else if (call.status == CallStatus.ringing) {
@@ -394,33 +415,6 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
                                   notifier.endCall();
                                 }
                               },
-                              child: AnimatedOpacity(
-                                duration: const Duration(milliseconds: 200),
-                                opacity: isCancelDisabled ? 0.4 : 1.0,
-                                child: Container(
-                                  width: 76.w,
-                                  height: 76.w,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: AppColors.error,
-                                    boxShadow: isCancelDisabled ? null : [
-                                      BoxShadow(
-                                        color: AppColors.error.withValues(
-                                          alpha: 0.35,
-                                        ),
-                                        blurRadius: 20,
-                                        offset: const Offset(0, 8),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    Symbols.call_end,
-                                    color: Colors.white,
-                                    size: 34.sp,
-                                    fill: 1,
-                                  ),
-                                ),
-                              ),
                             ),
                           ],
                           SizedBox(height: 48.h),
@@ -515,9 +509,14 @@ class _BlurOrb extends StatelessWidget {
 }
 
 class _PilgrimPeerAvatar extends StatelessWidget {
-  const _PilgrimPeerAvatar({required this.gender, required this.palette});
+  const _PilgrimPeerAvatar({
+    required this.gender,
+    required this.palette,
+    this.imageUrl,
+  });
 
   final String? gender;
+  final String? imageUrl;
   final _CallPalette palette;
 
   @override
@@ -539,7 +538,11 @@ class _PilgrimPeerAvatar extends StatelessWidget {
         ],
       ),
       padding: EdgeInsets.all(4.w),
-      child: PilgrimGenderAvatar(gender: gender, size: inner),
+      child: PilgrimGenderAvatar(
+        gender: gender,
+        size: inner,
+        imageUrl: imageUrl,
+      ),
     );
   }
 }
@@ -711,6 +714,149 @@ class _StatusChip extends StatelessWidget {
           color: isLive ? AppColors.primary : palette.textSecondary,
           letterSpacing: isLive ? 1.2 : 0.2,
           fontFeatures: isLive ? const [FontFeature.tabularFigures()] : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _EndCallButton extends StatefulWidget {
+  const _EndCallButton({
+    required this.isDisabled,
+    required this.onPressed,
+  });
+
+  final bool isDisabled;
+  final VoidCallback onPressed;
+
+  @override
+  State<_EndCallButton> createState() => _EndCallButtonState();
+}
+
+class _EndCallButtonState extends State<_EndCallButton>
+    with SingleTickerProviderStateMixin {
+  static const Color _pressedColor = Color(0xFFDC2626);
+  static const Color _tapFlashColor = Color(0xFFF87171);
+
+  late final AnimationController _tapAckController;
+  late final Animation<double> _tapAckScale;
+  bool _isPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tapAckController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 360),
+    );
+    _tapAckScale = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1, end: 1.14),
+        weight: 35,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.14, end: 1),
+        weight: 65,
+      ),
+    ]).animate(
+      CurvedAnimation(
+        parent: _tapAckController,
+        curve: Curves.easeOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _tapAckController.dispose();
+    super.dispose();
+  }
+
+  void _handleTapDown(TapDownDetails _) {
+    if (widget.isDisabled) return;
+    setState(() => _isPressed = true);
+  }
+
+  void _handleTapUp(TapUpDetails _) {
+    if (_isPressed) {
+      setState(() => _isPressed = false);
+    }
+  }
+
+  void _handleTapCancel() {
+    if (_isPressed) {
+      setState(() => _isPressed = false);
+    }
+  }
+
+  void _handleTap() {
+    if (widget.isDisabled) return;
+    HapticFeedback.mediumImpact();
+    _tapAckController.forward(from: 0);
+    widget.onPressed();
+  }
+
+  Color _buttonColor(double tapProgress) {
+    if (_isPressed) return _pressedColor;
+    if (tapProgress > 0) {
+      return Color.lerp(
+        AppColors.error,
+        _tapFlashColor,
+        (tapProgress * 0.55).clamp(0, 1),
+      )!;
+    }
+    return AppColors.error;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 200),
+      opacity: widget.isDisabled ? 0.4 : 1.0,
+      child: GestureDetector(
+        onTapDown: _handleTapDown,
+        onTapUp: _handleTapUp,
+        onTapCancel: _handleTapCancel,
+        onTap: _handleTap,
+        child: AnimatedBuilder(
+          animation: _tapAckController,
+          builder: (context, child) {
+            final scale = _isPressed ? 0.88 : _tapAckScale.value;
+            final tapProgress = _tapAckController.value;
+            final glowAlpha = widget.isDisabled
+                ? 0.0
+                : 0.35 + (tapProgress * 0.25);
+            return Transform.scale(
+              scale: scale,
+              child: Container(
+                width: 76.w,
+                height: 76.w,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _buttonColor(tapProgress),
+                  boxShadow: widget.isDisabled
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: AppColors.error.withValues(
+                              alpha: glowAlpha,
+                            ),
+                            blurRadius: 20 + (tapProgress * 12),
+                            spreadRadius: tapProgress * 4,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                ),
+                child: child,
+              ),
+            );
+          },
+          child: Icon(
+            Symbols.call_end,
+            color: Colors.white,
+            size: 34.sp,
+            fill: 1,
+          ),
         ),
       ),
     );

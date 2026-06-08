@@ -15,6 +15,7 @@ import '../../../core/widgets/standard_snackbar.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../../pilgrim/models/insurance_company.dart';
 
 class _GroupOption {
@@ -1099,29 +1100,11 @@ class _PilgrimCard extends StatelessWidget {
                 onTap: selectionMode ? onToggleFromRow : null,
                 child: Row(
                   children: [
-                    Container(
-                      width: 44.w,
-                      height: 44.w,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: pilgrim.isAssigned
-                            ? AppColors.primary.withValues(alpha: 0.12)
-                            : const Color(0xFFFF8400).withValues(alpha: 0.12),
-                      ),
-                      child: Center(
-                        child: Text(
-                          pilgrim.fullName.isNotEmpty
-                              ? pilgrim.fullName[0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 18.sp,
-                            color: pilgrim.isAssigned
-                                ? AppColors.primary
-                                : const Color(0xFFFF8400),
-                          ),
-                        ),
+                    ClipOval(
+                      child: PilgrimGenderAvatar(
+                        gender: pilgrim.gender,
+                        size: 44.w,
+                        imageUrl: pilgrim.profilePicture,
                       ),
                     ),
                     SizedBox(width: 12.w),
@@ -1277,14 +1260,11 @@ class _ActionsSheet extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: 20.w),
             child: Row(
               children: [
-                CircleAvatar(
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                  child: Text(
-                    pilgrim.fullName.isNotEmpty ? pilgrim.fullName[0] : '?',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
+                ClipOval(
+                  child: PilgrimGenderAvatar(
+                    gender: pilgrim.gender,
+                    size: 40.w,
+                    imageUrl: pilgrim.profilePicture,
                   ),
                 ),
                 SizedBox(width: 12.w),

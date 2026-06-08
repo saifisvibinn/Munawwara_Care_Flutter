@@ -782,7 +782,7 @@
   "explore_open_maps_open": "Aç",
   "explore_open_maps_failed_title": "Harita açılamadı",
   "explore_open_maps_failed_body": "Bu cihazda navigasyonu açacak bir harita uygulaması bulunamadı.",
-  "explore_outside_ksa_warning": "Mekke/Medine dışındasınız. Yakındaki yerler yerine hac noktaları (Mekke) gösteriliyor.",
+  "explore_outside_ksa_warning": "Mekke, Medine veya Cidde dışındasınız. Yakındaki yerler yerine hac noktaları (Mekke) gösteriliyor.",
   "explore_outside_ksa_distance": "Kapsama alanı dışında",
   "sos_hold_label": "BASILI TUTUN",
   "sos_active_text": "AKTİF",

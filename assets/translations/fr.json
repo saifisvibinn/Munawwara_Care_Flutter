@@ -782,7 +782,7 @@
   "explore_open_maps_open": "Ouvrir",
   "explore_open_maps_failed_title": "Impossible d’ouvrir la carte",
   "explore_open_maps_failed_body": "Aucune application de cartographie n’a été trouvée pour la navigation sur cet appareil.",
-  "explore_outside_ksa_warning": "Vous êtes hors de La Mecque/Médine. Affichage des points utiles du pèlerinage (La Mecque) plutôt que des lieux proches.",
+  "explore_outside_ksa_warning": "Vous êtes hors de La Mecque, Médine ou Djeddah. Affichage des points utiles du pèlerinage (La Mecque) plutôt que des lieux proches.",
   "explore_outside_ksa_distance": "Hors zone de couverture",
   "sos_hold_label": "APPUI",
   "sos_active_text": "ACTIF",

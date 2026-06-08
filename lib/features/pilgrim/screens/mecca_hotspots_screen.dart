@@ -8,13 +8,10 @@ import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/services/explore_geo.dart';
 import '../../../core/services/explore_places_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/explore_place.dart';
-
-/// Kaaba — used for distance when the pilgrim's GPS fix is unavailable.
-const LatLng _kaaba = LatLng(21.422487, 39.826206);
-const LatLng _medina = LatLng(24.467233, 39.611121);
 
 class MeccaHotspotsScreen extends StatefulWidget {
   /// Pilgrim's current location when available (sorts by distance).
@@ -43,30 +40,16 @@ class _MeccaHotspotsScreenState extends State<MeccaHotspotsScreen> {
   StreamSubscription<Position>? _gpsSub;
   bool _reloadedAfterFirstFix = false;
 
-  static const double _hubFallbackDistanceM = 200000; // 200km
-
   bool get _isOutsideHubs {
     final a = _gpsAnchor ?? widget.anchorLocation;
     if (a == null) return false;
-    final dKaaba = Geolocator.distanceBetween(
-      a.latitude,
-      a.longitude,
-      _kaaba.latitude,
-      _kaaba.longitude,
-    );
-    final dMedina = Geolocator.distanceBetween(
-      a.latitude,
-      a.longitude,
-      _medina.latitude,
-      _medina.longitude,
-    );
-    return dKaaba > _hubFallbackDistanceM && dMedina > _hubFallbackDistanceM;
+    return !ExploreGeo.isWithinServiceHubs(a.latitude, a.longitude);
   }
 
   LatLng get _effectiveAnchor {
     final a = _gpsAnchor ?? widget.anchorLocation;
-    if (a == null) return _kaaba;
-    return _isOutsideHubs ? _kaaba : a;
+    if (a == null) return ExploreGeo.defaultAnchor;
+    return _isOutsideHubs ? ExploreGeo.defaultAnchor : a;
   }
 
   /// Map center for “nearby” APIs.

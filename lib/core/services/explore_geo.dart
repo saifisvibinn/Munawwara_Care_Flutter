@@ -1,8 +1,43 @@
 import 'dart:math' as math;
 
+import 'package:latlong2/latlong.dart';
+
+/// Pilgrimage service city used for Explore coverage checks.
+class ExploreServiceHub {
+  const ExploreServiceHub({
+    required this.name,
+    required this.center,
+  });
+
+  final String name;
+  final LatLng center;
+}
+
 /// Bounding boxes around a map point for Explore (Overpass, Nominatim).
 class ExploreGeo {
   ExploreGeo._();
+
+  /// Mecca (Kaaba), Medina, and Jeddah — Explore POI coverage hubs.
+  static const List<ExploreServiceHub> serviceHubs = [
+    ExploreServiceHub(
+      name: 'Mecca',
+      center: LatLng(21.422487, 39.826206),
+    ),
+    ExploreServiceHub(
+      name: 'Medina',
+      center: LatLng(24.467233, 39.611121),
+    ),
+    ExploreServiceHub(
+      name: 'Jeddah',
+      center: LatLng(21.543333, 39.172778),
+    ),
+  ];
+
+  /// Default map anchor when GPS is unavailable (Kaaba).
+  static const LatLng defaultAnchor = LatLng(21.422487, 39.826206);
+
+  /// Max distance from any [serviceHubs] center to count as in coverage (m).
+  static const double serviceHubRadiusM = 200000;
 
   /// Default radius for “nearby” POI search (km).
   static const double defaultRadiusKm = 7.0;
@@ -35,5 +70,38 @@ class ExploreGeo {
     final north = b[2];
     final east = b[3];
     return '$west,$north,$east,$south';
+  }
+
+  /// Whether [lat],[lon] is within [serviceHubRadiusM] of any service hub.
+  static bool isWithinServiceHubs(double lat, double lon) {
+    for (final hub in serviceHubs) {
+      final d = distanceMeters(
+        lat,
+        lon,
+        hub.center.latitude,
+        hub.center.longitude,
+      );
+      if (d <= serviceHubRadiusM) return true;
+    }
+    return false;
+  }
+
+  /// Haversine distance between two WGS-84 points (meters).
+  static double distanceMeters(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const earthRadiusM = 6371000.0;
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLon = (lon2 - lon1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) *
+            math.cos(lat2 * math.pi / 180) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return earthRadiusM * c;
   }
 }

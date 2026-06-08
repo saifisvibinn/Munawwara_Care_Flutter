@@ -12,6 +12,8 @@ class ManagedPilgrimItem {
   final String phoneNumber;
   final String? nationalId;
   final int? age;
+  final String? gender;
+  final String? profilePicture;
   final String language;
   final String ethnicity;
   final bool isOnline;
@@ -36,6 +38,8 @@ class ManagedPilgrimItem {
     required this.phoneNumber,
     this.nationalId,
     this.age,
+    this.gender,
+    this.profilePicture,
     required this.language,
     required this.ethnicity,
     required this.isOnline,
@@ -63,6 +67,8 @@ class ManagedPilgrimItem {
       phoneNumber: m['phone_number']?.toString() ?? '',
       nationalId: m['national_id']?.toString(),
       age: m['age'] as int?,
+      gender: m['gender']?.toString(),
+      profilePicture: m['profile_picture']?.toString(),
       language: m['language']?.toString() ?? 'en',
       ethnicity: m['ethnicity']?.toString() ?? 'Other',
       isOnline: m['is_online'] == true,
@@ -101,6 +107,8 @@ class ManagedPilgrimItem {
         ethnicity: ethnicity,
         medicalHistory: medicalHistory,
         age: age,
+        gender: gender,
+        profilePicture: profilePicture,
         alternativePhoneNumber: alternativePhoneNumber,
         morafeqName: morafeqName,
         morafeqPhone: morafeqPhone,

@@ -57,6 +57,14 @@ class CreatePilgrimCard extends StatefulWidget {
 
 class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
   final _formKey = GlobalKey<FormState>();
+  final _fullNameFieldKey = GlobalKey<FormFieldState<String>>();
+  final _phoneFieldKey = GlobalKey<FormFieldState<String>>();
+  final _altPhoneFieldKey = GlobalKey<FormFieldState<String>>();
+  final _ageFieldKey = GlobalKey<FormFieldState<String>>();
+  final _morafeqNameFieldKey = GlobalKey<FormFieldState<String>>();
+  final _morafeqPhoneFieldKey = GlobalKey<FormFieldState<String>>();
+  final _morafeqEmailFieldKey = GlobalKey<FormFieldState<String>>();
+  final _ethnicityFieldKey = GlobalKey<FormFieldState<String>>();
   final _fullNameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _altPhoneCtrl = TextEditingController();
@@ -79,6 +87,11 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
   String? _tasheraDocumentName;
   final List<File> _documents = [];
   File? _profilePicture;
+
+  bool _forceMorafeqExpanded = false;
+  int _morafeqExpansionVersion = 0;
+  bool _forceAdditionalExpanded = false;
+  int _additionalExpansionVersion = 0;
 
   @override
   void dispose() {
@@ -288,14 +301,94 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
           isDark: widget.isDark,
           onSelected: (v) {
             setState(() => _selectedEthnicity = v);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _ethnicityFieldKey.currentState?.didChange(_natTr(v));
+              _ethnicityFieldKey.currentState?.validate();
+            });
           },
         );
       },
     );
   }
 
+  void _scrollToField(GlobalKey<FormFieldState<dynamic>> fieldKey) {
+    final fieldContext = fieldKey.currentContext;
+    if (fieldContext == null) return;
+    Scrollable.ensureVisible(
+      fieldContext,
+      alignment: 0.12,
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _revealMorafeqSection(VoidCallback afterExpanded) {
+    if (_forceMorafeqExpanded) {
+      afterExpanded();
+      return;
+    }
+    setState(() {
+      _forceMorafeqExpanded = true;
+      _morafeqExpansionVersion++;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) afterExpanded();
+    });
+  }
+
+  void _revealAdditionalDetailsSection(VoidCallback afterExpanded) {
+    if (_forceAdditionalExpanded) {
+      afterExpanded();
+      return;
+    }
+    setState(() {
+      _forceAdditionalExpanded = true;
+      _additionalExpansionVersion++;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) afterExpanded();
+    });
+  }
+
+  void _scrollToFirstError() {
+    final orderedFields = <GlobalKey<FormFieldState<dynamic>>>[
+      _fullNameFieldKey,
+      _phoneFieldKey,
+      _altPhoneFieldKey,
+      _ageFieldKey,
+      _morafeqNameFieldKey,
+      _morafeqPhoneFieldKey,
+      _morafeqEmailFieldKey,
+      _ethnicityFieldKey,
+    ];
+
+    for (final fieldKey in orderedFields) {
+      final fieldState = fieldKey.currentState;
+      if (fieldState == null || !fieldState.hasError) continue;
+
+      final isMorafeqField = identical(fieldKey, _morafeqNameFieldKey) ||
+          identical(fieldKey, _morafeqPhoneFieldKey) ||
+          identical(fieldKey, _morafeqEmailFieldKey);
+      final isAdditionalField = identical(fieldKey, _ethnicityFieldKey);
+
+      if (isMorafeqField) {
+        _revealMorafeqSection(() => _scrollToField(fieldKey));
+        return;
+      }
+      if (isAdditionalField) {
+        _revealAdditionalDetailsSection(() => _scrollToField(fieldKey));
+        return;
+      }
+      _scrollToField(fieldKey);
+      return;
+    }
+  }
+
   void _handleSubmit() {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      _scrollToFirstError();
+      return;
+    }
 
     final selectedHotel =
         widget.hotels.where((h) => h.id == _selectedHotelId).firstOrNull;
@@ -496,6 +589,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       TextFormField(
+                        key: _fullNameFieldKey,
                         controller: _fullNameCtrl,
                         textCapitalization: TextCapitalization.words,
                         autofillHints: const [AutofillHints.name],
@@ -512,6 +606,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                       ),
                       SizedBox(height: g),
                       TextFormField(
+                        key: _phoneFieldKey,
                         controller: _phoneCtrl,
                         keyboardType: TextInputType.phone,
                         autofillHints: const [AutofillHints.telephoneNumber],
@@ -528,6 +623,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                       ),
                       SizedBox(height: g),
                       TextFormField(
+                        key: _altPhoneFieldKey,
                         controller: _altPhoneCtrl,
                         keyboardType: TextInputType.phone,
                         textInputAction: TextInputAction.next,
@@ -602,6 +698,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                     Expanded(
                       flex: 5,
                       child: TextFormField(
+                        key: _ageFieldKey,
                         controller: _ageCtrl,
                         keyboardType: TextInputType.number,
                         textInputAction: TextInputAction.done,
@@ -663,6 +760,11 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                 ),
                 SizedBox(height: g),
                 _MorafeqInfoExpansion(
+                  key: ValueKey('morafeq_exp_$_morafeqExpansionVersion'),
+                  initiallyExpanded: _forceMorafeqExpanded,
+                  onExpansionChanged: (expanded) {
+                    if (!expanded) _forceMorafeqExpanded = false;
+                  },
                   isDark: widget.isDark,
                   textPrimary: textPrimary,
                   textMuted: textMuted,
@@ -670,6 +772,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       TextFormField(
+                        key: _morafeqNameFieldKey,
                         controller: _morafeqNameCtrl,
                         textCapitalization: TextCapitalization.words,
                         textInputAction: TextInputAction.next,
@@ -689,6 +792,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                       ),
                       SizedBox(height: g),
                       TextFormField(
+                        key: _morafeqPhoneFieldKey,
                         controller: _morafeqPhoneCtrl,
                         keyboardType: TextInputType.phone,
                         textInputAction: TextInputAction.next,
@@ -708,6 +812,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                       ),
                       SizedBox(height: g),
                       TextFormField(
+                        key: _morafeqEmailFieldKey,
                         controller: _morafeqEmailCtrl,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
@@ -732,6 +837,11 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                 ),
                 SizedBox(height: g),
                 _AdditionalDetailsExpansion(
+                  key: ValueKey('additional_exp_$_additionalExpansionVersion'),
+                  initiallyExpanded: _forceAdditionalExpanded,
+                  onExpansionChanged: (expanded) {
+                    if (!expanded) _forceAdditionalExpanded = false;
+                  },
                   isDark: widget.isDark,
                   textPrimary: textPrimary,
                   textMuted: textMuted,
@@ -745,7 +855,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                         borderRadius: BorderRadius.circular(12.r),
                         child: IgnorePointer(
                           child: TextFormField(
-                            key: ValueKey('ethnicity_$_selectedEthnicity'),
+                            key: _ethnicityFieldKey,
                             initialValue: _selectedEthnicity == null
                                 ? null
                                 : _natTr(_selectedEthnicity!),
@@ -1176,16 +1286,21 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
 
 class _AdditionalDetailsExpansion extends StatelessWidget {
   const _AdditionalDetailsExpansion({
+    super.key,
     required this.isDark,
     required this.textPrimary,
     required this.textMuted,
     required this.child,
+    this.initiallyExpanded = false,
+    this.onExpansionChanged,
   });
 
   final bool isDark;
   final Color textPrimary;
   final Color textMuted;
   final Widget child;
+  final bool initiallyExpanded;
+  final ValueChanged<bool>? onExpansionChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1211,7 +1326,8 @@ class _AdditionalDetailsExpansion extends StatelessWidget {
             collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
             iconColor: AppColors.primary,
             collapsedIconColor: AppColors.primary,
-            initiallyExpanded: false,
+            initiallyExpanded: initiallyExpanded,
+            onExpansionChanged: onExpansionChanged,
             title: Text(
               'provisioning_additional_details'.tr(),
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -1242,16 +1358,21 @@ class _AdditionalDetailsExpansion extends StatelessWidget {
 
 class _MorafeqInfoExpansion extends StatelessWidget {
   const _MorafeqInfoExpansion({
+    super.key,
     required this.isDark,
     required this.textPrimary,
     required this.textMuted,
     required this.child,
+    this.initiallyExpanded = false,
+    this.onExpansionChanged,
   });
 
   final bool isDark;
   final Color textPrimary;
   final Color textMuted;
   final Widget child;
+  final bool initiallyExpanded;
+  final ValueChanged<bool>? onExpansionChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1277,7 +1398,8 @@ class _MorafeqInfoExpansion extends StatelessWidget {
             collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
             iconColor: AppColors.primary,
             collapsedIconColor: AppColors.primary,
-            initiallyExpanded: false,
+            initiallyExpanded: initiallyExpanded,
+            onExpansionChanged: onExpansionChanged,
             title: Text(
               'morafeq_companion_info'.tr(),
               style: Theme.of(context).textTheme.titleSmall?.copyWith(

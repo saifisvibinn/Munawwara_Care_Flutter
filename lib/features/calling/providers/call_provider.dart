@@ -52,6 +52,9 @@ class CallState {
 
   /// Moderator → pilgrim outbound: [PilgrimGenderAvatar] uses this (null = male default asset).
   final String? remotePeerGender;
+
+  /// Custom pilgrim portrait when available (`profile_picture` from API).
+  final String? remotePeerProfilePicture;
   final bool isMuted;
   final bool isSpeakerOn;
   final int durationSeconds;
@@ -67,6 +70,7 @@ class CallState {
     this.isGroupRingingOut = false,
     this.displayPeerAsSupportBranding = false,
     this.remotePeerGender,
+    this.remotePeerProfilePicture,
     this.isMuted = false,
     this.isSpeakerOn = false,
     this.durationSeconds = 0,
@@ -95,6 +99,7 @@ class CallState {
     bool? isGroupRingingOut,
     bool? displayPeerAsSupportBranding,
     String? remotePeerGender,
+    String? remotePeerProfilePicture,
     bool? isMuted,
     bool? isSpeakerOn,
     int? durationSeconds,
@@ -112,6 +117,8 @@ class CallState {
       displayPeerAsSupportBranding:
           displayPeerAsSupportBranding ?? this.displayPeerAsSupportBranding,
       remotePeerGender: remotePeerGender ?? this.remotePeerGender,
+      remotePeerProfilePicture:
+          remotePeerProfilePicture ?? this.remotePeerProfilePicture,
       isMuted: isMuted ?? this.isMuted,
       isSpeakerOn: isSpeakerOn ?? this.isSpeakerOn,
       durationSeconds: durationSeconds ?? this.durationSeconds,
@@ -272,6 +279,7 @@ class CallNotifier extends Notifier<CallState> {
     required String remoteUserId,
     required String remoteUserName,
     String? remotePeerGender,
+    String? remotePeerProfilePicture,
   }) async {
     if (!await prepareForOutgoingCall()) return;
     final isPilgrimCaller =
@@ -286,6 +294,8 @@ class CallNotifier extends Notifier<CallState> {
       isGroupRingingOut: false,
       displayPeerAsSupportBranding: isPilgrimCaller,
       remotePeerGender: isPilgrimCaller ? null : remotePeerGender,
+      remotePeerProfilePicture:
+          isPilgrimCaller ? null : remotePeerProfilePicture,
     );
     _outgoingCallStartedAt = DateTime.now();
     _syncPreConnectRingback(CallStatus.calling);
@@ -465,6 +475,9 @@ class CallNotifier extends Notifier<CallState> {
   }
 
   /// Idempotent teardown — use for cancel, decline, timeout, and watchdog.
+  ///
+  /// Updates Riverpod to [CallStatus.ended] immediately so the in-app UI
+  /// responds on tap; native CallKit cleanup runs in the background.
   Future<void> forceIdleCallSession({
     required String endReason,
     bool goIdleImmediately = false,
@@ -473,11 +486,6 @@ class CallNotifier extends Notifier<CallState> {
     _stopRingPoll();
     _stopSessionWatchdog();
     _stopConnectingTimeout();
-    try {
-      await CallKitService.instance.endAllCalls();
-    } catch (e) {
-      AppLogger.w('[CallProvider] forceIdle endAllCalls failed: $e');
-    }
     _cleanup();
     state = state.copyWith(
       status: CallStatus.ended,
@@ -492,6 +500,16 @@ class CallNotifier extends Notifier<CallState> {
       state = CallState(cooldownSeconds: state.cooldownSeconds);
     } else {
       _scheduleReset(delaySeconds: scheduleResetDelaySeconds);
+    }
+
+    unawaited(_tearDownCallKitInBackground());
+  }
+
+  Future<void> _tearDownCallKitInBackground() async {
+    try {
+      await CallKitService.instance.endAllCalls();
+    } catch (e) {
+      AppLogger.w('[CallProvider] forceIdle endAllCalls failed: $e');
     }
   }
 
@@ -698,13 +716,13 @@ class CallNotifier extends Notifier<CallState> {
     }
   }
 
-  /// Best-effort peer id for signaling when [CallState.remoteUserId] was cleared.
-  Future<String?> _resolveRemotePeerId() async {
+  /// Synchronous peer id for hang-up UI — avoids disk reads on the hot path.
+  String? _peekRemotePeerId() {
     final fromState = state.remoteUserId;
     if (fromState != null && fromState.isNotEmpty) return fromState;
     final pending = _pendingFromId;
     if (pending != null && pending.isNotEmpty) return pending;
-    return _readPersistedOutgoingReceiverId();
+    return null;
   }
 
   /// Decline an incoming call.
@@ -718,19 +736,29 @@ class CallNotifier extends Notifier<CallState> {
   }
 
   Future<void> _declineCallInternal({required bool noAnswer}) async {
-    final remoteId = await _resolveRemotePeerId();
-    if (remoteId != null && remoteId.isNotEmpty) {
-      CallSignaling.emitWhenConnected('call-declined', {
-        'to': remoteId,
-        if (noAnswer) 'noAnswer': true,
-      });
-      CallSignaling.notifyDeclineHttp(
-        remoteId,
-        SocketService.connectedUserId,
-        noAnswer: noAnswer,
-      );
-    }
+    final remoteId = _peekRemotePeerId();
     await forceIdleCallSession(endReason: noAnswer ? 'missed' : 'declined');
+    unawaited(_emitDeclineSignaling(remoteId: remoteId, noAnswer: noAnswer));
+  }
+
+  Future<void> _emitDeclineSignaling({
+    required String? remoteId,
+    required bool noAnswer,
+  }) async {
+    var peerId = remoteId;
+    if (peerId == null || peerId.isEmpty) {
+      peerId = await _readPersistedOutgoingReceiverId();
+    }
+    if (peerId == null || peerId.isEmpty) return;
+    CallSignaling.emitWhenConnected('call-declined', {
+      'to': peerId,
+      if (noAnswer) 'noAnswer': true,
+    });
+    CallSignaling.notifyDeclineHttp(
+      peerId,
+      SocketService.connectedUserId,
+      noAnswer: noAnswer,
+    );
   }
 
   /// Decline a call when we only have the caller id (killed-state fallback).
@@ -759,18 +787,36 @@ class CallNotifier extends Notifier<CallState> {
 
   Future<void> _endCallInternal() async {
     _stopRingPoll();
-    final remoteId = await _resolveRemotePeerId();
-    if (remoteId != null && remoteId.isNotEmpty) {
-      CallSignaling.emitWhenConnected('call-end', {'to': remoteId});
-    }
+    final remoteId = _peekRemotePeerId();
     final isMod = ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
     final wasActive =
         state.status == CallStatus.connected ||
         state.status == CallStatus.connecting;
-    if (isMod && wasActive && remoteId != null && remoteId.isNotEmpty) {
-      unawaited(SosAlertCoordinator.afterModeratorEndedCall(remoteId));
-    }
     await forceIdleCallSession(endReason: 'ended');
+    unawaited(
+      _emitCallEndSignaling(
+        remoteId: remoteId,
+        isMod: isMod,
+        wasActive: wasActive,
+      ),
+    );
+  }
+
+  Future<void> _emitCallEndSignaling({
+    required String? remoteId,
+    required bool isMod,
+    required bool wasActive,
+  }) async {
+    var peerId = remoteId;
+    if (peerId == null || peerId.isEmpty) {
+      peerId = await _readPersistedOutgoingReceiverId();
+    }
+    if (peerId != null && peerId.isNotEmpty) {
+      CallSignaling.emitWhenConnected('call-end', {'to': peerId});
+    }
+    if (isMod && wasActive && peerId != null && peerId.isNotEmpty) {
+      unawaited(SosAlertCoordinator.afterModeratorEndedCall(peerId));
+    }
   }
 
   /// Caller cancelled while still ringing — notify callee only via `call-cancel`.
@@ -852,6 +898,8 @@ class CallNotifier extends Notifier<CallState> {
     final pending = await CallKitService.readPendingIncomingCall();
     final pendingRecordId = pending?['callRecordId'];
     final pendingGender = pending?['callerGender']?.trim();
+    final pendingProfilePicture =
+        pending?['callerProfilePicture']?.trim();
     final allowed = await CallKitService.verifyIncomingCallActive(
       callerId: callerId,
       callRecordId: pendingRecordId,
@@ -884,6 +932,12 @@ class CallNotifier extends Notifier<CallState> {
               pendingGender.isEmpty
           ? null
           : pendingGender,
+      remotePeerProfilePicture:
+          isPilgrimCallee ||
+              pendingProfilePicture == null ||
+              pendingProfilePicture.isEmpty
+          ? null
+          : pendingProfilePicture,
     );
     _startSessionWatchdog();
 
@@ -1058,6 +1112,9 @@ class CallNotifier extends Notifier<CallState> {
     final callerInfo = payload['callerInfo'] as Map?;
     final callerName = callerInfo?['name'] as String? ?? 'Unknown';
     final callerRole = callerInfo?['role'] as String?;
+    final callerProfilePicture =
+        callerInfo?['profile_picture']?.toString() ??
+        callerInfo?['profilePicture']?.toString();
     var callerGender = CallerGenderCache.normalize(
       callerInfo?['gender']?.toString(),
     );
@@ -1089,6 +1146,7 @@ class CallNotifier extends Notifier<CallState> {
       callerRole: callerRole,
       callRecordId: recordId,
       callerGender: callerGender,
+      callerProfilePicture: callerProfilePicture,
       // Socket call-offer is authoritative; avoid fail-closed check-active race.
       skipServerVerify: true,
     );
@@ -1100,6 +1158,7 @@ class CallNotifier extends Notifier<CallState> {
       incomingDisplayName: supportLabel,
       displayPeerAsSupportBranding: isPilgrim,
       remotePeerGender: isPilgrim ? null : callerGender,
+      remotePeerProfilePicture: isPilgrim ? null : callerProfilePicture,
     );
     _startSessionWatchdog();
   }

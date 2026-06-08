@@ -774,7 +774,7 @@
   "explore_open_maps_open": "فتح",
   "explore_open_maps_failed_title": "تعذر فتح الخرائط",
   "explore_open_maps_failed_body": "لم يتم العثور على تطبيق خرائط للتنقل على هذا الجهاز.",
-  "explore_outside_ksa_warning": "أنت خارج مكة/المدينة. سيتم عرض نقاط مهمّة للحج (مكة) بدلاً من الأماكن القريبة.",
+  "explore_outside_ksa_warning": "أنت خارج مكة أو المدينة أو جدة. سيتم عرض نقاط مهمّة للحج (مكة) بدلاً من الأماكن القريبة.",
   "explore_outside_ksa_distance": "خارج نطاق التغطية",
   "sos_hold_label": "اضغط",
   "sos_active_text": "نشط",

@@ -576,6 +576,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                             remoteUserId: pilgrim.id,
                             remoteUserName: pilgrim.fullName,
                             remotePeerGender: pilgrim.gender,
+                            remotePeerProfilePicture: pilgrim.profilePicture,
                           );
                       Navigator.push(
                         ctx,
@@ -583,6 +584,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                           builder: (_) => VoiceCallScreen(
                             initialPeerName: pilgrim.fullName,
                             initialPeerGender: pilgrim.gender,
+                            initialPeerProfilePicture: pilgrim.profilePicture,
                           ),
                         ),
                       );
@@ -3465,6 +3467,7 @@ class _PilgrimManageTile extends StatelessWidget {
                         : PilgrimGenderAvatar(
                             gender: pilgrim.gender,
                             size: 37.w,
+                            imageUrl: pilgrim.profilePicture,
                           ),
                   ),
                   Positioned(

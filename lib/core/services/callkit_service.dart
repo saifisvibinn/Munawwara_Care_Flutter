@@ -43,6 +43,8 @@ class CallKitService {
   static const _pendingCallerNameKey = 'pending_call_caller_name';
   static const _pendingCallerRoleKey = 'pending_call_caller_role';
   static const _pendingCallerGenderKey = 'pending_call_caller_gender';
+  static const _pendingCallerProfilePictureKey =
+      'pending_call_caller_profile_picture';
   static const _pendingChannelNameKey = 'pending_call_channel_name';
   static const _pendingCreatedAtMsKey = 'pending_call_created_at_ms';
   static const _pendingCallUuidKey = 'pending_call_uuid';
@@ -121,6 +123,7 @@ class CallKitService {
     String? callRecordId,
     String? displayName,
     String? callerGender,
+    String? callerProfilePicture,
     bool skipServerVerify = false,
   }) async {
     // ── Guard 1: Dart-side flag (with stale-state recovery) ─────────────
@@ -214,18 +217,37 @@ class CallKitService {
     final nativeCallerLine = useSupportBranding
         ? await _resolveSupportDisplayName(displayName)
         : (displayName?.trim().isNotEmpty == true ? displayName!.trim() : callerName);
+    final isPilgrimCaller = _isPilgrimCallerRole(callerRole);
     var resolvedGender = CallerGenderCache.normalize(callerGender);
     if (!useSupportBranding && callerId.trim().isNotEmpty) {
       final fromCache = await CallerGenderCache.resolve(callerId);
       resolvedGender ??= fromCache;
     }
-    final avatarAsset = useSupportBranding
-        ? kCallKitSupportAvatarAsset
-        : PilgrimGenderAvatar.assetPathForGender(resolvedGender);
+    var resolvedProfilePicture = callerProfilePicture?.trim();
+    if (!useSupportBranding &&
+        isPilgrimCaller &&
+        (resolvedProfilePicture == null || resolvedProfilePicture.isEmpty) &&
+        callerId.trim().isNotEmpty) {
+      resolvedProfilePicture =
+          await CallerGenderCache.resolveProfilePicture(callerId);
+    }
+    final avatar = _resolveCallKitAvatar(
+      useSupportBranding: useSupportBranding,
+      isPilgrimCaller: isPilgrimCaller,
+      resolvedGender: resolvedGender,
+      profilePictureUrl: resolvedProfilePicture,
+    );
+    final Map<String, dynamic> avatarHeaders = {};
+    if (avatar.startsWith('http')) {
+      final token = await SecureSessionStore.getToken();
+      if (token != null && token.isNotEmpty) {
+        avatarHeaders['Authorization'] = 'Bearer $token';
+      }
+    }
     AppLogger.i(
-      '📞 CallKit avatar role=$role caller=$callerId '
+      '📞 CallKit avatar role=$role caller=$callerId pilgrim=$isPilgrimCaller '
       'fcmGender=${callerGender ?? "—"} resolved=${resolvedGender ?? "—"} '
-      'asset=$avatarAsset',
+      'avatar=${avatar.startsWith("http") ? "url" : avatar}',
     );
     final apiBaseUrl = prefs.getString(kNativeApiBaseUrlPrefsKey) ??
         kNativeApiBaseUrlFallback;
@@ -238,6 +260,7 @@ class CallKitService {
       callRecordId: callRecordId,
       apiBaseUrl: apiBaseUrl,
       callerGender: resolvedGender ?? callerGender,
+      callerProfilePicture: resolvedProfilePicture ?? callerProfilePicture,
     );
 
     final androidParams = AndroidParams(
@@ -258,7 +281,7 @@ class CallKitService {
       id: _currentCallId!,
       nameCaller: nativeCallerLine,
       appName: 'Munawwara Care',
-      avatar: avatarAsset,
+      avatar: avatar,
       handle: callerRole ?? 'Voice Call',
       type: 0, // 0 = audio call, 1 = video call
       duration: 35000, // 35s CallKit ring; server timeout is 45s (10s gap)
@@ -282,7 +305,7 @@ class CallKitService {
         if (callerGender != null && callerGender.trim().isNotEmpty)
           'callerGender': callerGender.trim(),
       },
-      headers: <String, dynamic>{},
+      headers: avatarHeaders,
       android: androidParams,
       ios: const IOSParams(
         iconName: 'AppIcon',
@@ -602,6 +625,7 @@ class CallKitService {
     String? callRecordId,
     String? apiBaseUrl,
     String? callerGender,
+    String? callerProfilePicture,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_pendingCallerIdKey, callerId);
@@ -612,6 +636,12 @@ class CallKitService {
       await prefs.setString(_pendingCallerGenderKey, gender);
     } else {
       await prefs.remove(_pendingCallerGenderKey);
+    }
+    final profilePicture = callerProfilePicture?.trim() ?? '';
+    if (profilePicture.isNotEmpty) {
+      await prefs.setString(_pendingCallerProfilePictureKey, profilePicture);
+    } else {
+      await prefs.remove(_pendingCallerProfilePictureKey);
     }
     await prefs.setString(_pendingChannelNameKey, channelName);
     final resolvedApiBaseUrl = apiBaseUrl?.trim();
@@ -651,6 +681,8 @@ class CallKitService {
       'channelName': channelName,
       'callRecordId': prefs.getString(_pendingCallRecordIdKey) ?? '',
       'callerGender': prefs.getString(_pendingCallerGenderKey) ?? '',
+      'callerProfilePicture':
+          prefs.getString(_pendingCallerProfilePictureKey) ?? '',
       'createdAtMs': (prefs.getInt(_pendingCreatedAtMsKey) ?? 0).toString(),
     };
   }
@@ -682,6 +714,7 @@ class CallKitService {
     await prefs.remove(_pendingCallUuidKey);
     await prefs.remove(_pendingCallRecordIdKey);
     await prefs.remove(_pendingCallerGenderKey);
+    await prefs.remove(_pendingCallerProfilePictureKey);
   }
 
   static Future<bool> _isCancelForCurrentIncoming(String cancelRecordId) async {
@@ -763,6 +796,7 @@ class CallKitService {
     final displayName = data['displayName']?.toString() ??
         data['callerDisplayName']?.toString();
     final callerGender = data['callerGender']?.toString();
+    final callerProfilePicture = data['callerProfilePicture']?.toString();
 
     AppLogger.i('📞 FCM incoming_call detected — showing native call screen');
     AppLogger.i('   Caller: $callerName ($callerId)');
@@ -777,6 +811,7 @@ class CallKitService {
         callRecordId: callRecordId.isNotEmpty ? callRecordId : null,
         displayName: displayName,
         callerGender: callerGender,
+        callerProfilePicture: callerProfilePicture,
         // FCM IS the server's signal — skip the redundant check-active HTTP
         // call which fails in the background isolate (ApiService not init'd).
         skipServerVerify: true,
@@ -788,4 +823,30 @@ class CallKitService {
 
     return true;
   }
+}
+
+bool _isPilgrimCallerRole(String? role) {
+  final normalized = role?.toLowerCase().trim() ?? '';
+  return normalized == 'pilgrim';
+}
+
+/// Pilgrim callers: custom [profilePictureUrl] or gender default asset.
+/// Pilgrim callees (moderator ring): Munawwara support icon.
+String _resolveCallKitAvatar({
+  required bool useSupportBranding,
+  required bool isPilgrimCaller,
+  required String? resolvedGender,
+  required String? profilePictureUrl,
+}) {
+  if (useSupportBranding) {
+    return kCallKitSupportAvatarAsset;
+  }
+  if (isPilgrimCaller) {
+    final picture = profilePictureUrl?.trim();
+    if (picture != null && picture.isNotEmpty) {
+      return picture;
+    }
+    return PilgrimGenderAvatar.assetPathForGender(resolvedGender);
+  }
+  return PilgrimGenderAvatar.assetPathForGender(resolvedGender);
 }

@@ -115,7 +115,7 @@ c:\Users\drago\Desktop\projects\Durrah care mob app\
 
 ### Detailed Breakdown of File Roles:
 *   **[call_provider.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/features/calling/providers/call_provider.dart)** *(Core State)*:  
-    Owns the Riverpod state machine (`idle` $\rightarrow$ `calling` $\rightarrow$ `connecting` $\rightarrow$ `connected` $\rightarrow$ `ended` $\rightarrow$ `idle`). Manages local Media streams (Agora join/leave), toggles mute/speaker, runs the periodic **ring watchdog poll** to detect background declines, and enforces the mandatory **10-second post-call cooldown**.
+    Owns the Riverpod state machine (`idle` $\rightarrow$ `calling` $\rightarrow$ `connecting` $\rightarrow$ `connected` $\rightarrow$ `ended` $\rightarrow$ `idle`). Manages local Media streams (Agora join/leave), toggles mute/speaker, runs the periodic **ring watchdog poll** to detect background declines, and enforces the mandatory **10-second post-call cooldown**. `forceIdleCallSession()` flips to `ended` **before** native CallKit teardown so the in-app hang-up UI is instant; socket `call-end` / decline emits run afterward in the background.
 *   **[native_call_coordinator.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/features/calling/native_call_coordinator.dart)** *(CallKit Bridge)*:  
     Bridges the native CallKit system events (`actionCallAccept`, `actionCallDecline`, `actionCallTimeout`, `actionCallEnded`) to Riverpod call state transitions. Implements cold-start/background **call recovery** when the app is launched by clicking the CallKit "Accept" button.
 *   **[call_navigation.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/features/calling/call_navigation.dart)** *(Routing)*:  
@@ -125,7 +125,7 @@ c:\Users\drago\Desktop\projects\Durrah care mob app\
 *   **[voice_call_screen.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/features/calling/screens/voice_call_screen.dart)** *(Caller ID Screen)*:  
     The primary full-screen UI. Displays the peer's name, avatar initials, call status, speaker/mute control panel, and the red end-call button.
 *   **[callkit_service.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/core/services/callkit_service.dart)**:  
-    Configures and spawns the native iOS/Android system calling screens. Parses raw FCM data to extract calling controls.
+    Configures and spawns the native iOS/Android system calling screens. Parses raw FCM data to extract calling controls. For **pilgrim callers** (moderator receiving), CallKit `avatar` is the pilgrim’s `profile_picture` HTTPS URL when set, otherwise the gender default ihram asset; pilgrims receiving moderator calls keep the Munawwara support icon.
 *   **[mobile_messaging_bootstrap.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/core/bootstrap/mobile_messaging_bootstrap.dart)**:  
     The global messaging hub. Handshakes incoming foreground FCM notifications, filtering out general messages while routing high-priority call controls (`call_declined`, `call_cancel`, `call_ended`, `call_answered`) directly to `NativeCallCoordinator`.
 *   **[socket_manager.js](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/mc_backend_app/sockets/socket_manager.js)**:  

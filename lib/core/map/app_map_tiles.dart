@@ -30,6 +30,10 @@ class AppMapTiles {
     return TileLayer(
       urlTemplate: _osmUrl,
       userAgentPackageName: userAgentPackageName,
+      // Avoid IMAGE RESOURCE SERVICE crashes when offline / OSM unreachable.
+      tileProvider: NetworkTileProvider(
+        silenceExceptions: true,
+      ),
     );
   }
 

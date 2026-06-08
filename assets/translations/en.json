@@ -782,7 +782,7 @@
   "explore_open_maps_open": "Open",
   "explore_open_maps_failed_title": "Could not open maps",
   "explore_open_maps_failed_body": "No maps app was found to handle navigation on this device.",
-  "explore_outside_ksa_warning": "You are outside Mecca/Medina. Showing pilgrimage hotspots (Mecca) instead of nearby places.",
+  "explore_outside_ksa_warning": "You are outside Mecca, Medina, or Jeddah. Showing pilgrimage hotspots (Mecca) instead of nearby places.",
   "explore_outside_ksa_distance": "Outside coverage area",
   "sos_hold_label": "HOLD",
   "sos_active_text": "ACTIVE",

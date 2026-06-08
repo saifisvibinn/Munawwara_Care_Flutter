@@ -43,6 +43,7 @@ class PilgrimInGroup {
   final String? phoneNumber;
   final int? age;
   final String? gender;
+  final String? profilePicture;
   final String? medicalHistory;
   final double? lat;
   final double? lng;
@@ -72,6 +73,7 @@ class PilgrimInGroup {
     this.phoneNumber,
     this.age,
     this.gender,
+    this.profilePicture,
     this.medicalHistory,
     this.lat,
     this.lng,
@@ -104,6 +106,7 @@ class PilgrimInGroup {
       phoneNumber: j['phone_number']?.toString(),
       age: (j['age'] as num?)?.toInt(),
       gender: j['gender']?.toString(),
+      profilePicture: j['profile_picture']?.toString(),
       medicalHistory: j['medical_history']?.toString(),
       lat: (loc?['lat'] as num?)?.toDouble(),
       lng: (loc?['lng'] as num?)?.toDouble(),
@@ -157,6 +160,7 @@ class PilgrimInGroup {
     phoneNumber: phoneNumber,
     age: age,
     gender: gender,
+    profilePicture: profilePicture,
     medicalHistory: medicalHistory,
     lat: lat ?? this.lat,
     lng: lng ?? this.lng,
