@@ -1300,6 +1300,8 @@
   "profile_visa_status": "حالة التأشيرة",
   "profile_visa_number": "رقم التأشيرة",
   "profile_no_medical_history": "لم يتم تقديم التاريخ الطبي.",
+  "profile_medical_history_unavailable": "تعذر تحميل التاريخ الطبي. اسحب لتحديث المجموعة أو حاول مرة أخرى لاحقاً.",
+  "profile_details_load_failed": "تعذر تحديث تفاصيل الملف الشخصي.",
   "profile_age_years": "{} سنين",
   "ethnicity": "الجنسية",
   "manage_no_matching_groups": "لم يتم العثور على مجموعات مطابقة.",

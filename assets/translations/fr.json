@@ -1297,6 +1297,8 @@
   "profile_visa_status": "Statut du visa",
   "profile_visa_number": "Numéro de visa",
   "profile_no_medical_history": "Aucun antécédent médical fourni.",
+  "profile_medical_history_unavailable": "Impossible de charger l'antécédent médical. Tirez pour actualiser le groupe ou réessayez plus tard.",
+  "profile_details_load_failed": "Impossible d'actualiser les détails du profil.",
   "profile_age_years": "{} années",
   "ethnicity": "Nationalité",
   "manage_no_matching_groups": "Aucun groupe correspondant trouvé.",

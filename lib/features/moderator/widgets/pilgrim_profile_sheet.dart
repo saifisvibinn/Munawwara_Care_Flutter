@@ -13,6 +13,14 @@ import '../providers/moderator_provider.dart';
 import '../screens/document_viewer_screen.dart';
 import '../screens/individual_messages_screen.dart';
 
+/// True when [value] matches backend AES iv:ciphertext hex wire format.
+bool _looksLikeEncryptedField(String? value) {
+  if (value == null || value.isEmpty) return false;
+  final colon = value.indexOf(':');
+  if (colon != 32) return false;
+  return RegExp(r'^[0-9a-f]+:', caseSensitive: false).hasMatch(value);
+}
+
 void showPilgrimProfileSheet(
   BuildContext context,
   PilgrimInGroup pilgrim,
@@ -35,7 +43,7 @@ void showPilgrimProfileSheet(
   );
 }
 
-class _PilgrimProfileSheet extends ConsumerWidget {
+class _PilgrimProfileSheet extends ConsumerStatefulWidget {
   final PilgrimInGroup pilgrim;
   final String groupId;
   final String currentUserId;
@@ -49,11 +57,49 @@ class _PilgrimProfileSheet extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bg = isDark ? AppColors.backgroundDark : Colors.white;
-    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
-    final textMuted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+  ConsumerState<_PilgrimProfileSheet> createState() =>
+      _PilgrimProfileSheetState();
+}
+
+class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
+  late PilgrimInGroup _pilgrim;
+  bool _isLoadingDetails = true;
+  String? _detailsError;
+
+  @override
+  void initState() {
+    super.initState();
+    _pilgrim = widget.pilgrim;
+    _loadProfileDetails();
+  }
+
+  Future<void> _loadProfileDetails() async {
+    final fetched = await ref
+        .read(moderatorProvider.notifier)
+        .fetchPilgrimById(widget.pilgrim.id);
+    if (!mounted) return;
+    setState(() {
+      _isLoadingDetails = false;
+      if (fetched != null) {
+        _pilgrim = widget.pilgrim.mergeProfileDetails(fetched);
+        _detailsError = null;
+      } else {
+        _detailsError = 'profile_details_load_failed'.tr();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = widget.isDark ? AppColors.backgroundDark : Colors.white;
+    final textPrimary =
+        widget.isDark ? AppColors.textLight : AppColors.textDark;
+    final textMuted =
+        widget.isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
     final cooldownSeconds = ref.watch(callProvider).cooldownSeconds;
+    final medicalHistory = _pilgrim.medicalHistory;
+    final hasEncryptedMedicalHistory =
+        _looksLikeEncryptedField(medicalHistory);
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
@@ -69,7 +115,7 @@ class _PilgrimProfileSheet extends ConsumerWidget {
             width: 40.w,
             height: 4.h,
             decoration: BoxDecoration(
-              color: isDark ? Colors.white24 : Colors.black12,
+              color: widget.isDark ? Colors.white24 : Colors.black12,
               borderRadius: BorderRadius.circular(2.r),
             ),
           ),
@@ -105,10 +151,10 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                 Container(
                   padding: EdgeInsets.all(16.w),
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.surfaceDark : AppColors.primary.withValues(alpha: 0.05),
+                    color: widget.isDark ? AppColors.surfaceDark : AppColors.primary.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(20.r),
                     border: Border.all(
-                      color: isDark ? AppColors.dividerDark : AppColors.primary.withValues(alpha: 0.1),
+                      color: widget.isDark ? AppColors.dividerDark : AppColors.primary.withValues(alpha: 0.1),
                     ),
                   ),
                   child: Row(
@@ -117,13 +163,13 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                         width: 64.w,
                         height: 64.w,
                         decoration: BoxDecoration(
-                          color: pilgrim.hasSOS
+                          color: _pilgrim.hasSOS
                               ? AppColors.error
                               : AppColors.primary.withValues(alpha: 0.12),
                           shape: BoxShape.circle,
                         ),
                         clipBehavior: Clip.antiAlias,
-                        child: pilgrim.hasSOS
+                        child: _pilgrim.hasSOS
                             ? Center(
                                 child: Icon(
                                   Symbols.warning,
@@ -133,9 +179,9 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                                 ),
                               )
                             : PilgrimGenderAvatar(
-                                gender: pilgrim.gender,
+                                gender: _pilgrim.gender,
                                 size: 64.w,
-                                imageUrl: pilgrim.profilePicture,
+                                imageUrl: _pilgrim.profilePicture,
                               ),
                       ),
                       SizedBox(width: 16.w),
@@ -144,7 +190,7 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              pilgrim.fullName,
+                              _pilgrim.fullName,
                               style: TextStyle(
                                 fontFamily: 'Lexend',
                                 fontSize: 18.sp,
@@ -159,33 +205,33 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                                   width: 8.w,
                                   height: 8.w,
                                   decoration: BoxDecoration(
-                                    color: pilgrim.isOnline ? AppColors.success : Colors.grey,
+                                    color: _pilgrim.isOnline ? AppColors.success : Colors.grey,
                                     shape: BoxShape.circle,
                                   ),
                                 ),
                                 SizedBox(width: 6.w),
                                 Text(
-                                  pilgrim.isOnline ? 'dashboard_active'.tr() : 'profile_offline'.tr(),
+                                  _pilgrim.isOnline ? 'dashboard_active'.tr() : 'profile_offline'.tr(),
                                   style: TextStyle(
                                     fontFamily: 'Lexend',
                                     fontSize: 12.sp,
-                                    color: pilgrim.isOnline ? AppColors.success : textMuted,
+                                    color: _pilgrim.isOnline ? AppColors.success : textMuted,
                                   ),
                                 ),
-                                if (pilgrim.batteryPercent != null) ...[
+                                if (_pilgrim.batteryPercent != null) ...[
                                   SizedBox(width: 12.w),
                                   Icon(
                                     Symbols.battery_5_bar,
                                     size: 14.w,
-                                    color: _getBatteryColor(pilgrim.batteryStatus),
+                                    color: _getBatteryColor(_pilgrim.batteryStatus),
                                   ),
                                   SizedBox(width: 4.w),
                                   Text(
-                                    '${pilgrim.batteryPercent}%',
+                                    '${_pilgrim.batteryPercent}%',
                                     style: TextStyle(
                                       fontFamily: 'Lexend',
                                       fontSize: 12.sp,
-                                      color: _getBatteryColor(pilgrim.batteryStatus),
+                                      color: _getBatteryColor(_pilgrim.batteryStatus),
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -215,12 +261,12 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                             context,
                             MaterialPageRoute(
                               builder: (_) => IndividualMessagesScreen(
-                                groupId: groupId,
+                                groupId: widget.groupId,
                                 groupName: 'msg_private_header'.tr(),
-                                recipientId: pilgrim.id,
-                                recipientName: pilgrim.fullName,
-                                currentUserId: currentUserId,
-                                recipientLanguage: pilgrim.language,
+                                recipientId: _pilgrim.id,
+                                recipientName: _pilgrim.fullName,
+                                currentUserId: widget.currentUserId,
+                                recipientLanguage: _pilgrim.language,
                               ),
                             ),
                           );
@@ -236,20 +282,20 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                         onTap: cooldownSeconds > 0 ? null : () {
                           Navigator.pop(context);
                           ref.read(callProvider.notifier).startCall(
-                                remoteUserId: pilgrim.id,
-                                remoteUserName: pilgrim.fullName,
-                                remotePeerGender: pilgrim.gender,
+                                remoteUserId: _pilgrim.id,
+                                remoteUserName: _pilgrim.fullName,
+                                remotePeerGender: _pilgrim.gender,
                                 remotePeerProfilePicture:
-                                    pilgrim.profilePicture,
+                                    _pilgrim.profilePicture,
                               );
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => VoiceCallScreen(
-                                initialPeerName: pilgrim.fullName,
-                                initialPeerGender: pilgrim.gender,
+                                initialPeerName: _pilgrim.fullName,
+                                initialPeerGender: _pilgrim.gender,
                                 initialPeerProfilePicture:
-                                    pilgrim.profilePicture,
+                                    _pilgrim.profilePicture,
                               ),
                             ),
                           );
@@ -259,15 +305,15 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                   ],
                 ),
 
-                if (pilgrim.phoneNumber != null) ...[
+                if (_pilgrim.phoneNumber != null) ...[
                   SizedBox(height: 12.h),
                   _ActionButton(
                     icon: Symbols.phone_forwarded,
-                    label: 'profile_call_via_carrier'.tr(args: ['${pilgrim.phoneNumber}']),
+                    label: 'profile_call_via_carrier'.tr(args: ['${_pilgrim.phoneNumber}']),
                     color: textMuted,
                     isOutlined: true,
                     onTap: () async {
-                      final cleaned = pilgrim.phoneNumber!.replaceAll(RegExp(r'[^\d+]'), '');
+                      final cleaned = _pilgrim.phoneNumber!.replaceAll(RegExp(r'[^\d+]'), '');
                       final uri = Uri.parse('tel:$cleaned');
                       if (await canLaunchUrl(uri)) {
                         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -279,24 +325,24 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                 SizedBox(height: 32.h),
 
                 // Travel & Accommodation Section
-                _SectionTitle(title: 'profile_travel_accommodation'.tr(), isDark: isDark),
+                _SectionTitle(title: 'profile_travel_accommodation'.tr(), isDark: widget.isDark),
                 _ProfileInfoRow(
                   icon: Symbols.apartment,
                   label: 'group_hotel_name'.tr(),
-                  value: pilgrim.hotelName ?? 'profile_not_assigned'.tr(),
-                  isDark: isDark,
+                  value: _pilgrim.hotelName ?? 'profile_not_assigned'.tr(),
+                  isDark: widget.isDark,
                 ),
                 _ProfileInfoRow(
                   icon: Symbols.meeting_room,
                   label: 'group_room_number'.tr(),
-                  value: pilgrim.roomNumber ?? 'profile_not_assigned'.tr(),
-                  isDark: isDark,
+                  value: _pilgrim.roomNumber ?? 'profile_not_assigned'.tr(),
+                  isDark: widget.isDark,
                 ),
                 _ProfileInfoRow(
                   icon: Symbols.directions_bus,
                   label: 'group_bus_number'.tr(),
-                  value: pilgrim.busInfo ?? 'profile_not_assigned'.tr(),
-                  isDark: isDark,
+                  value: _pilgrim.busInfo ?? 'profile_not_assigned'.tr(),
+                  isDark: widget.isDark,
                 ),
 
                 SizedBox(height: 24.h),
@@ -305,106 +351,146 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                 _ProfileInfoRow(
                   icon: Symbols.tag,
                   label: 'Tashera Number',
-                  value: pilgrim.tasheraNumber ?? 'profile_not_provided'.tr(),
-                  isDark: isDark,
+                  value: _sensitiveFieldLabel(_pilgrim.tasheraNumber),
+                  isDark: widget.isDark,
                 ),
 
                 SizedBox(height: 24.h),
 
                 // Insurance Details
-                _SectionTitle(title: 'Insurance Details', isDark: isDark),
+                _SectionTitle(title: 'Insurance Details', isDark: widget.isDark),
                 _ProfileInfoRow(
                   icon: Symbols.health_and_safety,
                   label: 'Insurance Company',
-                  value: pilgrim.insuranceCompany?.name ?? 'profile_not_provided'.tr(),
-                  isDark: isDark,
+                  value: _pilgrim.insuranceCompany?.name ?? 'profile_not_provided'.tr(),
+                  isDark: widget.isDark,
                 ),
 
                 SizedBox(height: 24.h),
 
                 // Medical History
-                _SectionTitle(title: 'profile_medical_history'.tr(), isDark: isDark),
+                _SectionTitle(title: 'profile_medical_history'.tr(), isDark: widget.isDark),
                 Container(
                   width: double.infinity,
                   padding: EdgeInsets.all(16.w),
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+                    color: widget.isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
                     borderRadius: BorderRadius.circular(12.r),
                     border: Border.all(
-                      color: pilgrim.medicalHistory != null && pilgrim.medicalHistory!.isNotEmpty
+                      color: medicalHistory != null &&
+                              medicalHistory!.isNotEmpty &&
+                              !hasEncryptedMedicalHistory
                           ? AppColors.error.withValues(alpha: 0.2)
                           : Colors.transparent,
                     ),
                   ),
-                  child: Text(
-                    (pilgrim.medicalHistory == null || pilgrim.medicalHistory!.isEmpty)
-                        ? 'profile_no_medical_history'.tr()
-                        : pilgrim.medicalHistory!,
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 14.sp,
-                      color: textPrimary,
-                      height: 1.5,
+                  child: _isLoadingDetails
+                      ? Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8.h),
+                            child: SizedBox(
+                              width: 22.w,
+                              height: 22.w,
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            ),
+                          ),
+                        )
+                      : hasEncryptedMedicalHistory
+                          ? SelectableText.rich(
+                              TextSpan(
+                                text: 'profile_medical_history_unavailable'.tr(),
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 14.sp,
+                                  color: AppColors.error,
+                                  height: 1.5,
+                                ),
+                              ),
+                            )
+                          : Text(
+                              (medicalHistory == null || medicalHistory!.isEmpty)
+                                  ? 'profile_no_medical_history'.tr()
+                                  : medicalHistory!,
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontSize: 14.sp,
+                                color: textPrimary,
+                                height: 1.5,
+                              ),
+                            ),
+                ),
+                if (_detailsError != null && !hasEncryptedMedicalHistory) ...[
+                  SizedBox(height: 8.h),
+                  SelectableText.rich(
+                    TextSpan(
+                      text: _detailsError,
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 12.sp,
+                        color: AppColors.error,
+                      ),
                     ),
                   ),
-                ),
+                ],
 
                 SizedBox(height: 24.h),
 
                 // Personal Details
-                _SectionTitle(title: 'profile_personal_details'.tr(), isDark: isDark),
+                _SectionTitle(title: 'profile_personal_details'.tr(), isDark: widget.isDark),
                 _ProfileInfoRow(
                   icon: Symbols.badge,
                   label: 'profile_national_id'.tr(),
-                  value: pilgrim.nationalId ?? 'profile_not_provided'.tr(),
-                  isDark: isDark,
+                  value: _sensitiveFieldLabel(_pilgrim.nationalId),
+                  isDark: widget.isDark,
                 ),
                 _ProfileInfoRow(
                   icon: Symbols.assignment_ind,
                   label: 'morafeq_name'.tr(),
-                  value: pilgrim.morafeqName ?? 'profile_not_provided'.tr(),
-                  isDark: isDark,
+                  value: _pilgrim.morafeqName ?? 'profile_not_provided'.tr(),
+                  isDark: widget.isDark,
                 ),
                 _ProfileInfoRow(
                   icon: Symbols.phone_callback,
                   label: 'morafeq_phone'.tr(),
-                  value: pilgrim.morafeqPhone ?? 'profile_not_provided'.tr(),
-                  isDark: isDark,
+                  value: _pilgrim.morafeqPhone ?? 'profile_not_provided'.tr(),
+                  isDark: widget.isDark,
                 ),
                 _ProfileInfoRow(
                   icon: Symbols.mail,
                   label: 'morafeq_email'.tr(),
-                  value: pilgrim.morafeqEmail ?? 'profile_not_provided'.tr(),
-                  isDark: isDark,
+                  value: _pilgrim.morafeqEmail ?? 'profile_not_provided'.tr(),
+                  isDark: widget.isDark,
                 ),
                 _ProfileInfoRow(
                   icon: Symbols.cake,
                   label: 'reg_age'.tr(),
-                  value: pilgrim.age != null ? 'profile_age_years'.tr(args: ['${pilgrim.age}']) : 'profile_not_provided'.tr(),
-                  isDark: isDark,
+                  value: _pilgrim.age != null ? 'profile_age_years'.tr(args: ['${_pilgrim.age}']) : 'profile_not_provided'.tr(),
+                  isDark: widget.isDark,
                 ),
                 _ProfileInfoRow(
                   icon: Symbols.person,
                   label: 'reg_gender'.tr(),
-                  value: pilgrim.gender != null ? 'profile_gender_${pilgrim.gender}'.tr() : 'profile_not_provided'.tr(),
-                  isDark: isDark,
+                  value: _pilgrim.gender != null ? 'profile_gender_${_pilgrim.gender}'.tr() : 'profile_not_provided'.tr(),
+                  isDark: widget.isDark,
                 ),
                 _ProfileInfoRow(
                   icon: Symbols.language,
                   label: 'settings_language'.tr(),
-                  value: pilgrim.language.toUpperCase(),
-                  isDark: isDark,
+                  value: _pilgrim.language.toUpperCase(),
+                  isDark: widget.isDark,
                 ),
                 _ProfileInfoRow(
                   icon: Symbols.public,
                   label: 'ethnicity'.tr(),
-                  value: pilgrim.ethnicity,
-                  isDark: isDark,
+                  value: _pilgrim.ethnicity,
+                  isDark: widget.isDark,
                 ),
 
                 SizedBox(height: 24.h),
-                _SectionTitle(title: 'profile_documents'.tr(), isDark: isDark),
-                if ((pilgrim.tasheraDocumentUrl == null || pilgrim.tasheraDocumentUrl!.isEmpty) && pilgrim.documents.isEmpty) ...[
+                _SectionTitle(title: 'profile_documents'.tr(), isDark: widget.isDark),
+                if ((_pilgrim.tasheraDocumentUrl == null || _pilgrim.tasheraDocumentUrl!.isEmpty) && _pilgrim.documents.isEmpty) ...[
                   Container(
                     width: double.infinity,
                     padding: EdgeInsets.symmetric(vertical: 16.h),
@@ -419,7 +505,7 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                     ),
                   ),
                 ] else ...[
-                  if (pilgrim.tasheraDocumentUrl != null && pilgrim.tasheraDocumentUrl!.isNotEmpty) ...[
+                  if (_pilgrim.tasheraDocumentUrl != null && _pilgrim.tasheraDocumentUrl!.isNotEmpty) ...[
                     Padding(
                       padding: EdgeInsets.only(bottom: 8.h),
                       child: InkWell(
@@ -428,7 +514,7 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                             context,
                             MaterialPageRoute(
                               builder: (_) => DocumentViewerScreen(
-                                url: pilgrim.tasheraDocumentUrl!,
+                                url: _pilgrim.tasheraDocumentUrl!,
                                 title: 'provisioning_tashera_document'.tr(),
                               ),
                             ),
@@ -438,16 +524,16 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                         child: Container(
                           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                           decoration: BoxDecoration(
-                            color: isDark ? AppColors.surfaceDark : AppColors.primary.withValues(alpha: 0.05),
+                            color: widget.isDark ? AppColors.surfaceDark : AppColors.primary.withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(12.r),
                             border: Border.all(
-                              color: isDark ? AppColors.dividerDark : AppColors.primary.withValues(alpha: 0.1),
+                              color: widget.isDark ? AppColors.dividerDark : AppColors.primary.withValues(alpha: 0.1),
                             ),
                           ),
                           child: Row(
                             children: [
                               Icon(
-                                pilgrim.tasheraDocumentType == 'pdf' ? Symbols.picture_as_pdf : Symbols.image,
+                                _pilgrim.tasheraDocumentType == 'pdf' ? Symbols.picture_as_pdf : Symbols.image,
                                 color: AppColors.primary,
                                 size: 22.sp,
                               ),
@@ -485,7 +571,7 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                       ),
                     ),
                   ],
-                  ...pilgrim.documents.map((doc) {
+                  ..._pilgrim.documents.map((doc) {
                     final isPdf = doc.fileType == 'pdf' || doc.fileUrl.toLowerCase().endsWith('.pdf');
                     return Padding(
                       padding: EdgeInsets.only(bottom: 8.h),
@@ -505,10 +591,10 @@ class _PilgrimProfileSheet extends ConsumerWidget {
                         child: Container(
                           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                           decoration: BoxDecoration(
-                            color: isDark ? AppColors.surfaceDark : AppColors.primary.withValues(alpha: 0.05),
+                            color: widget.isDark ? AppColors.surfaceDark : AppColors.primary.withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(12.r),
                             border: Border.all(
-                              color: isDark ? AppColors.dividerDark : AppColors.primary.withValues(alpha: 0.1),
+                              color: widget.isDark ? AppColors.dividerDark : AppColors.primary.withValues(alpha: 0.1),
                             ),
                           ),
                           child: Row(
@@ -563,6 +649,16 @@ class _PilgrimProfileSheet extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _sensitiveFieldLabel(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'profile_not_provided'.tr();
+    }
+    if (_looksLikeEncryptedField(value)) {
+      return 'profile_not_provided'.tr();
+    }
+    return value;
   }
 
   Color _getBatteryColor(BatteryStatus status) {

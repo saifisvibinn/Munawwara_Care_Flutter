@@ -1297,6 +1297,8 @@
   "profile_visa_status": "Status Visa",
   "profile_visa_number": "Nomor Visa",
   "profile_no_medical_history": "Tidak ada riwayat kesehatan yang disediakan.",
+  "profile_medical_history_unavailable": "Riwayat kesehatan tidak dapat dimuat. Tarik untuk memperbarui grup atau coba lagi nanti.",
+  "profile_details_load_failed": "Tidak dapat memperbarui detail profil.",
   "profile_age_years": "{} bertahun-tahun",
   "ethnicity": "Kewarganegaraan",
   "manage_no_matching_groups": "Tidak ditemukan grup yang cocok.",

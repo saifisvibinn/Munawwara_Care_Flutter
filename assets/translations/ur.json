@@ -1299,6 +1299,8 @@
   "profile_visa_status": "ویزا کی حیثیت",
   "profile_visa_number": "ویزا نمبر",
   "profile_no_medical_history": "کوئی طبی تاریخ فراہم نہیں کی گئی۔",
+  "profile_medical_history_unavailable": "طبی تاریخ لوڈ نہیں ہو سکی۔ گروپ کو ریفریش کرنے کے لیے نیچے کھینچیں یا بعد میں دوبارہ کوشش کریں۔",
+  "profile_details_load_failed": "پروفائل کی تفصیلات ریفریش نہیں ہو سکیں۔",
   "profile_age_years": "{} سال",
   "ethnicity": "قومیت",
   "manage_no_matching_groups": "کوئی مماثل گروپ نہیں ملا۔",

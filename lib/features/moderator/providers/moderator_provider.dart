@@ -147,21 +147,26 @@ class PilgrimInGroup {
     int? batteryPercent,
     DateTime? lastUpdated,
     bool? isOnline,
+    String? nationalId,
+    String? medicalHistory,
     String? alternativePhoneNumber,
     String? morafeqName,
     String? morafeqPhone,
     String? morafeqEmail,
     String? tasheraNumber,
     InsuranceCompany? insuranceCompany,
+    String? tasheraDocumentUrl,
+    String? tasheraDocumentType,
+    List<PilgrimDocument>? documents,
   }) => PilgrimInGroup(
     id: id,
     fullName: fullName,
-    nationalId: nationalId,
+    nationalId: nationalId ?? this.nationalId,
     phoneNumber: phoneNumber,
     age: age,
     gender: gender,
     profilePicture: profilePicture,
-    medicalHistory: medicalHistory,
+    medicalHistory: medicalHistory ?? this.medicalHistory,
     lat: lat ?? this.lat,
     lng: lng ?? this.lng,
     batteryPercent: batteryPercent ?? this.batteryPercent,
@@ -179,7 +184,25 @@ class PilgrimInGroup {
     morafeqEmail: morafeqEmail ?? this.morafeqEmail,
     tasheraNumber: tasheraNumber ?? this.tasheraNumber,
     insuranceCompany: insuranceCompany ?? this.insuranceCompany,
+    tasheraDocumentUrl: tasheraDocumentUrl ?? this.tasheraDocumentUrl,
+    tasheraDocumentType: tasheraDocumentType ?? this.tasheraDocumentType,
+    documents: documents ?? this.documents,
   );
+
+  /// Merges live map/status fields with a fresh profile fetch.
+  PilgrimInGroup mergeProfileDetails(PilgrimInGroup fetched) => copyWith(
+        nationalId: fetched.nationalId,
+        medicalHistory: fetched.medicalHistory,
+        tasheraNumber: fetched.tasheraNumber,
+        tasheraDocumentUrl: fetched.tasheraDocumentUrl,
+        tasheraDocumentType: fetched.tasheraDocumentType,
+        documents: fetched.documents,
+        insuranceCompany: fetched.insuranceCompany,
+        alternativePhoneNumber: fetched.alternativePhoneNumber,
+        morafeqName: fetched.morafeqName,
+        morafeqPhone: fetched.morafeqPhone,
+        morafeqEmail: fetched.morafeqEmail,
+      );
 
   bool get hasLocation => lat != null && lng != null;
 
@@ -767,6 +790,25 @@ class ModeratorNotifier extends Notifier<ModeratorState> {
   }
 
   // Re-fetch a single group and update state
+  /// Fetches decrypted pilgrim profile fields (medical history, national ID, etc.).
+  Future<PilgrimInGroup?> fetchPilgrimById(String pilgrimId) async {
+    try {
+      final resp = await ApiService.dio.get('/auth/pilgrims/$pilgrimId');
+      final body = resp.data;
+      if (body is! Map) return null;
+      return PilgrimInGroup.fromJson(Map<String, dynamic>.from(body));
+    } on DioException catch (e) {
+      AppLogger.e(
+        '[ModeratorProvider] fetchPilgrimById($pilgrimId) failed: '
+        '${ApiService.parseError(e)}',
+      );
+      return null;
+    } catch (e) {
+      AppLogger.e('[ModeratorProvider] fetchPilgrimById($pilgrimId) failed: $e');
+      return null;
+    }
+  }
+
   Future<bool> refreshGroup(String groupId) async {
     try {
       final resp = await ApiService.dio.get('/groups/$groupId');

@@ -1297,6 +1297,8 @@
   "profile_visa_status": "Visa Status",
   "profile_visa_number": "Visa Number",
   "profile_no_medical_history": "No medical history provided.",
+  "profile_medical_history_unavailable": "Medical history could not be loaded. Pull to refresh the group or try again later.",
+  "profile_details_load_failed": "Could not refresh profile details.",
   "profile_age_years": "{} years",
   "ethnicity": "Nationality",
   "manage_no_matching_groups": "No matching groups found.",

@@ -1297,6 +1297,8 @@
   "profile_visa_status": "Vize Durumu",
   "profile_visa_number": "Vize Numarası",
   "profile_no_medical_history": "Tıbbi geçmiş sağlanmadı.",
+  "profile_medical_history_unavailable": "Tıbbi geçmiş yüklenemedi. Grubu yenilemek için aşağı çekin veya daha sonra tekrar deneyin.",
+  "profile_details_load_failed": "Profil ayrıntıları yenilenemedi.",
   "profile_age_years": "{} yıl",
   "ethnicity": "Uyruk",
   "manage_no_matching_groups": "Eşleşen grup bulunamadı.",
