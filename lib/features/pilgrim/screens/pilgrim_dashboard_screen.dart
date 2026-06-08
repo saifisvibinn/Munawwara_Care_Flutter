@@ -185,10 +185,25 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   // Named reconnect handler so offConnected can find it.
   void _onSocketConnected() {
     if (!mounted) return;
-    final reconnectGroupId = ref.read(pilgrimProvider).groupInfo?.groupId;
+    final String? reconnectGroupId =
+        ref.read(pilgrimProvider).groupInfo?.groupId;
     if (reconnectGroupId != null) {
-      SocketService.emit('join_group', reconnectGroupId);
+      _joinPilgrimGroupRoom(reconnectGroupId);
     }
+  }
+
+  /// Joins the pilgrim group socket room, with a short retry so we do not lose
+  /// the room when `join_group` races ahead of async `register-user`.
+  void _joinPilgrimGroupRoom(String groupId) {
+    SocketService.emit('join_group', groupId);
+    Future<void>.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      SocketService.emit('join_group', groupId);
+    });
+    Future<void>.delayed(const Duration(milliseconds: 1500), () {
+      if (!mounted) return;
+      SocketService.emit('join_group', groupId);
+    });
   }
 
   void _reconcileCallsAfterSocketReady() {
@@ -247,6 +262,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       unawaited(_checkRequiredPermissions());
       _loadWeatherAlert(force: true);
       ref.read(missedCallsUnreadProvider.notifier).refresh();
+      if (SocketService.isConnected) {
+        _onSocketConnected();
+      }
       if (_locationSub == null) {
         unawaited(_initLocation());
       }
@@ -474,7 +492,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           SocketService.emit('leave_group', prevGroupId);
         }
         if (nextGroupId != null) {
-          SocketService.emit('join_group', nextGroupId);
+          _joinPilgrimGroupRoom(nextGroupId);
           // Load areas for the new group immediately so they appear on the
           // map without needing a manual refresh.
           ref.read(suggestedAreaProvider.notifier).load(nextGroupId);
@@ -570,9 +588,11 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     if (groupId != null) {
       ref.read(messageProvider.notifier).fetchUnreadCount(groupId);
     }
-    unawaited(_initLocationHealth());
-    await _initLocation();
+    // Connect realtime before GPS init so trip-attendance socket events are not
+    // missed while location permission / first fix can take several seconds.
     _connectPilgrimRealtime();
+    unawaited(_initLocationHealth());
+    unawaited(_initLocation());
     await _finishDashboardWarmup();
   }
 
@@ -783,12 +803,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         SocketService.on('group_deleted', (_) {
           _refreshRealtimeState(forceDashboard: true);
         });
-        SocketService.on('bus_boarding_started', (_) {
-          _refreshRealtimeState(forceDashboard: true);
-        });
-        SocketService.on('bus_boarding_ended', (_) {
-          _refreshRealtimeState(forceDashboard: true);
-        });
+        // bus_boarding_*: global [PilgrimBoardingRealtimeBinder] (bootstrap)
         SocketService.on('profile_updated', (_) {
           _refreshRealtimeState(forceDashboard: true);
         });
@@ -814,7 +829,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           final payload = data is Map<String, dynamic> ? data : <String, dynamic>{};
           final newGroupId = payload['group_id']?.toString();
           if (newGroupId != null) {
-            SocketService.emit('join_group', newGroupId);
+            _joinPilgrimGroupRoom(newGroupId);
           }
           // Use loadDashboard(force:true) instead of ref.invalidate —
           // invalidate resets to empty state but build() never calls
@@ -940,8 +955,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     SocketService.off('missed-call-received');
     SocketService.off('group_updated');
     SocketService.off('group_deleted');
-    SocketService.off('bus_boarding_started');
-    SocketService.off('bus_boarding_ended');
     SocketService.off('added-to-group');
     SocketService.off('force_logout');
     SocketService.off('profile_updated');

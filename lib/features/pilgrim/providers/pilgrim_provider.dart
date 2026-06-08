@@ -137,6 +137,44 @@ class GroupInfo {
     this.activeBoardingSession,
   });
 
+  GroupInfo copyWith({
+    String? groupId,
+    String? groupName,
+    int? pilgrimCount,
+    List<ModeratorInfo>? moderators,
+    String? createdBy,
+    String? hotelName,
+    String? hotelAddress,
+    String? roomNumber,
+    String? checkIn,
+    String? checkOut,
+    int? daysRemaining,
+    double? hotelLatitude,
+    double? hotelLongitude,
+    WakelInfo? wakelInfo,
+    ActiveBoardingSession? activeBoardingSession,
+    bool clearActiveBoardingSession = false,
+  }) =>
+      GroupInfo(
+        groupId: groupId ?? this.groupId,
+        groupName: groupName ?? this.groupName,
+        pilgrimCount: pilgrimCount ?? this.pilgrimCount,
+        moderators: moderators ?? this.moderators,
+        createdBy: createdBy ?? this.createdBy,
+        hotelName: hotelName ?? this.hotelName,
+        hotelAddress: hotelAddress ?? this.hotelAddress,
+        roomNumber: roomNumber ?? this.roomNumber,
+        checkIn: checkIn ?? this.checkIn,
+        checkOut: checkOut ?? this.checkOut,
+        daysRemaining: daysRemaining ?? this.daysRemaining,
+        hotelLatitude: hotelLatitude ?? this.hotelLatitude,
+        hotelLongitude: hotelLongitude ?? this.hotelLongitude,
+        wakelInfo: wakelInfo ?? this.wakelInfo,
+        activeBoardingSession: clearActiveBoardingSession
+            ? null
+            : (activeBoardingSession ?? this.activeBoardingSession),
+      );
+
   factory GroupInfo.fromJson(Map<String, dynamic> j) {
     String? firstString(List<String> keys) {
       for (final key in keys) {
@@ -588,6 +626,31 @@ class PilgrimNotifier extends Notifier<PilgrimState> {
       navBeacons: const {},
       sosActive: false,
       clearSosId: true,
+    );
+  }
+
+  /// Applies a live boarding session from a `bus_boarding_started` socket event.
+  void applyBoardingSessionStarted(Map<String, dynamic> data) {
+    final GroupInfo? group = state.groupInfo;
+    if (group == null) return;
+    final ActiveBoardingSession session = ActiveBoardingSession.fromJson({
+      'session_id': data['session_id'],
+      'bus_identifier': data['bus_identifier'],
+      'status': data['status'] ?? 'active',
+      'started_at': data['started_at'],
+      'attended': group.activeBoardingSession?.attended ?? false,
+    });
+    state = state.copyWith(
+      groupInfo: group.copyWith(activeBoardingSession: session),
+    );
+  }
+
+  /// Clears the active boarding card when a session ends over the socket.
+  void clearActiveBoardingSession() {
+    final GroupInfo? group = state.groupInfo;
+    if (group == null || group.activeBoardingSession == null) return;
+    state = state.copyWith(
+      groupInfo: group.copyWith(clearActiveBoardingSession: true),
     );
   }
 }

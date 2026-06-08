@@ -12,6 +12,7 @@ import '../../features/calling/calling_scope.dart';
 import '../../features/calling/native_call_coordinator.dart';
 import '../../features/moderator/models/sos_moderator_payload.dart';
 import '../../features/moderator/services/sos_alert_coordinator.dart';
+import '../../features/pilgrim/services/pilgrim_boarding_realtime_binder.dart';
 import '../../features/pilgrim/services/pilgrim_sos_coordinator.dart';
 import '../../features/shared/helpers/message_visibility.dart';
 import '../../features/shared/providers/message_provider.dart';
@@ -67,6 +68,7 @@ Future<void> bindMobileMessagingServices() async {
   // Socket cancel must bind even when FCM setup fails (e.g. no Play Services).
   SosAlertCoordinator.bindCancelListeners();
   MessageRealtimeBinder.bindDeleteListener();
+  PilgrimBoardingRealtimeBinder.bindListeners();
 
   final riverpod = CallingScope.riverpod;
   if (riverpod != null) {
