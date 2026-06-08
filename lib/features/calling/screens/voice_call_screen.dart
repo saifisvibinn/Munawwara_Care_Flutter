@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui' show FilterQuality, FontFeature, ImageFilter;
+import 'dart:ui' show FontFeature, ImageFilter;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -8,9 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../../core/services/callkit_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/support_dialogs.dart';
+import '../../shared/widgets/group_chat_theme.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../providers/call_provider.dart';
 import '../widgets/call_peer_display.dart';
@@ -448,7 +448,7 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
 }
 
 class _CallPalette {
-  _CallPalette(bool isDark)
+  _CallPalette(this.isDark)
     : textPrimary = isDark ? AppColors.textLight : AppColors.textDark,
       textSecondary = isDark
           ? AppColors.textMutedLight
@@ -478,6 +478,7 @@ class _CallPalette {
             : [AppColors.backgroundLight, const Color(0xFFE4E7F5)],
       );
 
+  final bool isDark;
   final Color textPrimary;
   final Color textSecondary;
   final Color textMuted;
@@ -570,21 +571,11 @@ class _SupportBrandingAvatar extends StatelessWidget {
         ],
       ),
       padding: EdgeInsets.all(4.w),
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white,
-        ),
-        child: ClipOval(
-          child: Padding(
-            padding: EdgeInsets.all(18.w),
-            child: Image.asset(
-              kCallKitSupportAvatarAsset,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.high,
-            ),
-          ),
-        ),
+      child: SupportBrandAvatar(
+        isDark: palette.isDark,
+        diameter: 116,
+        iconPadding: 18,
+        showShadow: false,
       ),
     );
   }

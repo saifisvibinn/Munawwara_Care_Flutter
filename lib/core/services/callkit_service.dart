@@ -17,6 +17,9 @@ import '../utils/app_logger.dart';
 
 /// Shown on CallKit / prefs when a pilgrim receives a moderator call (native asset path).
 const String kCallKitSupportAvatarAsset = 'assets/static/app_icon.png';
+
+/// Transparent mark for in-app UI (inbox, headers, in-call branding).
+const String kSupportBrandAvatarAsset = 'assets/static/inapp_icon.png';
 const String kDefaultSupportDisplayName = 'Munawwara Care';
 const String kSupportDisplayNamePrefsKey = 'support_display_name';
 const String _kSupportDisplayNameTranslationKey = 'call_support_display_name';

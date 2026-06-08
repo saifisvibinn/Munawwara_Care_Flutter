@@ -24,6 +24,9 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
+  /// `assets/static/logo.jpeg` is 559×447 (w×h).
+  static const double _logoAspectWidthOverHeight = 559 / 447;
+
   bool _showPattern = false;
 
   @override
@@ -41,13 +44,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   Future<void> _precacheDecorativeAssets() async {
     if (!mounted) return;
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final logoCache = (110.w * dpr).round();
+    final logoCacheWidth = (110.w * dpr).round();
     await Future.wait([
       precacheImage(
         ResizeImage(
           const AssetImage('assets/static/logo.jpeg'),
-          width: logoCache,
-          height: logoCache,
+          width: logoCacheWidth,
         ),
         context,
       ),
@@ -135,7 +137,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final logoCache = (110.w * dpr).round();
+    final logoWidth = 110.w;
+    final logoCacheWidth = (logoWidth * dpr).round();
 
     return Scaffold(
       backgroundColor: isDark
@@ -225,11 +228,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                     child: Center(
                       child: Image.asset(
                         'assets/static/logo.jpeg',
-                        width: 110.w,
-                        height: 110.w,
+                        width: logoWidth,
+                        height: logoWidth / _logoAspectWidthOverHeight,
                         fit: BoxFit.contain,
-                        cacheWidth: logoCache,
-                        cacheHeight: logoCache,
+                        cacheWidth: logoCacheWidth,
                       ),
                     ),
                   ),

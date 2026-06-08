@@ -5,6 +5,59 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/theme/app_colors.dart';
 
+/// Munawwara Care logo for in-app surfaces (RGBA; not [kCallKitSupportAvatarAsset]).
+class SupportBrandAvatar extends StatelessWidget {
+  const SupportBrandAvatar({
+    super.key,
+    required this.isDark,
+    this.diameter = 42,
+    this.iconPadding,
+    this.showShadow = true,
+  });
+
+  final bool isDark;
+  final double diameter;
+  final double? iconPadding;
+  final bool showShadow;
+
+  @override
+  Widget build(BuildContext context) {
+    final pad = iconPadding ?? diameter * 0.17;
+    return Container(
+      width: diameter.w,
+      height: diameter.w,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isDark
+            ? AppColors.primary.withValues(alpha: 0.14)
+            : Colors.white,
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: isDark ? 0.32 : 0.25),
+        ),
+        boxShadow: showShadow
+            ? [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: ClipOval(
+        child: Padding(
+          padding: EdgeInsets.all(pad.w),
+          child: Image.asset(
+            kSupportBrandAvatarAsset,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Shared layout tokens for pilgrim group inbox and moderator group messages.
 abstract final class GroupChatTheme {
   static const Color urgentRed = Color(0xFFDC2626);
@@ -164,34 +217,7 @@ class GroupChatHeader extends StatelessWidget {
             SizedBox(width: 4.w),
           ],
           if (showBrandAvatar) ...[
-            Container(
-              width: 42.w,
-              height: 42.w,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isDark ? Colors.white10 : Colors.white,
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.25),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ClipOval(
-                child: Padding(
-                  padding: EdgeInsets.all(7.w),
-                  child: Image.asset(
-                    kCallKitSupportAvatarAsset,
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
-                  ),
-                ),
-              ),
-            ),
+            SupportBrandAvatar(isDark: isDark),
             SizedBox(width: 10.w),
           ],
           Expanded(

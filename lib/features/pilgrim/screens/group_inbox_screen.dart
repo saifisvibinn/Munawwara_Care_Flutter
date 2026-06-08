@@ -13,7 +13,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/tts_cloud_api.dart';
-import '../../../core/services/callkit_service.dart';
 import '../../../core/services/speech_service.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -809,26 +808,11 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   Widget _staffBrandRow(bool isDark) {
     return Row(
       children: [
-        Container(
-          width: 30.w,
-          height: 30.w,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
-            border: Border.all(
-              color: AppColors.primary.withValues(alpha: 0.22),
-            ),
-          ),
-          child: ClipOval(
-            child: Padding(
-              padding: EdgeInsets.all(4.w),
-              child: Image.asset(
-                kCallKitSupportAvatarAsset,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
-              ),
-            ),
-          ),
+        SupportBrandAvatar(
+          isDark: isDark,
+          diameter: 30,
+          iconPadding: 5,
+          showShadow: false,
         ),
         SizedBox(width: 8.w),
         Expanded(
