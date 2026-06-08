@@ -1033,6 +1033,7 @@
   "sos_completed_done": "العودة إلى الرئيسية",
   "sos_resolved_by_moderator": "أُغلق طلب المساعدة من قبل الدعم. يمكنك إرسال طلب جديد إذا كنت لا تزال بحاجة إلى مساعدة.",
   "sos_moderator_resolve": "تم الحل",
+  "sos_view_details": "عرض تفاصيل SOS",
   "sos_moderator_resolve_sent": "تم وضع علامة على الحادث كمنتهٍ.",
   "sos_sent_title": "تم إرسال الاستغاثة!",
   "sos_sent_body": "تم إشعار فريق الدعم.",

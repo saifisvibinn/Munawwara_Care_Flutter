@@ -1041,6 +1041,7 @@
   "sos_completed_done": "Back to home",
   "sos_resolved_by_moderator": "Your help request was closed by support. You can send a new request if you still need help.",
   "sos_moderator_resolve": "Resolved",
+  "sos_view_details": "View SOS Details",
   "sos_moderator_resolve_sent": "Incident marked as resolved.",
   "sos_sent_title": "SOS Sent!",
   "sos_sent_body": "Support has been notified.",

@@ -1041,6 +1041,7 @@
   "sos_completed_done": "Retour à l'accueil",
   "sos_resolved_by_moderator": "Votre demande d’aide a été clôturée par l’assistance. Vous pouvez envoyer une nouvelle demande si nécessaire.",
   "sos_moderator_resolve": "Résolu",
+  "sos_view_details": "Voir les détails SOS",
   "sos_moderator_resolve_sent": "Incident marqué comme résolu.",
   "sos_sent_title": "SOS Envoyé !",
   "sos_sent_body": "L'assistance a été notifiée.",

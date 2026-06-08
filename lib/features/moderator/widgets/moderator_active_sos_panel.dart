@@ -19,6 +19,7 @@ import '../providers/moderator_sos_engagement_provider.dart';
 import '../services/moderator_resolved_sos_store.dart';
 import '../services/moderator_sos_engagement_store.dart';
 import '../services/sos_alert_coordinator.dart';
+import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import 'pilgrim_profile_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -188,8 +189,8 @@ List<ModeratorSosBannerRow> _dedupeModeratorSosRows(
   return out;
 }
 
-/// Carousel + cards for open SOS incidents (moderator Alerts tab).
-class ModeratorActiveSosPanel extends ConsumerStatefulWidget {
+/// Stacked SOS cards for the moderator Alerts tab.
+class ModeratorActiveSosPanel extends ConsumerWidget {
   final List<ModeratorGroup> groups;
   /// After marking resolved: refresh lists and optionally switch to All alerts.
   final VoidCallback? onSosResolved;
@@ -201,114 +202,34 @@ class ModeratorActiveSosPanel extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ModeratorActiveSosPanel> createState() =>
-      _ModeratorActiveSosPanelState();
-}
-
-class _ModeratorActiveSosPanelState
-    extends ConsumerState<ModeratorActiveSosPanel> {
-  static const _carouselViewportFraction = 0.88;
-
-  PageController? _pageController;
-  int _currentPage = 0;
-
-  PageController _carouselController() => _pageController ??= PageController(
-    viewportFraction: _carouselViewportFraction,
-  );
-
-  @override
-  void dispose() {
-    _pageController?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final engagementAsync = ref.watch(moderatorSosEngagementProvider);
-    final engagements = engagementAsync.value ?? [];
-    final rows = buildModeratorSosBannerRows(widget.groups, engagements);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final engagements = ref.watch(moderatorSosEngagementProvider).value ?? [];
+    final rows = buildModeratorSosBannerRows(groups, engagements);
     if (rows.isEmpty) return const SizedBox.shrink();
-
-    if (rows.length == 1) {
-      return ModeratorSosBannerCard(
-        row: rows.first,
-        onSosResolved: widget.onSosResolved,
-      );
-    }
-
-    final pc = _carouselController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !pc.hasClients) return;
-      final maxIdx = rows.length - 1;
-      if (_currentPage > maxIdx) {
-        setState(() => _currentPage = maxIdx);
-        pc.jumpToPage(maxIdx);
-      }
-    });
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          height: 232.h,
-          child: PageView.builder(
-            controller: pc,
-            itemCount: rows.length,
-            padEnds: true,
-            physics: const BouncingScrollPhysics(),
-            onPageChanged: (i) => setState(() => _currentPage = i),
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4.w),
-                child: ModeratorSosBannerCard(
-                  row: rows[index],
-                  onSosResolved: widget.onSosResolved,
-                ),
-              );
-            },
+        for (var i = 0; i < rows.length; i++) ...[
+          if (i > 0) SizedBox(height: 14.h),
+          ModeratorSosBannerCard(
+            row: rows[i],
+            onSosResolved: onSosResolved,
           ),
-        ),
-        SizedBox(height: 8.h),
-        Text(
-          'dashboard_sos_swipe_hint'.tr(
-            namedArgs: {
-              'current': '${_currentPage + 1}',
-              'total': '${rows.length}',
-            },
-          ),
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontSize: 11.sp,
-            color: Theme.of(context).brightness == Brightness.dark
-                ? AppColors.textMutedLight
-                : AppColors.textMutedDark,
-          ),
-        ),
-        SizedBox(height: 6.h),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(rows.length, (i) {
-            final active = i == _currentPage;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              margin: EdgeInsets.symmetric(horizontal: 3.w),
-              width: active ? 20.w : 7.w,
-              height: 7.w,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4.r),
-                color: active
-                    ? const Color(0xFFDC2626)
-                    : const Color(0xFFDC2626).withValues(alpha: 0.28),
-              ),
-            );
-          }),
-        ),
+        ],
       ],
     );
   }
+}
+
+String _formatSosAlertTimestamp(BuildContext context, int updatedAtMs) {
+  if (updatedAtMs <= 0) return '';
+  final dt = DateTime.fromMillisecondsSinceEpoch(updatedAtMs);
+  final locale = context.locale.toString();
+  final time = DateFormat.jm(locale).format(dt);
+  final date = DateFormat.MMMd(locale).format(dt);
+  return '$time • $date';
 }
 
 class ModeratorSosBannerCard extends ConsumerWidget {
@@ -489,17 +410,26 @@ class ModeratorSosBannerCard extends ConsumerWidget {
       showPilgrimProfileSheet(context, p, g.id, uid);
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final textMuted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
+    final timestamp = _formatSosAlertTimestamp(context, row.sortMs);
+    final pilgrim = row.pilgrim;
+
     return Container(
-      padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 14.h),
+      padding: EdgeInsets.fromLTRB(18.w, 18.h, 18.w, 16.h),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7E6),
-        border: Border.all(color: const Color(0xFFFDE5C6)),
-        borderRadius: BorderRadius.circular(18.r),
+        color: cardBg,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: isDark ? AppColors.dividerDark : const Color(0xFFF1F5F9),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 14,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -509,20 +439,12 @@ class ModeratorSosBannerCard extends ConsumerWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: EdgeInsets.all(10.w),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFE4E6),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Symbols.warning,
-                  color: Color(0xFFDC2626),
-                  size: 22.w,
-                  fill: 1,
-                ),
+              _SosCardAvatar(
+                gender: pilgrim?.gender ?? row.record?.pilgrimGender,
+                imageUrl: pilgrim?.profilePicture,
+                size: 52.w,
               ),
-              SizedBox(width: 12.w),
+              SizedBox(width: 14.w),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -532,31 +454,42 @@ class ModeratorSosBannerCard extends ConsumerWidget {
                       style: TextStyle(
                         fontFamily: 'Lexend',
                         fontWeight: FontWeight.w800,
-                        fontSize: 16.sp,
-                        color: AppColors.textDark,
+                        fontSize: 17.sp,
+                        color: textPrimary,
                       ),
                     ),
-                    SizedBox(height: 4.h),
-                    Text(
-                      'dashboard_sos_banner_subtitle'.tr(
-                        namedArgs: {
-                          'name': row.displayName,
-                          'group': row.groupLabel.isEmpty ? '—' : row.groupLabel,
-                        },
+                    if (timestamp.isNotEmpty) ...[
+                      SizedBox(height: 4.h),
+                      Text(
+                        timestamp,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500,
+                          color: textMuted,
+                        ),
                       ),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textMutedDark,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    ],
                   ],
                 ),
               ),
             ],
+          ),
+          SizedBox(height: 14.h),
+          Text(
+            'dashboard_sos_banner_subtitle'.tr(
+              namedArgs: {
+                'name': row.displayName,
+                'group': row.groupLabel.isEmpty ? '—' : row.groupLabel,
+              },
+            ),
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
+              color: textMuted,
+              height: 1.45,
+            ),
           ),
           if (canShowClaimed) ...[
             SizedBox(height: 12.h),
@@ -567,7 +500,7 @@ class ModeratorSosBannerCard extends ConsumerWidget {
                       ? Symbols.call
                       : Symbols.person,
                   size: 18.sp,
-                  color: AppColors.textMutedDark,
+                  color: textMuted,
                 ),
                 SizedBox(width: 8.w),
                 Expanded(
@@ -576,39 +509,20 @@ class ModeratorSosBannerCard extends ConsumerWidget {
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontSize: 13.sp,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textMutedDark,
+                      fontWeight: FontWeight.w600,
+                      color: textMuted,
                     ),
                   ),
                 ),
               ],
             ),
           ],
-          SizedBox(height: 14.h),
+          SizedBox(height: 16.h),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: resolveSos,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFF97316)),
-                    foregroundColor: const Color(0xFFF97316),
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14.r),
-                    ),
-                  ),
-                  icon: Icon(Symbols.check_circle, size: 18.sp, fill: 1),
-                  label: Text(
-                    'sos_moderator_resolve'.tr(),
-                    style: const TextStyle(fontFamily: 'Lexend'),
-                  ),
-                ),
-              ),
-              SizedBox(width: 10.w),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: hasNav ? navigateToSos : null,
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF2563EB)),
                     foregroundColor: const Color(0xFF2563EB),
@@ -617,38 +531,120 @@ class ModeratorSosBannerCard extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(14.r),
                     ),
                   ),
+                  icon: Icon(Symbols.check_circle, size: 18.sp, fill: 1),
+                  label: Text(
+                    'sos_moderator_resolve'.tr(),
+                    style: const TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: hasNav ? navigateToSos : null,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.accentGold),
+                    foregroundColor: AppColors.accentGold,
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14.r),
+                    ),
+                  ),
                   icon: Icon(Symbols.navigation, size: 18.sp, fill: 1),
                   label: Text(
                     'explore_navigate'.tr(),
-                    style: const TextStyle(fontFamily: 'Lexend'),
+                    style: const TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
             ],
           ),
-          SizedBox(height: 10.h),
-          Align(
-            alignment: Alignment.centerRight,
-            child: SizedBox(
-              width: 170.w,
-              child: FilledButton(
-                onPressed: viewDetails,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFDC2626),
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 12.h),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18.r),
-                  ),
+          SizedBox(height: 12.h),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: viewDetails,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: 14.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28.r),
                 ),
-                child: Text(
-                  'dashboard_view'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13.sp,
-                  ),
+              ),
+              child: Text(
+                'sos_view_details'.tr(),
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15.sp,
                 ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pilgrim portrait with SOS warning badge for alert cards.
+class _SosCardAvatar extends StatelessWidget {
+  final String? gender;
+  final String? imageUrl;
+  final double size;
+
+  const _SosCardAvatar({
+    required this.gender,
+    required this.imageUrl,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final badgeSize = size * 0.36;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.error, width: 2),
+              color: const Color(0xFFFFE4E6),
+            ),
+            child: ClipOval(
+              child: PilgrimGenderAvatar(
+                gender: gender,
+                size: size,
+                imageUrl: imageUrl,
+              ),
+            ),
+          ),
+          Positioned(
+            right: -1,
+            bottom: -1,
+            child: Container(
+              width: badgeSize,
+              height: badgeSize,
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: Icon(
+                Symbols.warning,
+                color: Colors.white,
+                size: badgeSize * 0.58,
+                fill: 1,
               ),
             ),
           ),
