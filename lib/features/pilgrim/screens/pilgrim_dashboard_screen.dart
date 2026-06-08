@@ -1534,37 +1534,41 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             height: 1.45,
           ),
         ),
+        actionsPadding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 20.h),
         actions: [
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: FilledButton(
-                  onPressed: () => Navigator.pop(dialogCtx, false),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.error,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: Text(
-                    'sos_cancel_confirm_keep'.tr(),
-                    style: const TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 13,
-                    ),
-                    textAlign: TextAlign.center,
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogCtx, false),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 14.h),
+                ),
+                child: Text(
+                  'sos_cancel_confirm_keep'.tr(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14.sp,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.tonal(
-                  onPressed: () => Navigator.pop(dialogCtx, true),
-                  child: Text(
-                    'sos_cancel_confirm_yes'.tr(),
-                    style: const TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 13,
-                    ),
-                    textAlign: TextAlign.center,
+              SizedBox(height: 10.h),
+              FilledButton.tonal(
+                onPressed: () => Navigator.pop(dialogCtx, true),
+                style: FilledButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 14.h),
+                ),
+                child: Text(
+                  'sos_cancel_confirm_yes'.tr(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14.sp,
                   ),
                 ),
               ),
