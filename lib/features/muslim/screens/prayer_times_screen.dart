@@ -143,7 +143,7 @@ class PrayerTimesScreen extends ConsumerWidget {
   }
 }
 
-class _PrayerRow extends ConsumerWidget {
+class _PrayerRow extends StatelessWidget {
   const _PrayerRow({
     required this.name,
     required this.time,
@@ -159,10 +159,8 @@ class _PrayerRow extends ConsumerWidget {
   final bool showDivider;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final active = isCurrent || isNext;
-    final playable = const ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']
-        .contains(name.toLowerCase());
 
     return Container(
       decoration: BoxDecoration(
@@ -194,22 +192,14 @@ class _PrayerRow extends ConsumerWidget {
                     ),
                   ),
                 Expanded(
-                  child: Row(
-                    children: [
-                      Text(
-                        formatPrayerLabel(name),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: active ? 17.sp : 14.sp,
-                          fontWeight: active ? FontWeight.w700 : FontWeight.w600,
-                          color: active ? context.mPrimary : context.mOnSurface,
-                        ),
-                      ),
-                      if (playable) ...[
-                        SizedBox(width: 8.w),
-                        _PrayerPlayButton(name: name),
-                      ],
-                    ],
+                  child: Text(
+                    formatPrayerLabel(name),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: active ? 17.sp : 14.sp,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                      color: active ? context.mPrimary : context.mOnSurface,
+                    ),
                   ),
                 ),
                 Column(
@@ -250,43 +240,6 @@ class _PrayerRow extends ConsumerWidget {
               color: context.mOutlineVariant.withValues(alpha: 0.25),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _PrayerPlayButton extends ConsumerWidget {
-  const _PrayerPlayButton({required this.name});
-
-  final String name;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final playingName = ref.watch(playingPrayerSoundProvider);
-    final isPlaying = playingName == name;
-
-    return GestureDetector(
-      onTap: () {
-        final notifier = ref.read(playingPrayerSoundProvider.notifier);
-        if (isPlaying) {
-          notifier.stop();
-        } else {
-          notifier.play(name);
-        }
-      },
-      child: Container(
-        padding: EdgeInsets.all(5.w),
-        decoration: BoxDecoration(
-          color: isPlaying
-              ? context.mSecondary.withValues(alpha: 0.18)
-              : context.mOutlineVariant.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          isPlaying ? Symbols.stop : Symbols.play_arrow,
-          size: 14.w,
-          color: isPlaying ? context.mSecondary : context.mOnSurfaceVariant,
-        ),
       ),
     );
   }

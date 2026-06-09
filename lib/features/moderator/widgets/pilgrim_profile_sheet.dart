@@ -6,6 +6,8 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/phone_number_utils.dart';
+import '../../../core/widgets/phone_number_text.dart';
 import '../../calling/providers/call_provider.dart';
 import '../../calling/screens/voice_call_screen.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
@@ -290,7 +292,11 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                   SizedBox(height: 12.h),
                   _ActionButton(
                     icon: Symbols.phone_forwarded,
-                    label: 'profile_call_via_carrier'.tr(args: ['${_pilgrim.phoneNumber}']),
+                    label: 'profile_call_via_carrier'.tr(
+                      args: [
+                        formatPhoneNumberForDisplay(_pilgrim.phoneNumber!),
+                      ],
+                    ),
                     color: textMuted,
                     isOutlined: true,
                     onTap: () async {
@@ -437,6 +443,8 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                   label: 'morafeq_phone'.tr(),
                   value: _pilgrim.morafeqPhone ?? 'profile_not_provided'.tr(),
                   isDark: widget.isDark,
+                  forceLtr: _pilgrim.morafeqPhone != null &&
+                      _pilgrim.morafeqPhone!.isNotEmpty,
                 ),
                 _ProfileInfoRow(
                   icon: Symbols.mail,
@@ -746,12 +754,14 @@ class _ProfileInfoRow extends StatelessWidget {
   final String label;
   final String value;
   final bool isDark;
+  final bool forceLtr;
 
   const _ProfileInfoRow({
     required this.icon,
     required this.label,
     required this.value,
     required this.isDark,
+    this.forceLtr = false,
   });
 
   @override
@@ -782,15 +792,25 @@ class _ProfileInfoRow extends StatelessWidget {
                     color: AppColors.textMutedLight,
                   ),
                 ),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14.sp,
-                    color: isDark ? Colors.white : AppColors.textDark,
-                  ),
-                ),
+                forceLtr
+                    ? PhoneNumberText(
+                        value,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14.sp,
+                          color: isDark ? Colors.white : AppColors.textDark,
+                        ),
+                      )
+                    : Text(
+                        value,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14.sp,
+                          color: isDark ? Colors.white : AppColors.textDark,
+                        ),
+                      ),
               ],
             ),
           ),

@@ -362,6 +362,18 @@ class _HomeBody extends StatelessWidget {
       moderators: g?.moderators ?? const [],
       createdBy: g?.createdBy,
     );
+    void openHotelNavigation() {
+      final lat = g?.hotelLatitude;
+      final lng = g?.hotelLongitude;
+      if (lat == null || lng == null) {
+        StandardSnackBar.showWarning(
+          context,
+          'hotel_nav_unavailable'.tr(),
+        );
+        return;
+      }
+      OpenMapsNavigation.pickTravelModeAndLaunch(context, lat, lng);
+    }
 
     return Container(
       width: double.infinity,
@@ -489,22 +501,7 @@ class _HomeBody extends StatelessWidget {
                             icon: _cardIcon(Symbols.hotel),
                             title: 'take_me_to_hotel'.tr(),
                             subtext: 'take_me_to_hotel_sub'.tr(),
-                            onTap: () {
-                              final lat = g?.hotelLatitude;
-                              final lng = g?.hotelLongitude;
-                              if (lat == null || lng == null) {
-                                StandardSnackBar.showWarning(
-                                  context,
-                                  'hotel_nav_unavailable'.tr(),
-                                );
-                                return;
-                              }
-                              OpenMapsNavigation.pickTravelModeAndLaunch(
-                                context,
-                                lat,
-                                lng,
-                              );
-                            },
+                            onTap: openHotelNavigation,
                           ),
                           sosButton: SosButton(
                             size: 136,
@@ -561,6 +558,7 @@ class _HomeBody extends StatelessWidget {
                                   pulseController: sosPulseController,
                                   onWeatherTap: onWeatherTap,
                                   onHotspotsTap: onHotspotsTap,
+                                  onHotelTap: openHotelNavigation,
                                 ),
                               ),
                             ],
@@ -591,6 +589,7 @@ class _HomeBody extends StatelessWidget {
                                   pulseController: sosPulseController,
                                   onWeatherTap: onWeatherTap,
                                   onHotspotsTap: onHotspotsTap,
+                                  onHotelTap: openHotelNavigation,
                                 ),
                               ),
                             ],

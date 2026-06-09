@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dropdown_theme.dart';
 import '../../../../core/widgets/app_popup_menu.dart';
+import '../../../../core/widgets/phone_number_text.dart';
 import '../../models/provisioning_models.dart';
 import '../../../shared/widgets/pilgrim_gender_avatar.dart';
 
@@ -414,7 +415,7 @@ class _TrackerItemCard extends StatelessWidget {
                         color: textPrimary,
                       ),
                     ),
-                    Text(
+                    PhoneNumberText(
                       item.phoneNumber,
                       style: TextStyle(
                         fontFamily: 'Lexend',

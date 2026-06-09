@@ -14,6 +14,8 @@ import '../../../core/services/api_service.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/services/locale_prefs.dart';
 import '../../../core/services/sos_alert_audio.dart';
+import '../../../core/utils/phone_number_utils.dart';
+import '../../../core/widgets/phone_number_text.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/models/wakel_info.dart';
 import '../../shared/widgets/moderator_avatar.dart';
@@ -583,14 +585,23 @@ class _WakelCard extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 4.h),
-                Text(
-                  contact,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 12.sp,
-                    color: Colors.white.withValues(alpha: 0.7),
-                  ),
-                ),
+                looksLikePhoneNumber(contact)
+                    ? PhoneNumberText(
+                        contact,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 12.sp,
+                          color: Colors.white.withValues(alpha: 0.7),
+                        ),
+                      )
+                    : Text(
+                        contact,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 12.sp,
+                          color: Colors.white.withValues(alpha: 0.7),
+                        ),
+                      ),
               ],
             ),
           ),

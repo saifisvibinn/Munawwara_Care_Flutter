@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/config/legal_config.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/phone_number_text.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/support_api.dart';
 
@@ -335,6 +336,7 @@ class _AccountInfoCard extends StatelessWidget {
               value: auth.phoneNumber!,
               textPrimary: textPrimary,
               textMuted: textMuted,
+              forceLtr: true,
             ),
           if (auth.email != null && auth.email!.isNotEmpty)
             _InfoRow(
@@ -355,12 +357,14 @@ class _InfoRow extends StatelessWidget {
     required this.value,
     required this.textPrimary,
     required this.textMuted,
+    this.forceLtr = false,
   });
 
   final String label;
   final String value;
   final Color textPrimary;
   final Color textMuted;
+  final bool forceLtr;
 
   @override
   Widget build(BuildContext context) {
@@ -381,14 +385,23 @@ class _InfoRow extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 13.sp,
-                color: textPrimary,
-              ),
-            ),
+            child: forceLtr
+                ? PhoneNumberText(
+                    value,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 13.sp,
+                      color: textPrimary,
+                    ),
+                  )
+                : Text(
+                    value,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 13.sp,
+                      color: textPrimary,
+                    ),
+                  ),
           ),
         ],
       ),

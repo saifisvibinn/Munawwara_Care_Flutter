@@ -19,6 +19,7 @@ import '../../../core/services/locale_prefs.dart';
 import '../../../core/services/sos_alert_audio.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/widgets/standard_snackbar.dart';
+import '../../../core/widgets/phone_number_text.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../../../core/widgets/tameny_tracking_toggle.dart';
@@ -710,10 +711,13 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             _InfoTile(
                               icon: Icons.phone_callback_rounded,
                               label: 'morafeq_phone'.tr(),
-                              value: authState.morafeqPhone ?? 'profile_not_provided'.tr(),
+                              value: authState.morafeqPhone ??
+                                  'profile_not_provided'.tr(),
                               isDark: isDark,
                               textPrimary: textPrimary,
                               textMuted: textMuted,
+                              forceLtr: authState.morafeqPhone != null &&
+                                  authState.morafeqPhone!.isNotEmpty,
                             ),
                             _divider(dividerColor),
                             _InfoTile(
@@ -757,6 +761,7 @@ class _InfoTile extends StatelessWidget {
   final bool isDark;
   final Color textPrimary;
   final Color textMuted;
+  final bool forceLtr;
 
   const _InfoTile({
     required this.icon,
@@ -765,6 +770,7 @@ class _InfoTile extends StatelessWidget {
     required this.isDark,
     required this.textPrimary,
     required this.textMuted,
+    this.forceLtr = false,
   });
 
   @override
@@ -795,15 +801,25 @@ class _InfoTile extends StatelessWidget {
                     color: textMuted,
                   ),
                 ),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14.sp,
-                    color: textPrimary,
-                  ),
-                ),
+                forceLtr
+                    ? PhoneNumberText(
+                        value,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14.sp,
+                          color: textPrimary,
+                        ),
+                      )
+                    : Text(
+                        value,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14.sp,
+                          color: textPrimary,
+                        ),
+                      ),
               ],
             ),
           ),

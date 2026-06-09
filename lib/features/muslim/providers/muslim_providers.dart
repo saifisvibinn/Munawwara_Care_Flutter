@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -251,71 +250,5 @@ class DuaTapCounterNotifier extends Notifier<Map<String, int>> {
     final key = _key(item);
     final next = Map<String, int>.from(state)..remove(key);
     state = next;
-  }
-}
-
-final playingPrayerSoundProvider =
-    NotifierProvider<PlayingPrayerSoundNotifier, String?>(PlayingPrayerSoundNotifier.new);
-
-class PlayingPrayerSoundNotifier extends Notifier<String?> {
-  final AudioPlayer _player = AudioPlayer();
-
-  // High-quality public standard Adhan MP3 from IslamCan
-  static const _adhanUrl = 'https://www.islamcan.com/audio/adhan/azan2.mp3';
-
-  // Robust fallback local audio in assets/static/
-  static const _fallbackAsset = 'static/background_app.wav';
-
-  @override
-  String? build() {
-    ref.onDispose(() {
-      try {
-        _player.dispose();
-      } catch (_) {}
-    });
-    return null;
-  }
-
-  Future<void> play(String name) async {
-    // If something else is playing, stop it first
-    await stop();
-
-    state = name;
-
-    try {
-      // Set a timeout of 3.5 seconds to try streaming the beautiful Adhan.
-      // If it fails or times out, we immediately fall back to the bundled local sound!
-      await _player.setSource(UrlSource(_adhanUrl)).timeout(const Duration(milliseconds: 3500));
-      await _player.resume();
-
-      // Reset state to null once playback finishes
-      _player.onPlayerComplete.first.then((_) {
-        if (state == name) {
-          state = null;
-        }
-      });
-    } catch (_) {
-      // Fallback path
-      try {
-        await _player.stop();
-        await _player.play(AssetSource(_fallbackAsset));
-
-        _player.onPlayerComplete.first.then((_) {
-          if (state == name) {
-            state = null;
-          }
-        });
-      } catch (_) {
-        // If everything fails, reset state
-        state = null;
-      }
-    }
-  }
-
-  Future<void> stop() async {
-    try {
-      await _player.stop();
-    } catch (_) {}
-    state = null;
   }
 }

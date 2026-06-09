@@ -13,6 +13,7 @@ import '../providers/manage_pilgrims_provider.dart';
 import '../providers/moderator_provider.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../../core/widgets/custom_dialog.dart';
+import '../../../core/widgets/phone_number_text.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
@@ -1124,7 +1125,7 @@ class _PilgrimCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           SizedBox(height: 2.h),
-                          Text(
+                          PhoneNumberText(
                             pilgrim.phoneNumber,
                             style: TextStyle(
                               fontFamily: 'Lexend',
@@ -1281,7 +1282,7 @@ class _ActionsSheet extends StatelessWidget {
                           color: textPrimary,
                         ),
                       ),
-                      Text(
+                      PhoneNumberText(
                         pilgrim.phoneNumber,
                         style: TextStyle(
                           fontFamily: 'Lexend',

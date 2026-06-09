@@ -15,6 +15,7 @@ import '../../auth/models/wakel_info.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../moderator/screens/document_viewer_screen.dart';
 import '../../../core/utils/open_maps_navigation.dart';
+import '../../../core/widgets/phone_number_text.dart';
 import '../models/insurance_company.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -977,7 +978,7 @@ class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
                                   color: widget.isDark ? const Color(0xFFF97316) : const Color(0xFFC2410C),
                                 ),
                                 SizedBox(width: 6.w),
-                                Text(
+                                PhoneNumberText(
                                   widget.wakelInfo!.contactNumber,
                                   style: TextStyle(
                                     fontFamily: 'Lexend',
@@ -1131,7 +1132,7 @@ class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
                                       color: widget.isDark ? const Color(0xFFF97316) : const Color(0xFFC2410C),
                                     ),
                                     SizedBox(width: 6.w),
-                                    Text(
+                                    PhoneNumberText(
                                       mod.phoneNumber!,
                                       style: TextStyle(
                                         fontFamily: 'Lexend',

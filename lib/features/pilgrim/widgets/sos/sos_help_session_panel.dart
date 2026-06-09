@@ -4,6 +4,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../screens/live_translate_screen.dart';
 
@@ -151,6 +153,7 @@ class SosHelpSessionPanel extends StatefulWidget {
   final AnimationController pulseController;
   final VoidCallback? onWeatherTap;
   final VoidCallback? onHotspotsTap;
+  final VoidCallback? onHotelTap;
 
   const SosHelpSessionPanel({
     super.key,
@@ -160,6 +163,7 @@ class SosHelpSessionPanel extends StatefulWidget {
     required this.pulseController,
     this.onWeatherTap,
     this.onHotspotsTap,
+    this.onHotelTap,
     this.onCallBack,
     this.showCancel = true,
     this.showCallBack = false,
@@ -473,8 +477,10 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
               ),
             ),
             SizedBox(height: 14.h),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            Wrap(
+              alignment: WrapAlignment.spaceEvenly,
+              spacing: 4.w,
+              runSpacing: 12.h,
               children: [
                 _buildMiniServiceButton(
                   icon: Icons.wb_sunny_rounded,
@@ -496,6 +502,11 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
                       ),
                     );
                   },
+                ),
+                _buildMiniServiceButton(
+                  icon: Symbols.hotel,
+                  label: 'label_hotel'.tr(),
+                  onTap: widget.onHotelTap,
                 ),
               ],
             ),

@@ -182,6 +182,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   // SFX player for incoming chat messages
   final AudioPlayer _sfxPlayer = AudioPlayer();
 
+  /// Skips a duplicate dashboard fetch on the first socket connect (startup).
+  bool _initialSocketConnectHandled = false;
+
   // Named reconnect handler so offConnected can find it.
   void _onSocketConnected() {
     if (!mounted) return;
@@ -190,6 +193,10 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     if (reconnectGroupId != null) {
       _joinPilgrimGroupRoom(reconnectGroupId);
     }
+    if (_initialSocketConnectHandled) {
+      _refreshRealtimeState(forceDashboard: true, silently: true);
+    }
+    _initialSocketConnectHandled = true;
   }
 
   /// Joins the pilgrim group socket room, with a short retry so we do not lose
@@ -217,10 +224,16 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     ref.read(callProvider.notifier).checkPendingDeclinedCall();
   }
 
-  void _refreshRealtimeState({bool forceDashboard = false}) {
+  void _refreshRealtimeState({
+    bool forceDashboard = false,
+    bool silently = false,
+  }) {
     if (!mounted) return;
     ref.read(notificationProvider.notifier).refetch();
-    ref.read(pilgrimProvider.notifier).loadDashboard(force: forceDashboard).then((_) {
+    ref.read(pilgrimProvider.notifier).loadDashboard(
+      force: forceDashboard,
+      silently: silently,
+    ).then((_) {
       if (!mounted) return;
       final gId = ref.read(pilgrimProvider).groupInfo?.groupId;
       if (gId != null) {
@@ -262,8 +275,12 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       unawaited(_checkRequiredPermissions());
       _loadWeatherAlert(force: true);
       ref.read(missedCallsUnreadProvider.notifier).refresh();
+      _refreshRealtimeState(forceDashboard: true, silently: true);
       if (SocketService.isConnected) {
-        _onSocketConnected();
+        final String? groupId = ref.read(pilgrimProvider).groupInfo?.groupId;
+        if (groupId != null) {
+          _joinPilgrimGroupRoom(groupId);
+        }
       }
       if (_locationSub == null) {
         unawaited(_initLocation());
