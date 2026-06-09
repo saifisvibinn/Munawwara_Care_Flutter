@@ -961,6 +961,7 @@
   "group_total_days": "Toplam",
   "group_insurance_details": "Sigorta Detayları",
   "group_active_coverage": "Aktif Kapsam",
+  "active_policy": "Aktif poliçe",
   "group_no_active_policy": "Aktif sigorta atanmadı",
   "view_policy": "Poliçeyi Gör",
   "group_view_policy_document": "Poliçe Belgesini Görüntüle",

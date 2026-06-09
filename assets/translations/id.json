@@ -961,6 +961,7 @@
   "group_total_days": "Total",
   "group_insurance_details": "Rincian Asuransi",
   "group_active_coverage": "Cakupan Aktif",
+  "active_policy": "Polis aktif",
   "group_no_active_policy": "Tidak ada polis aktif yang ditetapkan",
   "view_policy": "Lihat Polis",
   "group_view_policy_document": "Lihat Dokumen Polis",

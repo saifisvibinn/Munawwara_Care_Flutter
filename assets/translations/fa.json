@@ -961,6 +961,7 @@
   "group_total_days": "مجموع",
   "group_insurance_details": "جزئیات بیمه",
   "group_active_coverage": "پوشش فعال",
+  "active_policy": "خط مشی فعال",
   "group_no_active_policy": "هیچ خط مشی فعالی اختصاص داده نشده است",
   "view_policy": "مشاهده خط مشی",
   "group_view_policy_document": "مشاهده سند خط مشی",

@@ -961,6 +961,7 @@
   "group_total_days": "Total",
   "group_insurance_details": "Détails de l'assurance",
   "group_active_coverage": "Couverture active",
+  "active_policy": "Police active",
   "group_no_active_policy": "Aucune police active assignée",
   "view_policy": "Voir la police",
   "group_view_policy_document": "Voir le document de police",

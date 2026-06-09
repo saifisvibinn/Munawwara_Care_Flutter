@@ -735,7 +735,7 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                               borderRadius: BorderRadius.circular(4.r),
                             ),
                             child: Text(
-                              'Active policy'.toUpperCase(),
+                              'active_policy'.tr().toUpperCase(),
                               style: TextStyle(
                                 fontFamily: 'Lexend',
                                 fontWeight: FontWeight.w700,
