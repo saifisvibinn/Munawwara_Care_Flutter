@@ -108,6 +108,22 @@ class IncomingCallService : Service() {
             }
         }
 
+        /**
+         * Drops the duplicate FGS tray entry by id. Safe when the service process
+         * died without [stopForeground] (MIUI zombie "Connecting…" notifications).
+         * Only call from teardown paths — never during [handleIncoming].
+         */
+        fun cancelStaleForegroundTray(context: Context) {
+            try {
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE)
+                    as NotificationManager
+                nm.cancel(NOTIFICATION_ID)
+                Log.i(TAG, "📞 cancelStaleForegroundTray id=$NOTIFICATION_ID")
+            } catch (e: Exception) {
+                Log.w(TAG, "📞 cancelStaleForegroundTray: ${e.message}")
+            }
+        }
+
         /** Core-Telecom teardown only — must not call plugin dismiss (no recursion). */
         fun requestTeardown(context: Context) {
             val intent = Intent(context, IncomingCallService::class.java).apply {
@@ -118,6 +134,7 @@ class IncomingCallService : Service() {
                 Log.i(TAG, "📞 requestTeardown → ACTION_REMOTE_CANCEL")
             } catch (e: Exception) {
                 Log.w(TAG, "📞 requestTeardown failed: ${e.message}")
+                cancelStaleForegroundTray(context)
             }
         }
     }
@@ -401,8 +418,9 @@ class IncomingCallService : Service() {
                 stopForeground(true)
             }
         } catch (e: Exception) {
-            Log.w(TAG, "📞 removeForegroundNotification: ${e.message}")
+            Log.w(TAG, "📞 removeForegroundNotification stopForeground: ${e.message}")
         }
+        cancelStaleForegroundTray(this)
     }
 
     private fun scheduleLingerStop() {
@@ -582,6 +600,7 @@ class IncomingCallService : Service() {
             disconnectCause = DisconnectCause(DisconnectCause.LOCAL),
             cancelScopeAfterDisconnect = true,
         )
+        cancelStaleForegroundTray(this)
         super.onDestroy()
         Log.i(TAG, "📞 IncomingCallService destroyed")
     }

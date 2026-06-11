@@ -60,7 +60,7 @@ dependencies:
   socket_io_client: ^3.0.1
   firebase_core: ^2.32.0
   firebase_messaging: ^14.7.10
-  flutter_local_notifications: ^18.0.1
+  flutter_local_notifications: ^19.5.0
   flutter_dotenv: ^6.0.0
   mobile_scanner: ^6.0.4
   flutter_callkit_incoming: ^3.0.0

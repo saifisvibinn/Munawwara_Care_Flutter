@@ -18,6 +18,7 @@ import 'core/services/locale_prefs.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/app_logger.dart';
+import 'core/utils/device_orientation_policy.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/calling/calling_scope.dart';
 import 'features/calling/native_call_coordinator.dart';
@@ -33,10 +34,7 @@ void main() async {
 
   await Future.wait<void>([
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge),
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-    ]),
+    applyDeviceOrientationPolicy(),
     prepareCoreRuntime(),
   ]);
   AppLogger.i('Firebase initialized');

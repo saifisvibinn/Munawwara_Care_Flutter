@@ -7,9 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/services/api_service.dart';
+import '../../../core/services/caller_gender_cache.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../moderator/providers/moderator_provider.dart';
+import '../../shared/widgets/group_chat_theme.dart';
+import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../data/call_history_api.dart';
 import '../providers/missed_calls_unread_provider.dart';
 
@@ -32,6 +36,8 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
   bool _loading = true;
   String? _error;
   bool _hadUnreadMissedHighlight = false;
+  Map<String, String> _cachedPeerPictures = {};
+  Map<String, String> _cachedPeerGenders = {};
 
   @override
   void initState() {
@@ -79,10 +85,38 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
       final myId = ref.read(authProvider).userId ?? '';
       final hasUnreadHighlight = widget.highlightUnreadMissed &&
           rows.any((row) => _isUnreadMissedInbound(row, myId));
+      final peerPictures = <String, String>{};
+      final peerGenders = <String, String>{};
+      final role = ref.read(authProvider).role;
+      final isModerator = role == 'moderator' || role == 'admin';
+      if (isModerator) {
+        final peerIds = <String>{};
+        for (final row in rows) {
+          final callerId = _idOf(row['caller_id']);
+          final outgoing = callerId == myId;
+          final other = outgoing ? row['receiver_id'] : row['caller_id'];
+          final peerId = _idOf(other);
+          if (peerId.isNotEmpty) peerIds.add(peerId);
+        }
+        for (final peerId in peerIds) {
+          final cachedPic =
+              await CallerGenderCache.resolveProfilePicture(peerId);
+          if (cachedPic != null && cachedPic.isNotEmpty) {
+            peerPictures[peerId] = cachedPic;
+          }
+          final cachedGender = await CallerGenderCache.resolve(peerId);
+          if (cachedGender != null && cachedGender.isNotEmpty) {
+            peerGenders[peerId] = cachedGender;
+          }
+        }
+      }
+      if (!mounted) return;
       setState(() {
         _rows = rows;
         _loading = false;
         _hadUnreadMissedHighlight = hasUnreadHighlight;
+        _cachedPeerPictures = peerPictures;
+        _cachedPeerGenders = peerGenders;
       });
       final shouldMarkUnreadSeen = hasUnreadHighlight ||
           (widget.missedOnly &&
@@ -129,25 +163,121 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
     return 'Unknown';
   }
 
-  String _peerDisplayName({
-    required String myId,
+  static String? _profilePictureOf(dynamic ref) {
+    if (ref is! Map) return null;
+    final pic = ref['profile_picture']?.toString() ??
+        ref['profilePicture']?.toString();
+    final trimmed = pic?.trim() ?? '';
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static String? _genderOf(dynamic ref) {
+    if (ref is! Map) return null;
+    final g = ref['gender']?.toString().trim() ?? '';
+    return g.isEmpty ? null : g;
+  }
+
+  bool _peerShowsAsSupport({
     required String? myRole,
     required Map<String, dynamic> row,
     required bool outgoing,
-    required dynamic otherRef,
   }) {
-    if (myRole?.toLowerCase() != 'pilgrim') return _nameOf(otherRef);
-
+    if (myRole?.toLowerCase() != 'pilgrim') return false;
     final callerRaw = row['caller_id'];
     final receiverRaw = row['receiver_id'];
     final callerIsMod = callerRaw is Map &&
         callerRaw['user_type']?.toString().toLowerCase() == 'moderator';
     final receiverIsMod = receiverRaw is Map &&
         receiverRaw['user_type']?.toString().toLowerCase() == 'moderator';
+    if (!outgoing && callerIsMod) return true;
+    if (outgoing && receiverIsMod) return true;
+    return false;
+  }
 
-    if (!outgoing && callerIsMod) return 'call_support_display_name'.tr();
-    if (outgoing && receiverIsMod) return 'call_support_display_name'.tr();
+  String? _resolvePeerProfilePicture({
+    required dynamic otherRef,
+    required String peerId,
+    required List<ModeratorGroup> groups,
+  }) {
+    final fromApi = _profilePictureOf(otherRef);
+    if (fromApi != null && fromApi.isNotEmpty) return fromApi;
+    for (final group in groups) {
+      for (final pilgrim in group.pilgrims) {
+        if (pilgrim.id != peerId) continue;
+        final pic = pilgrim.profilePicture?.trim();
+        if (pic != null && pic.isNotEmpty) return pic;
+      }
+    }
+    return _cachedPeerPictures[peerId];
+  }
 
+  String? _resolvePeerGender({
+    required dynamic otherRef,
+    required String peerId,
+    required List<ModeratorGroup> groups,
+  }) {
+    final fromApi = _genderOf(otherRef);
+    if (fromApi != null && fromApi.isNotEmpty) return fromApi;
+    for (final group in groups) {
+      for (final pilgrim in group.pilgrims) {
+        if (pilgrim.id != peerId) continue;
+        final gender = pilgrim.gender?.trim();
+        if (gender != null && gender.isNotEmpty) return gender;
+      }
+    }
+    return _cachedPeerGenders[peerId];
+  }
+
+  Widget _buildLeadingAvatar({
+    required bool isDark,
+    required String? myRole,
+    required Map<String, dynamic> row,
+    required bool outgoing,
+    required dynamic otherRef,
+    required String peerId,
+    required List<ModeratorGroup> groups,
+  }) {
+    if (_peerShowsAsSupport(
+      myRole: myRole,
+      row: row,
+      outgoing: outgoing,
+    )) {
+      return SupportBrandAvatar(
+        isDark: isDark,
+        diameter: 44,
+        showShadow: false,
+      );
+    }
+    final imageUrl = _resolvePeerProfilePicture(
+      otherRef: otherRef,
+      peerId: peerId,
+      groups: groups,
+    );
+    final gender = _resolvePeerGender(
+      otherRef: otherRef,
+      peerId: peerId,
+      groups: groups,
+    );
+    return PilgrimGenderAvatar(
+      gender: gender,
+      imageUrl: imageUrl,
+      size: 44.w,
+    );
+  }
+
+  String _peerDisplayName({
+    required String? myRole,
+    required Map<String, dynamic> row,
+    required bool outgoing,
+    required dynamic otherRef,
+  }) {
+    if (_peerShowsAsSupport(
+      myRole: myRole,
+      row: row,
+      outgoing: outgoing,
+    )) {
+      return 'call_support_display_name'.tr();
+    }
     return _nameOf(otherRef);
   }
 
@@ -179,6 +309,10 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
     final auth = ref.watch(authProvider);
     final myId = auth.userId ?? '';
     final myRole = auth.role;
+    final isModerator = myRole == 'moderator' || myRole == 'admin';
+    final groups = isModerator
+        ? ref.watch(moderatorProvider).groups
+        : const <ModeratorGroup>[];
 
     if (_loading) {
       return const Center(child: CircularProgressIndicator(color: AppColors.primary));
@@ -238,7 +372,6 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
           final outgoing = callerId == myId;
           final other = outgoing ? c['receiver_id'] : c['caller_id'];
           final otherName = _peerDisplayName(
-            myId: myId,
             myRole: myRole,
             row: c,
             outgoing: outgoing,
@@ -255,6 +388,7 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
           final timeStr = dt != null ? DateFormat.yMMMd().add_jm().format(dt) : '';
           final isUnreadMissed = widget.highlightUnreadMissed &&
               _isUnreadMissedInbound(c, myId);
+          final peerId = _idOf(other);
 
           return Material(
             color: isUnreadMissed
@@ -264,15 +398,14 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
             elevation: 0,
             child: ListTile(
               contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-              leading: CircleAvatar(
-                backgroundColor: isUnreadMissed
-                    ? AppColors.primary.withValues(alpha: 0.28)
-                    : AppColors.primary.withValues(alpha: 0.15),
-                child: Icon(
-                  outgoing ? Icons.call_made : Icons.call_received,
-                  color: AppColors.primary,
-                  size: 20.sp,
-                ),
+              leading: _buildLeadingAvatar(
+                isDark: isDark,
+                myRole: myRole,
+                row: c,
+                outgoing: outgoing,
+                otherRef: other,
+                peerId: peerId,
+                groups: groups,
               ),
               title: Text(
                 otherName,

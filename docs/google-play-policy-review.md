@@ -2,7 +2,7 @@
 
 **Purpose:** What is still required before / during Play submission.  
 **App:** Munawwara Care (Flutter Android) + `mc_backend_app` + `mc_mod_front`.  
-**Last updated:** May 18, 2026
+**Last updated:** June 11, 2026
 
 Completed in-app / manifest work (package rename, cleartext, permission cleanup, in-app privacy/support/deletion forms, SOS disclaimers, Firebase project `munawwaracare-5353a`) is **not** listed here unless you still need to verify it in Console.
 
@@ -19,6 +19,31 @@ Completed in-app / manifest work (package rename, cleartext, permission cleanup,
 | 5 | **Store listing assets** | 512×512 icon, feature graphic 1024×500, phone screenshots (show location disclosure / SOS / calls if you claim those features). |
 | 6 | **Firebase FCM (backend)** | Service account on **`munawwaracare-5353a`** needs **Firebase Cloud Messaging API Admin** (or equivalent). Logs must show `FCM Notification sent: 1/1 succeeded`, not `cloudmessaging.messages.create denied`. |
 | 7 | **Deploy backend** | Ship `POST /api/support/request` and latest env (Firebase `munawwaracare-5353a`) to **Cloud Run** if not already deployed. |
+
+---
+
+## Android UX recommendations (Play Console release 12 / 1.1.2)
+
+Addressed in repo for the next upload (e.g. 1.1.3):
+
+| Recommendation | Status | What we did |
+|----------------|--------|-------------|
+| **Edge-to-edge (SDK 35+)** | Fixed | `WindowCompat.setDecorFitsSystemWindows(false)` in `MainActivity.kt` + existing Dart `SystemUiMode.edgeToEdge` and `SafeArea` on screens |
+| **Deprecated `setStatusBarColor` / `setNavigationBarColor`** | Fixed | Local `plugins/flutter_callkit_incoming` fork: `CallkitIncomingActivity` uses `WindowCompat.setDecorFitsSystemWindows(false)` + `WindowInsetsControllerCompat` instead of deprecated window color APIs |
+| **Portrait lock on large screens** | Fixed | Removed `android:screenOrientation="portrait"` from manifest; added `android:resizeableActivity="true"`; phone-only portrait via `lib/core/utils/device_orientation_policy.dart` |
+| **Picture-in-picture (PiP)** | Deferred | App is **voice-only** (Agora audio, no video surface). Background calls use CallKit FGS + Agora; PiP adds little value until video calls exist. Revisit if video is added. |
+
+**Verify after upload:** Internal testing → pre-launch report should no longer flag deprecated CallKit APIs or MainActivity portrait lock.
+
+---
+
+## Crashes and ANRs (Play Console release 12 / 1.1.2)
+
+| Issue | Status | What we did |
+|-------|--------|-------------|
+| **`TypeToken` boot crash** (`ScheduledNotificationBootReceiver`) | Fixed | Release-only Gson/R8 crash on `BOOT_COMPLETED`. Added `android/app/proguard-rules.pro` (Gson `TypeToken` keep rules), forced `gson:2.12.0`, upgraded `flutter_local_notifications` to 19.5.0, removed unused `ScheduledNotificationBootReceiver` / `ScheduledNotificationReceiver` from manifest (app uses immediate `show()` only). |
+
+**Verify after upload:** Play Vitals → Crashes and ANRs should no longer show `ScheduledNotificationBootReceiver` / `TypeToken.getTypeTokenTypeArgument` on device reboot.
 
 ---
 

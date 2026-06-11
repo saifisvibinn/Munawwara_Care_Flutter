@@ -297,6 +297,8 @@ class ModeratorSosBannerCard extends ConsumerWidget {
         groupId: gId,
         pilgrimName: row.displayName,
         groupName: row.groupLabel.isEmpty ? '—' : row.groupLabel,
+        pilgrimGender: row.pilgrim?.gender ?? row.record?.pilgrimGender,
+        pilgrimProfilePicture: row.pilgrim?.profilePicture,
         sosId: sosId,
         lat: row.lat,
         lng: row.lng,

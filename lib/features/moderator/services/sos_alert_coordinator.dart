@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 import '../../../core/router/app_router.dart';
+import '../../../core/services/caller_gender_cache.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/services/sos_alert_audio.dart';
 import '../../../core/services/socket_service.dart';
@@ -93,6 +94,17 @@ class SosAlertCoordinator {
     final c = CallingScope.riverpod;
     if (c == null) return '';
     return c.read(authProvider).fullName ?? '';
+  }
+
+  /// SOS payloads often omit [profile_picture]; fall back to cached dashboard data.
+  static Future<String?> _resolvePilgrimProfilePicture(
+    SosModeratorPayload payload,
+  ) async {
+    final fromPayload = payload.pilgrimProfilePicture?.trim();
+    if (fromPayload != null && fromPayload.isNotEmpty) return fromPayload;
+    final pid = payload.pilgrimId?.trim() ?? '';
+    if (pid.isEmpty) return null;
+    return CallerGenderCache.resolveProfilePicture(pid);
   }
 
   /// Stops in-progress SOS speech (e.g. pilgrim cancelled).
@@ -367,6 +379,7 @@ class SosAlertCoordinator {
     }
 
     final groupLabel = payload.groupName.isEmpty ? '—' : payload.groupName;
+    final profilePicture = await _resolvePilgrimProfilePicture(payload);
 
     final gid = payload.groupId?.trim() ?? '';
     final modName = _getModeratorName();
@@ -380,6 +393,7 @@ class SosAlertCoordinator {
           pilgrimName: payload.pilgrimName,
           groupName: groupLabel,
           pilgrimGender: payload.pilgrimGender,
+          pilgrimProfilePicture: profilePicture,
           navigateLat: payload.lat,
           navigateLng: payload.lng,
           onDismiss: () async {

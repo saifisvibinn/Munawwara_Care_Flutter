@@ -15,6 +15,7 @@ class SosAlertDialog extends StatelessWidget {
   final String pilgrimName;
   final String groupName;
   final String? pilgrimGender;
+  final String? pilgrimProfilePicture;
   final double? navigateLat;
   final double? navigateLng;
   final Future<void> Function() onReview;
@@ -29,6 +30,7 @@ class SosAlertDialog extends StatelessWidget {
     required this.onDismiss,
     this.onNavigateSuccess,
     this.pilgrimGender,
+    this.pilgrimProfilePicture,
     this.navigateLat,
     this.navigateLng,
   });
@@ -84,6 +86,7 @@ class SosAlertDialog extends StatelessWidget {
                         padding: EdgeInsets.all(3.w),
                         child: PilgrimGenderAvatar(
                           gender: pilgrimGender,
+                          imageUrl: pilgrimProfilePicture,
                           size: 52.w,
                         ),
                       ),

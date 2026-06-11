@@ -473,6 +473,7 @@ class CallKitService {
 
   /// End/dismiss the current incoming call UI.
   Future<void> endCurrentCall() async {
+    await dismissNativeIncoming();
     final id = await _resolveActiveCallId();
     if (id != null && id.isNotEmpty) {
       await _hideIncomingTrayForId(id);

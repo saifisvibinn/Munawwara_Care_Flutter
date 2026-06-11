@@ -6,6 +6,7 @@ class SosModeratorPayload {
   final String? groupId;
   final String groupName;
   final String? pilgrimGender;
+  final String? pilgrimProfilePicture;
   final double? lat;
   final double? lng;
 
@@ -16,6 +17,7 @@ class SosModeratorPayload {
     required this.groupId,
     required this.groupName,
     required this.pilgrimGender,
+    required this.pilgrimProfilePicture,
     required this.lat,
     required this.lng,
   });
@@ -69,11 +71,22 @@ class SosModeratorPayload {
 
     String? pilgrimGender =
         genderStr(raw['gender']) ?? genderStr(raw['pilgrim_gender']);
+    String? profilePictureStr(dynamic v) {
+      if (v == null) return null;
+      final s = v.toString().trim();
+      return s.isEmpty ? null : s;
+    }
+
+    String? pilgrimProfilePicture = profilePictureStr(raw['profile_picture']) ??
+        profilePictureStr(raw['profilePicture']) ??
+        profilePictureStr(raw['pilgrim_profile_picture']);
     final pilgrimObj = raw['pilgrim'];
-    if (pilgrimGender == null && pilgrimObj is Map) {
+    if (pilgrimObj is Map) {
       final pm = Map<String, dynamic>.from(pilgrimObj);
-      pilgrimGender =
+      pilgrimGender ??=
           genderStr(pm['gender']) ?? genderStr(pm['pilgrim_gender']);
+      pilgrimProfilePicture ??= profilePictureStr(pm['profile_picture']) ??
+          profilePictureStr(pm['profilePicture']);
     }
 
     return SosModeratorPayload(
@@ -83,6 +96,7 @@ class SosModeratorPayload {
       groupId: gid,
       groupName: gname,
       pilgrimGender: pilgrimGender,
+      pilgrimProfilePicture: pilgrimProfilePicture,
       lat: lat,
       lng: lng,
     );

@@ -91,6 +91,10 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
@@ -108,10 +112,12 @@ flutter {
 // Agora voice SDK only — exclude unused screen-sharing artifact.
 configurations.configureEach {
     exclude(group = "io.agora.rtc", module = "full-screen-sharing")
+    resolutionStrategy.force("com.google.code.gson:gson:2.12.0")
 }
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation("androidx.core:core-ktx:1.15.0")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.core:core-telecom:1.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("androidx.work:work-runtime-ktx:2.9.1")

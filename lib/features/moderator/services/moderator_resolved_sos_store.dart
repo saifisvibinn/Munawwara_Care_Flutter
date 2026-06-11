@@ -9,6 +9,8 @@ class ModeratorResolvedSosRecord {
   final String groupId;
   final String pilgrimName;
   final String groupName;
+  final String? pilgrimGender;
+  final String? pilgrimProfilePicture;
   final String? sosId;
   final double? lat;
   final double? lng;
@@ -20,6 +22,8 @@ class ModeratorResolvedSosRecord {
     required this.groupId,
     required this.pilgrimName,
     required this.groupName,
+    this.pilgrimGender,
+    this.pilgrimProfilePicture,
     this.sosId,
     this.lat,
     this.lng,
@@ -32,6 +36,8 @@ class ModeratorResolvedSosRecord {
         'group_id': groupId,
         'pilgrim_name': pilgrimName,
         'group_name': groupName,
+        'pilgrim_gender': pilgrimGender,
+        'pilgrim_profile_picture': pilgrimProfilePicture,
         'sos_id': sosId,
         'lat': lat,
         'lng': lng,
@@ -45,6 +51,8 @@ class ModeratorResolvedSosRecord {
       groupId: j['group_id']?.toString() ?? '',
       pilgrimName: j['pilgrim_name']?.toString() ?? '',
       groupName: j['group_name']?.toString() ?? '',
+      pilgrimGender: j['pilgrim_gender']?.toString(),
+      pilgrimProfilePicture: j['pilgrim_profile_picture']?.toString(),
       sosId: j['sos_id']?.toString(),
       lat: (j['lat'] as num?)?.toDouble(),
       lng: (j['lng'] as num?)?.toDouble(),

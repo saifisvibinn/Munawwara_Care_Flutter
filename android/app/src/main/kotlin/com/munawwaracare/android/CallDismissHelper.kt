@@ -54,6 +54,7 @@ object CallDismissHelper {
             recordCancelTimestamp(context, callerId)
             FlutterCallkitIncomingPlugin.dismissPluginIncomingUi(context)
             IncomingCallService.requestTeardown(context)
+            IncomingCallService.cancelStaleForegroundTray(context)
         } catch (e: Exception) {
             Log.w(TAG, "dismissIncomingCall failed: ${e.message}")
         } finally {

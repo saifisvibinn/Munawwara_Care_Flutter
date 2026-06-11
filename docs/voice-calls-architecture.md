@@ -172,6 +172,10 @@ If you modify the calling workflow, you **MUST** respect the following four crit
     ```
 *   *This locks the screen until the call is officially ended, forcing the user to tap the red end-call button to hang up and exit.*
 
+### Guard 5: IncomingCallService Tray Teardown (Android)
+*   **The Trap**: `IncomingCallService` posts a short-lived FGS notification (`"Connecting…"`, id `9999`) for Core-Telecom. If the process dies without `stopForeground`, or Dart teardown misses the native MethodChannel, the tray entry can outlive the call (common on MIUI).
+*   **The Guard**: Teardown must call `IncomingCallService.cancelStaleForegroundTray()` from **end/cancel/decline paths only** (`CallDismissHelper`, `removeForegroundNotification`, `onDestroy`). Never cancel id `9999` during `handleIncoming` while ringing. `CallKitService.endCurrentCall()` and `endAllCalls()` both invoke `dismissNativeIncoming()` so plugin UI and Core-Telecom tray stay in sync.
+
 ---
 
 ## 5. Golden Rules for Future Developers & Agents
