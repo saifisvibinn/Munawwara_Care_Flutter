@@ -6,6 +6,9 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_callkit_incoming/entities/entities.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/calling/calling_scope.dart';
@@ -29,6 +32,9 @@ import '../widgets/reminder_popup.dart';
 
 String? globalFcmToken;
 bool _mobileMessagingBound = false;
+bool _iosVoipTokenBound = false;
+
+const String kIosVoipPushTokenPrefsKey = 'ios_voip_push_token';
 
 /// When chat FCM is suppressed in the foreground, still refresh chat if the
 /// socket missed [new_message] (common after ghost-socket eviction).
@@ -361,6 +367,47 @@ Future<void> bindMobileMessagingServices() async {
     }
   }
 
+  if (Platform.isIOS) {
+    await bindIosVoipTokenLifecycle();
+  }
+
   _mobileMessagingBound = true;
+}
+
+/// Caches the PushKit VoIP device token for future backend upload.
+///
+/// Backend `voip_token` API is not wired yet — do not send to `/auth/fcm-token`
+/// or it would overwrite the FCM registration token.
+Future<void> bindIosVoipTokenLifecycle() async {
+  if (_iosVoipTokenBound) return;
+  _iosVoipTokenBound = true;
+
+  Future<void> cacheVoipToken(String token) async {
+    if (token.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final previous = prefs.getString(kIosVoipPushTokenPrefsKey);
+    if (previous == token) return;
+    await prefs.setString(kIosVoipPushTokenPrefsKey, token);
+    AppLogger.i(
+      'iOS VoIP token cached locally (awaiting backend voip_token endpoint)',
+    );
+  }
+
+  FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
+    if (event?.event != Event.actionDidUpdateDevicePushTokenVoip) return;
+    final body = event?.body;
+    if (body is! Map) return;
+    final token = body['deviceTokenVoIP']?.toString() ?? '';
+    await cacheVoipToken(token);
+  });
+
+  try {
+    final token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
+    if (token is String) {
+      await cacheVoipToken(token);
+    }
+  } catch (e) {
+    AppLogger.w('iOS VoIP getDevicePushTokenVoIP failed: $e');
+  }
 }
 

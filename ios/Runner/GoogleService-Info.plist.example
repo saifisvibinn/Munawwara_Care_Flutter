@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template only — do NOT ship this file as GoogleService-Info.plist.
+
+  1. Firebase Console → project munawwaracare-5353a
+  2. Add iOS app with bundle ID com.munawwaracare.ios
+  3. Download GoogleService-Info.plist
+  4. Save as ios/Runner/GoogleService-Info.plist (gitignored)
+  5. Upload APNs Auth Key (.p8) under Project Settings → Cloud Messaging
+-->
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>YOUR_IOS_API_KEY</string>
+	<key>GCM_SENDER_ID</key>
+	<string>657578546972</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.munawwaracare.ios</string>
+	<key>PROJECT_ID</key>
+	<string>munawwaracare-5353a</string>
+	<key>STORAGE_BUCKET</key>
+	<string>munawwaracare-5353a.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false/>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false/>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true/>
+	<key>IS_GCM_ENABLED</key>
+	<true/>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true/>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:657578546972:ios:REPLACE_WITH_FIREBASE_APP_ID</string>
+</dict>
+</plist>

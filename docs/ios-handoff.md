@@ -5,9 +5,27 @@
 **Current version:** `1.1.2+12` (`pubspec.yaml`)  
 **Last updated:** June 11, 2026  
 **Android status:** Production-track (Google Play internal testing, release `com.munawwaracare.android`)  
-**iOS status:** Scaffold exists; **not build-ready** for device testing or App Store
+**iOS status:** Native layer implemented on branch `IOS` — **requires Mac setup** (Firebase plist, Apple Dev, signing) before device testing
 
 > Compliance and policy notes in this document are engineering aids only — not legal advice.
+
+---
+
+## Implementation progress (branch `IOS`)
+
+| Item | Status |
+|------|--------|
+| Bundle ID `com.munawwaracare.ios` | Done in `project.pbxproj` |
+| `Runner.entitlements` (aps-environment development) | Done |
+| `LocationChannelHandler.swift` (SLC + heartbeat) | Done |
+| `AppDelegate.swift` (PushKit + CallKit plugin) | Done |
+| `GoogleService-Info.plist.example` | Done — copy real file from Firebase |
+| iOS device-care steps (location + notifications) | Done in `oem_settings_service.dart` |
+| VoIP token cached locally (`ios_voip_push_token`) | Done — backend upload pending |
+| Firebase `GoogleService-Info.plist` on disk | **You** — download from Firebase Console |
+| Apple Developer Program + APNs key in Firebase | **You** — required for push |
+| Xcode signing + `pod install` on Mac | **You** |
+| Backend `voip_token` endpoint | **Future** — for killed-state VoIP pushes |
 
 ---
 
@@ -841,7 +859,7 @@ Phase 8 — App Store (ongoing)
 | Question | Answer |
 |----------|--------|
 | Where is the Flutter app? | `Flutter_Munawwara/` |
-| Current iOS bundle ID? | `com.example.flutterMunawwara` (**change me**) |
+| Current iOS bundle ID? | `com.munawwaracare.ios` |
 | Android package? | `com.munawwaracare.android` |
 | Firebase project? | `munawwaracare-5353a` |
 | Min iOS version? | 15.5 |

@@ -395,8 +395,30 @@ class OemSettingsService {
   static Future<List<DeviceCareStep>> _stepsForProfile(
     DeviceOemProfile profile,
   ) async {
+    if (!kIsWeb && Platform.isIOS) {
+      return _buildIosStepsList();
+    }
     final includeLock = await shouldOfferLockScreenCallStep(profile);
     return _buildStepsList(profile, includeLockScreen: includeLock);
+  }
+
+  /// iOS: location Always + notifications (no OEM battery/autostart steps).
+  static List<DeviceCareStep> _buildIosStepsList() {
+    return const [
+      DeviceCareStep(
+        kind: DeviceCareActionKind.location,
+        titleKey: 'location_onboarding_title',
+        descriptionKey: 'location_onboarding_desc',
+        actionLabelKey: 'location_onboarding_btn',
+        footnoteKey: 'location_onboarding_important',
+      ),
+      DeviceCareStep(
+        kind: DeviceCareActionKind.notifications,
+        titleKey: 'device_care_step_notifications_title',
+        descriptionKey: 'device_care_step_notifications_desc',
+        actionLabelKey: 'device_care_open_notifications',
+      ),
+    ];
   }
 
   static List<DeviceCareStep> _buildStepsList(
