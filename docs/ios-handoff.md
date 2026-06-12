@@ -3,9 +3,10 @@
 **Purpose:** Complete project context and step-by-step handoff for the agent (or developer) implementing the iOS version.  
 **App:** Munawwara Care — group safety and coordination for Hajj & Umrah.  
 **Current version:** `1.1.2+12` (`pubspec.yaml`)  
-**Last updated:** June 11, 2026  
+**Last updated:** June 12, 2026  
 **Android status:** Production-track (Google Play internal testing, release `com.munawwaracare.android`)  
-**iOS status:** Native layer implemented on branch `IOS` — **requires Mac setup** (Firebase plist, Apple Dev, signing) before device testing
+**iOS status:** Native layer implemented on branch `IOS` — Mac agent runs setup below  
+**Git branch:** `IOS` (pushed to `origin/IOS`)
 
 > Compliance and policy notes in this document are engineering aids only — not legal advice.
 
@@ -26,6 +27,86 @@
 | Apple Developer Program + APNs key in Firebase | **You** — required for push |
 | Xcode signing + `pod install` on Mac | **You** |
 | Backend `voip_token` endpoint | **Future** — for killed-state VoIP pushes |
+
+---
+
+## Mac agent — start here
+
+Send this file to the Mac agent. Work on branch **`IOS`**.
+
+### Apple Developer enrollment — first or last?
+
+**Enrollment can be one of the last steps** if the goal is only: *build, install, and smoke-test the app on a physical iPhone.*
+
+**Enrollment must happen before** testing push notifications, killed-state CallKit/VoIP calls, TestFlight, or App Store.
+
+| With **free Apple ID** only | With **paid Apple Developer Program** ($99/year) |
+|-----------------------------|--------------------------------------------------|
+| `flutter run` on your iPhone | Everything in free tier, plus: |
+| Login, maps, chat, UI | FCM push (SOS, chat, call signals) |
+| Agora calls while app is **foreground** | VoIP PushKit when app is **background/killed** |
+| Location **While Using** | TestFlight + App Store |
+| App expires on device ~every **7 days** | Stable provisioning profiles |
+
+### Recommended order on the MacBook
+
+```
+Step 1 — Clone / checkout (no enrollment needed)
+  git fetch origin
+  git checkout IOS
+  cd Flutter_Munawwara
+
+Step 2 — Environment
+  cp .env.example .env
+  # Set API_BASE_URL, AGORA_APP_ID, GOOGLE_MAPS_API_KEY (same as Android)
+
+Step 3 — Flutter + CocoaPods (no enrollment needed)
+  flutter pub get
+  cd ios && pod install && cd ..
+
+Step 4 — First device run (free Apple ID OK)
+  # Connect iPhone via USB, trust device
+  flutter devices
+  flutter run -d <iphone-device-id>
+  # In Xcode if signing fails: Runner → Signing → Team → your Apple ID
+
+Step 5 — Smoke test without push
+  - Moderator login + pilgrim QR/code login
+  - Map, chat, profile, session restore after kill
+  - Voice call while app is open (foreground)
+
+Step 6 — Firebase iOS app (can do before or after enroll)
+  Firebase Console → project munawwaracare-5353a
+  → Add iOS app, bundle ID com.munawwaracare.ios
+  → Download GoogleService-Info.plist
+  → Save to ios/Runner/GoogleService-Info.plist
+  (Template: ios/Runner/GoogleService-Info.plist.example)
+
+Step 7 — Apple Developer Program (before push/calls/store)
+  Enroll at https://developer.apple.com/programs/
+  → Create App ID com.munawwaracare.ios
+  → Enable Push Notifications + Background Modes
+  → Create APNs Auth Key (.p8)
+
+Step 8 — Wire push (requires Step 7)
+  Firebase → Project Settings → Cloud Messaging → upload APNs .p8 key
+  Xcode → Runner → Signing & Capabilities → select paid Team
+  Enable Push Notifications + Background Modes (Location, VoIP, Audio, Remote notifications)
+  Rebuild: flutter run -d <iphone>
+
+Step 9 — Test push + calls (physical device only, not Simulator)
+  - PUT /api/auth/fcm-token → 200 in backend logs after login
+  - SOS alert to moderator
+  - Incoming call: foreground → background → killed (killed needs VoIP + backend voip_token later)
+
+Step 10 — TestFlight / App Store (requires Step 7)
+  flutter build ios --release --dart-define=API_BASE_URL=...
+  Xcode → Product → Archive → Distribute
+```
+
+### One-line summary for the Mac agent
+
+> Run the app first with a free Apple ID; enroll in Apple Developer **before** push, killed-state calls, and TestFlight — not before the first `flutter run`.
 
 ---
 
@@ -530,38 +611,34 @@ See `docs/secure-session-storage.md`.
 
 ---
 
-## 13. iOS gaps — must implement
+## 13. iOS gaps — remaining work
 
-### Priority 0 — Blockers (cannot test on device)
+**Already done on branch `IOS` (in repo):** bundle ID, entitlements, AppDelegate PushKit, location channel, iOS device-care steps, VoIP token local cache.
 
-1. Mac + Xcode + Apple Developer account
-2. Change `PRODUCT_BUNDLE_IDENTIFIER` from `com.example.flutterMunawwara` to production ID (e.g. `com.munawwaracare.ios`)
-3. Register bundle ID in Apple Developer with Push Notifications capability
-4. Add iOS app to Firebase → `GoogleService-Info.plist`
-5. Upload APNs Authentication Key (.p8) to Firebase Cloud Messaging settings
-6. Xcode signing (Development + Distribution certificates, provisioning profiles)
+### Priority 0 — Mac agent manual setup
 
-### Priority 1 — Core functionality
+1. Mac + Xcode + physical iPhone
+2. `git checkout IOS` → `flutter pub get` → `cd ios && pod install`
+3. `.env` with `API_BASE_URL` and keys
+4. First `flutter run` (free Apple ID OK for smoke test)
+5. Firebase → `GoogleService-Info.plist` in `ios/Runner/`
+6. **Apple Developer Program** — before push/calls/store (can be after first run)
+7. APNs `.p8` in Firebase + Xcode signing with paid Team
 
-7. **AppDelegate.swift** — implement per `plugins/flutter_callkit_incoming/PUSHKIT.md` and upstream example:
-   - `PKPushRegistry` for VoIP
-   - `SwiftFlutterCallkitIncomingPlugin.sharedInstance?.setDevicePushTokenVoIP(deviceToken)`
-   - Handle incoming VoIP push → `showCallkitIncoming(..., fromPushKit: true)`
-   - AVAudioSession configuration for Agora + CallKit
-8. **Dart:** Register VoIP token with backend (may need new API field `voip_token` or dual registration strategy)
-9. **Location channel** — Swift `FlutterMethodChannel` `com.munawwaracare/location`:
-   - `saveCredentials`, `startSignificantLocationChanges`, `stopSignificantLocationChanges`
-   - Background location upload to `POST /api/location/...` (mirror Android worker logic)
-10. **`flutter_background_service` iOS setup** — verify Info.plist + plugin iOS readme for foreground notification while tracking
-11. Run `cd ios && pod install` after `flutter pub get`
+### Priority 1 — Verify on device
 
-### Priority 2 — Parity & polish
+8. FCM token registration (`PUT /api/auth/fcm-token` → 200)
+9. Push notifications (SOS, chat) — requires enrollment + APNs
+10. CallKit incoming calls — foreground first, then background/killed
+11. Tameny tracking → Always location → SLC heartbeat (`source: ios_significant_change` in backend logs)
+12. **`flutter_background_service` iOS** — verify foreground notification while tracking
 
-12. Device care onboarding — iOS-specific steps (Background App Refresh, Location Always)
-13. Notification permission flow — already partially in `notification_service.requestPermissions()` for iOS
-14. Restrict Agora / any Google API keys for iOS bundle ID
-15. Test all 8 locales + RTL layouts (`ar`, `ur`, `fa`)
-16. `PopScope` on `voice_call_screen.dart` — verify iOS swipe-back is blocked during active call
+### Priority 2 — Backend + polish
+
+13. **Backend:** `voip_token` field + upload endpoint (killed-state VoIP calls)
+14. Restrict Agora / Google API keys for `com.munawwaracare.ios`
+15. Test 8 locales + RTL (`ar`, `ur`, `fa`)
+16. Verify `PopScope` on `voice_call_screen.dart` blocks swipe-back during active call
 
 ### Priority 3 — App Store
 
@@ -866,7 +943,9 @@ Phase 8 — App Store (ongoing)
 | State management? | Riverpod 3 |
 | Voice media? | Agora audio (not WebRTC) |
 | Incoming calls plugin? | Local fork `plugins/flutter_callkit_incoming` |
-| Biggest iOS gap? | PushKit AppDelegate + location MethodChannel + Firebase iOS app |
+| Biggest remaining gap? | Firebase plist + Apple Dev enrollment + push/calls testing |
+| Apple enrollment first? | **No** for first run; **yes** before push/killed calls/TestFlight |
+| Which branch? | `IOS` |
 | Can I develop on Windows only? | **No** — need Mac for build/sign/device test |
 | First file to edit for calls? | `ios/Runner/AppDelegate.swift` + read `voice-calls-architecture.md` |
 | Support email? | munawwaracare@gmail.com |
