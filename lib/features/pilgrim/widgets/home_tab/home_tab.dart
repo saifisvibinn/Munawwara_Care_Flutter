@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/glass/app_glass.dart';
 import '../../../../core/widgets/safety_disclaimer_banner.dart';
 import '../../helpers/moderator_navigation.dart';
 import '../../providers/pilgrim_provider.dart';
@@ -119,12 +120,9 @@ class PilgrimHomeTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final group = pilgrimState.groupInfo;
-    final headerBg = isDark
-        ? AppColors.backgroundDark
-        : const Color(0xFFF7F9FB);
 
-    return Container(
-      color: headerBg,
+    return AppDashboardBackground(
+      isDark: isDark,
       child: SafeArea(
         bottom: false,
         child: Column(
@@ -153,21 +151,12 @@ class PilgrimHomeTab extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  GestureDetector(
+                  AppGlassIconButton(
+                    isDark: isDark,
+                    icon: Symbols.notifications,
                     onTap: onMissedCallsTap,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.all(10.w),
-                          child: Icon(
-                            Symbols.notifications,
-                            size: 22.w,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        if (missedCallUnreadCount > 0)
-                          Positioned(
+                    badge: missedCallUnreadCount > 0
+                        ? Positioned(
                             right: -2,
                             top: -2,
                             child: Container(
@@ -181,7 +170,6 @@ class PilgrimHomeTab extends StatelessWidget {
                               ),
                               constraints: BoxConstraints(minWidth: 16.w),
                               child: Text(
-                                // Show dynamic count
                                 missedCallUnreadCount > 9
                                     ? '9+'
                                     : '$missedCallUnreadCount',
@@ -194,21 +182,14 @@ class PilgrimHomeTab extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
+                          )
+                        : null,
                   ),
                   SizedBox(width: 8.w),
-                  GestureDetector(
+                  AppGlassIconButton(
+                    isDark: isDark,
+                    icon: Symbols.settings,
                     onTap: onSettingsTap,
-                    child: Padding(
-                      padding: EdgeInsets.all(10.w),
-                      child: Icon(
-                        Symbols.settings,
-                        size: 22.w,
-                        color: AppColors.primary,
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -279,8 +260,7 @@ class PilgrimHomeTab extends StatelessWidget {
                     SliverToBoxAdapter(child: _homeBody(group)),
                     SliverPadding(
                       padding: EdgeInsets.only(
-                        bottom: 72.h +
-                            MediaQuery.paddingOf(context).bottom,
+                        bottom: AppGlassTheme.bottomNavScrollPadding(context),
                       ),
                     ),
                   ],
@@ -384,14 +364,15 @@ class _HomeBody extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Group Card (Full Width) ──────────────────────────────────────
-            GroupCard(
-              groupName: g?.groupName ?? 'card_no_group'.tr(),
-              moderators: g?.moderators ?? const [],
-              createdBy: g?.createdBy,
-              hotelName: g?.hotelName ?? '',
-              checkIn: g?.checkIn ?? '',
-              onTap: onGroupCardTap,
-            ),
+                            GroupCard(
+                              isDark: isDark,
+                              groupName: g?.groupName ?? 'card_no_group'.tr(),
+                              moderators: g?.moderators ?? const [],
+                              createdBy: g?.createdBy,
+                              hotelName: g?.hotelName ?? '',
+                              checkIn: g?.checkIn ?? '',
+                              onTap: onGroupCardTap,
+                            ),
             if (activeBeacons.isNotEmpty) ...[
               SizedBox(height: 8.h),
               ModeratorNavigateBeaconList(
@@ -402,6 +383,7 @@ class _HomeBody extends StatelessWidget {
             if (group?.activeBoardingSession != null) ...[
               SizedBox(height: 12.h),
               ActiveAttendanceCard(
+                isDark: isDark,
                 session: group!.activeBoardingSession!,
                 onTap: () {
                   Navigator.of(context).push(
@@ -454,6 +436,7 @@ class _HomeBody extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         ActionHubGrid(
+                          isDark: isDark,
                           topLeft: ScoopedGridCard(
                             position: CardPosition.topLeft,
                             icon: _cardIcon(

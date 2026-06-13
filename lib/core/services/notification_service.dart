@@ -1450,6 +1450,7 @@ class _ChatRouteResolverState extends State<_ChatRouteResolver> {
             groupId: widget.groupId,
             groupName:
                 widget.groupName.isNotEmpty ? widget.groupName : 'Messages',
+            showBackButton: true,
           );
         }
         _userIdFuture ??= _getUserId();

@@ -18,6 +18,7 @@ import 'dart:io';
 import '../../../../core/services/api_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dropdown_theme.dart';
+import '../../../../core/widgets/glass/app_glass.dart';
 import '../../../../core/widgets/custom_dialog.dart';
 import '../../../../core/widgets/standard_snackbar.dart';
 import '../../../auth/providers/auth_provider.dart';
@@ -713,7 +714,12 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab>
       color: AppColors.primary,
       onRefresh: _onPullRefresh,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 100.h),
+        padding: EdgeInsets.fromLTRB(
+          20.w,
+          12.h,
+          20.w,
+          AppGlassTheme.bottomNavScrollPadding(context),
+        ),
         children: [
           _buildHeader(context, isDark),
           SizedBox(height: 20.h),
@@ -765,7 +771,12 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab>
       color: AppColors.primary,
       onRefresh: _onPullRefresh,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 100.h),
+        padding: EdgeInsets.fromLTRB(
+          16.w,
+          16.h,
+          16.w,
+          AppGlassTheme.bottomNavScrollPadding(context),
+        ),
         children: [
           _buildHeader(context, isDark),
           SizedBox(height: 24.h),
@@ -858,26 +869,26 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab>
     });
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final pageBg =
-        isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
 
     return Stack(
       children: [
-        Scaffold(
-          backgroundColor: pageBg,
+        AppDashboardBackground(
+          isDark: isDark,
+          child: Scaffold(
+          backgroundColor: Colors.transparent,
           appBar: AppBar(
             automaticallyImplyLeading: false,
             elevation: 0,
             scrolledUnderElevation: 0,
             surfaceTintColor: Colors.transparent,
-            // Tab-only bar: [toolbarHeight: 0] + [bottom: TabBar] left ~44px
-            // for the tab row and caused RenderFlex overflow on some devices.
             toolbarHeight: 56.h,
-            backgroundColor: pageBg,
-            titleSpacing: 0,
+            backgroundColor: Colors.transparent,
+            titleSpacing: 16.w,
             centerTitle: true,
-            title: Material(
-              color: pageBg,
+            title: AppGlassSurface(
+              isDark: isDark,
+              borderRadius: BorderRadius.circular(14.r),
+              padding: EdgeInsets.symmetric(horizontal: 8.w),
               child: TabBar(
                 controller: _provisionTabController,
                 dividerHeight: 0,
@@ -922,6 +933,7 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab>
               const ManagePilgrimsScreen(),
             ],
           ),
+        ),
         ),
         if (_isBulkCapturing)
           Container(

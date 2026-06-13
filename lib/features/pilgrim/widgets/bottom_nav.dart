@@ -1,4 +1,3 @@
-import 'package:cupertino_liquid_glass/cupertino_liquid_glass.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_liquid_glass_bottom_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Pilgrim Bottom Navigation Bar — iOS Liquid Glass (cupertino_liquid_glass)
+// Pilgrim Bottom Navigation Bar — floating liquid glass
 // ─────────────────────────────────────────────────────────────────────────────
 
 class PilgrimBottomNav extends ConsumerWidget {
@@ -37,20 +36,24 @@ class PilgrimBottomNav extends ConsumerWidget {
         AppTheme.isDarkEffective(ref.watch(themeProvider), context);
 
     final items = [
-      LiquidGlassBottomBarItem(
+      AppBottomBarItem(
         icon: Symbols.home,
+        activeIcon: Symbols.home,
         label: 'tab_home'.tr(),
       ),
-      LiquidGlassBottomBarItem(
+      AppBottomBarItem(
         icon: Symbols.map,
+        activeIcon: Symbols.map,
         label: 'tab_map'.tr(),
       ),
-      LiquidGlassBottomBarItem(
+      AppBottomBarItem(
         icon: Symbols.folded_hands,
+        activeIcon: Symbols.folded_hands,
         label: 'tab_muslim'.tr(),
       ),
-      LiquidGlassBottomBarItem(
+      AppBottomBarItem(
         icon: Symbols.campaign,
+        activeIcon: Symbols.campaign,
         label: 'tab_announcements'.tr(),
       ),
     ];

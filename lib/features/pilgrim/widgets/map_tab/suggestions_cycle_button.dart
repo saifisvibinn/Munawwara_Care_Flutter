@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../../core/map/app_map_controller.dart';
 import '../../../../core/map/app_map_tiles.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/glass/app_glass.dart';
 import '../../../../core/utils/open_maps_navigation.dart';
 import '../../../shared/models/suggested_area_model.dart';
 
@@ -381,6 +382,7 @@ class _SuggestionsCycleButtonState extends State<SuggestionsCycleButton> {
   @override
   Widget build(BuildContext context) {
     final count = widget.areas.length;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () {
         if (widget.areas.isEmpty) return;
@@ -389,22 +391,17 @@ class _SuggestionsCycleButtonState extends State<SuggestionsCycleButton> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Container(
+          AppGlassSurface(
+            isDark: isDark,
+            borderRadius: BorderRadius.circular(24.r),
             width: 48.w,
             height: 48.w,
-            decoration: BoxDecoration(
+            child: Icon(
+              Symbols.pin_drop,
               color: AppColors.primary,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.45),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+              size: 22.w,
+              fill: 1,
             ),
-            child: Icon(Symbols.pin_drop,
-                color: Colors.white, size: 22.w, fill: 1),
           ),
           if (count > 1)
             Positioned(

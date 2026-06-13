@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cupertino_liquid_glass/cupertino_liquid_glass.dart';
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/foundation.dart' show kIsWeb, listEquals;
 import 'package:flutter/material.dart';
@@ -20,6 +19,7 @@ import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_liquid_glass_bottom_bar.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/widgets/keep_alive_tab.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -596,9 +596,7 @@ class _ModeratorDashboardScreenState
       },
       child: Scaffold(
         extendBody: true,
-        backgroundColor: isDark
-            ? AppColors.backgroundDark
-            : const Color(0xFFF0F0F8),
+        backgroundColor: Colors.transparent,
         body: Stack(
           children: [
             Column(
@@ -639,13 +637,15 @@ class _ModeratorDashboardScreenState
                     ),
                   ),
                 Expanded(
-                  child: DashboardTabPageView(
-                    controller: _pageController,
-                    backgroundColor: isDark
-                        ? AppColors.backgroundDark
-                        : const Color(0xfff1f5f3),
-                    onPageChanged: _handlePageChanged,
-                    children: [
+                  child: MediaQuery.removePadding(
+                    context: context,
+                    removeBottom: true,
+                    child: DashboardTabPageView(
+                      controller: _pageController,
+                      backgroundColor:
+                          AppGlassTheme.dashboardBackgroundColor(isDark),
+                      onPageChanged: _handlePageChanged,
+                      children: [
                       _GroupsHomeTab(
                         searchController: _searchController,
                         onNotificationTap: () =>
@@ -660,6 +660,7 @@ class _ModeratorDashboardScreenState
                       const ModeratorProfileScreen(),
                     ],
                   ),
+                  ),
                 ),
               ],
             ),
@@ -669,7 +670,7 @@ class _ModeratorDashboardScreenState
             if (_currentTab == 0)
               PositionedDirectional(
                 end: 16.w,
-                bottom: 88.h,
+                bottom: AppGlassTheme.floatingBottomBarHeight(context) + 16.h,
                 child: ModeratorGroupsSpeedDial(
                   onCreateGroup: () =>
                       Navigator.of(context, rootNavigator: true).push(
@@ -685,11 +686,16 @@ class _ModeratorDashboardScreenState
                       ),
                 ),
               ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: AppGlassTheme.floatingBottomBarBottomOffset(context),
+              child: _ModBottomNav(
+                currentIndex: _currentTab,
+                onTap: (index) => _goToTab(index, animate: false),
+              ),
+            ),
           ],
-        ),
-        bottomNavigationBar: _ModBottomNav(
-          currentIndex: _currentTab,
-          onTap: (index) => _goToTab(index, animate: false),
         ),
       ),
     );
@@ -1066,8 +1072,11 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
     final showEmptyState =
         !state.isLoading && state.error == null && groups.isEmpty;
 
-    return SafeArea(
-      child: RefreshIndicator(
+    return AppDashboardBackground(
+      isDark: isDark,
+      child: SafeArea(
+        bottom: false,
+        child: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: () async {
           await ref.read(pendingInvitationsProvider.notifier).fetchPending();
@@ -1096,7 +1105,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                                 'dashboard_my_groups'.tr(),
                                 style: TextStyle(
                                   fontWeight: FontWeight.w800,
-                                  fontSize: 28.sp,
+                                  fontSize: 22.sp,
                                   color: isDark
                                       ? Colors.white
                                       : const Color(0xFF1A1A4E),
@@ -1116,7 +1125,9 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            GestureDetector(
+                            AppGlassIconButton(
+                              isDark: isDark,
+                              icon: Icons.business_center_rounded,
                               onTap: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
@@ -1124,86 +1135,22 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                                   ),
                                 );
                               },
-                              child: Container(
-                                width: 44.w,
-                                height: 44.w,
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? AppColors.iconBgDark
-                                      : AppColors.iconBgLight,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: isDark
-                                        ? AppColors.backgroundDark
-                                        : const Color(0xFFD0D0F0),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.06,
-                                      ),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  Icons.business_center_rounded,
-                                  size: 22.w,
-                                  color: isDark
-                                      ? AppColors.primary
-                                      : const Color(0xFF8A6A30),
-                                ),
-                              ),
                             ),
                             SizedBox(width: 8.w),
-                            GestureDetector(
+                            AppGlassIconButton(
+                              isDark: isDark,
+                              icon: Symbols.notifications,
                               onTap: widget.onNotificationTap,
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Container(
-                                    width: 44.w,
-                                    height: 44.w,
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? AppColors.iconBgDark
-                                          : AppColors.iconBgLight,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: isDark
-                                            ? AppColors.backgroundDark
-                                            : const Color(0xFFD0D0F0),
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.06,
-                                          ),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Icon(
-                                      Symbols.notifications,
-                                      size: 22.w,
-                                      color: isDark
-                                          ? AppColors.primary
-                                          : const Color(0xFF8A6A30),
-                                    ),
-                                  ),
-                                  if (notifCount > 0)
-                                    Positioned(
+                              badge: notifCount > 0
+                                  ? Positioned(
                                       top: -2,
                                       right: -2,
                                       child: _CountBadge(
                                         count: notifCount,
                                         isDark: isDark,
                                       ),
-                                    ),
-                                ],
-                              ),
+                                    )
+                                  : null,
                             ),
                           ],
                         ),
@@ -1211,112 +1158,20 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                     ),
 
                     SizedBox(height: 16.h),
-                    const PendingInvitationsSection(),
+                    PendingInvitationsSection(isDark: isDark),
                     SizedBox(height: 20.h),
 
-                    // Search + Filter row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            height: 48.h,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? AppColors.surfaceDark
-                                  : Colors.white,
-                              borderRadius: BorderRadius.circular(14.r),
-                              border: Border.all(
-                                color: isDark
-                                    ? AppColors.backgroundDark
-                                    : const Color(0xFFE2E2F0),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: TextField(
-                              controller: widget.searchController,
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                color: isDark
-                                    ? const Color(0xFFE2E8F0)
-                                    : AppColors.textDark,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'dashboard_search_groups'.tr(),
-                                hintStyle: TextStyle(
-                                  fontSize: 14.sp,
-                                  color: AppColors.textMutedLight,
-                                ),
-                                prefixIcon: Icon(
-                                  Symbols.search,
-                                  size: 20.w,
-                                  color: AppColors.textMutedLight,
-                                ),
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(
-                                  vertical: 14.h,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 10.w),
-                        GestureDetector(
-                          onTap: () => _showSortBottomSheet(isDark),
-                          child: Container(
-                            width: 48.w,
-                            height: 48.h,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? AppColors.surfaceDark
-                                  : Colors.white,
-                              borderRadius: BorderRadius.circular(14.r),
-                              border: Border.all(
-                                color: isDark
-                                    ? AppColors.backgroundDark
-                                    : const Color(0xFFE2E2F0),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Icon(
-                                  Symbols.tune,
-                                  size: 20.w,
-                                  color: isDark
-                                      ? AppColors.primary
-                                      : const Color(0xFF8A6A30),
-                                ),
-                                if (_sortType != GroupSortType.oldestToNewest)
-                                  Positioned(
-                                    top: 12.h,
-                                    right: 12.w,
-                                    child: Container(
-                                      width: 6.w,
-                                      height: 6.w,
-                                      decoration: const BoxDecoration(
-                                        color: AppColors.primary,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+                    AppGlassSearchField(
+                      isDark: isDark,
+                      controller: widget.searchController,
+                      hintText: 'dashboard_search_groups'.tr(),
+                      filter: AppGlassFilterButton(
+                        isDark: isDark,
+                        icon: Symbols.tune,
+                        onTap: () => _showSortBottomSheet(isDark),
+                        showActiveDot:
+                            _sortType != GroupSortType.oldestToNewest,
+                      ),
                     ),
 
                     SizedBox(height: 20.h),
@@ -1393,12 +1248,17 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
             // ── Group cards list ──
             if (!state.isLoading && groups.isNotEmpty)
               SliverPadding(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                padding: EdgeInsets.fromLTRB(
+                  20.w,
+                  0,
+                  20.w,
+                  AppGlassTheme.bottomNavScrollPadding(context),
+                ),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate((ctx, i) {
                     return Padding(
                       padding: EdgeInsets.only(
-                        bottom: i == groups.length - 1 ? 20.h : 12.h,
+                        bottom: i == groups.length - 1 ? 0 : 12.h,
                       ),
                       child: _GroupCard(group: groups[i]),
                     );
@@ -1407,6 +1267,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
               ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1500,7 +1361,8 @@ class _GroupCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return GestureDetector(
+    return AppGlassCard(
+      isDark: isDark,
       onTap: () {
         final userId = ref.read(authProvider).userId ?? '';
         Navigator.of(context).push(
@@ -1510,27 +1372,10 @@ class _GroupCard extends ConsumerWidget {
           ),
         );
       },
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : Colors.white,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(
-            color: isDark ? AppColors.backgroundDark : const Color(0xFFE2E2F0),
-            width: 1.2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(14.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      padding: EdgeInsets.all(14.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1838,8 +1683,6 @@ class _GroupCard extends ConsumerWidget {
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 }
@@ -2094,20 +1937,24 @@ class _ModBottomNav extends ConsumerWidget {
         AppTheme.isDarkEffective(ref.watch(themeProvider), context);
 
     final items = [
-      LiquidGlassBottomBarItem(
+      AppBottomBarItem(
         icon: Symbols.groups,
+        activeIcon: Symbols.groups,
         label: 'nav_groups'.tr(),
       ),
-      LiquidGlassBottomBarItem(
+      AppBottomBarItem(
         icon: Symbols.inbox,
+        activeIcon: Symbols.inbox,
         label: 'nav_provisioning'.tr(),
       ),
-      LiquidGlassBottomBarItem(
+      AppBottomBarItem(
         icon: Symbols.notifications_active,
+        activeIcon: Symbols.notifications_active,
         label: 'nav_reminders'.tr(),
       ),
-      LiquidGlassBottomBarItem(
+      AppBottomBarItem(
         icon: Symbols.person,
+        activeIcon: Symbols.person,
         label: 'nav_profile'.tr(),
       ),
     ];

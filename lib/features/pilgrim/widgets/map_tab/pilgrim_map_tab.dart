@@ -14,6 +14,7 @@ import '../../../../core/map/app_map_marker_cluster.dart';
 import '../../../../core/map/app_map_tiles.dart';
 import '../../../../core/map/widgets/app_platform_map.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/glass/app_glass.dart';
 import '../../../../core/widgets/map_circle_fab.dart';
 import '../../../shared/models/suggested_area_model.dart';
 import '../../../shared/widgets/moderator_avatar.dart';
@@ -123,8 +124,11 @@ class PilgrimMapTab extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final group = pilgrimState.groupInfo;
     final beacons = pilgrimState.navBeacons.values.toList();
-    final fabBottom = 14.h;
-    final fabStride = 44.w + 10.h;
+    const mapFabSize = 48.0;
+    final fabSize = mapFabSize.w;
+    final fabGap = 12.h;
+    final fabBottom = AppGlassTheme.mapControlsBottomInset(context);
+    final fabStride = fabSize + fabGap;
 
     final insuranceCompany = pilgrimState.profile?.insuranceCompany;
     final hospitals = insuranceCompany?.hospitals ?? const [];
@@ -139,6 +143,7 @@ class PilgrimMapTab extends StatelessWidget {
     return Stack(
       children: [
         AppPlatformMap(
+          key: mapController.mapViewKey,
           controller: mapController,
           initialCenter: myLocation ?? AppMapTiles.fallbackMapCenter,
           initialZoom: AppMapTiles.clampMapZoom(15),
@@ -312,44 +317,48 @@ class PilgrimMapTab extends StatelessWidget {
 
         if (group != null)
           SafeArea(
-            child: Padding(
-              padding: EdgeInsets.all(14.w),
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                    horizontal: 14.w, vertical: 10.h),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.surfaceDark : Colors.white,
-                  borderRadius: BorderRadius.circular(16.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircleAvatar(
-                      radius: 16.r,
-                      backgroundColor: isDark
-                          ? AppColors.iconBgDark
-                          : AppColors.iconBgLight,
-                      child: Icon(Symbols.group,
-                          color: AppColors.primary, size: 16.w),
-                    ),
-                    SizedBox(width: 8.w),
-                    Text(
-                      group.groupName,
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13.sp,
-                        color: isDark ? Colors.white : AppColors.textDark,
+            bottom: false,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: EdgeInsets.all(14.w),
+                child: AppGlassSurface(
+                  isDark: isDark,
+                  borderRadius: BorderRadius.circular(20.r),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12.w,
+                    vertical: 8.h,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 32.w,
+                        height: 32.w,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(
+                            alpha: isDark ? 0.22 : 0.12,
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Symbols.group,
+                          color: AppColors.primary,
+                          size: 16.w,
+                        ),
                       ),
-                    ),
-                  ],
+                      SizedBox(width: 10.w),
+                      Text(
+                        group.groupName,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.sp,
+                          color: isDark ? Colors.white : AppColors.textDark,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -377,23 +386,28 @@ class PilgrimMapTab extends StatelessWidget {
                 );
                 showAreaInfo(context, mp);
               },
-              child: Container(
-                width: 48.w,
-                height: 48.w,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDC2626),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color:
-                          const Color(0xFFDC2626).withValues(alpha: 0.45),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
+              child: SizedBox(
+                width: fabSize,
+                height: fabSize,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDC2626),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFDC2626)
+                            .withValues(alpha: 0.45),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Symbols.crisis_alert,
+                    color: Colors.white,
+                    size: 22.w,
+                  ),
                 ),
-                child: Icon(Symbols.crisis_alert,
-                    color: Colors.white, size: 22.w),
               ),
             ),
           ),
@@ -427,20 +441,18 @@ class PilgrimMapTab extends StatelessWidget {
 
         if (myLocation == null)
           Center(
-            child: Container(
-              padding: EdgeInsets.all(16.w),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16.r),
-                boxShadow: const [
-                  BoxShadow(color: Colors.black12, blurRadius: 8),
-                ],
-              ),
+            child: AppGlassSurface(
+              isDark: isDark,
+              borderRadius: AppGlassTheme.cardRadius,
+              padding: EdgeInsets.all(20.w),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Symbols.location_off,
-                      size: 40.w, color: AppColors.textMutedLight),
+                  Icon(
+                    Symbols.location_off,
+                    size: 40.w,
+                    color: AppColors.textMutedLight,
+                  ),
                   SizedBox(height: 8.h),
                   Text(
                     'pilgrim_locating'.tr(),

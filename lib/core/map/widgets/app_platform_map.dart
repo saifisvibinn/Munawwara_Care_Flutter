@@ -57,6 +57,7 @@ class _AppPlatformMapState extends State<AppPlatformMap> {
   MapController? _flutterMapController;
   Map<String, dynamic>? _iosCreationParams;
   Timer? _markerPushDebounce;
+  int? _iosViewId;
 
   bool get _useMapKit => !kIsWeb && Platform.isIOS;
 
@@ -80,6 +81,11 @@ class _AppPlatformMapState extends State<AppPlatformMap> {
   @override
   void dispose() {
     _markerPushDebounce?.cancel();
+    if (_iosViewId != null) {
+      widget.controller.detachIosView(_iosViewId!);
+    }
+    _iosChannel?.setMethodCallHandler(null);
+    _iosChannel = null;
     _flutterMapController?.dispose();
     super.dispose();
   }
@@ -123,6 +129,7 @@ class _AppPlatformMapState extends State<AppPlatformMap> {
   }
 
   void _onIosCreated(int viewId) {
+    _iosViewId = viewId;
     widget.controller.attachIosView(viewId);
     _iosChannel = MethodChannel('com.munawwaracare/mapkit_$viewId');
     _iosChannel!.setMethodCallHandler((call) async {
@@ -157,7 +164,6 @@ class _AppPlatformMapState extends State<AppPlatformMap> {
     if (_useMapKit) {
       return SizedBox.expand(
         child: UiKitView(
-          key: const ValueKey<String>('munawwara_mapkit'),
           viewType: 'MunawwaraMapKit',
           layoutDirection: TextDirection.ltr,
           gestureRecognizers: kIosMapGestureRecognizers,

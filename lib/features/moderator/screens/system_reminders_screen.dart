@@ -9,6 +9,7 @@ import '../../../core/widgets/standard_snackbar.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dropdown_theme.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../providers/moderator_provider.dart';
 import '../providers/reminder_provider.dart';
 import '../widgets/reminder_card.dart';
@@ -276,16 +277,19 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
     final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
     final textMuted =
         isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
-    final pageBg =
-        isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
     final outline = isDark ? AppColors.dividerDark : AppColors.dividerLight;
-    final cardColor = isDark ? AppColors.surfaceDark : Colors.white;
 
-    return ColoredBox(
-      color: pageBg,
+    return AppDashboardBackground(
+      isDark: isDark,
       child: SafeArea(
+        bottom: false,
         child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 100.h),
+          padding: EdgeInsets.fromLTRB(
+            20.w,
+            12.h,
+            20.w,
+            AppGlassTheme.bottomNavScrollPadding(context),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -307,7 +311,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                           style: TextStyle(
                             fontFamily: 'Lexend',
                             fontWeight: FontWeight.w800,
-                            fontSize: 26.sp,
+                            fontSize: 22.sp,
                             height: 1.1,
                             color: textPrimary,
                           ),
@@ -329,35 +333,25 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
               ),
               SizedBox(height: 20.h),
 
-              Card(
-                elevation: 0,
-                margin: EdgeInsets.zero,
-                color: cardColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.r),
-                  side: BorderSide(
-                    color: outline.withValues(alpha: isDark ? 0.9 : 0.65),
-                  ),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(18.w, 18.h, 18.w, 16.h),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'reminder_target_audience'.tr(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12.sp,
-                          color: textMuted,
-                        ),
+              AppGlassCard(
+                isDark: isDark,
+                padding: EdgeInsets.fromLTRB(18.w, 18.h, 18.w, 16.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'reminder_target_audience'.tr(),
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12.sp,
+                        color: textMuted,
                       ),
-                      SizedBox(height: 6.h),
-                      Material(
-                        color: Colors.transparent,
-                        child: TabBar(
+                    ),
+                    SizedBox(height: 6.h),
+                    Material(
+                      color: Colors.transparent,
+                      child: TabBar(
                           controller: _audienceTabController,
                           isScrollable: false,
                           labelPadding: EdgeInsets.symmetric(horizontal: 10.w),
@@ -937,10 +931,9 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                       }).toList(),
                     ),
                   ],
-                    ],
-                  ),
-                ),
+                ],
               ),
+            ),
             SizedBox(height: 16.h),
 
             // CREATE BUTTON

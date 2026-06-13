@@ -1,0 +1,60 @@
+import 'package:cupertino_liquid_glass/cupertino_liquid_glass.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+
+import '../../theme/app_colors.dart';
+
+/// Shared liquid glass styling aligned with [AppLiquidGlassBottomBar].
+///
+/// Design intent follows Apple's Liquid Glass guidance: glass belongs on the
+/// **functional layer** (navigation, toolbars, key controls) so underlying
+/// content stays in focus. See:
+/// https://developer.apple.com/documentation/TechnologyOverviews/adopting-liquid-glass
+///
+/// Rules we follow in this app:
+/// - One glass layer per visual block (no nested glass-on-glass).
+/// - Reserve glass for nav chrome, headers, FABs, and primary dashboard cards.
+/// - Keep list rows, form fields, and chat bubbles solid for legibility.
+/// - Use [bottomNavScrollPadding] so scroll content clears the floating tab bar
+///   (scroll-edge separation, similar to iOS scroll edge effects).
+/// - Set [enableGlass] false on [AppGlassSurface] for reduced-transparency QA.
+class AppGlassTheme {
+  AppGlassTheme._();
+
+  /// Backdrop blur intensity. Reduce if profiling shows scroll jank.
+  static const double blurSigma = 28;
+
+  /// Concentric with floating tab bar (26pt system-style radius).
+  static BorderRadius get borderRadius => BorderRadius.circular(26.r);
+
+  static BorderRadius get cardRadius => BorderRadius.circular(24.r);
+
+  static BorderRadius get iconButtonRadius => BorderRadius.circular(22.r);
+
+  static LiquidGlassThemeData of(bool isDark) =>
+      isDark ? LiquidGlassThemeData.dark() : LiquidGlassThemeData.light();
+
+  /// Matches [AppDashboardBackground] so PageView underlays never peek through.
+  static Color dashboardBackgroundColor(bool isDark) =>
+      isDark ? AppColors.backgroundDark : const Color(0xFFF7F9FB);
+
+  /// Glass pill content height (vertical padding + tab row).
+  static double get bottomBarPillHeight => 6.h + 52.h + 6.h;
+
+  /// Total height of [AppLiquidGlassBottomBar] from the physical screen bottom.
+  /// Includes the home-indicator inset applied inside the bar widget.
+  static double floatingBottomBarHeight(BuildContext context) {
+    return MediaQuery.viewPaddingOf(context).bottom + bottomBarPillHeight;
+  }
+
+  /// [Positioned] `bottom` offset — bar is flush with the screen bottom.
+  static double floatingBottomBarBottomOffset(BuildContext context) => 0;
+
+  /// Bottom scroll padding so content clears the floating glass nav bar.
+  static double bottomNavScrollPadding(BuildContext context) =>
+      floatingBottomBarHeight(context);
+
+  /// Bottom inset for map overlay controls (locate, suggestions, hospitals).
+  static double mapControlsBottomInset(BuildContext context) =>
+      floatingBottomBarHeight(context) + 40.h;
+}

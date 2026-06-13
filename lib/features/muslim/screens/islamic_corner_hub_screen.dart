@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../constants/muslim_colors.dart';
 import '../models/muslim_models.dart';
 import '../providers/muslim_providers.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import 'azkar_screen.dart';
 import 'asma_ul_husna_screen.dart';
 import 'duaa_screen.dart';
@@ -18,13 +19,13 @@ class IslamicCornerHubScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bg = context.mSurface;
     final bundleAsync = ref.watch(prayerBundleProvider);
     final namesAsync = ref.watch(asmaUlHusnaProvider);
 
-    return ColoredBox(
-      color: bg,
+    return AppDashboardBackground(
+      isDark: context.isDark,
       child: SafeArea(
+        bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -49,7 +50,12 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                   await ref.read(prayerBundleProvider.future);
                 },
                 child: ListView(
-                  padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 24.h),
+                  padding: EdgeInsets.fromLTRB(
+                    20.w,
+                    8.h,
+                    20.w,
+                    AppGlassTheme.bottomNavScrollPadding(context),
+                  ),
                   children: [
                     bundleAsync.when(
                       data: (bundle) => _PrayerFeaturedCard(
@@ -214,14 +220,13 @@ class _PrayerFeaturedCard extends StatelessWidget {
     final nextTime = data.prayerTimes[next] ?? '';
     final minutes = countdownMinutes ?? data.currentStatus.minutesUntilNext;
 
-    return Material(
-      color: context.mPrayerHeroFill,
-      borderRadius: BorderRadius.circular(16.r),
-      elevation: 4,
-      shadowColor: context.mPrayerHeroFill.withValues(alpha: 0.35),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16.r),
+    return AppGlassCard(
+      isDark: context.isDark,
+      onTap: onTap,
+      padding: EdgeInsets.zero,
+      child: Material(
+        color: context.mPrayerHeroFill,
+        borderRadius: AppGlassTheme.cardRadius,
         child: Padding(
           padding: EdgeInsets.all(20.w),
           child: Column(
@@ -388,12 +393,14 @@ class _HubBentoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(16.r);
+
     return Material(
       color: tint,
-      borderRadius: BorderRadius.circular(16.r),
+      borderRadius: radius,
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16.r),
         child: Stack(
           children: [
             PositionedDirectional(
@@ -417,12 +424,6 @@ class _HubBentoCard extends StatelessWidget {
                           ? context.mSurfaceContainerLow
                           : Colors.white,
                       borderRadius: BorderRadius.circular(10.r),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 6,
-                        ),
-                      ],
                     ),
                     child: Icon(icon, color: iconColor, size: 22.w),
                   ),
@@ -487,12 +488,12 @@ class _HubWideCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: tint,
-      borderRadius: BorderRadius.circular(16.r),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16.r),
+    return AppGlassCard(
+      isDark: context.isDark,
+      onTap: onTap,
+      padding: EdgeInsets.zero,
+      child: ColoredBox(
+        color: tint,
         child: Stack(
           children: [
             PositionedDirectional(
@@ -515,12 +516,6 @@ class _HubWideCard extends StatelessWidget {
                           ? context.mSurfaceContainerLow
                           : Colors.white,
                       borderRadius: BorderRadius.circular(12.r),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 6,
-                        ),
-                      ],
                     ),
                     child: Icon(icon, color: iconColor, size: 24.w),
                   ),

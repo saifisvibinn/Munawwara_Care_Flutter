@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../providers/invitation_provider.dart';
 import 'pending_invitation_card.dart';
 
 /// Lists pending group invitations at the top of the moderator groups tab.
 class PendingInvitationsSection extends ConsumerWidget {
-  const PendingInvitationsSection({super.key});
+  const PendingInvitationsSection({super.key, required this.isDark});
+
+  final bool isDark;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,7 +42,7 @@ class PendingInvitationsSection extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    return Column(
+    final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ...state.invitations.map(
@@ -58,6 +61,12 @@ class PendingInvitationsSection extends ConsumerWidget {
           SizedBox(height: 8.h),
         ],
       ],
+    );
+
+    return AppGlassCard(
+      isDark: isDark,
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+      child: content,
     );
   }
 }

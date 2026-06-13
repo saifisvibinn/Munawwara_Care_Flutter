@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../models/reminder_model.dart';
 
 class ReminderCard extends StatelessWidget {
@@ -16,187 +17,175 @@ class ReminderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final statusColor = _statusColor(reminder.status);
-    final timeStr = DateFormat('dd MMM yyyy  HH:mm').format(reminder.scheduledAt.toLocal());
+    final timeStr =
+        DateFormat('dd MMM yyyy  HH:mm').format(reminder.scheduledAt.toLocal());
 
-    return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      padding: EdgeInsets.all(14.w),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(14.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Status badge + time
-          Row(
-            children: [
-              Flexible(
-                fit: FlexFit.loose,
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20.r),
-                  ),
-                  child: Text(
-                    'reminder_status_${reminder.status}'.tr(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w700,
-                      color: statusColor,
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12.h),
+      child: AppGlassCard(
+        isDark: isDark,
+        padding: EdgeInsets.all(14.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20.r),
                     ),
-                  ),
-                ),
-              ),
-              SizedBox(width: 8.w),
-              Flexible(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Symbols.schedule, size: 14.sp, color: Colors.grey),
-                    SizedBox(width: 4.w),
-                    Flexible(
-                      child: Text(
-                        timeStr,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.end,
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 11.sp,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 10.h),
-
-          // Reminder text
-          Text(
-            reminder.text,
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w600,
-              color: isDark ? AppColors.textLight : AppColors.textDark,
-            ),
-          ),
-          SizedBox(height: 8.h),
-
-          // Target + repeat info
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                _targetIcon(reminder.targetType),
-                size: 14.sp,
-                color: AppColors.primary,
-              ),
-              SizedBox(width: 4.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _targetLabel(reminder),
-                      maxLines: 2,
+                    child: Text(
+                      'reminder_status_${reminder.status}'.tr(),
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Lexend',
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w700,
+                        color: statusColor,
                       ),
                     ),
-                    if (reminder.weeklyDays.isNotEmpty) ...[
-                      SizedBox(height: 4.h),
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                Flexible(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Symbols.schedule, size: 14.sp, color: Colors.grey),
+                      SizedBox(width: 4.w),
+                      Flexible(
+                        child: Text(
+                          timeStr,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 11.sp,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 10.h),
+            Text(
+              reminder.text,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppColors.textLight : AppColors.textDark,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  _targetIcon(reminder.targetType),
+                  size: 14.sp,
+                  color: AppColors.primary,
+                ),
+                SizedBox(width: 4.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        'reminder_card_weekly_days'.tr(namedArgs: {
-                          'days': reminder.weeklyDays
-                              .map((d) => 'reminder_weekday_short_$d'.tr())
-                              .join(', '),
-                        }),
+                        _targetLabel(reminder),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: 'Lexend',
-                          fontSize: 11.sp,
-                          color: Colors.grey,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
                         ),
                       ),
-                    ],
-                    if (reminder.repeatCount > 1 ||
-                        reminder.weeklyDays.isNotEmpty) ...[
-                      SizedBox(height: 4.h),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Symbols.repeat, size: 14.sp, color: Colors.grey),
-                          SizedBox(width: 4.w),
-                          Flexible(
-                            child: Text(
-                              reminder.weeklyDays.isNotEmpty
-                                  ? '${reminder.firesSent}/${reminder.repeatCount}'
-                                  : '${reminder.firesSent}/${reminder.repeatCount}  · every ${_formatInterval(reminder.repeatIntervalMin)}',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: 'Lexend',
-                                fontSize: 12.sp,
-                                color: Colors.grey,
+                      if (reminder.weeklyDays.isNotEmpty) ...[
+                        SizedBox(height: 4.h),
+                        Text(
+                          'reminder_card_weekly_days'.tr(namedArgs: {
+                            'days': reminder.weeklyDays
+                                .map((d) => 'reminder_weekday_short_$d'.tr())
+                                .join(', '),
+                          }),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 11.sp,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                      if (reminder.repeatCount > 1 ||
+                          reminder.weeklyDays.isNotEmpty) ...[
+                        SizedBox(height: 4.h),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Symbols.repeat, size: 14.sp, color: Colors.grey),
+                            SizedBox(width: 4.w),
+                            Flexible(
+                              child: Text(
+                                reminder.weeklyDays.isNotEmpty
+                                    ? '${reminder.firesSent}/${reminder.repeatCount}'
+                                    : '${reminder.firesSent}/${reminder.repeatCount}  · every ${_formatInterval(reminder.repeatIntervalMin)}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 12.sp,
+                                  color: Colors.grey,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
+                ),
+              ],
+            ),
+            if (reminder.isActive) ...[
+              SizedBox(height: 10.h),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: onCancel,
+                  icon: Icon(Symbols.cancel, size: 16.sp, color: Colors.redAccent),
+                  label: Text(
+                    'area_cancel'.tr(),
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 12.sp,
+                      color: Colors.redAccent,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                 ),
               ),
             ],
-          ),
-
-          // Cancel button (only for active reminders)
-          if (reminder.isActive) ...[
-            SizedBox(height: 10.h),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: onCancel,
-                icon: Icon(Symbols.cancel, size: 16.sp, color: Colors.redAccent),
-                label: Text(
-                  'area_cancel'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 12.sp,
-                    color: Colors.redAccent,
-                  ),
-                ),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ),
-            ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -235,15 +224,19 @@ class ReminderCard extends StatelessWidget {
 
   Color _statusColor(String status) {
     switch (status) {
-      case 'pending': return Colors.blueAccent;
-      case 'active': return AppColors.primary;
-      case 'completed': return Colors.green;
-      case 'cancelled': return Colors.grey;
-      default: return Colors.grey;
+      case 'pending':
+        return Colors.blueAccent;
+      case 'active':
+        return AppColors.primary;
+      case 'completed':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.grey;
+      default:
+        return Colors.grey;
     }
   }
 
-  /// Returns a human-readable interval string, e.g. "15m", "2h", "1h 30m"
   String _formatInterval(int minutes) {
     if (minutes < 60) return '${minutes}m';
     final h = minutes ~/ 60;

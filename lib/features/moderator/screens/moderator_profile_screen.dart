@@ -11,6 +11,7 @@ import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_settings_expansion.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/utils/phone_number_utils.dart';
 import '../../../core/widgets/phone_number_text.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -63,7 +64,6 @@ class _ModeratorProfileScreenState
     final fullName = authState.fullName ?? 'Moderator';
     final initials = _initials(fullName);
 
-    final bg = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
     final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
     final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
     final textMuted = isDark
@@ -73,25 +73,26 @@ class _ModeratorProfileScreenState
         ? const Color(0xFF383018)
         : const Color(0xFFE2E2F0);
 
-    return Scaffold(
-      backgroundColor: bg,
-      body: SafeArea(
+    return AppDashboardBackground(
+      isDark: isDark,
+      child: SafeArea(
+        bottom: false,
         child: Column(
           children: [
-            // ── Header ────────────────────────────────────────────────────────
             _Header(isDark: isDark, textPrimary: textPrimary),
-
-            // ── Scrollable body ───────────────────────────────────────────────
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: 24.h),
-
-                    // ── Profile card ─────────────────────────────────────────
-                    _ProfileCard(
+                  padding: EdgeInsets.fromLTRB(
+                    20.w,
+                    0,
+                    20.w,
+                    AppGlassTheme.bottomNavScrollPadding(context),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: 24.h),
+                      _ProfileCard(
                       initials: initials,
                       fullName: fullName,
                       isDark: isDark,
@@ -135,20 +136,9 @@ class _ModeratorProfileScreenState
                       textMuted: textMuted,
                     ),
                     SizedBox(height: 8.h),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(16.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(
-                              alpha: isDark ? 0.3 : 0.04,
-                            ),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
+                    AppGlassCard(
+                      isDark: isDark,
+                      padding: EdgeInsets.zero,
                       child: Column(
                         children: [
                           _SupportRow(
@@ -167,7 +157,7 @@ class _ModeratorProfileScreenState
                             textMuted: textMuted,
                             onTap: () => context.push(
                               '/about',
-                              extra: true, // showAccountDeletion
+                              extra: true,
                             ),
                             isLast: true,
                             dividerColor: dividerColor,
@@ -283,23 +273,11 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return AppGlassCard(
+      isDark: isDark,
       padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 16.w),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(24.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
       child: Column(
         children: [
-          // Centered Avatar with edit icon overlay
           Stack(
             children: [
               Container(
@@ -347,7 +325,6 @@ class _ProfileCard extends StatelessWidget {
             ],
           ),
           SizedBox(height: 16.h),
-          // Moderator Name
           Text(
             fullName,
             style: TextStyle(
@@ -359,7 +336,6 @@ class _ProfileCard extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           SizedBox(height: 8.h),
-          // Moderator Role Chip
           Container(
             padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 4.h),
             decoration: BoxDecoration(

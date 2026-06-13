@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/map/app_map_tiles.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/glass/app_glass.dart';
 import '../../../../core/utils/open_maps_navigation.dart';
 import '../../models/insurance_company.dart';
 
@@ -318,6 +319,7 @@ class _HospitalsCycleButtonState extends State<HospitalsCycleButton> {
   @override
   Widget build(BuildContext context) {
     final count = widget.hospitals.length;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () {
         if (widget.hospitals.isEmpty) return;
@@ -326,22 +328,16 @@ class _HospitalsCycleButtonState extends State<HospitalsCycleButton> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Container(
+          AppGlassSurface(
+            isDark: isDark,
+            borderRadius: BorderRadius.circular(24.r),
             width: 48.w,
             height: 48.w,
-            decoration: BoxDecoration(
+            child: Icon(
+              Icons.local_hospital_rounded,
               color: Colors.red.shade600,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.red.shade600.withValues(alpha: 0.45),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+              size: 22.w,
             ),
-            child: Icon(Icons.local_hospital_rounded,
-                color: Colors.white, size: 22.w),
           ),
           if (count > 1)
             Positioned(

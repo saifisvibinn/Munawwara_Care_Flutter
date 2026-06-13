@@ -10,6 +10,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/utils/open_maps_navigation.dart';
 import '../../../core/services/tts_cloud_api.dart';
@@ -34,11 +35,15 @@ class GroupInboxScreen extends ConsumerStatefulWidget {
   /// Increment this notifier to trigger a scroll-to-bottom (e.g. on tab switch).
   final ValueNotifier<int>? scrollNotifier;
 
+  /// When false (dashboard tab), hide the back affordance in the header.
+  final bool showBackButton;
+
   const GroupInboxScreen({
     super.key,
     required this.groupId,
     required this.groupName,
     this.scrollNotifier,
+    this.showBackButton = false,
   });
 
   @override
@@ -392,8 +397,8 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
           _highlightClearTimer = Timer(const Duration(seconds: 4), () {
             if (mounted) setState(() => _newMessageIds.clear());
           });
+          _scrollToBottom(jump: true);
         }
-        _scrollToBottom(jump: true);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _queueAutoTranslate(next.messages);
         });
@@ -434,20 +439,38 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
       _queueAutoTranslate(arrived.toList());
     });
 
-    return Scaffold(
-      backgroundColor: GroupChatTheme.scaffoldBackground(isDark),
-      body: SafeArea(
+    return AppDashboardBackground(
+      isDark: isDark,
+      child: SafeArea(
+        bottom: false,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            GroupChatHeader(
-              isDark: isDark,
-              title: 'call_support_display_name'.tr(),
-              subtitle: 'inbox_title'.tr(),
-              onRefresh: _refreshMessages,
-              onBack: () => Navigator.of(context).maybePop(),
-              showBrandAvatar: true,
+            Padding(
+              padding: EdgeInsets.fromLTRB(12.w, 6.h, 12.w, 0),
+              child: GroupChatHeader(
+                isDark: isDark,
+                useGlass: true,
+                title: 'call_support_display_name'.tr(),
+                subtitle: widget.groupName.isNotEmpty
+                    ? widget.groupName
+                    : 'inbox_title'.tr(),
+                onRefresh: _refreshMessages,
+                onBack: widget.showBackButton
+                    ? () => Navigator.of(context).maybePop()
+                    : null,
+                showBrandAvatar: true,
+              ),
             ),
-            _buildFilterRow(isDark),
+            Padding(
+              padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 0),
+              child: AppGlassSurface(
+                isDark: isDark,
+                borderRadius: BorderRadius.circular(14.r),
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+                child: _buildFilterRow(isDark, stripBackground: true),
+              ),
+            ),
             Expanded(
               child: showLoading
                   ? const Center(
@@ -455,24 +478,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
                         color: AppColors.primary,
                       ),
                     )
-                  : filtered.isEmpty
-                  ? _buildEmpty()
-                  : RefreshIndicator(
-                      color: AppColors.primary,
-                      onRefresh: _refreshMessages,
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        reverse: true,
-                        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
-                        itemCount: filtered.length,
-                        itemBuilder: (_, i) {
-                          // reverse:true renders index 0 at the bottom;
-                          // map to the newest-first order so newest = bottom.
-                          final msg = filtered[filtered.length - 1 - i];
-                          return _buildCard(msg);
-                        },
-                      ),
-                    ),
+                  : _buildMessageList(filtered),
             ),
           ],
         ),
@@ -480,10 +486,51 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     );
   }
 
+  Widget _buildMessageList(List<GroupMessage> filtered) {
+    if (filtered.isEmpty) {
+      return RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: _refreshMessages,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _buildEmpty(),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _refreshMessages,
+      child: ListView.builder(
+        controller: _scrollController,
+        reverse: true,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(
+          16.w,
+          AppGlassTheme.floatingBottomBarHeight(context) + 8.h,
+          16.w,
+          12.h,
+        ),
+        itemCount: filtered.length,
+        itemBuilder: (_, i) {
+          final msg = filtered[filtered.length - 1 - i];
+          return _buildCard(msg);
+        },
+      ),
+    );
+  }
+
   // ── Filter chips ──────────────────────────────────────────────────────────
 
-  Widget _buildFilterRow(bool isDark) {
-    final bg = GroupChatTheme.filterStripBackground(isDark);
+  Widget _buildFilterRow(bool isDark, {bool stripBackground = false}) {
+    final bg = stripBackground
+        ? Colors.transparent
+        : GroupChatTheme.filterStripBackground(isDark);
     final surface = isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white;
     final border = isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFE2E8F0);
 
@@ -550,7 +597,9 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
 
     return Container(
       color: bg,
-      padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 10.h),
+      padding: stripBackground
+          ? EdgeInsets.zero
+          : EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 10.h),
       child: Row(
         children: [
           buildBox(

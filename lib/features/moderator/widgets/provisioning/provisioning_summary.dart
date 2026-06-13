@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/glass/app_glass.dart';
 import '../../models/provisioning_models.dart';
 
 class ProvisioningSummaryCards extends StatelessWidget {
@@ -70,23 +71,9 @@ class _ModernStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final outline = isDark ? AppColors.dividerDark : AppColors.dividerLight;
-    return Container(
+    return AppGlassCard(
+      isDark: isDark,
       padding: EdgeInsets.fromLTRB(14.w, 14.h, 14.w, 14.h),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: outline.withValues(alpha: isDark ? 0.9 : 0.65),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

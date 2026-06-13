@@ -26,6 +26,7 @@ import '../../../core/services/oem_settings_service.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/keep_alive_tab.dart';
 import '../../../core/widgets/standard_snackbar.dart';
@@ -1845,66 +1846,76 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       },
       child: Scaffold(
         extendBody: true,
-        backgroundColor: isDark
-            ? AppColors.backgroundDark
-            : const Color(0xfff1f5f3),
-        body: Column(
+        backgroundColor: Colors.transparent,
+        body: Stack(
           children: [
-            if (pilgrimState.usingOfflineSnapshot)
-              Material(
-                color: AppColors.primary.withValues(alpha: 0.14),
-                child: SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 12.w,
-                      vertical: 8.h,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Symbols.cloud_off,
-                          size: 18.w,
-                          color: AppColors.primary,
+            Column(
+              children: [
+                if (pilgrimState.usingOfflineSnapshot)
+                  Material(
+                    color: AppColors.primary.withValues(alpha: 0.14),
+                    child: SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 8.h,
                         ),
-                        SizedBox(width: 8.w),
-                        Expanded(
-                          child: Text(
-                            'offline_showing_saved_data'.tr(),
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w500,
-                              color: isDark
-                                  ? Colors.white70
-                                  : AppColors.textDark,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Symbols.cloud_off,
+                              size: 18.w,
+                              color: AppColors.primary,
                             ),
-                          ),
+                            SizedBox(width: 8.w),
+                            Expanded(
+                              child: Text(
+                                'offline_showing_saved_data'.tr(),
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 12.sp,
+                                  fontWeight: FontWeight.w500,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : AppColors.textDark,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: MediaQuery.removePadding(
+                    context: context,
+                    removeBottom: true,
+                    child: DashboardTabPageView(
+                      controller: _pageController,
+                      backgroundColor:
+                          AppGlassTheme.dashboardBackgroundColor(isDark),
+                      physics: _currentTab == 1
+                          ? const NeverScrollableScrollPhysics()
+                          : const PageScrollPhysics(),
+                      onPageChanged: _handlePageChanged,
+                      children: tabs,
                     ),
                   ),
                 ),
-              ),
-            Expanded(
-              child: DashboardTabPageView(
-                controller: _pageController,
-                backgroundColor: isDark
-                    ? AppColors.backgroundDark
-                    : const Color(0xfff1f5f3),
-                physics: _currentTab == 1
-                    ? const NeverScrollableScrollPhysics()
-                    : const PageScrollPhysics(),
-                onPageChanged: _handlePageChanged,
-                children: tabs,
+              ],
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: AppGlassTheme.floatingBottomBarBottomOffset(context),
+              child: PilgrimBottomNav(
+                currentIndex: _currentTab,
+                onTap: (index) => _goToTab(index, animate: false),
+                unreadMessages: ref.watch(messageProvider).unreadCount,
               ),
             ),
           ],
-        ),
-        bottomNavigationBar: PilgrimBottomNav(
-          currentIndex: _currentTab,
-          onTap: (index) => _goToTab(index, animate: false),
-          unreadMessages: ref.watch(messageProvider).unreadCount,
         ),
       ),
     );

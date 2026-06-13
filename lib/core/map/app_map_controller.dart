@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -9,9 +10,15 @@ import 'app_map_tiles.dart';
 
 /// Unified camera control for FlutterMap (Android) and MapKit (iOS).
 class AppMapController {
+  AppMapController();
+
+  /// Keeps [AppPlatformMap] state alive across dashboard rebuilds (iOS MapKit).
+  final GlobalKey mapViewKey = GlobalKey(debugLabel: 'AppPlatformMap');
+
   MapController? _flutter;
   MethodChannel? _iosChannel;
   LatLng? _lastCenter;
+  int? _iosViewId;
 
   void attachFlutter(MapController controller) {
     _flutter = controller;
@@ -19,7 +26,14 @@ class AppMapController {
   }
 
   void attachIosView(int viewId) {
+    _iosViewId = viewId;
     _iosChannel = MethodChannel('com.munawwaracare/mapkit_$viewId');
+  }
+
+  void detachIosView(int viewId) {
+    if (_iosViewId != viewId) return;
+    _iosViewId = null;
+    _iosChannel = null;
   }
 
   /// Latest map center (works on iOS MapKit and FlutterMap).
@@ -59,6 +73,7 @@ class AppMapController {
   void dispose() {
     _flutter?.dispose();
     _flutter = null;
+    _iosViewId = null;
     _iosChannel = null;
     _lastCenter = null;
   }

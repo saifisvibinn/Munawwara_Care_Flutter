@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/services/callkit_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 
 /// Munawwara Care logo for in-app surfaces (RGBA; not [kCallKitSupportAvatarAsset]).
 class SupportBrandAvatar extends StatelessWidget {
@@ -170,6 +171,7 @@ class TtsPlayAloudButton extends StatelessWidget {
 /// Header row shared by group inbox (pilgrim) and group messages (moderator).
 class GroupChatHeader extends StatelessWidget {
   final bool isDark;
+  final bool useGlass;
   final String title;
   final String subtitle;
   final VoidCallback onRefresh;
@@ -179,6 +181,7 @@ class GroupChatHeader extends StatelessWidget {
   const GroupChatHeader({
     super.key,
     required this.isDark,
+    this.useGlass = false,
     required this.title,
     required this.subtitle,
     required this.onRefresh,
@@ -190,6 +193,65 @@ class GroupChatHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final titleColor = isDark ? Colors.white : AppColors.textDark;
     final subtitleColor = isDark ? Colors.white60 : AppColors.textMutedLight;
+
+    final headerContent = Row(
+      children: [
+        if (onBack != null) ...[
+          IconButton(
+            icon: Icon(
+              Symbols.arrow_back,
+              color: isDark ? Colors.white : AppColors.textDark,
+            ),
+            onPressed: onBack,
+          ),
+          SizedBox(width: 4.w),
+        ],
+        if (showBrandAvatar) ...[
+          SupportBrandAvatar(isDark: isDark),
+          SizedBox(width: 10.w),
+        ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16.sp,
+                  color: titleColor,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 11.sp,
+                  color: subtitleColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        AppGlassIconButton(
+          isDark: isDark,
+          icon: Symbols.refresh,
+          onTap: onRefresh,
+          size: 36.w,
+        ),
+      ],
+    );
+
+    if (useGlass) {
+      return AppGlassSurface(
+        isDark: isDark,
+        borderRadius: AppGlassTheme.cardRadius,
+        padding: EdgeInsets.fromLTRB(4.w, 6.h, 8.w, 6.h),
+        child: headerContent,
+      );
+    }
 
     return Container(
       padding: EdgeInsets.fromLTRB(4.w, 6.h, 12.w, 6.h),
