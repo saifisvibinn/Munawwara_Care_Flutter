@@ -1844,6 +1844,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         }
       },
       child: Scaffold(
+        extendBody: true,
         backgroundColor: isDark
             ? AppColors.backgroundDark
             : const Color(0xfff1f5f3),

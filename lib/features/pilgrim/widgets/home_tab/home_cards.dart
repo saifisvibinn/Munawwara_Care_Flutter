@@ -246,8 +246,12 @@ BoxDecoration _homeActionCardDecoration({
     borderRadius: borderRadius,
     border: Border.all(
       color: isDark
-          ? (isInteractive ? AppColors.primary.withValues(alpha: 0.35) : AppColors.dividerDark)
-          : const Color(0xFFFFEDD5), // Exact Tailwind border-orange-100 from code.html
+          ? (isInteractive
+                ? AppColors.primary.withValues(alpha: 0.35)
+                : AppColors.dividerDark)
+          : const Color(
+              0xFFFFEDD5,
+            ), // Exact Tailwind border-orange-100 from code.html
       width: isInteractive ? 1.2 : 1,
     ),
     boxShadow: [
@@ -424,16 +428,8 @@ class ActionHubGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final outerRadius = BorderRadius.circular(28.r);
-    const divider = VerticalDivider(
-      width: 1,
-      thickness: 1,
-      color: _hubDivider,
-    );
-    const rowDivider = Divider(
-      height: 1,
-      thickness: 1,
-      color: _hubDivider,
-    );
+    const divider = VerticalDivider(width: 1, thickness: 1, color: _hubDivider);
+    const rowDivider = Divider(height: 1, thickness: 1, color: _hubDivider);
 
     return AspectRatio(
       aspectRatio: 1,
@@ -446,9 +442,7 @@ class ActionHubGrid extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isDark ? AppColors.surfaceDark : Colors.white,
                 borderRadius: outerRadius,
-                border: isDark
-                    ? null
-                    : Border.all(color: _hubBorder, width: 1),
+                border: isDark ? null : Border.all(color: _hubBorder, width: 1),
               ),
               child: Column(
                 children: [
@@ -569,9 +563,10 @@ class ScoopedGridCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final titleColor =
-        isDark ? Colors.white : const Color(0xFF154212);
-    final subColor = isDark ? AppColors.textMutedLight : const Color(0xFF6B7280);
+    final titleColor = isDark ? Colors.white : const Color(0xFF154212);
+    final subColor = isDark
+        ? AppColors.textMutedLight
+        : const Color(0xFF6B7280);
     final arrowColor = isDark
         ? AppColors.textMutedLight.withValues(alpha: 0.7)
         : const Color(0xFFF97316).withValues(alpha: 0.5);
@@ -1034,15 +1029,15 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
 
     final cardBg = isAttended
         ? (isDark
-            ? AppColors.success.withValues(alpha: 0.08)
-            : AppColors.success.withValues(alpha: 0.04))
+              ? AppColors.success.withValues(alpha: 0.08)
+              : AppColors.success.withValues(alpha: 0.04))
         : (isDark ? const Color(0xFF1E1E2D) : Colors.white);
 
     final borderColor = isAttended
         ? AppColors.success.withValues(alpha: 0.35)
         : (isDark
-            ? AppColors.primary.withValues(alpha: 0.4)
-            : const Color(0xFFFFEDD5));
+              ? AppColors.primary.withValues(alpha: 0.4)
+              : const Color(0xFFFFEDD5));
 
     return Container(
       width: double.infinity,
@@ -1050,10 +1045,7 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(24.r),
-        border: Border.all(
-          color: borderColor,
-          width: 1.5,
-        ),
+        border: Border.all(color: borderColor, width: 1.5),
         boxShadow: [
           BoxShadow(
             color: isAttended
@@ -1086,7 +1078,9 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      isAttended ? Icons.check_circle_rounded : Icons.directions_bus_rounded,
+                      isAttended
+                          ? Icons.check_circle_rounded
+                          : Icons.directions_bus_rounded,
                       color: isAttended ? AppColors.success : AppColors.primary,
                       size: 28.sp,
                     ),
@@ -1100,13 +1094,17 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
                         Row(
                           children: [
                             Text(
-                              isAttended ? 'attendance_checked_in'.tr() : 'attendance_title'.tr(),
+                              isAttended
+                                  ? 'attendance_checked_in'.tr()
+                                  : 'attendance_title'.tr(),
                               style: TextStyle(
                                 fontSize: 16.sp,
                                 fontWeight: FontWeight.w800,
                                 color: isAttended
                                     ? AppColors.success
-                                    : (isDark ? Colors.white : AppColors.textDark),
+                                    : (isDark
+                                          ? Colors.white
+                                          : AppColors.textDark),
                               ),
                             ),
                             if (!isAttended) ...[
@@ -1136,8 +1134,12 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
                           style: TextStyle(
                             fontSize: 13.sp,
                             color: isAttended
-                                ? (isDark ? Colors.white60 : AppColors.textMutedDark)
-                                : (isDark ? AppColors.textMutedLight : AppColors.textMutedDark),
+                                ? (isDark
+                                      ? Colors.white60
+                                      : AppColors.textMutedDark)
+                                : (isDark
+                                      ? AppColors.textMutedLight
+                                      : AppColors.textMutedDark),
                             fontWeight: FontWeight.w500,
                           ),
                         ),

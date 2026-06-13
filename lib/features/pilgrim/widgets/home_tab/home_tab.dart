@@ -277,6 +277,12 @@ class PilgrimHomeTab extends StatelessWidget {
                       ),
                     ),
                     SliverToBoxAdapter(child: _homeBody(group)),
+                    SliverPadding(
+                      padding: EdgeInsets.only(
+                        bottom: 72.h +
+                            MediaQuery.paddingOf(context).bottom,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -363,10 +369,7 @@ class _HomeBody extends StatelessWidget {
       final lat = g?.hotelLatitude;
       final lng = g?.hotelLongitude;
       if (lat == null || lng == null) {
-        StandardSnackBar.showWarning(
-          context,
-          'hotel_nav_unavailable'.tr(),
-        );
+        StandardSnackBar.showWarning(context, 'hotel_nav_unavailable'.tr());
         return;
       }
       OpenMapsNavigation.pickTravelModeAndLaunch(context, lat, lng);

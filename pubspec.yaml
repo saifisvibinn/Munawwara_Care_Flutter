@@ -90,6 +90,7 @@ dependencies:
   file_picker: ^8.0.3
   image_picker: ^1.1.2
   syncfusion_flutter_pdfviewer: ^31.1.21
+  cupertino_liquid_glass: ^0.6.0
 dependency_overrides:
   # Local copy of flutter_callkit_incoming with native Android HTTP decline fix.
   # The BroadcastReceiver now posts to /call-history/decline when the pilgrim

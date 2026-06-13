@@ -19,6 +19,7 @@ The Qibla compass lives on the **Prayer Times** screen (not the hub tab itself).
 |------|----------|--------|
 | Tab index | `lib/features/pilgrim/screens/pilgrim_dashboard_screen.dart` | Index **2** → `IslamicCornerHubScreen()` |
 | Bottom nav label | `lib/features/pilgrim/widgets/bottom_nav.dart` | `tab_muslim`.tr() |
+| Bottom nav style | `lib/core/widgets/app_liquid_glass_bottom_bar.dart` | iOS Liquid Glass via `cupertino_liquid_glass` — requires `Scaffold.extendBody: true` |
 | Bottom nav icon | same | `Symbols.pan_tool` (praying hand) |
 | Previous Qibla tab | `docs/qibla-compass-restore.md` | Full-screen compass removed 2026-06-01; archived for restore |
 

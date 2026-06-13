@@ -281,6 +281,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.9"
+  cupertino_liquid_glass:
+    dependency: "direct main"
+    description:
+      name: cupertino_liquid_glass
+      sha256: "3dfb0ffe0d44127a3d91dbf205cad9494e78148e0d677344681ab121713927f3"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.6.0"
   dart_earcut:
     dependency: transitive
     description:

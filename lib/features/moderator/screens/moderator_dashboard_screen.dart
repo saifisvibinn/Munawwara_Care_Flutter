@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cupertino_liquid_glass/cupertino_liquid_glass.dart';
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/foundation.dart' show kIsWeb, listEquals;
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ import '../../../core/services/socket_service.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_liquid_glass_bottom_bar.dart';
 import '../../../core/widgets/keep_alive_tab.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -593,6 +595,7 @@ class _ModeratorDashboardScreenState
         }
       },
       child: Scaffold(
+        extendBody: true,
         backgroundColor: isDark
             ? AppColors.backgroundDark
             : const Color(0xFFF0F0F8),
@@ -666,7 +669,7 @@ class _ModeratorDashboardScreenState
             if (_currentTab == 0)
               PositionedDirectional(
                 end: 16.w,
-                bottom: 16.h,
+                bottom: 88.h,
                 child: ModeratorGroupsSpeedDial(
                   onCreateGroup: () =>
                       Navigator.of(context, rootNavigator: true).push(
@@ -2087,149 +2090,33 @@ class _ModBottomNav extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeProvider);
-    final isDark = AppTheme.isDarkEffective(themeMode, context);
-    final barColor = isDark ? AppColors.surfaceDark : Colors.white;
-    final shadowAlpha = isDark ? 0.4 : 0.12;
-    return Material(
-      color: barColor,
-      elevation: 8,
-      surfaceTintColor: Colors.transparent,
-      shadowColor: Colors.black.withValues(alpha: shadowAlpha),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 70.h,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Expanded(
-                child: _NavItem(
-                  icon: Symbols.groups,
-                  label: 'nav_groups'.tr(),
-                  index: 0,
-                  current: currentIndex,
-                  onTap: onTap,
-                  badge: false,
-                  activeColor: AppColors.primary,
-                  isDark: isDark,
-                ),
-              ),
-              Expanded(
-                child: _NavItem(
-                  icon: Symbols.inbox,
-                  label: 'nav_provisioning'.tr(),
-                  index: 1,
-                  current: currentIndex,
-                  onTap: onTap,
-                  badge: false,
-                  activeColor: AppColors.primary,
-                  isDark: isDark,
-                ),
-              ),
-              Expanded(
-                child: _NavItem(
-                  icon: Symbols.notifications_active,
-                  label: 'nav_reminders'.tr(),
-                  index: 2,
-                  current: currentIndex,
-                  onTap: onTap,
-                  badge: false,
-                  activeColor: AppColors.primary,
-                  isDark: isDark,
-                ),
-              ),
-              Expanded(
-                child: _NavItem(
-                  icon: Symbols.person,
-                  label: 'nav_profile'.tr(),
-                  index: 3,
-                  current: currentIndex,
-                  onTap: onTap,
-                  badge: false,
-                  activeColor: AppColors.primary,
-                  isDark: isDark,
-                ),
-              ),
-            ],
-          ),
-        ),
+    final isDark =
+        AppTheme.isDarkEffective(ref.watch(themeProvider), context);
+
+    final items = [
+      LiquidGlassBottomBarItem(
+        icon: Symbols.groups,
+        label: 'nav_groups'.tr(),
       ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final int index;
-  final int current;
-  final ValueChanged<int> onTap;
-  final bool badge;
-  final Color activeColor;
-  final bool isDark;
-
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.index,
-    required this.current,
-    required this.onTap,
-    required this.badge,
-    required this.activeColor,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = index == current;
-    final color = isSelected
-        ? activeColor
-        : (isDark ? const Color(0xFF7A6E58) : AppColors.textMutedLight);
-    return GestureDetector(
-      onTap: () => onTap(index),
-      behavior: HitTestBehavior.opaque,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(icon, size: 24.w, fill: isSelected ? 1 : 0, color: color),
-                if (badge)
-                  Positioned(
-                    top: -2,
-                    right: -2,
-                    child: Container(
-                      width: 8.w,
-                      height: 8.w,
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade500,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.5),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            SizedBox(height: 3.h),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                label,
-                maxLines: 1,
-                style: TextStyle(
-                  fontSize: 9.sp,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-                  color: color,
-                ),
-              ),
-            ),
-          ],
-        ),
+      LiquidGlassBottomBarItem(
+        icon: Symbols.inbox,
+        label: 'nav_provisioning'.tr(),
       ),
+      LiquidGlassBottomBarItem(
+        icon: Symbols.notifications_active,
+        label: 'nav_reminders'.tr(),
+      ),
+      LiquidGlassBottomBarItem(
+        icon: Symbols.person,
+        label: 'nav_profile'.tr(),
+      ),
+    ];
+
+    return AppLiquidGlassBottomBar(
+      currentIndex: currentIndex,
+      onTap: onTap,
+      items: items,
+      isDark: isDark,
     );
   }
 }
