@@ -573,7 +573,6 @@ class _ModeratorDashboardScreenState
                 Text(
                   'app_loading'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 14.sp,
                     fontWeight: FontWeight.w600,
                     color: isDark ? Colors.white70 : AppColors.textMutedDark,
@@ -623,7 +622,6 @@ class _ModeratorDashboardScreenState
                               child: Text(
                                 'offline_showing_saved_data'.tr(),
                                 style: TextStyle(
-                                  fontFamily: 'Lexend',
                                   fontSize: 12.sp,
                                   fontWeight: FontWeight.w500,
                                   color: isDark
@@ -883,7 +881,6 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                     Text(
                       'filter_sort_title'.tr(),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontWeight: FontWeight.w800,
                         fontSize: 20.sp,
                         color: isDark ? Colors.white : const Color(0xFF1A1A4E),
@@ -909,7 +906,6 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                       child: Text(
                         'reset'.tr(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 13.sp,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primary,
@@ -1096,7 +1092,6 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                               Text(
                                 'dashboard_my_groups'.tr(),
                                 style: TextStyle(
-                                  fontFamily: 'Lexend',
                                   fontWeight: FontWeight.w800,
                                   fontSize: 28.sp,
                                   color: isDark
@@ -1108,7 +1103,6 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                               Text(
                                 'dashboard_subtitle'.tr(),
                                 style: TextStyle(
-                                  fontFamily: 'Lexend',
                                   fontSize: 13.sp,
                                   color: AppColors.textMutedLight,
                                 ),
@@ -1244,7 +1238,6 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                             child: TextField(
                               controller: widget.searchController,
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 14.sp,
                                 color: isDark
                                     ? const Color(0xFFE2E8F0)
@@ -1253,7 +1246,6 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                               decoration: InputDecoration(
                                 hintText: 'dashboard_search_groups'.tr(),
                                 hintStyle: TextStyle(
-                                  fontFamily: 'Lexend',
                                   fontSize: 14.sp,
                                   color: AppColors.textMutedLight,
                                 ),
@@ -1361,7 +1353,6 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                         state.error!,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 14.sp,
                           color: AppColors.textMutedLight,
                         ),
@@ -1379,7 +1370,6 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                         label: Text(
                           'dashboard_retry'.tr(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 14.sp,
                             color: AppColors.primary,
                           ),
@@ -1454,7 +1444,6 @@ class _GroupsEmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 1,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontWeight: FontWeight.w800,
               fontSize: 30.sp,
               color: isDark ? Colors.white : const Color(0xFF1A1A4E),
@@ -1466,7 +1455,6 @@ class _GroupsEmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 3,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 14.sp,
               height: 1.3,
               color: isDark ? const Color(0xFFCBD5E1) : AppColors.textDark,
@@ -1550,7 +1538,6 @@ class _GroupCard extends ConsumerWidget {
                         Text(
                           group.groupName,
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontWeight: FontWeight.w700,
                             fontSize: 17.sp,
                             color: isDark
@@ -1572,7 +1559,6 @@ class _GroupCard extends ConsumerWidget {
                             Text(
                               group.groupCode,
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 11.sp,
                                 color: AppColors.textMutedLight,
                               ),
@@ -1722,7 +1708,6 @@ class _GroupCard extends ConsumerWidget {
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontFamily: 'Lexend',
                                         fontWeight: FontWeight.w600,
                                         fontSize: 12.sp,
                                         height: 1.2,
@@ -1810,7 +1795,6 @@ class _GroupCard extends ConsumerWidget {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            fontFamily: 'Lexend',
                                             fontWeight: FontWeight.w600,
                                             fontSize: 12.sp,
                                             color: const Color(0xFF6B7BAE),
@@ -1878,7 +1862,6 @@ class _CountBadge extends StatelessWidget {
       child: Text(
         count > 99 ? '99+' : count.toString(),
         style: TextStyle(
-          fontFamily: 'Lexend',
           fontSize: 9.sp,
           fontWeight: FontWeight.w700,
           color: Colors.white,
@@ -1914,7 +1897,6 @@ class _SosBadge extends StatelessWidget {
           Text(
             '$count SOS',
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontWeight: FontWeight.w700,
               fontSize: 11.sp,
               color: const Color(0xFFDC2626),
@@ -1943,7 +1925,6 @@ class _StatCell extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w500,
             fontSize: 9.sp,
             color: AppColors.textMutedLight,
@@ -1954,7 +1935,6 @@ class _StatCell extends StatelessWidget {
         Text(
           value,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
             fontSize: 16.sp,
             color: valueColor,
@@ -2029,7 +2009,6 @@ class _DeleteGroupSheet extends StatelessWidget {
           Text(
             'dashboard_delete_title'.tr(),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontWeight: FontWeight.w700,
               fontSize: 18.sp,
               color: isDark ? Colors.white : AppColors.textDark,
@@ -2040,7 +2019,6 @@ class _DeleteGroupSheet extends StatelessWidget {
             'dashboard_delete_body'.tr(namedArgs: {'name': groupName}),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 13.sp,
               color: AppColors.textMutedLight,
               height: 1.5,
@@ -2064,7 +2042,6 @@ class _DeleteGroupSheet extends StatelessWidget {
               child: Text(
                 'dashboard_delete_confirm'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w700,
                   fontSize: 14.sp,
                 ),
@@ -2086,7 +2063,6 @@ class _DeleteGroupSheet extends StatelessWidget {
               child: Text(
                 'dashboard_delete_cancel'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w600,
                   fontSize: 14.sp,
                   color: AppColors.textMutedLight,
@@ -2245,7 +2221,6 @@ class _NavItem extends StatelessWidget {
                 label,
                 maxLines: 1,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 9.sp,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
                   color: color,
@@ -2310,7 +2285,6 @@ class _SortOption extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 15.sp,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   color: isSelected

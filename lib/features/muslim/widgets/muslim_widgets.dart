@@ -162,7 +162,6 @@ class MuslimScreenScaffold extends StatelessWidget {
                       title,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 18.sp,
                         fontWeight: FontWeight.w600,
                         color: context.mPrimary,

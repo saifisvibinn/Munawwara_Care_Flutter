@@ -50,7 +50,6 @@ class PilgrimAreaMarker extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
                     fontSize: 9.sp,
                     color: color,

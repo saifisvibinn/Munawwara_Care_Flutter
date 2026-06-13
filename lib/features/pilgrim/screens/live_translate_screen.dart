@@ -170,7 +170,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
           Text(
             langName,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 12.sp,
               fontWeight: FontWeight.w700,
               color: isDownloaded
@@ -233,7 +232,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
         title: Text(
           'live_translate'.tr(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: 18.sp,
             fontWeight: FontWeight.w800,
             color: const Color(0xFFC2410C),
@@ -391,7 +389,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                             child: Text(
                               state.status == TranslationStatus.listening ? 'translate_listening'.tr() : 'translate_input_text'.tr(),
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 9.sp,
                                 fontWeight: FontWeight.w800,
                                 color: state.status == TranslationStatus.listening ? Colors.red.shade700 : const Color(0xFF4F46E5),
@@ -449,7 +446,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                               ref.read(liveTranslateProvider.notifier).translateText(text);
                             },
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 16.sp,
                               fontWeight: FontWeight.w600,
                               color: textDarkColor,
@@ -458,7 +454,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                             decoration: InputDecoration(
                               hintText: "No input text yet".tr(),
                               hintStyle: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 16.sp,
                                 fontStyle: FontStyle.italic,
                                 fontWeight: FontWeight.w600,
@@ -500,7 +495,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                               Text(
                                 'translate_translation'.tr(),
                                 style: TextStyle(
-                                  fontFamily: 'Lexend',
                                   fontSize: 10.sp,
                                   fontWeight: FontWeight.w800,
                                   color: const Color(0xFFEA580C),
@@ -537,7 +531,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                                       ? TextDirection.rtl
                                       : TextDirection.ltr,
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 20.sp,
                                     fontWeight: FontWeight.w800,
                                     color: state.translatedText.isEmpty
@@ -574,7 +567,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                           child: Text(
                             state.errorMessage!,
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 12.sp,
                               fontWeight: FontWeight.w600,
                               color: isDark ? Colors.red.shade200 : Colors.red.shade800,
@@ -613,7 +605,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                           child: Text(
                             "Speech input not supported on this device for ${state.fromLang.toUpperCase()}. Please type to translate.",
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 12.sp,
                               color: isDark ? Colors.amber.shade200 : Colors.amber.shade900,
                               fontWeight: FontWeight.w600,
@@ -645,7 +636,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                       Text(
                         "Download Translation Models".tr(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 16.sp,
                           fontWeight: FontWeight.w700,
                           color: textDarkColor,
@@ -656,7 +646,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                         "To translate between these languages offline, we need to download the on-device language models (~30MB each).".tr(),
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 12.sp,
                           color: isDark ? Colors.white70 : const Color(0xFF64748B),
                         ),
@@ -692,7 +681,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                                 Text(
                                   "${'Downloading models... Please wait'.tr()} (${state.downloadProgress}%)",
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 12.sp,
                                     fontWeight: FontWeight.w700,
                                     color: const Color(0xFFEA580C),
@@ -715,7 +703,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                               label: Text(
                                 "Download Now".tr(),
                                 style: TextStyle(
-                                  fontFamily: 'Lexend',
                                   fontSize: 14.sp,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white,
@@ -810,7 +797,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                             ? 'translate_listening'.tr()
                             : 'translate_tap_to_speak'.tr(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 10.sp,
                           fontWeight: FontWeight.w800,
                           color: const Color(0xFFC2410C),
@@ -827,7 +813,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                 Text(
                   'translate_recent'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 11.sp,
                     fontWeight: FontWeight.w800,
                     color: isDark ? Colors.white60 : const Color(0xFF64748B),
@@ -857,7 +842,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 13.5.sp,
                                     fontWeight: FontWeight.w700,
                                     color: textDarkColor,
@@ -867,7 +851,6 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                                   Text(
                                     "${'lang_${_getName(item.fromLang)}'.tr()} ${'translate_to_connector'.tr()} ${'lang_${_getName(item.toLang)}'.tr()}",
                                     style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 10.sp,
                                     color: const Color(0xFF94A3B8),
                                   ),

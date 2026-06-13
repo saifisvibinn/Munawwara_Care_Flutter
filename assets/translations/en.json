@@ -302,6 +302,7 @@
   "settings_title": "Settings",
   "settings_appearance": "APPEARANCE",
   "settings_app_settings": "App Settings",
+  "settings_language_title": "Language",
   "settings_follow_system": "Follow System Appearance",
   "settings_follow_system_sub": "Match your device light or dark mode",
   "settings_dark_mode": "Dark Mode",

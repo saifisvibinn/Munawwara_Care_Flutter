@@ -315,7 +315,6 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
                                 style: TextStyle(
                                   color: c.textSecondary,
                                   fontSize: 12.sp,
-                                  fontFamily: 'Lexend',
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -349,7 +348,6 @@ class _VoiceCallScreenState extends ConsumerState<VoiceCallScreen> {
                               style: TextStyle(
                                 fontSize: 24.sp,
                                 fontWeight: FontWeight.w700,
-                                fontFamily: 'Lexend',
                                 color: c.textPrimary,
                                 letterSpacing: -0.3,
                               ),
@@ -632,7 +630,6 @@ class _AvatarRing extends StatelessWidget {
             initials.isEmpty ? '?' : initials,
             style: TextStyle(
               fontSize: 36.sp,
-              fontFamily: 'Lexend',
               fontWeight: FontWeight.w700,
               color: Colors.white,
               height: 1,
@@ -678,7 +675,6 @@ class _StatusChip extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14.sp,
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w600,
             color: palette.textSecondary,
             height: 1.3,
@@ -713,7 +709,6 @@ class _StatusChip extends StatelessWidget {
         label,
         style: TextStyle(
           fontSize: isLive ? 18.sp : 13.sp,
-          fontFamily: 'Lexend',
           fontWeight: FontWeight.w600,
           color: isLive ? AppColors.primary : palette.textSecondary,
           letterSpacing: isLive ? 1.2 : 0.2,
@@ -921,7 +916,6 @@ class _ControlTile extends StatelessWidget {
                 style: TextStyle(
                   color: palette.textMuted,
                   fontSize: 11.sp,
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w500,
                 ),
               ),

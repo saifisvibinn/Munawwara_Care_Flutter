@@ -39,7 +39,9 @@ class ProvisioningTab extends ConsumerStatefulWidget {
   ConsumerState<ProvisioningTab> createState() => _ProvisioningTabState();
 }
 
-class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
+class _ProvisioningTabState extends ConsumerState<ProvisioningTab>
+    with SingleTickerProviderStateMixin {
+  late final TabController _provisionTabController;
   bool _isLoadingStatus = false;
   bool _isLoadingResources = false;
   bool _isProvisioning = false;
@@ -68,6 +70,8 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
   @override
   void initState() {
     super.initState();
+    _provisionTabController = TabController(length: 3, vsync: this);
+    _provisionTabController.addListener(_onProvisionTabChanged);
     _loadPilgrimFieldOptions();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -77,8 +81,24 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
   }
 
   @override
+  void dispose() {
+    _provisionTabController.removeListener(_onProvisionTabChanged);
+    _provisionTabController.dispose();
+    super.dispose();
+  }
+
+  void _onProvisionTabChanged() {
+    if (_provisionTabController.indexIsChanging) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant ProvisioningTab oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!widget.isTabActive && oldWidget.isTabActive) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
     if (!oldWidget.isTabActive && widget.isTabActive) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -843,65 +863,64 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab> {
 
     return Stack(
       children: [
-        DefaultTabController(
-          length: 3,
-          child: Scaffold(
+        Scaffold(
+          backgroundColor: pageBg,
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            surfaceTintColor: Colors.transparent,
+            // Tab-only bar: [toolbarHeight: 0] + [bottom: TabBar] left ~44px
+            // for the tab row and caused RenderFlex overflow on some devices.
+            toolbarHeight: 56.h,
             backgroundColor: pageBg,
-            appBar: AppBar(
-              automaticallyImplyLeading: false,
-              elevation: 0,
-              scrolledUnderElevation: 0,
-              surfaceTintColor: Colors.transparent,
-              // Tab-only bar: [toolbarHeight: 0] + [bottom: TabBar] left ~44px
-              // for the tab row and caused RenderFlex overflow on some devices.
-              toolbarHeight: 56.h,
-              backgroundColor: pageBg,
-              titleSpacing: 0,
-              centerTitle: true,
-              title: Material(
-                color: pageBg,
-                child: TabBar(
-                  dividerHeight: 0,
-                  indicatorSize: TabBarIndicatorSize.label,
-                  indicatorWeight: 2,
-                  indicatorColor: AppColors.primary,
-                  labelColor: AppColors.primary,
-                  unselectedLabelColor: isDark
-                      ? AppColors.textMutedLight
-                      : AppColors.textMutedDark,
-                  labelStyle: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14.sp,
-                  ),
-                  unselectedLabelStyle: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14.sp,
-                  ),
-                  tabs: [
-                    Tab(text: 'provision_tab_provision'.tr()),
-                    Tab(text: 'provision_tab_tracker'.tr()),
-                    Tab(text: 'provision_tab_manage'.tr()),
-                  ],
+            titleSpacing: 0,
+            centerTitle: true,
+            title: Material(
+              color: pageBg,
+              child: TabBar(
+                controller: _provisionTabController,
+                dividerHeight: 0,
+                indicatorSize: TabBarIndicatorSize.label,
+                indicatorWeight: 2,
+                indicatorColor: AppColors.primary,
+                labelColor: AppColors.primary,
+                unselectedLabelColor: isDark
+                    ? AppColors.textMutedLight
+                    : AppColors.textMutedDark,
+                labelStyle: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14.sp,
                 ),
+                unselectedLabelStyle: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14.sp,
+                ),
+                tabs: [
+                  Tab(text: 'provision_tab_provision'.tr()),
+                  Tab(text: 'provision_tab_tracker'.tr()),
+                  Tab(text: 'provision_tab_manage'.tr()),
+                ],
               ),
             ),
-            body: TabBarView(
-              children: [
-                _buildProvisionTabBody(
-                  context,
-                  groups: groups,
-                  isLoadingGroups: isLoadingGroups,
-                ),
-                _buildTrackerTabBody(
-                  context,
-                  groups: groups,
-                  isLoadingGroups: isLoadingGroups,
-                ),
-                const ManagePilgrimsScreen(),
-              ],
-            ),
+          ),
+          body: TabBarView(
+            controller: _provisionTabController,
+            children: [
+              _buildProvisionTabBody(
+                context,
+                groups: groups,
+                isLoadingGroups: isLoadingGroups,
+              ),
+              _buildTrackerTabBody(
+                context,
+                groups: groups,
+                isLoadingGroups: isLoadingGroups,
+              ),
+              const ManagePilgrimsScreen(),
+            ],
           ),
         ),
         if (_isBulkCapturing)

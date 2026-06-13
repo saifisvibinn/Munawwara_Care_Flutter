@@ -14,16 +14,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_settings_expansion.dart';
 import '../../../core/widgets/legal_support_section.dart';
-import '../../../core/config/app_locales.dart';
-import '../../../core/services/api_service.dart';
-import '../../../core/services/locale_prefs.dart';
-import '../../../core/services/sos_alert_audio.dart';
-import '../../../core/services/callkit_service.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../../core/widgets/phone_number_text.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../../../core/widgets/tameny_tracking_toggle.dart';
+
 class PilgrimProfileScreen extends ConsumerStatefulWidget {
   const PilgrimProfileScreen({super.key});
 
@@ -33,24 +29,11 @@ class PilgrimProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
-  late String _selectedLocale;
   File? _localProfilePictureFile;
   bool _uploadingPfp = false;
 
   /// Matches [PilgrimDashboardScreen] scaffold background in light mode.
   static const Color _lightBg = Color(0xfff1f5f3);
-
-  static List<Map<String, String>> get _languages =>
-      AppLocales.profileLanguages
-          .map(
-            (AppLanguageOption lang) => {
-              'code': lang.code,
-              'name': lang.menuLabel,
-              'native': lang.nativeName,
-              'flag': lang.flag,
-            },
-          )
-          .toList();
 
   @override
   void initState() {
@@ -65,12 +48,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
   @override
   void dispose() {
     super.dispose();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _selectedLocale = context.locale.languageCode;
   }
 
   Future<void> _onAvatarTap() async {
@@ -258,8 +235,8 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                         borderRadius: BorderRadius.circular(16.r),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 
-                              isDark ? 0.3 : 0.06,
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.3 : 0.06,
                             ),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
@@ -316,10 +293,11 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                                         child: SizedBox(
                                           width: 20.w,
                                           height: 20.w,
-                                          child: const CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2,
-                                          ),
+                                          child:
+                                              const CircularProgressIndicator(
+                                                color: Colors.white,
+                                                strokeWidth: 2,
+                                              ),
                                         ),
                                       ),
                                     ),
@@ -365,7 +343,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                                     vertical: 3.h,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.15),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.15,
+                                    ),
                                     borderRadius: BorderRadius.circular(8.r),
                                   ),
                                   child: Text(
@@ -407,66 +387,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
 
                     SizedBox(height: 28.h),
 
-                    // ── LANGUAGE section ─────────────────────────────────
-                    _SectionLabel(
-                      label: 'settings_language'.tr(),
-                      textMuted: textMuted,
-                    ),
-                    SizedBox(height: 8.h),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(16.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 
-                              isDark ? 0.3 : 0.06,
-                            ),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: List.generate(_languages.length, (i) {
-                          final lang = _languages[i];
-                          final isSelected = _selectedLocale == lang['code'];
-                          final isLast = i == _languages.length - 1;
-                          return _LanguageRow(
-                            lang: lang,
-                            isSelected: isSelected,
-                            isLast: isLast,
-                            isDark: isDark,
-                            dividerColor: dividerColor,
-                            textPrimary: textPrimary,
-                            textMuted: textMuted,
-                            onTap: () async {
-                              final code = lang['code']!;
-                              setState(() => _selectedLocale = code);
-                              context.setLocale(Locale(code));
-                              await LocalePrefs.saveLanguageCode(code);
-                              await SosAlertAudio.stopAndReset();
-                              unawaited(
-                                CallKitService.refreshCachedSupportDisplayName(
-                                  languageCode: code,
-                                ),
-                              );
-                              try {
-                                await ApiService.dio.put(
-                                  '/auth/update-language',
-                                  data: {'language': code},
-                                );
-                              } catch (_) {
-                                // Non-fatal — local language is already applied
-                              }
-                            },
-                          );
-                        }),
-                      ),
-                    ),
-
-                    SizedBox(height: 28.h),
-
                     LegalSupportSection(
                       isDark: isDark,
                       cardBg: cardBg,
@@ -480,7 +400,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
 
                     // ── Travel & Accommodation (Retractable) ────────────────
                     Theme(
-                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      data: Theme.of(
+                        context,
+                      ).copyWith(dividerColor: Colors.transparent),
                       child: Container(
                         decoration: BoxDecoration(
                           color: cardBg,
@@ -496,8 +418,12 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           ],
                         ),
                         child: ExpansionTile(
-                          shape: const RoundedRectangleBorder(side: BorderSide.none),
-                          collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                          shape: const RoundedRectangleBorder(
+                            side: BorderSide.none,
+                          ),
+                          collapsedShape: const RoundedRectangleBorder(
+                            side: BorderSide.none,
+                          ),
                           tilePadding: EdgeInsets.symmetric(horizontal: 16.w),
                           title: Text(
                             'profile_travel_accommodation'.tr(),
@@ -508,12 +434,18 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                               color: textPrimary,
                             ),
                           ),
-                          leading: Icon(Icons.travel_explore_rounded, color: AppColors.primary, size: 22.sp),
+                          leading: Icon(
+                            Icons.travel_explore_rounded,
+                            color: AppColors.primary,
+                            size: 22.sp,
+                          ),
                           children: [
                             _InfoTile(
                               icon: Symbols.hotel,
                               label: 'group_hotel_name'.tr(),
-                              value: authState.hotelName ?? 'profile_not_assigned'.tr(),
+                              value:
+                                  authState.hotelName ??
+                                  'profile_not_assigned'.tr(),
                               isDark: isDark,
                               textPrimary: textPrimary,
                               textMuted: textMuted,
@@ -522,7 +454,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             _InfoTile(
                               icon: Icons.meeting_room_rounded,
                               label: 'group_room_number'.tr(),
-                              value: authState.roomNumber ?? 'profile_not_assigned'.tr(),
+                              value:
+                                  authState.roomNumber ??
+                                  'profile_not_assigned'.tr(),
                               isDark: isDark,
                               textPrimary: textPrimary,
                               textMuted: textMuted,
@@ -531,7 +465,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             _InfoTile(
                               icon: Icons.assignment_turned_in_rounded,
                               label: 'Tashera Number',
-                              value: authState.tasheraNumber ?? 'profile_not_provided'.tr(),
+                              value:
+                                  authState.tasheraNumber ??
+                                  'profile_not_provided'.tr(),
                               isDark: isDark,
                               textPrimary: textPrimary,
                               textMuted: textMuted,
@@ -546,7 +482,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
 
                     // ── Personal Details (Retractable) ──────────────────────
                     Theme(
-                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      data: Theme.of(
+                        context,
+                      ).copyWith(dividerColor: Colors.transparent),
                       child: Container(
                         decoration: BoxDecoration(
                           color: cardBg,
@@ -562,8 +500,12 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                           ],
                         ),
                         child: ExpansionTile(
-                          shape: const RoundedRectangleBorder(side: BorderSide.none),
-                          collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                          shape: const RoundedRectangleBorder(
+                            side: BorderSide.none,
+                          ),
+                          collapsedShape: const RoundedRectangleBorder(
+                            side: BorderSide.none,
+                          ),
                           tilePadding: EdgeInsets.symmetric(horizontal: 16.w),
                           title: Text(
                             'profile_personal_details'.tr(),
@@ -574,12 +516,18 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                               color: textPrimary,
                             ),
                           ),
-                          leading: Icon(Icons.person_outline_rounded, color: AppColors.primary, size: 22.sp),
+                          leading: Icon(
+                            Icons.person_outline_rounded,
+                            color: AppColors.primary,
+                            size: 22.sp,
+                          ),
                           children: [
                             _InfoTile(
                               icon: Icons.badge_rounded,
                               label: 'profile_national_id'.tr(),
-                              value: authState.nationalId ?? 'profile_not_provided'.tr(),
+                              value:
+                                  authState.nationalId ??
+                                  'profile_not_provided'.tr(),
                               isDark: isDark,
                               textPrimary: textPrimary,
                               textMuted: textMuted,
@@ -588,7 +536,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             _InfoTile(
                               icon: Icons.cake_rounded,
                               label: 'reg_age'.tr(),
-                              value: authState.age != null ? '${authState.age} ${'reg_age_hint'.tr()}' : 'profile_not_provided'.tr(),
+                              value: authState.age != null
+                                  ? '${authState.age} ${'reg_age_hint'.tr()}'
+                                  : 'profile_not_provided'.tr(),
                               isDark: isDark,
                               textPrimary: textPrimary,
                               textMuted: textMuted,
@@ -597,7 +547,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             _InfoTile(
                               icon: Icons.wc_rounded,
                               label: 'reg_gender'.tr(),
-                              value: authState.gender != null ? 'reg_${authState.gender}'.tr() : 'profile_not_provided'.tr(),
+                              value: authState.gender != null
+                                  ? 'reg_${authState.gender}'.tr()
+                                  : 'profile_not_provided'.tr(),
                               isDark: isDark,
                               textPrimary: textPrimary,
                               textMuted: textMuted,
@@ -606,7 +558,10 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             _InfoTile(
                               icon: Icons.medical_services_rounded,
                               label: 'reg_medical'.tr(),
-                              value: authState.medicalHistory?.isNotEmpty == true ? authState.medicalHistory! : 'profile_none'.tr(),
+                              value:
+                                  authState.medicalHistory?.isNotEmpty == true
+                                  ? authState.medicalHistory!
+                                  : 'profile_none'.tr(),
                               isDark: isDark,
                               textPrimary: textPrimary,
                               textMuted: textMuted,
@@ -615,7 +570,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             _InfoTile(
                               icon: Icons.public_rounded,
                               label: 'ethnic_other'.tr(), // Ethnicity
-                              value: authState.ethnicity ?? 'profile_not_provided'.tr(),
+                              value:
+                                  authState.ethnicity ??
+                                  'profile_not_provided'.tr(),
                               isDark: isDark,
                               textPrimary: textPrimary,
                               textMuted: textMuted,
@@ -624,7 +581,9 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             _InfoTile(
                               icon: Icons.assignment_ind_rounded,
                               label: 'morafeq_name'.tr(),
-                              value: authState.morafeqName ?? 'profile_not_provided'.tr(),
+                              value:
+                                  authState.morafeqName ??
+                                  'profile_not_provided'.tr(),
                               isDark: isDark,
                               textPrimary: textPrimary,
                               textMuted: textMuted,
@@ -633,19 +592,23 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                             _InfoTile(
                               icon: Icons.phone_callback_rounded,
                               label: 'morafeq_phone'.tr(),
-                              value: authState.morafeqPhone ??
+                              value:
+                                  authState.morafeqPhone ??
                                   'profile_not_provided'.tr(),
                               isDark: isDark,
                               textPrimary: textPrimary,
                               textMuted: textMuted,
-                              forceLtr: authState.morafeqPhone != null &&
+                              forceLtr:
+                                  authState.morafeqPhone != null &&
                                   authState.morafeqPhone!.isNotEmpty,
                             ),
                             _divider(dividerColor),
                             _InfoTile(
                               icon: Icons.mail_outline_rounded,
                               label: 'morafeq_email'.tr(),
-                              value: authState.morafeqEmail ?? 'profile_not_provided'.tr(),
+                              value:
+                                  authState.morafeqEmail ??
+                                  'profile_not_provided'.tr(),
                               isDark: isDark,
                               textPrimary: textPrimary,
                               textMuted: textMuted,
@@ -668,12 +631,12 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
   }
 
   Widget _divider(Color color) => Divider(
-        height: 1,
-        thickness: 1,
-        color: color,
-        indent: 16.w,
-        endIndent: 16.w,
-      );
+    height: 1,
+    thickness: 1,
+    color: color,
+    indent: 16.w,
+    endIndent: 16.w,
+  );
 }
 
 class _InfoTile extends StatelessWidget {
@@ -776,115 +739,8 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-class _LanguageRow extends StatelessWidget {
-  const _LanguageRow({
-    required this.lang,
-    required this.isSelected,
-    required this.isLast,
-    required this.isDark,
-    required this.dividerColor,
-    required this.textPrimary,
-    required this.textMuted,
-    required this.onTap,
-  });
-
-  final Map<String, String> lang;
-  final bool isSelected;
-  final bool isLast;
-  final bool isDark;
-  final Color dividerColor;
-  final Color textPrimary;
-  final Color textMuted;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.vertical(
-            top: isLast == false && lang['code'] == 'en'
-                ? const Radius.circular(16)
-                : Radius.zero,
-            bottom: isLast ? const Radius.circular(16) : Radius.zero,
-          ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-            child: Row(
-              children: [
-                Container(
-                  width: 40.w,
-                  height: 40.w,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isDark
-                        ? AppColors.surfaceDark
-                        : AppColors.backgroundLight,
-                  ),
-                  child: Center(
-                    child: Text(
-                      lang['flag']!,
-                      style: TextStyle(fontSize: 20.sp),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 14.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        lang['name']!,
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14.sp,
-                          color: textPrimary,
-                        ),
-                      ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        lang['native']!,
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 12.sp,
-                          color: textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (isSelected)
-                  Icon(
-                    Icons.check_circle_rounded,
-                    color: AppColors.primary,
-                    size: 22.sp,
-                  )
-                else
-                  SizedBox(width: 22.sp),
-              ],
-            ),
-          ),
-        ),
-        if (!isLast)
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: dividerColor,
-            indent: 16.w,
-            endIndent: 16.w,
-          ),
-      ],
-    );
-  }
-}
-
 class _SettingsHeader extends StatelessWidget {
-  const _SettingsHeader({
-    required this.isDark,
-    required this.textPrimary,
-  });
+  const _SettingsHeader({required this.isDark, required this.textPrimary});
 
   final bool isDark;
   final Color textPrimary;

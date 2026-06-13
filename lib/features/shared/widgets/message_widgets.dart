@@ -103,7 +103,6 @@ class WaveformPlayer extends StatelessWidget {
               Text(
                 _formatSecs(displaySecs),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 11.sp,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textMutedLight,
@@ -140,7 +139,6 @@ class UrgentBadge extends StatelessWidget {
           Text(
             'URGENT',
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 9.sp,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.4,
@@ -196,7 +194,6 @@ class PrivateIndicator extends StatelessWidget {
                     ? 'msg_private_for'.tr(namedArgs: {'name': recipientName!})
                     : 'msg_private_indicator'.tr()),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 10.sp,
               fontWeight: FontWeight.w600,
               color: AppColors.primary,
@@ -243,7 +240,6 @@ class MessageReplyQuote extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 11.sp,
               fontWeight: FontWeight.w700,
               color: AppColors.primary,
@@ -255,7 +251,6 @@ class MessageReplyQuote extends StatelessWidget {
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 12.sp,
               height: 1.35,
               color: isDark ? Colors.white70 : AppColors.textMutedLight,
@@ -308,7 +303,6 @@ class MessageReplyComposerStrip extends StatelessWidget {
                 Text(
                   'msg_replying_to'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 10.sp,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textMutedLight,
@@ -319,7 +313,6 @@ class MessageReplyComposerStrip extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 12.sp,
                     fontWeight: FontWeight.w600,
                     color: isDark ? Colors.white : AppColors.textDark,

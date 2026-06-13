@@ -112,7 +112,6 @@ class _ReminderPopupCard extends StatelessWidget {
                 Text(
                   'reminder_popup_title'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 24.sp,
                     fontWeight: FontWeight.w800,
                     color: isDark ? Colors.white : Colors.black,
@@ -135,7 +134,6 @@ class _ReminderPopupCard extends StatelessWidget {
                     body,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 16.sp,
                       fontWeight: FontWeight.w500,
                       color: isDark
@@ -149,7 +147,6 @@ class _ReminderPopupCard extends StatelessWidget {
                 Text(
                   scheduledTime.toUpperCase(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 11.sp,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.2,
@@ -168,7 +165,6 @@ class _ReminderPopupCard extends StatelessWidget {
                     child: Text(
                       'reminder_popup_dismiss'.tr(),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 18.sp,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF334155), // Slate 700

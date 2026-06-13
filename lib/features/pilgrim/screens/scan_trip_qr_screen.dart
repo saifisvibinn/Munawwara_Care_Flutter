@@ -138,7 +138,6 @@ class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
         title: Text(
           'scan_trip_qr_appbar_title'.tr(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
             fontSize: 18.sp,
             color: isDark ? Colors.white : AppColors.textDark,
@@ -165,7 +164,6 @@ class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
                 'scan_trip_qr_subtitle'.tr(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 20.sp,
                   fontWeight: FontWeight.w800,
                   color: isDark ? Colors.white : AppColors.textDark,
@@ -176,7 +174,6 @@ class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
                 'scan_trip_qr_body'.tr(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 13.sp,
                   color: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
                   height: 1.4,
@@ -217,7 +214,6 @@ class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
                         ? 'scan_trip_qr_flashlight_close'.tr()
                         : 'scan_trip_qr_flashlight_open'.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w600,
                       fontSize: 14.sp,
                     ),
@@ -253,7 +249,6 @@ class _ScanTripQrScreenState extends ConsumerState<ScanTripQrScreen> {
                     Text(
                       'scan_trip_qr_enter_code_instead'.tr(),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontWeight: FontWeight.w700,
                         fontSize: 14.sp,
                       ),

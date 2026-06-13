@@ -185,7 +185,6 @@ class _SpeedDialChip extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w600,
                     fontSize: 13.sp,
                     color: isDark ? Colors.white : AppColors.textDark,

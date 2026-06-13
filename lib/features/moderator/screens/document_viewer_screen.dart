@@ -56,7 +56,6 @@ class DocumentViewerScreen extends ConsumerWidget {
         title: Text(
           title,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
             fontSize: 18.sp,
             color: textPrimary,
@@ -80,7 +79,7 @@ class DocumentViewerScreen extends ConsumerWidget {
                           SnackBar(
                             content: Text(
                               'Failed to load PDF: ${details.description}',
-                              style: const TextStyle(fontFamily: 'Lexend'),
+                              style: const TextStyle(),
                             ),
                             backgroundColor: AppColors.error,
                           ),
@@ -121,7 +120,6 @@ class DocumentViewerScreen extends ConsumerWidget {
                                   Text(
                                     'Failed to load image',
                                     style: TextStyle(
-                                      fontFamily: 'Lexend',
                                       fontSize: 14.sp,
                                       color: textPrimary,
                                       fontWeight: FontWeight.w600,

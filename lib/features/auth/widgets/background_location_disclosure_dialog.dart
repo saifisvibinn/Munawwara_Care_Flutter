@@ -78,7 +78,6 @@ class _BackgroundLocationDisclosureDialog extends StatelessWidget {
                 'location_disclosure_title'.tr(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 22.sp,
                   fontWeight: FontWeight.w700,
                   color: titleColor,
@@ -90,7 +89,6 @@ class _BackgroundLocationDisclosureDialog extends StatelessWidget {
                 'location_disclosure_body'.tr(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 15.sp,
                   height: 1.5,
                   color: bodyColor,
@@ -112,7 +110,6 @@ class _BackgroundLocationDisclosureDialog extends StatelessWidget {
                   child: Text(
                     'location_disclosure_allow'.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 15.sp,
                       fontWeight: FontWeight.w600,
                     ),
@@ -127,7 +124,6 @@ class _BackgroundLocationDisclosureDialog extends StatelessWidget {
                   child: Text(
                     'location_disclosure_not_now'.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w600,
                       color: isDark

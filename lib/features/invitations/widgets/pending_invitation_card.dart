@@ -64,7 +64,6 @@ class PendingInvitationCard extends ConsumerWidget {
                     Text(
                       'invite_pending_title'.tr(),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontWeight: FontWeight.w800,
                         fontSize: 15.sp,
                         color: isDark ? Colors.white : AppColors.textDark,
@@ -79,7 +78,6 @@ class PendingInvitationCard extends ConsumerWidget {
                         },
                       ),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 13.sp,
                         height: 1.35,
                         color: isDark

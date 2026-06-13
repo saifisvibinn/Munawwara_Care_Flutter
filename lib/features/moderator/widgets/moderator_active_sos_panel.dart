@@ -454,7 +454,6 @@ class ModeratorSosBannerCard extends ConsumerWidget {
                     Text(
                       'sos_active_alert_title'.tr(),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontWeight: FontWeight.w800,
                         fontSize: 17.sp,
                         color: textPrimary,
@@ -465,7 +464,6 @@ class ModeratorSosBannerCard extends ConsumerWidget {
                       Text(
                         timestamp,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 12.sp,
                           fontWeight: FontWeight.w500,
                           color: textMuted,
@@ -486,7 +484,6 @@ class ModeratorSosBannerCard extends ConsumerWidget {
               },
             ),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 14.sp,
               fontWeight: FontWeight.w500,
               color: textMuted,
@@ -509,7 +506,6 @@ class ModeratorSosBannerCard extends ConsumerWidget {
                   child: Text(
                     row.claimedStatusLabel,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 13.sp,
                       fontWeight: FontWeight.w600,
                       color: textMuted,
@@ -537,7 +533,6 @@ class ModeratorSosBannerCard extends ConsumerWidget {
                   label: Text(
                     'sos_moderator_resolve'.tr(),
                     style: const TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -559,7 +554,6 @@ class ModeratorSosBannerCard extends ConsumerWidget {
                   label: Text(
                     'explore_navigate'.tr(),
                     style: const TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -583,7 +577,6 @@ class ModeratorSosBannerCard extends ConsumerWidget {
               child: Text(
                 'sos_view_details'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w700,
                   fontSize: 15.sp,
                 ),

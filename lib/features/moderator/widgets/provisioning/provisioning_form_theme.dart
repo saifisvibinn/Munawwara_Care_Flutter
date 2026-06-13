@@ -30,7 +30,9 @@ class ProvisioningFormTheme {
       );
     }
 
-    final hintColor = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final hintColor = isDark
+        ? AppColors.textMutedLight
+        : AppColors.textMutedDark;
 
     return InputDecorationTheme(
       filled: true,
@@ -45,14 +47,12 @@ class ProvisioningFormTheme {
       focusedErrorBorder: border(AppColors.error, 2),
       disabledBorder: border(outline.withValues(alpha: 0.4)),
       hintStyle: TextStyle(
-        fontFamily: 'Lexend',
         fontSize: 14.sp,
         fontWeight: FontWeight.w600,
         color: hintColor.withValues(alpha: 0.95),
         height: 1.2,
       ),
       errorStyle: TextStyle(
-        fontFamily: 'Lexend',
         fontSize: 12.sp,
         color: AppColors.error,
         fontWeight: FontWeight.w500,

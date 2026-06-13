@@ -302,6 +302,7 @@
   "settings_title": "Paramètres",
   "settings_appearance": "APPARENCE",
   "settings_app_settings": "Paramètres de l'application",
+  "settings_language_title": "Langue",
   "settings_follow_system": "Suivre l'apparence du système",
   "settings_follow_system_sub": "Correspondre au mode clair ou sombre de l'appareil",
   "settings_dark_mode": "Mode Sombre",

@@ -83,7 +83,6 @@ class ProvisioningTrackerList extends StatelessWidget {
                   Text(
                     'provisioning_tracker_title'.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w800,
                       fontSize: 19.sp,
                       height: 1.2,
@@ -94,7 +93,6 @@ class ProvisioningTrackerList extends StatelessWidget {
                   Text(
                     'provisioning_tracker_subtitle'.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 13.sp,
                       height: 1.35,
                       color: textMuted,
@@ -317,7 +315,6 @@ class ProvisioningTrackerList extends StatelessWidget {
             'provisioning_no_matching_pilgrims'.tr(),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 14.sp,
               fontWeight: FontWeight.w600,
               color: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
@@ -409,7 +406,6 @@ class _TrackerItemCard extends StatelessWidget {
                     Text(
                       item.fullName,
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 15.sp,
                         fontWeight: FontWeight.w800,
                         color: textPrimary,
@@ -418,7 +414,6 @@ class _TrackerItemCard extends StatelessWidget {
                     PhoneNumberText(
                       item.phoneNumber,
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 12.sp,
                         fontWeight: FontWeight.w600,
                         color: textMuted,
@@ -489,7 +484,6 @@ class _TrackerItemCard extends StatelessWidget {
                   Text(
                     '${'group_code'.tr().toUpperCase()}: ',
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 10.sp,
                       fontWeight: FontWeight.w800,
                       color: AppColors.primary,
@@ -499,7 +493,6 @@ class _TrackerItemCard extends StatelessWidget {
                   Text(
                     item.token!,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w700,
                       color: textPrimary,
@@ -583,7 +576,6 @@ class _StatusBadge extends StatelessWidget {
       child: Text(
         isActivated ? 'group_status_activated'.tr().toUpperCase() : isExpired ? 'status_expired'.tr().toUpperCase() : 'status_pending'.tr().toUpperCase(),
         style: TextStyle(
-          fontFamily: 'Lexend',
           fontSize: 10.sp,
           fontWeight: FontWeight.w800,
           color: fg,
@@ -620,7 +612,6 @@ class _Tag extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 11.sp,
               fontWeight: FontWeight.w600,
               color: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,

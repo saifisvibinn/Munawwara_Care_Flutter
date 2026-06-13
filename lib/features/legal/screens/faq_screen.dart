@@ -119,7 +119,6 @@ class _FaqScreenState extends State<FaqScreen> {
         title: Text(
           'faq_title'.tr(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
             fontSize: 18.sp,
             color: textPrimary,
@@ -147,14 +146,12 @@ class _FaqScreenState extends State<FaqScreen> {
               child: TextField(
                 controller: _searchController,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 14.sp,
                   color: textPrimary,
                 ),
                 decoration: InputDecoration(
                   hintText: 'faq_search_hint'.tr(),
                   hintStyle: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 14.sp,
                     color: textMuted,
                   ),
@@ -223,7 +220,6 @@ class _FaqScreenState extends State<FaqScreen> {
                       child: Text(
                         cat['labelKey']!.tr(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                           fontSize: 12.sp,
                           color: isSelected
@@ -276,7 +272,6 @@ class _FaqScreenState extends State<FaqScreen> {
           Text(
             'error_general'.tr(), // Fallback descriptive text if needed or simple "No results"
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 14.sp,
               color: textMuted,
             ),
@@ -374,7 +369,6 @@ class _FaqTileState extends State<_FaqTile> with SingleTickerProviderStateMixin 
                     child: Text(
                       widget.item.questionKey.tr(),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontWeight: FontWeight.w600,
                         fontSize: 14.sp,
                         color: widget.textPrimary,
@@ -413,7 +407,6 @@ class _FaqTileState extends State<_FaqTile> with SingleTickerProviderStateMixin 
                   child: Text(
                     widget.item.answerKey.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w400,
                       fontSize: 13.sp,
                       color: widget.textMuted,

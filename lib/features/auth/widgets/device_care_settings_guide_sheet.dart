@@ -120,7 +120,6 @@ class _DeviceCareSettingsGuideSheetState
                   widget.guide.titleKey.tr(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 18.sp,
                     fontWeight: FontWeight.w700,
                     color: titleColor,
@@ -131,7 +130,6 @@ class _DeviceCareSettingsGuideSheetState
                   widget.guide.instructionKey.tr(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 14.sp,
                     height: 1.45,
                     color: muted,
@@ -152,7 +150,6 @@ class _DeviceCareSettingsGuideSheetState
                     label: Text(
                       'device_care_guide_open_settings'.tr(),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 15.sp,
                         fontWeight: FontWeight.w600,
                       ),
@@ -172,7 +169,6 @@ class _DeviceCareSettingsGuideSheetState
                   child: Text(
                     'device_care_guide_cancel'.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w600,
                       color: muted,
@@ -236,7 +232,6 @@ class _MockSettingsPanel extends StatelessWidget {
           Text(
             'device_care_guide_preview_header'.tr(),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 11.sp,
               fontWeight: FontWeight.w600,
               color: isDark
@@ -307,7 +302,6 @@ class _MockSettingsRow extends StatelessWidget {
                   Text(
                     appName!,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 13.sp,
                       fontWeight: FontWeight.w700,
                       color: textColor,
@@ -318,7 +312,6 @@ class _MockSettingsRow extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: highlighted ? 14.sp : 13.sp,
                     fontWeight:
                         highlighted ? FontWeight.w700 : FontWeight.w500,
@@ -338,7 +331,6 @@ class _MockSettingsRow extends StatelessWidget {
               child: Text(
                 'device_care_guide_tap_here'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 10.sp,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,

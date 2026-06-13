@@ -31,7 +31,6 @@ class AppVersionLabel extends ConsumerWidget {
         ),
         textAlign: textAlign,
         style: TextStyle(
-          fontFamily: 'Lexend',
           fontSize: (fontSize ?? 12).sp,
           color: textColor,
         ),

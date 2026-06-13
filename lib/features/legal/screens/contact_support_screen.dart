@@ -105,7 +105,6 @@ class _ContactSupportScreenState extends ConsumerState<ContactSupportScreen> {
                 ? 'legal_request_deletion'.tr()
                 : 'legal_contact_support'.tr(),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontWeight: FontWeight.w700,
               fontSize: 18.sp,
               color: textPrimary,
@@ -131,7 +130,6 @@ class _ContactSupportScreenState extends ConsumerState<ContactSupportScreen> {
                             ? 'legal_deletion_form_intro'.tr()
                             : 'legal_contact_support_intro'.tr(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 14.sp,
                           color: textMuted,
                           height: 1.45,
@@ -185,7 +183,6 @@ class _ContactSupportScreenState extends ConsumerState<ContactSupportScreen> {
                           TextSpan(
                             text: _errorMessage,
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 13.sp,
                               color: Colors.red.shade700,
                             ),
@@ -219,7 +216,6 @@ class _ContactSupportScreenState extends ConsumerState<ContactSupportScreen> {
                                       ? 'legal_deletion_submit'.tr()
                                       : 'legal_support_submit'.tr(),
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontWeight: FontWeight.w600,
                                     fontSize: 15.sp,
                                   ),
@@ -235,7 +231,6 @@ class _ContactSupportScreenState extends ConsumerState<ContactSupportScreen> {
                         ),
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 11.sp,
                           color: textMuted,
                           height: 1.4,
@@ -305,7 +300,6 @@ class _AccountInfoCard extends StatelessWidget {
           Text(
             'legal_support_account_info'.tr(),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontWeight: FontWeight.w600,
               fontSize: 13.sp,
               color: textMuted,
@@ -378,7 +372,6 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 12.sp,
                 color: textMuted,
               ),
@@ -389,7 +382,6 @@ class _InfoRow extends StatelessWidget {
                 ? PhoneNumberText(
                     value,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 13.sp,
                       color: textPrimary,
                     ),
@@ -397,7 +389,6 @@ class _InfoRow extends StatelessWidget {
                 : Text(
                     value,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 13.sp,
                       color: textPrimary,
                     ),
@@ -441,7 +432,6 @@ class _SuccessBody extends StatelessWidget {
                 : 'legal_support_success_title'.tr(),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontWeight: FontWeight.w700,
               fontSize: 20.sp,
               color: textPrimary,
@@ -454,7 +444,6 @@ class _SuccessBody extends StatelessWidget {
                 : 'legal_support_success_body'.tr(),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 14.sp,
               color: textMuted,
               height: 1.45,
@@ -475,7 +464,6 @@ class _SuccessBody extends StatelessWidget {
               child: Text(
                 'dialog_ok'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w600,
                   fontSize: 15.sp,
                 ),

@@ -105,7 +105,6 @@ class _PeriodTab extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 13.sp,
               fontWeight: FontWeight.w600,
               color: selected

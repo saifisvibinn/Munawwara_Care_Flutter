@@ -97,7 +97,6 @@ class _ModernStatCard extends StatelessWidget {
                 child: Text(
                   '$value',
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 24.sp,
                     fontWeight: FontWeight.w800,
                     height: 1,
@@ -112,7 +111,6 @@ class _ModernStatCard extends StatelessWidget {
           Text(
             title,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 10.sp,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.4,

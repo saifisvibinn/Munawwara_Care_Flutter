@@ -29,7 +29,6 @@ class PendingInvitationsSection extends ConsumerWidget {
             TextSpan(
               text: state.error,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 12.sp,
                 color: Theme.of(context).colorScheme.error,
               ),
@@ -51,7 +50,6 @@ class PendingInvitationsSection extends ConsumerWidget {
             TextSpan(
               text: state.error,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 12.sp,
                 color: Theme.of(context).colorScheme.error,
               ),

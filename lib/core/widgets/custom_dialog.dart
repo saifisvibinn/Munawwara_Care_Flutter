@@ -41,7 +41,6 @@ class StandardDialog {
           title.tr(),
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
             fontSize: 18.sp,
             color: isDark ? Colors.white : AppColors.textDark,
@@ -55,7 +54,6 @@ class StandardDialog {
                   : content.tr()),
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: 14.sp,
             color: isDark ? Colors.white70 : AppColors.textMutedLight,
             height: 1.5,
@@ -79,7 +77,6 @@ class StandardDialog {
                   child: Text(
                     (cancelText?.tr() ?? 'dialog_cancel'.tr()),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w600,
                       fontSize: 14.sp,
                     ),
@@ -99,7 +96,6 @@ class StandardDialog {
                   child: Text(
                     (confirmText?.tr() ?? 'dialog_confirm'.tr()),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w700,
                       fontSize: 14.sp,
                     ),
@@ -150,7 +146,6 @@ class StandardDialog {
                     message,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 15.sp,
                       fontWeight: FontWeight.w600,
                       color: isDark ? Colors.white : AppColors.textDark,

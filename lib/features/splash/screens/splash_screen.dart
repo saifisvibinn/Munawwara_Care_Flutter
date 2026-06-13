@@ -242,7 +242,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 RichText(
                   text: TextSpan(
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 36.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.5,
@@ -266,7 +265,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                     'splash_tagline'.tr(),
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w500,
                       height: 1.5,

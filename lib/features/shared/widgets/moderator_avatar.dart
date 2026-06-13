@@ -36,7 +36,6 @@ class ModeratorAvatar extends StatelessWidget {
             child: Text(
               i,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontWeight: FontWeight.w700,
                 fontSize: (s * 0.36).clamp(14.0, 30.0),
                 color: AppColors.primary,

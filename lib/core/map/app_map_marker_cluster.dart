@@ -35,7 +35,6 @@ class AppMapMarkerCluster {
         child: Text(
           label,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w800,
             fontSize: 14.sp,
             color: Colors.white,

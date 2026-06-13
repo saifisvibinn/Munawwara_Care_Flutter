@@ -57,7 +57,6 @@ class StandardSnackBar {
             child: Text(
               message,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 13.sp,
                 fontWeight: FontWeight.w500,
                 color: Colors.white,

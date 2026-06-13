@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:convert';
 import 'dart:ui' as ui;
 
@@ -91,45 +92,19 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
   }) {
     final textScale = MediaQuery.textScalerOf(context).scale(1);
     final width = maxWidth ?? MediaQuery.sizeOf(context).width;
-    return textScale > 1.15 || width < 360;
-  }
-
-  double _sheetTitleBlockHeight(BuildContext context, {double? maxWidth}) {
-    final textScale = MediaQuery.textScalerOf(context).scale(1);
-    if (_shouldStackSheetActions(context, maxWidth: maxWidth)) {
-      final titleHeight = 22.h * textScale.clamp(1.0, 1.5) * 2;
-      return titleHeight + 8.h + 44.h + 10.h;
-    }
-    return 44.h * textScale.clamp(1.0, 1.3) + 10.h;
-  }
-
-  double _sheetHeaderHeight(
-    BuildContext context, {
-    required bool hasMeetpoint,
-    double? maxWidth,
-  }) {
-    final handle = 24.h;
-    final search = 60.h;
-    final meetpoint = hasMeetpoint ? 90.h : 0;
-    return handle +
-        _sheetTitleBlockHeight(context, maxWidth: maxWidth) +
-        search +
-        meetpoint;
+    return textScale > 1.15 || width < 300;
   }
 
   double _sheetMinExtent(
     BuildContext context, {
     required bool hasMeetpoint,
-    double? maxWidth,
   }) {
     final screenH = MediaQuery.sizeOf(context).height;
-    if (screenH <= 0) return 0.2;
-    final header = _sheetHeaderHeight(
-      context,
-      hasMeetpoint: hasMeetpoint,
-      maxWidth: maxWidth,
-    );
-    return (header / screenH + 0.01).clamp(0.18, 0.72);
+    if (screenH <= 0) return 0.22;
+    final stacked = _shouldStackSheetActions(context);
+    final titleBlock = stacked ? 84.h : 54.h;
+    final header = 24.h + titleBlock + 60.h + (hasMeetpoint ? 90.h : 0);
+    return (header / screenH + 0.025).clamp(0.20, 0.72);
   }
 
   List<double> _sheetSnapSizes(double minExtent) {
@@ -1599,17 +1574,10 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     final filtered = _getFiltered(group);
     final areaState = _scopedAreaState(ref.watch(suggestedAreaProvider));
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sheetContentWidth = MediaQuery.sizeOf(context).width - 32.w;
     final hasMeetpoint = areaState.activeMeetpoint != null;
-    final headerHeight = _sheetHeaderHeight(
-      context,
-      hasMeetpoint: hasMeetpoint,
-      maxWidth: sheetContentWidth,
-    );
     final minSheetExtent = _sheetMinExtent(
       context,
       hasMeetpoint: hasMeetpoint,
-      maxWidth: sheetContentWidth,
     );
     final sheetSnapSizes = _sheetSnapSizes(minSheetExtent);
 
@@ -1934,104 +1902,111 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                       ),
                     ],
                   ),
-                  child: CustomScrollView(
-                    controller: scrollController,
-                    slivers: [
-                      SliverPersistentHeader(
-                        pinned: true,
-                        delegate: _PinnedHeaderDelegate(
-                          height: headerHeight,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onVerticalDragUpdate: (details) {
-                              if (_dssController.isAttached) {
-                                final screenHeight = MediaQuery.of(context).size.height;
-                                if (screenHeight > 0) {
-                                  final currentSize = _dssController.size;
-                                  final newSize = currentSize - (details.delta.dy / screenHeight);
-                                  _dssController.jumpTo(
-                                    newSize.clamp(minSheetExtent, 0.72),
-                                  );
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final maxHeaderHeight = math.max(
+                        0.0,
+                        constraints.maxHeight - 36.h,
+                      );
+
+                      return Column(
+                    children: [
+                      GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onVerticalDragUpdate: (details) {
+                          if (_dssController.isAttached) {
+                            final screenHeight =
+                                MediaQuery.of(context).size.height;
+                            if (screenHeight > 0) {
+                              final currentSize = _dssController.size;
+                              final newSize = currentSize -
+                                  (details.delta.dy / screenHeight);
+                              _dssController.jumpTo(
+                                newSize.clamp(minSheetExtent, 0.72),
+                              );
+                            }
+                          }
+                        },
+                        onVerticalDragEnd: (details) {
+                          if (_dssController.isAttached) {
+                            final currentSize = _dssController.size;
+                            const maxSnap = 0.72;
+                            double targetSize = currentSize;
+
+                            final velocity = details.primaryVelocity ?? 0.0;
+                            if (velocity < -300) {
+                              final largerSizes = sheetSnapSizes
+                                  .where((s) => s > currentSize)
+                                  .toList();
+                              targetSize = largerSizes.isNotEmpty
+                                  ? largerSizes.first
+                                  : maxSnap;
+                            } else if (velocity > 300) {
+                              final smallerSizes = sheetSnapSizes
+                                  .where((s) => s < currentSize)
+                                  .toList();
+                              targetSize = smallerSizes.isNotEmpty
+                                  ? smallerSizes.last
+                                  : minSheetExtent;
+                            } else {
+                              double closestSnap = sheetSnapSizes.first;
+                              double minDiff =
+                                  (currentSize - closestSnap).abs();
+                              for (final size in sheetSnapSizes) {
+                                final diff = (currentSize - size).abs();
+                                if (diff < minDiff) {
+                                  minDiff = diff;
+                                  closestSnap = size;
                                 }
                               }
-                            },
-                            onVerticalDragEnd: (details) {
-                              if (_dssController.isAttached) {
-                                final currentSize = _dssController.size;
-                                const maxSnap = 0.72;
-                                double targetSize = currentSize;
+                              targetSize = closestSnap;
+                            }
 
-                                final velocity = details.primaryVelocity ?? 0.0;
-                                if (velocity < -300) {
-                                  final largerSizes = sheetSnapSizes
-                                      .where((s) => s > currentSize)
-                                      .toList();
-                                  targetSize = largerSizes.isNotEmpty
-                                      ? largerSizes.first
-                                      : maxSnap;
-                                } else if (velocity > 300) {
-                                  final smallerSizes = sheetSnapSizes
-                                      .where((s) => s < currentSize)
-                                      .toList();
-                                  targetSize = smallerSizes.isNotEmpty
-                                      ? smallerSizes.last
-                                      : minSheetExtent;
-                                } else {
-                                  double closestSnap = sheetSnapSizes.first;
-                                  double minDiff =
-                                      (currentSize - closestSnap).abs();
-                                  for (final size in sheetSnapSizes) {
-                                    final diff = (currentSize - size).abs();
-                                    if (diff < minDiff) {
-                                      minDiff = diff;
-                                      closestSnap = size;
-                                    }
-                                  }
-                                  targetSize = closestSnap;
-                                }
-
-                                _dssController.animateTo(
-                                  targetSize.clamp(minSheetExtent, maxSnap),
-                                  duration: const Duration(milliseconds: 250),
-                                  curve: Curves.easeOutCubic,
-                                );
-                              }
-                            },
-                            child: ClipRect(
-                              child: Container(
-                              color: isDark ? AppColors.surfaceDark : Colors.white,
-                              child: SingleChildScrollView(
-                                physics: const NeverScrollableScrollPhysics(),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                // Drag handle
-                                Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.only(top: 12.h, bottom: 8.h),
-                                    child: Container(
-                                      width: 36.w,
-                                      height: 4.h,
-                                      decoration: BoxDecoration(
-                                        color: isDark
-                                            ? Colors.white24
-                                            : const Color(0xFFE2E8F0),
-                                        borderRadius: BorderRadius.circular(2.r),
-                                      ),
-                                    ),
+                            _dssController.animateTo(
+                              targetSize.clamp(minSheetExtent, maxSnap),
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeOutCubic,
+                            );
+                          }
+                        },
+                        child: ConstrainedBox(
+                          constraints:
+                              BoxConstraints(maxHeight: maxHeaderHeight),
+                          child: SingleChildScrollView(
+                            physics: const ClampingScrollPhysics(),
+                            child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Drag handle
+                            Center(
+                              child: Padding(
+                                padding:
+                                    EdgeInsets.only(top: 12.h, bottom: 8.h),
+                                child: Container(
+                                  width: 36.w,
+                                  height: 4.h,
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? Colors.white24
+                                        : const Color(0xFFE2E8F0),
+                                    borderRadius: BorderRadius.circular(2.r),
                                   ),
                                 ),
-                                // Sheet header
-                                Padding(
-                                  padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
-                                  child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      final stackActions = _shouldStackSheetActions(
-                                        context,
-                                        maxWidth: constraints.maxWidth,
-                                      );
+                              ),
+                            ),
+                            // Sheet header
+                            Padding(
+                              padding:
+                                  EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stackActions =
+                                      _shouldStackSheetActions(
+                                    context,
+                                    maxWidth: constraints.maxWidth,
+                                  );
 
-                                      final title = Text(
+                                  final title = Text(
                                         group.totalPilgrims == 0
                                             ? 'group_no_pilgrims'.tr()
                                             : 'group_pilgrims_count'.tr(
@@ -2311,96 +2286,98 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                     ),
                                   ),
                                 ),
-                                  ],
-                                ),
-                              ),
+                          ],
                             ),
-                            ),
+                          ),
                         ),
                       ),
-                    ),
-                      // Pilgrim tiles list
-                      if (filtered.isEmpty)
-                        SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: Center(
-                            child: Text(
-                              _searchQuery.isNotEmpty
-                                  ? 'group_no_matches'.tr()
-                                  : 'group_no_pilgrims'.tr(),
-                              style: TextStyle(
-                                fontFamily: 'Lexend',
-                                color: AppColors.textMutedLight,
-                                fontSize: 13.sp,
-                              ),
-                            ),
-                          ),
-                        )
-                      else
-                        SliverPadding(
-                          padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 24.h),
-                          sliver: SliverList(
-                            delegate: SliverChildBuilderDelegate((ctx, i) {
-                              final p = filtered[i];
-                              return Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (i > 0)
-                                    Divider(
-                                      height: 0.5,
-                                      color: isDark ? AppColors.dividerDark : const Color(0xFFF4F5F9),
-                                    ),
-                                  Dismissible(
-                                    key: ValueKey(p.id),
-                                    direction: DismissDirection.endToStart,
-                                    confirmDismiss: (_) =>
-                                        _confirmRemovePilgrim(group, p),
-                                    background: Container(
-                                      alignment: Alignment.centerRight,
-                                      padding: EdgeInsets.only(right: 20.w),
-                                      color: Colors.red,
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Symbols.person_remove,
-                                            color: Colors.white,
-                                            size: 22.w,
-                                          ),
-                                          SizedBox(height: 2.h),
-                                          Text(
-                                            'group_remove_confirm'.tr(),
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10.sp,
-                                              fontFamily: 'Lexend',
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    child: _PilgrimManageTile(
-                                      pilgrim: p,
-                                      isSelected: _focusedPilgrimId == p.id,
-                                      onTap: () => _focusPilgrim(p),
-                                      onNavigate: () => _navigateToPilgrim(p),
-                                      onChat: () => _openPrivateChat(p),
-                                      onCall: () => _showCallSheet(p),
-                                      onRemove: () =>
-                                          _confirmRemovePilgrim(group, p),
-                                      onViewProfile: () =>
-                                          _showPilgrimProfile(p),
-                                    ),
+                      Expanded(
+                        child: filtered.isEmpty
+                            ? Center(
+                                child: Text(
+                                  _searchQuery.isNotEmpty
+                                      ? 'group_no_matches'.tr()
+                                      : 'group_no_pilgrims'.tr(),
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    color: AppColors.textMutedLight,
+                                    fontSize: 13.sp,
                                   ),
-                                ],
-                              );
-                            }, childCount: filtered.length),
-                          ),
-                        ),
+                                ),
+                              )
+                            : ListView.builder(
+                                controller: scrollController,
+                                padding:
+                                    EdgeInsets.fromLTRB(12.w, 0, 12.w, 24.h),
+                                itemCount: filtered.length,
+                                itemBuilder: (ctx, i) {
+                                  final p = filtered[i];
+                                  return Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (i > 0)
+                                        Divider(
+                                          height: 0.5,
+                                          color: isDark
+                                              ? AppColors.dividerDark
+                                              : const Color(0xFFF4F5F9),
+                                        ),
+                                      Dismissible(
+                                        key: ValueKey(p.id),
+                                        direction: DismissDirection.endToStart,
+                                        confirmDismiss: (_) =>
+                                            _confirmRemovePilgrim(group, p),
+                                        background: Container(
+                                          alignment: Alignment.centerRight,
+                                          padding:
+                                              EdgeInsets.only(right: 20.w),
+                                          color: Colors.red,
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Symbols.person_remove,
+                                                color: Colors.white,
+                                                size: 22.w,
+                                              ),
+                                              SizedBox(height: 2.h),
+                                              Text(
+                                                'group_remove_confirm'.tr(),
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 10.sp,
+                                                  fontFamily: 'Lexend',
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        child: _PilgrimManageTile(
+                                          pilgrim: p,
+                                          isSelected:
+                                              _focusedPilgrimId == p.id,
+                                          onTap: () => _focusPilgrim(p),
+                                          onNavigate: () =>
+                                              _navigateToPilgrim(p),
+                                          onChat: () => _openPrivateChat(p),
+                                          onCall: () => _showCallSheet(p),
+                                          onRemove: () =>
+                                              _confirmRemovePilgrim(group, p),
+                                          onViewProfile: () =>
+                                              _showPilgrimProfile(p),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                      ),
                     ],
+                      );
+                    },
                   ),
                 ),
               ), // DraggableScrollableSheet
@@ -3805,33 +3782,6 @@ class _PilgrimManageTile extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final Widget child;
-  final double height;
-
-  _PinnedHeaderDelegate({required this.child, required this.height});
-
-  @override
-  double get minExtent => height;
-
-  @override
-  double get maxExtent => height;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return SizedBox.expand(child: child);
-  }
-
-  @override
-  bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) {
-    return child != oldDelegate.child || height != oldDelegate.height;
   }
 }
 

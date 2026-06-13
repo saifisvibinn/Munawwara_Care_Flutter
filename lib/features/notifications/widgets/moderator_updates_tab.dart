@@ -33,7 +33,6 @@ class ModeratorUpdatesTab extends ConsumerWidget {
             'alerts_updates_empty'.tr(),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 14.sp,
               fontWeight: FontWeight.w500,
               color: isDark ? Colors.white70 : AppColors.textMutedDark,
@@ -110,7 +109,6 @@ class _UpdateNotificationTile extends StatelessWidget {
                       child: Text(
                         notification.typeLabel,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontWeight: FontWeight.w700,
                           fontSize: 13.sp,
                           color: isDark ? Colors.white : AppColors.textDark,
@@ -120,7 +118,6 @@ class _UpdateNotificationTile extends StatelessWidget {
                     Text(
                       time,
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 11.sp,
                         color: AppColors.textMutedLight,
                       ),
@@ -132,7 +129,6 @@ class _UpdateNotificationTile extends StatelessWidget {
                   Text(
                     groupName,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primary,
@@ -143,7 +139,6 @@ class _UpdateNotificationTile extends StatelessWidget {
                 Text(
                   notification.message,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 12.sp,
                     height: 1.35,
                     color: isDark

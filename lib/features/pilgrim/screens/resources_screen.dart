@@ -172,7 +172,6 @@ class _ResourcesScreenState extends ConsumerState<ResourcesScreen>
                             Text(
                               'resources_title'.tr(),
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 18.sp,
                                 fontWeight: FontWeight.w800,
                                 color:
@@ -182,7 +181,6 @@ class _ResourcesScreenState extends ConsumerState<ResourcesScreen>
                             Text(
                               'resources_subtitle'.tr(),
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 11.sp,
                                 color: isDark
                                     ? AppColors.textMutedLight
@@ -225,12 +223,10 @@ class _ResourcesScreenState extends ConsumerState<ResourcesScreen>
                     indicatorColor: AppColors.primary,
                     indicatorWeight: 2.5,
                     labelStyle: TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w700,
                       fontSize: 13.sp,
                     ),
                     unselectedLabelStyle: TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w500,
                       fontSize: 13.sp,
                     ),
@@ -422,7 +418,6 @@ class _HotelCardState extends State<_HotelCard> {
                             Text(
                               widget.hotel.name,
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 15.sp,
                                 fontWeight: FontWeight.w800,
                                 color: textPrimary,
@@ -441,7 +436,6 @@ class _HotelCardState extends State<_HotelCard> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontFamily: 'Lexend',
                                   fontSize: 11.sp,
                                   color: textMuted,
                                 ),
@@ -536,7 +530,6 @@ class _RoomsList extends StatelessWidget {
           child: Text(
             'resources_rooms_list'.tr().toUpperCase(),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 9.sp,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.6,
@@ -579,7 +572,6 @@ class _RoomsList extends StatelessWidget {
                           Text(
                             'resources_room_number'.tr(args: [room.roomNumber]),
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 13.sp,
                               fontWeight: FontWeight.w700,
                               color: textPrimary,
@@ -589,7 +581,6 @@ class _RoomsList extends StatelessWidget {
                             Text(
                               'resources_floor'.tr(args: [room.floor]),
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 11.sp,
                                 color: textMuted,
                               ),
@@ -738,7 +729,6 @@ class _InsuranceCardState extends State<_InsuranceCard> {
                             Text(
                               widget.insurance.name,
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 15.sp,
                                 fontWeight: FontWeight.w800,
                                 color: textPrimary,
@@ -793,7 +783,6 @@ class _InsuranceCardState extends State<_InsuranceCard> {
                                           Text(
                                             'view_policy'.tr().toUpperCase(),
                                             style: TextStyle(
-                                              fontFamily: 'Lexend',
                                               fontWeight: FontWeight.w700,
                                               fontSize: 9.sp,
                                               color: const Color(0xFF2563EB),
@@ -884,7 +873,6 @@ class _HospitalsList extends StatelessWidget {
           child: Text(
             'resources_hospitals_list'.tr().toUpperCase(),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 9.sp,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.6,
@@ -930,7 +918,6 @@ class _HospitalsList extends StatelessWidget {
                           Text(
                             hospital.name,
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 13.sp,
                               fontWeight: FontWeight.w700,
                               color: textPrimary,
@@ -942,7 +929,6 @@ class _HospitalsList extends StatelessWidget {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 11.sp,
                                 color: textMuted,
                               ),
@@ -996,7 +982,6 @@ class _InfoBadge extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 10.sp,
               fontWeight: FontWeight.w700,
               color: effectiveColor,
@@ -1035,7 +1020,6 @@ class _EmptyState extends StatelessWidget {
           Text(
             message,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 14.sp,
               color: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
             ),
@@ -1067,7 +1051,6 @@ class _ErrorRetry extends StatelessWidget {
           Text(
             'error_loading_data'.tr(),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 14.sp,
               color: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
             ),
@@ -1078,7 +1061,7 @@ class _ErrorRetry extends StatelessWidget {
             icon: Icon(Symbols.refresh, size: 16.sp),
             label: Text(
               'retry'.tr(),
-              style: const TextStyle(fontFamily: 'Lexend'),
+              style: const TextStyle(),
             ),
           ),
         ],

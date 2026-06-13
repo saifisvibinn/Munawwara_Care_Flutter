@@ -93,7 +93,6 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
         title: Text(
           'join_group'.tr(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
             fontSize: 18.sp,
           ),
@@ -134,7 +133,6 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
             'scan_group_qr'.tr(),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 14.sp,
               color: isDark ? AppColors.textMutedLight : Colors.grey.shade600,
             ),
@@ -150,7 +148,6 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
               'not_working_enter_code'.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontWeight: FontWeight.w600,
                 fontSize: 14.sp,
               ),
@@ -172,7 +169,6 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
             'enter_group_code_manual'.tr(),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 14.sp,
               color: isDark ? AppColors.textMutedLight : Colors.grey.shade600,
             ),
@@ -183,7 +179,6 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
             textCapitalization: TextCapitalization.characters,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 24.sp,
               fontWeight: FontWeight.w700,
               letterSpacing: 4,
@@ -228,7 +223,6 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                 : Text(
                     'join_group'.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w700,
                       fontSize: 16.sp,
                     ),
@@ -240,7 +234,6 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
             child: Text(
               'back_to_scan'.tr(),
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontWeight: FontWeight.w600,
                 fontSize: 14.sp,
                 color: AppColors.primary,

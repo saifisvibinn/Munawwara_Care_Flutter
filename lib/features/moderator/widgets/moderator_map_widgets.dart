@@ -167,7 +167,6 @@ class PilgrimMapMarker extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontWeight: FontWeight.w700,
                 fontSize: 10.sp,
                 color: isDark ? Colors.white : AppColors.textDark,
@@ -270,7 +269,6 @@ class AreaMapMarker extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
                     fontSize: 9.sp,
                     color: color,

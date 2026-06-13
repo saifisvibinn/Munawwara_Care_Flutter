@@ -294,7 +294,6 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
                 Text(
                   'rate_app_title'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
                     fontSize: 18.sp,
                     color: textPrimary,
@@ -305,7 +304,6 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
                   'rate_app_subtitle'.tr(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 13.sp,
                     color: textMuted,
                   ),
@@ -344,14 +342,12 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
                     controller: _commentController,
                     maxLines: 3,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 14.sp,
                       color: textPrimary,
                     ),
                     decoration: InputDecoration(
                       hintText: 'rate_improve_feedback_hint'.tr(),
                       hintStyle: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 13.sp,
                         color: textMuted,
                       ),
@@ -382,7 +378,7 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
                           ),
                           child: Text(
                             'dialog_cancel'.tr(),
-                            style: TextStyle(fontFamily: 'Lexend', color: textPrimary),
+                            style: TextStyle( color: textPrimary),
                           ),
                         ),
                       ),
@@ -404,7 +400,7 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
                                 )
                               : Text(
                                   'btn_submit'.tr(),
-                                  style: TextStyle(fontFamily: 'Lexend', color: Colors.white, fontWeight: FontWeight.bold),
+                                  style: TextStyle( color: Colors.white, fontWeight: FontWeight.bold),
                                 ),
                         ),
                       ),
@@ -418,7 +414,6 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
                     child: Text(
                       'rate_skip'.tr(),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontWeight: FontWeight.w600,
                         color: textMuted,
                       ),
@@ -430,7 +425,6 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
                 Text(
                   'rate_app_store_title'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
                     fontSize: 18.sp,
                     color: textPrimary,
@@ -441,7 +435,6 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
                   'rate_app_store_body'.tr(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 13.sp,
                     color: textMuted,
                   ),
@@ -462,7 +455,7 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
                         ),
                         child: Text(
                           'rate_skip'.tr(),
-                          style: TextStyle(fontFamily: 'Lexend', color: textPrimary),
+                          style: TextStyle( color: textPrimary),
                         ),
                       ),
                     ),
@@ -484,7 +477,7 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
                               )
                             : Text(
                                 'rate_store_action'.tr(),
-                                style: TextStyle(fontFamily: 'Lexend', color: Colors.white, fontWeight: FontWeight.bold),
+                                style: TextStyle( color: Colors.white, fontWeight: FontWeight.bold),
                               ),
                       ),
                     ),
@@ -589,7 +582,6 @@ class _AppFeedbackDialogState extends State<AppFeedbackDialog> {
               'feedback_title'.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontWeight: FontWeight.w700,
                 fontSize: 18.sp,
                 color: textPrimary,
@@ -600,7 +592,6 @@ class _AppFeedbackDialogState extends State<AppFeedbackDialog> {
               'feedback_desc'.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 13.sp,
                 color: textMuted,
               ),
@@ -610,14 +601,12 @@ class _AppFeedbackDialogState extends State<AppFeedbackDialog> {
               controller: _commentController,
               maxLines: 4,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 14.sp,
                 color: textPrimary,
               ),
               decoration: InputDecoration(
                 hintText: 'feedback_hint'.tr(),
                 hintStyle: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 13.sp,
                   color: textMuted,
                 ),
@@ -648,7 +637,7 @@ class _AppFeedbackDialogState extends State<AppFeedbackDialog> {
                     ),
                     child: Text(
                       'dialog_cancel'.tr(),
-                      style: TextStyle(fontFamily: 'Lexend', color: textPrimary),
+                      style: TextStyle( color: textPrimary),
                     ),
                   ),
                 ),
@@ -670,7 +659,7 @@ class _AppFeedbackDialogState extends State<AppFeedbackDialog> {
                           )
                         : Text(
                             'btn_submit'.tr(),
-                            style: TextStyle(fontFamily: 'Lexend', color: Colors.white, fontWeight: FontWeight.bold),
+                            style: TextStyle( color: Colors.white, fontWeight: FontWeight.bold),
                           ),
                   ),
                 ),
@@ -788,7 +777,6 @@ class _ReportIssueDialogState extends State<ReportIssueDialog> {
                 'report_title'.tr(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w700,
                   fontSize: 18.sp,
                   color: textPrimary,
@@ -801,13 +789,12 @@ class _ReportIssueDialogState extends State<ReportIssueDialog> {
                 initialValue: _selectedCategory,
                 dropdownColor: cardBg,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 14.sp,
                   color: textPrimary,
                 ),
                 decoration: InputDecoration(
                   labelText: 'report_category'.tr(),
-                  labelStyle: TextStyle(fontFamily: 'Lexend', color: textMuted, fontSize: 13.sp),
+                  labelStyle: TextStyle( color: textMuted, fontSize: 13.sp),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r)),
                   contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                 ),
@@ -832,13 +819,12 @@ class _ReportIssueDialogState extends State<ReportIssueDialog> {
                 controller: _titleController,
                 maxLines: 1,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 14.sp,
                   color: textPrimary,
                 ),
                 decoration: InputDecoration(
                   labelText: 'report_subject'.tr(),
-                  labelStyle: TextStyle(fontFamily: 'Lexend', color: textMuted, fontSize: 13.sp),
+                  labelStyle: TextStyle( color: textMuted, fontSize: 13.sp),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r)),
                   contentPadding: EdgeInsets.all(12.w),
                 ),
@@ -850,13 +836,12 @@ class _ReportIssueDialogState extends State<ReportIssueDialog> {
                 controller: _descController,
                 maxLines: 4,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 14.sp,
                   color: textPrimary,
                 ),
                 decoration: InputDecoration(
                   labelText: 'report_description'.tr(),
-                  labelStyle: TextStyle(fontFamily: 'Lexend', color: textMuted, fontSize: 13.sp),
+                  labelStyle: TextStyle( color: textMuted, fontSize: 13.sp),
                   alignLabelWithHint: true,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r)),
                   contentPadding: EdgeInsets.all(12.w),
@@ -878,7 +863,7 @@ class _ReportIssueDialogState extends State<ReportIssueDialog> {
                       ),
                       child: Text(
                         'dialog_cancel'.tr(),
-                        style: TextStyle(fontFamily: 'Lexend', color: textPrimary),
+                        style: TextStyle( color: textPrimary),
                       ),
                     ),
                   ),
@@ -900,7 +885,7 @@ class _ReportIssueDialogState extends State<ReportIssueDialog> {
                             )
                           : Text(
                               'btn_submit'.tr(),
-                              style: TextStyle(fontFamily: 'Lexend', color: Colors.white, fontWeight: FontWeight.bold),
+                              style: TextStyle( color: Colors.white, fontWeight: FontWeight.bold),
                             ),
                     ),
                   ),

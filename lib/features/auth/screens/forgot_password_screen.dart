@@ -264,7 +264,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                             'forgot_password_title'.tr(),
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 28.sp,
                               fontWeight: FontWeight.w700,
                               letterSpacing: -0.5,
@@ -280,7 +279,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                             _getSubtitle(),
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 14.sp,
                               color: isDark ? AppColors.textMutedLight : const Color(0xff64748b),
                             ),
@@ -351,7 +349,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: 14.sp,
             color: isDark ? Colors.white : AppColors.textDark,
           ),
@@ -393,7 +390,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           controller: _passwordController,
           obscureText: _obscurePassword,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: 14.sp,
             color: isDark ? Colors.white : AppColors.textDark,
           ),
@@ -413,7 +409,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           controller: _confirmPasswordController,
           obscureText: _obscureConfirm,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: 14.sp,
             color: isDark ? Colors.white : AppColors.textDark,
           ),
@@ -442,7 +437,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   ? 'forgot_password_resend_countdown'.tr(args: ['$_resendCooldown'])
                   : 'forgot_password_resend_code'.tr(),
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 13.sp,
                 fontWeight: FontWeight.w600,
                 color: _resendCooldown > 0 ? AppColors.textMutedLight : const Color(0xff3b82f6),
@@ -475,7 +469,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           'forgot_password_success'.tr(),
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: 16.sp,
             fontWeight: FontWeight.w500,
             height: 1.5,
@@ -497,7 +490,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       child: Text(
         text,
         style: TextStyle(
-          fontFamily: 'Lexend',
           fontSize: 13.sp,
           fontWeight: FontWeight.w500,
           color: isDark ? Colors.white : AppColors.textDark,
@@ -524,7 +516,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             Expanded(
               child: Text(
                 error,
-                style: TextStyle(fontFamily: 'Lexend', fontSize: 12.sp, color: Colors.red.shade700),
+                style: TextStyle(fontSize: 12.sp, color: Colors.red.shade700),
               ),
             ),
           ],
@@ -672,7 +664,6 @@ class _DigitCodeInputState extends State<DigitCodeInput> {
                   }
                 },
                 style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 20.sp,
                 fontWeight: FontWeight.w600,
                 color: widget.isDark ? Colors.white : AppColors.textDark,

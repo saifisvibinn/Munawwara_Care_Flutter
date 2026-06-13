@@ -44,7 +44,6 @@ class AboutScreen extends StatelessWidget {
         title: Text(
           'about_title'.tr(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
             fontSize: 18.sp,
             color: textPrimary,
@@ -84,7 +83,6 @@ class AboutScreen extends StatelessWidget {
             Text(
               LegalConfig.appName,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontWeight: FontWeight.w700,
                 fontSize: 20.sp,
                 color: textPrimary,
@@ -169,7 +167,6 @@ class AboutScreen extends StatelessWidget {
               child: Text(
                 'legal_agora_disclosure'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 11.sp,
                   color: textMuted,
                   height: 1.4,
@@ -238,7 +235,6 @@ class _AboutRow extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w600,
                   fontSize: 14.sp,
                   color: isDestructive ? Colors.red.shade600 : textPrimary,

@@ -57,7 +57,6 @@ class _TravelModePickerDialog extends StatelessWidget {
               'hotel_nav_choose_mode_title'.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 20.sp,
                 fontWeight: FontWeight.w800,
                 color: titleColor,
@@ -69,7 +68,6 @@ class _TravelModePickerDialog extends StatelessWidget {
               'hotel_nav_choose_mode_subtitle'.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 13.sp,
                 fontWeight: FontWeight.w500,
                 color: subtitleColor,
@@ -120,7 +118,6 @@ class _TravelModePickerDialog extends StatelessWidget {
               child: Text(
                 'dialog_cancel'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 15.sp,
                   fontWeight: FontWeight.w700,
                 ),
@@ -197,7 +194,6 @@ class _TravelModeOptionTile extends StatelessWidget {
                       Text(
                         title,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 15.sp,
                           fontWeight: FontWeight.w700,
                           color: bodyColor,
@@ -207,7 +203,6 @@ class _TravelModeOptionTile extends StatelessWidget {
                       Text(
                         subtitle,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 12.sp,
                           fontWeight: FontWeight.w500,
                           color: subtitleColor,

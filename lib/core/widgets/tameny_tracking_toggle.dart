@@ -118,7 +118,6 @@ class _TamenyTrackingToggleState extends ConsumerState<TamenyTrackingToggle> {
                       Text(
                         'tameny_toggle_title'.tr(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontWeight: FontWeight.w600,
                           fontSize: 15.sp,
                           color: textPrimary,
@@ -129,7 +128,6 @@ class _TamenyTrackingToggleState extends ConsumerState<TamenyTrackingToggle> {
                         Text(
                           'tameny_toggle_desc_disabled'.tr(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 12.sp,
                             color: textMuted,
                           ),
@@ -209,7 +207,6 @@ class _LocationStatusBanner extends StatelessWidget {
             child: Text(
               message,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w600,
                 color: isDark

@@ -59,17 +59,14 @@ void showWeatherDetailBottomSheet(BuildContext context, WeatherAlert alert) {
   final isDark = theme.brightness == Brightness.dark;
 
   final titleStyle = theme.textTheme.titleLarge?.copyWith(
-    fontFamily: 'Lexend',
     fontWeight: FontWeight.w800,
     color: isDark ? Colors.white : AppColors.textDark,
   );
   final bodyStyle = theme.textTheme.bodyLarge?.copyWith(
-    fontFamily: 'Lexend',
     height: 1.45,
     color: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
   );
   final headingStyle = theme.textTheme.titleSmall?.copyWith(
-    fontFamily: 'Lexend',
     fontWeight: FontWeight.w700,
     color: isDark ? AppColors.primary : AppColors.primaryDark,
   );
@@ -116,7 +113,6 @@ void showWeatherDetailBottomSheet(BuildContext context, WeatherAlert alert) {
                           Text(
                             '${alert.temperatureC}\u00b0C',
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 32.sp,
                               fontWeight: FontWeight.w900,
                               color: isDark ? Colors.white : AppColors.textDark,
@@ -134,7 +130,6 @@ void showWeatherDetailBottomSheet(BuildContext context, WeatherAlert alert) {
                               ? 'weather_loading'.tr()
                               : alert.conditionKey.tr(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 16.sp,
                             fontWeight: FontWeight.w700,
                             color: isDark
@@ -165,7 +160,6 @@ void showWeatherDetailBottomSheet(BuildContext context, WeatherAlert alert) {
               SelectableText(
                 alert.detailTipKey.tr(),
                 style: (bodyStyle ?? const TextStyle()).copyWith(
-                  fontFamily: 'Lexend',
                   height: 1.45,
                   color: alert.isError
                       ? theme.colorScheme.error
@@ -178,7 +172,6 @@ void showWeatherDetailBottomSheet(BuildContext context, WeatherAlert alert) {
               Text(
                 'weather_detail_footer_note'.tr(),
                 style: theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: 'Lexend',
                   height: 1.35,
                   color: isDark
                       ? AppColors.textMutedLight
@@ -224,7 +217,6 @@ class _HomeCardTapFooter extends StatelessWidget {
                 maxLines: 1,
                 softWrap: false,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 11.sp,
                   fontWeight: FontWeight.w700,
                   color: AppColors.primaryDark,
@@ -311,7 +303,6 @@ class WeatherCard extends StatelessWidget {
                             ? '--'
                             : '${alert.temperatureC}\u00b0C',
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 22.sp,
                           fontWeight: FontWeight.w900,
                           color: isDark ? Colors.white : AppColors.textDark,
@@ -328,7 +319,6 @@ class WeatherCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 12.sp,
                           fontWeight: FontWeight.w800,
                           color: isDark
@@ -347,7 +337,6 @@ class WeatherCard extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 10.sp,
                             height: 1.25,
                             color: muted,
@@ -613,7 +602,6 @@ class ScoopedGridCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 13.sp,
                         fontWeight: FontWeight.w700,
                         height: 1.2,
@@ -627,7 +615,6 @@ class ScoopedGridCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 10.sp,
                         fontWeight: FontWeight.w500,
                         height: 1.25,
@@ -702,7 +689,6 @@ class GroupCard extends StatelessWidget {
         : AppColors.textMutedDark;
 
     final labelStyle = TextStyle(
-      fontFamily: 'Lexend',
       fontSize: 10.sp,
       fontWeight: FontWeight.w800,
       color: labelColor,
@@ -756,7 +742,6 @@ class GroupCard extends StatelessWidget {
                     Text(
                       'home_my_group'.tr().toUpperCase(),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 11.sp,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFFF97316), // Premium Orange
@@ -767,7 +752,6 @@ class GroupCard extends StatelessWidget {
                     Text(
                       groupName,
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 26.sp,
                         fontWeight: FontWeight.w800,
                         color: valueColor,
@@ -793,7 +777,6 @@ class GroupCard extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontFamily: 'Lexend',
                                   fontSize: 14.sp,
                                   fontWeight: FontWeight.w700,
                                   color: bodyValueColor,
@@ -807,7 +790,6 @@ class GroupCard extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 11.sp,
                                     color: valueMutedColor,
                                   ),
@@ -833,7 +815,6 @@ class GroupCard extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontFamily: 'Lexend',
                                   fontSize: 14.sp,
                                   fontWeight: FontWeight.w700,
                                   color: bodyValueColor,
@@ -868,7 +849,6 @@ class GroupCard extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontFamily: 'Lexend',
                                   fontSize: 14.sp,
                                   fontWeight: FontWeight.w700,
                                   color: bodyValueColor,
@@ -888,7 +868,6 @@ class GroupCard extends StatelessWidget {
                       child: Text(
                         'home_view_group_details'.tr(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 15.sp,
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFFC2410C), // Deep Orange/Brown
@@ -957,7 +936,6 @@ class ExploreCard extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 18.sp,
                                     fontWeight: FontWeight.w800,
                                     color: isDark
@@ -972,7 +950,6 @@ class ExploreCard extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 11.sp,
                                     color: muted,
                                     height: 1.1,
@@ -1125,7 +1102,6 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
                             Text(
                               isAttended ? 'attendance_checked_in'.tr() : 'attendance_title'.tr(),
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 16.sp,
                                 fontWeight: FontWeight.w800,
                                 color: isAttended
@@ -1158,7 +1134,6 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 13.sp,
                             color: isAttended
                                 ? (isDark ? Colors.white60 : AppColors.textMutedDark)

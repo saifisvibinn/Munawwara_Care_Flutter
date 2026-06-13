@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../providers/theme_provider.dart';
+import '../services/app_language_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import 'app_language_picker_sheet.dart';
 
-/// Expandable app settings (theme) section for pilgrim and moderator profiles.
+/// Expandable app settings (appearance + language) for pilgrim and moderator profiles.
 class AppSettingsExpansion extends ConsumerWidget {
   const AppSettingsExpansion({
     super.key,
@@ -30,6 +32,9 @@ class AppSettingsExpansion extends ConsumerWidget {
     final themeNotifier = ref.read(themeProvider.notifier);
     final followsSystem = themeMode == ThemeMode.system;
     final darkEnabled = AppTheme.isDarkEffective(themeMode, context);
+    final currentLanguageCode = context.locale.languageCode;
+    final currentLanguageName =
+        AppLanguageService.nativeNameForCode(currentLanguageCode);
 
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -94,7 +99,85 @@ class AppSettingsExpansion extends ConsumerWidget {
                   ? null
                   : (enabled) => themeNotifier.setDarkEnabled(enabled),
             ),
+            Divider(height: 1, color: dividerColor),
+            _LanguageSettingsRow(
+              currentLanguageName: currentLanguageName,
+              isDark: isDark,
+              textPrimary: textPrimary,
+              textMuted: textMuted,
+              onTap: () => showAppLanguagePickerSheet(
+                context: context,
+                selectedCode: currentLanguageCode,
+                isDark: isDark,
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Disclosure-style row (label + current value + chevron), per iOS Settings patterns.
+class _LanguageSettingsRow extends StatelessWidget {
+  const _LanguageSettingsRow({
+    required this.currentLanguageName,
+    required this.isDark,
+    required this.textPrimary,
+    required this.textMuted,
+    required this.onTap,
+  });
+
+  final String currentLanguageName;
+  final bool isDark;
+  final Color textPrimary;
+  final Color textMuted;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+          child: Row(
+            children: [
+              Icon(
+                Icons.language_rounded,
+                size: 22.sp,
+                color: AppColors.primary,
+              ),
+              SizedBox(width: 14.w),
+              Expanded(
+                child: Text(
+                  'settings_language_title'.tr(),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15.sp,
+                    color: textPrimary,
+                  ),
+                ),
+              ),
+              Text(
+                currentLanguageName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 15.sp,
+                  color: textMuted,
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20.sp,
+                color: textMuted.withValues(alpha: 0.65),
+              ),
+            ],
+          ),
         ),
       ),
     );

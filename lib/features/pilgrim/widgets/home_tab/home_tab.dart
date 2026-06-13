@@ -147,7 +147,6 @@ class PilgrimHomeTab extends StatelessWidget {
                   Text(
                     'app_name'.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 15.sp,
                       fontWeight: FontWeight.w700,
                       color: AppColors.primary,
@@ -191,7 +190,6 @@ class PilgrimHomeTab extends StatelessWidget {
                                   color: Colors.white,
                                   fontSize: 9.sp,
                                   fontWeight: FontWeight.w800,
-                                  fontFamily: 'Lexend',
                                   height: 1,
                                 ),
                               ),
@@ -262,7 +260,6 @@ class PilgrimHomeTab extends StatelessWidget {
                                             Text(
                                               'Inactive',
                                               style: TextStyle(
-                                                fontFamily: 'Lexend',
                                                 fontSize: 13.sp,
                                                 fontWeight: FontWeight.w600,
                                                 color: Colors.red.shade700,
@@ -522,7 +519,6 @@ class _HomeBody extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 13.sp,
                             fontWeight: FontWeight.w500,
                             color: muted,

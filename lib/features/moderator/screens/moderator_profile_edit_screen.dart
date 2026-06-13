@@ -70,7 +70,6 @@ class _ModeratorProfileEditScreenState
                 ? 'Discard Changes?'
                 : 'profile_discard_title'.tr(),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontWeight: FontWeight.w700,
               color: textPrimary,
               fontSize: 18.sp,
@@ -81,7 +80,6 @@ class _ModeratorProfileEditScreenState
                 ? 'Changes will be discarded until saved.'
                 : 'profile_discard_msg'.tr(),
             style: TextStyle(
-              fontFamily: 'Lexend',
               color: textPrimary.withValues(alpha: 0.8),
               fontSize: 14.sp,
             ),
@@ -94,7 +92,6 @@ class _ModeratorProfileEditScreenState
                     ? 'Keep Editing'
                     : 'profile_discard_cancel'.tr(),
                 style: const TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w600,
                   color: AppColors.primary,
                 ),
@@ -107,7 +104,6 @@ class _ModeratorProfileEditScreenState
                     ? 'Discard'
                     : 'profile_discard_confirm'.tr(),
                 style: const TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w600,
                   color: Colors.red,
                 ),
@@ -199,7 +195,6 @@ class _ModeratorProfileEditScreenState
                     ? 'Profile Picture'
                     : 'profile_picture_title'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w700,
                   fontSize: 16.sp,
                   color: textPrimary,
@@ -212,7 +207,7 @@ class _ModeratorProfileEditScreenState
                   'profile_picture_camera'.tr() == 'profile_picture_camera'
                       ? 'Take Photo'
                       : 'profile_picture_camera'.tr(),
-                  style: TextStyle(fontFamily: 'Lexend', color: textPrimary),
+                  style: TextStyle( color: textPrimary),
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -225,7 +220,7 @@ class _ModeratorProfileEditScreenState
                   'profile_picture_gallery'.tr() == 'profile_picture_gallery'
                       ? 'Choose from Gallery'
                       : 'profile_picture_gallery'.tr(),
-                  style: TextStyle(fontFamily: 'Lexend', color: textPrimary),
+                  style: TextStyle( color: textPrimary),
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -307,7 +302,6 @@ class _ModeratorProfileEditScreenState
                       child: Text(
                         'edit_profile_title'.tr(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontWeight: FontWeight.w700,
                           fontSize: 20.sp,
                           color: textPrimary,
@@ -388,7 +382,6 @@ class _ModeratorProfileEditScreenState
                         child: Text(
                           fullName,
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontWeight: FontWeight.w600,
                             fontSize: 16.sp,
                             color: textPrimary,
@@ -409,7 +402,6 @@ class _ModeratorProfileEditScreenState
                           child: Text(
                             'settings_role_moderator'.tr(),
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontWeight: FontWeight.w500,
                               fontSize: 12.sp,
                               color: AppColors.primary,
@@ -458,7 +450,6 @@ class _ModeratorProfileEditScreenState
                                 child: TextFormField(
                                   controller: _nameCtrl,
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 15.sp,
                                     fontWeight: FontWeight.w600,
                                     color: textPrimary,
@@ -489,7 +480,6 @@ class _ModeratorProfileEditScreenState
                                   controller: _phoneCtrl,
                                   keyboardType: TextInputType.phone,
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 15.sp,
                                     fontWeight: FontWeight.w600,
                                     color: textPrimary,
@@ -525,7 +515,6 @@ class _ModeratorProfileEditScreenState
                                     child: Text(
                                       'edit_profile_email_verified'.tr().toUpperCase(),
                                       style: TextStyle(
-                                        fontFamily: 'Lexend',
                                         fontSize: 9.sp,
                                         fontWeight: FontWeight.w700,
                                         color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
@@ -537,7 +526,6 @@ class _ModeratorProfileEditScreenState
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      fontFamily: 'Lexend',
                                       fontSize: 15.sp,
                                       fontWeight: FontWeight.w600,
                                       color: textPrimary,
@@ -562,7 +550,6 @@ class _ModeratorProfileEditScreenState
                                 child: Text(
                                   '••••••••',
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 15.sp,
                                     fontWeight: FontWeight.w600,
                                     color: textPrimary,
@@ -603,7 +590,6 @@ class _ModeratorProfileEditScreenState
                               : Text(
                                   'edit_profile_save'.tr(),
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontWeight: FontWeight.w600,
                                     fontSize: 16.sp,
                                   ),
@@ -646,7 +632,6 @@ class _SectionLabel extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontFamily: 'Lexend',
           fontWeight: FontWeight.w600,
           fontSize: 11.sp,
           letterSpacing: 1.2,
@@ -719,7 +704,6 @@ class _ProfileInfoRow extends StatelessWidget {
                       Text(
                         label.toUpperCase(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 10.sp,
                           color: textMuted,
                           fontWeight: FontWeight.w700,

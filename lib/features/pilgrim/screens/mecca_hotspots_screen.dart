@@ -281,7 +281,6 @@ class _MeccaHotspotsScreenState extends State<MeccaHotspotsScreen> {
           TextSpan(
             text: 'explore_open_maps_failed_body'.tr(),
             style: TextStyle(
-              fontFamily: 'Lexend',
               color: Colors.red.shade700,
             ),
           ),
@@ -334,7 +333,6 @@ class _MeccaHotspotsScreenState extends State<MeccaHotspotsScreen> {
         title: Text(
           'explore_nearby_title'.tr(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
             fontSize: 22.sp,
           ),
@@ -349,14 +347,12 @@ class _MeccaHotspotsScreenState extends State<MeccaHotspotsScreen> {
               TextField(
                 controller: _searchController,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 14.sp,
                   color: isDark ? Colors.white : AppColors.textDark,
                 ),
                 decoration: InputDecoration(
                   hintText: 'explore_search_hint'.tr(),
                   hintStyle: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 14.sp,
                     color: AppColors.textMutedLight,
                   ),
@@ -424,7 +420,6 @@ class _MeccaHotspotsScreenState extends State<MeccaHotspotsScreen> {
                         child: Text(
                           'explore_outside_ksa_warning'.tr(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 12.sp,
                             fontWeight: FontWeight.w600,
                             color: isDark
@@ -441,7 +436,6 @@ class _MeccaHotspotsScreenState extends State<MeccaHotspotsScreen> {
                 'explore_osm_note'.tr(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 11.sp,
                   color: AppColors.textMutedLight,
                 ),
@@ -479,7 +473,6 @@ class _MeccaHotspotsScreenState extends State<MeccaHotspotsScreen> {
                           child: Text(
                             label,
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 13.sp,
                               fontWeight: FontWeight.w600,
                               color: isDark ? Colors.white : const Color(0xFF1D2244),
@@ -504,7 +497,6 @@ class _MeccaHotspotsScreenState extends State<MeccaHotspotsScreen> {
                               'explore_loading'.tr(),
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 14.sp,
                                 color: AppColors.textMutedLight,
                               ),
@@ -523,7 +515,6 @@ class _MeccaHotspotsScreenState extends State<MeccaHotspotsScreen> {
                                     _error!,
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      fontFamily: 'Lexend',
                                       fontSize: 14.sp,
                                       color: isDark ? Colors.white70 : AppColors.textDark,
                                     ),
@@ -542,7 +533,6 @@ class _MeccaHotspotsScreenState extends State<MeccaHotspotsScreen> {
                                 child: Text(
                                   'explore_empty'.tr(),
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 14.sp,
                                     color: AppColors.textMutedLight,
                                   ),
@@ -684,7 +674,6 @@ class _ExplorePlaceCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 14.sp,
                     height: 1.2,
                     fontWeight: FontWeight.w700,
@@ -695,7 +684,6 @@ class _ExplorePlaceCard extends StatelessWidget {
                 Text(
                   'explore_cat_${place.categoryKey}'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 12.sp,
                     color: AppColors.textMutedLight,
                   ),
@@ -715,7 +703,6 @@ class _ExplorePlaceCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 11.sp,
                           fontWeight: FontWeight.w600,
                           color: isDark ? Colors.white70 : const Color(0xFF202545),

@@ -53,7 +53,6 @@ class ModeratorResolvedSosList extends ConsumerWidget {
               'moderator_resolved_sos_empty'.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 14.sp,
                 fontWeight: FontWeight.w500,
                 color: isDark ? Colors.white70 : AppColors.textMutedDark,
@@ -209,7 +208,6 @@ class _ResolvedSosTileState extends ConsumerState<_ResolvedSosTile> {
                 Text(
                   record.pilgrimName.isEmpty ? '—' : record.pilgrimName,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
                     fontSize: 14.sp,
                     color: titleColor,
@@ -223,7 +221,6 @@ class _ResolvedSosTileState extends ConsumerState<_ResolvedSosTile> {
                     },
                   ),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 12.sp,
                     color: muted,
                     height: 1.35,
@@ -235,7 +232,6 @@ class _ResolvedSosTileState extends ConsumerState<_ResolvedSosTile> {
                     namedArgs: {'when': whenLabel},
                   ),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 11.sp,
                     fontWeight: FontWeight.w600,
                     color: AppColors.success,

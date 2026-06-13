@@ -137,7 +137,6 @@ class PilgrimBottomNav extends ConsumerWidget {
                   Text(
                     labels[slot],
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 10.sp,
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w400,

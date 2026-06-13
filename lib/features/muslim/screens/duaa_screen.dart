@@ -100,7 +100,6 @@ class _SectionHeader extends StatelessWidget {
         Text(
           title.toUpperCase(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: 12.sp,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.2,
@@ -178,7 +177,6 @@ class _CategoryTile extends StatelessWidget {
                       Text(
                         localizedDuaCategoryName(category),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 15.sp,
                           fontWeight: FontWeight.w600,
                           color: context.mOnSurface,
@@ -188,7 +186,6 @@ class _CategoryTile extends StatelessWidget {
                         Text(
                           localizedDuaCategoryDescription(category),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 12.sp,
                             color: context.mOnSurfaceVariant,
                           ),
@@ -205,7 +202,6 @@ class _CategoryTile extends StatelessWidget {
                   child: Text(
                     '${category.count}',
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
                       color: context.mSecondary,

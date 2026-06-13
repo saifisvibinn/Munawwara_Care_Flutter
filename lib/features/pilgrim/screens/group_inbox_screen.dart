@@ -516,7 +516,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
                   Text(
                     labelKey.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w700,
                       color: selected
@@ -604,7 +603,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
           Text(
             'inbox_empty'.tr(),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 15.sp,
               color: AppColors.textMutedLight,
             ),
@@ -698,7 +696,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
           leading: Icon(Symbols.content_copy, size: 22.w),
           title: Text(
             'msg_copy'.tr(),
-            style: const TextStyle(fontFamily: 'Lexend'),
+            style: const TextStyle(),
           ),
           onTap: () {
             final plain = messagePlainTextForCopy(msg);
@@ -719,7 +717,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   Widget _buildCardHeader(GroupMessage msg, bool isDark) {
     final fromSupport = msg.isFromModerator;
     final metaStyle = TextStyle(
-      fontFamily: 'Lexend',
       fontSize: 11.sp,
       fontWeight: FontWeight.w500,
       color: isDark ? Colors.white54 : AppColors.textMutedLight,
@@ -766,7 +763,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
           child: Text(
             msg.sender?.initial ?? '?',
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontWeight: FontWeight.w700,
               fontSize: 13.sp,
               color: AppColors.primary,
@@ -781,7 +777,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
               Text(
                 msg.sender?.fullName ?? 'settings_role_moderator'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w600,
                   fontSize: 13.sp,
                   color: isDark ? Colors.white : AppColors.textDark,
@@ -819,7 +814,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
           child: Text(
             'call_support_display_name'.tr(),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontWeight: FontWeight.w600,
               fontSize: 13.sp,
               color: isDark ? Colors.white : AppColors.textDark,
@@ -856,7 +850,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
           Text(
             label,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 11.sp,
               fontWeight: FontWeight.w600,
               color: muted,
@@ -884,7 +877,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
           Text(
             'inbox_filter_urgent'.tr(),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 10.sp,
               fontWeight: FontWeight.w700,
               color: c,
@@ -911,7 +903,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         Text(
           displayText,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: 15.sp,
             fontWeight: FontWeight.w400,
             height: 1.45,
@@ -965,7 +956,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         Text(
           displayText,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: 15.sp,
             fontWeight: FontWeight.w400,
             height: 1.45,
@@ -1032,7 +1022,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
                     Text(
                       'area_meetpoint'.tr().toUpperCase(),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontWeight: FontWeight.w800,
                         fontSize: 10.sp,
                         letterSpacing: 0.5,
@@ -1042,7 +1031,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
                     Text(
                       name,
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontWeight: FontWeight.w700,
                         fontSize: 16.sp,
                         color: isDark ? Colors.white : const Color(0xFF9F1239),
@@ -1076,7 +1064,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
                         DateFormat('MMM dd').format(meetTime),
                       ]),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontWeight: FontWeight.w600,
                         fontSize: 13.sp,
                         color: isDark ? Colors.white : const Color(0xFF881337),
@@ -1094,7 +1081,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
             Text(
               msg.content!,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 13.sp,
                 height: 1.5,
                 color: isDark ? Colors.white70 : const Color(0xFF4C0519),
@@ -1113,7 +1099,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
               icon: Icon(Symbols.navigation, size: 18.w, color: Colors.white),
               label: Text(
                 'area_navigate'.tr(),
-                style: const TextStyle(fontFamily: 'Lexend'),
+                style: const TextStyle(),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFE11D48),
@@ -1199,7 +1185,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
           Text(
             'inbox_translating'.tr(),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: dense ? 10.sp : 11.sp,
               color: AppColors.textMutedLight,
             ),
@@ -1246,7 +1231,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
             Text(
               label,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: dense ? 11.sp : 12.sp,
                 color: AppColors.primary.withValues(alpha: 0.95),
                 fontWeight: FontWeight.w600,
@@ -1274,7 +1258,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
             child: Text(
               'inbox_auto_translated_badge'.tr(),
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 9.5.sp,
                 fontWeight: FontWeight.w500,
                 height: 1.2,

@@ -135,7 +135,6 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
         title: Text(
           'enter_trip_code_appbar_title'.tr(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
             fontSize: 18.sp,
             color: isDark ? Colors.white : AppColors.textDark,
@@ -180,7 +179,6 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
                   'enter_trip_code_body'.tr(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 15.sp,
                     fontWeight: FontWeight.w500,
                     color: isDark ? Colors.white70 : AppColors.textDark,
@@ -222,7 +220,6 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
                           child: Text(
                             char,
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 22.sp,
                               fontWeight: FontWeight.w700,
                               color: isDark ? Colors.white : AppColors.textDark,
@@ -277,7 +274,6 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
                       Text(
                         'enter_trip_code_validity'.tr(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 12.sp,
                           fontWeight: FontWeight.w500,
                           color: isDark ? AppColors.textMutedLight : Colors.grey.shade600,
@@ -315,7 +311,6 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
                             Text(
                               'enter_trip_code_btn'.tr(),
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontWeight: FontWeight.w800,
                                 fontSize: 16.sp,
                               ),
@@ -344,7 +339,6 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
                   child: Text(
                     'enter_trip_code_rescan_qr'.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w700,
                       fontSize: 13.sp,
                       color: isDark ? AppColors.textMutedLight : Colors.grey.shade600,

@@ -137,7 +137,6 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
                 Text(
                   'alerts_title'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
                     fontSize: 24.sp,
                     color: isDark ? Colors.white : AppColors.textDark,
@@ -147,7 +146,6 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
                 Text(
                   'alerts_subtitle'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 13.sp,
                     color: AppColors.textMutedLight,
                   ),
@@ -161,7 +159,6 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
               child: Text(
                 'clear_resolved_sos'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 12.sp,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primary,
@@ -174,7 +171,6 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
               child: Text(
                 'clear_call_history'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 12.sp,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primary,
@@ -199,7 +195,6 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
             'moderator_active_sos_empty'.tr(),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 14.sp,
               fontWeight: FontWeight.w500,
               color: Theme.of(context).brightness == Brightness.dark
@@ -273,12 +268,10 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
               unselectedLabelColor: AppColors.textMutedLight,
               indicatorColor: AppColors.primary,
               labelStyle: TextStyle(
-                fontFamily: 'Lexend',
                 fontWeight: FontWeight.w700,
                 fontSize: 12.sp,
               ),
               unselectedLabelStyle: TextStyle(
-                fontFamily: 'Lexend',
                 fontWeight: FontWeight.w600,
                 fontSize: 12.sp,
               ),

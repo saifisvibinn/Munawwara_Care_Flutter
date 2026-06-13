@@ -17,7 +17,6 @@ Future<bool> showDeclineInvitationDialog(BuildContext context) async {
         title: Text(
           'invite_decline_confirm_title'.tr(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
             fontSize: 18.sp,
             color: isDark ? Colors.white : AppColors.textDark,
@@ -26,7 +25,6 @@ Future<bool> showDeclineInvitationDialog(BuildContext context) async {
         content: Text(
           'invite_decline_confirm_body'.tr(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: 14.sp,
             height: 1.4,
             color: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
@@ -37,7 +35,7 @@ Future<bool> showDeclineInvitationDialog(BuildContext context) async {
             onPressed: () => Navigator.of(ctx).pop(false),
             child: Text(
               'cancel'.tr(),
-              style: const TextStyle(fontFamily: 'Lexend'),
+              style: const TextStyle(),
             ),
           ),
           TextButton(
@@ -45,7 +43,6 @@ Future<bool> showDeclineInvitationDialog(BuildContext context) async {
             child: Text(
               'invite_decline'.tr(),
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontWeight: FontWeight.w700,
                 color: Theme.of(ctx).colorScheme.error,
               ),

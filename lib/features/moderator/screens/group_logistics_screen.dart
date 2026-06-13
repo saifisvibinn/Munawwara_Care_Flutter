@@ -246,7 +246,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
         title: Text(
           'logistics_title'.tr(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
             fontSize: 16.sp,
           ),
@@ -277,7 +276,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                           _error!,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 14.sp,
                             color: isDark ? Colors.white70 : AppColors.textMutedDark,
                           ),
@@ -309,7 +307,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                       Text(
                         widget.groupName,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontWeight: FontWeight.w700,
                           fontSize: 20.sp,
                           color: isDark ? Colors.white : AppColors.textDark,
@@ -418,7 +415,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontWeight: FontWeight.w600,
               fontSize: 8.sp,
               color: isDark ? Colors.white38 : AppColors.textMutedDark,
@@ -429,7 +425,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
           Text(
             value,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontWeight: FontWeight.w700,
               fontSize: 16.sp,
               color: isDark ? Colors.white : AppColors.textDark,
@@ -453,7 +448,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
             Text(
               'logistics_hotel_lodging_allocations'.tr(),
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontWeight: FontWeight.w700,
                 fontSize: 14.sp,
                 color: isDark ? Colors.white : AppColors.textDark,
@@ -504,7 +498,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                       Text(
                         hotel.name,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontWeight: FontWeight.w700,
                           fontSize: 13.sp,
                           color: isDark ? Colors.white : AppColors.textDark,
@@ -518,7 +511,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                           Text(
                             hotel.city ?? 'logistics_no_city'.tr(),
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 11.sp,
                               color: isDark ? Colors.white54 : AppColors.textMutedDark,
                             ),
@@ -537,7 +529,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                   child: Text(
                     'logistics_active_rooms_badge'.tr(args: ['$activeRooms']),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w600,
                       fontSize: 10.sp,
                       color: const Color(0xFF0F6E56),
@@ -565,7 +556,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                 Text(
                   'logistics_room_capacities'.tr().toUpperCase(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
                     fontSize: 8.sp,
                     color: isDark ? Colors.white38 : AppColors.textMutedDark,
@@ -577,7 +567,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                   Text(
                     'logistics_no_rooms'.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 11.sp,
                       fontStyle: FontStyle.italic,
                       color: isDark ? Colors.white38 : AppColors.textMutedDark,
@@ -620,7 +609,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
               Text(
                 'logistics_room_label'.tr(args: [room.roomNumber]),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w700,
                   fontSize: 10.sp,
                   color: isDark ? Colors.white : AppColors.textDark,
@@ -644,7 +632,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
               Text(
                 '${room.capacity} ${'logistics_beds'.tr()}',
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 9.sp,
                   color: isDark ? Colors.white60 : AppColors.textMutedDark,
                 ),
@@ -670,7 +657,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
             Text(
               'logistics_insurance_coverage'.tr(),
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontWeight: FontWeight.w700,
                 fontSize: 14.sp,
                 color: isDark ? Colors.white : AppColors.textDark,
@@ -719,7 +705,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                       Text(
                         ins.name,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontWeight: FontWeight.w700,
                           fontSize: 13.sp,
                           color: isDark ? Colors.white : AppColors.textDark,
@@ -737,7 +722,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                             child: Text(
                               'active_policy'.tr().toUpperCase(),
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontWeight: FontWeight.w700,
                                 fontSize: 7.sp,
                                 color: const Color(0xFF993356),
@@ -781,7 +765,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                                     Text(
                                       'view_policy'.tr().toUpperCase(),
                                       style: TextStyle(
-                                        fontFamily: 'Lexend',
                                         fontWeight: FontWeight.w700,
                                         fontSize: 7.sp,
                                         color: const Color(0xFF2563EB),
@@ -806,7 +789,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                   child: Text(
                     'logistics_hospitals_count'.tr(args: ['${ins.hospitals.length}']),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w600,
                       fontSize: 10.sp,
                       color: const Color(0xFF993356),
@@ -834,7 +816,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                 Text(
                   'logistics_covered_hospitals'.tr().toUpperCase(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
                     fontSize: 8.sp,
                     color: isDark ? Colors.white38 : AppColors.textMutedDark,
@@ -846,7 +827,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                   Text(
                     'logistics_no_hospitals'.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 11.sp,
                       fontStyle: FontStyle.italic,
                       color: isDark ? Colors.white38 : AppColors.textMutedDark,
@@ -888,7 +868,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                 Text(
                   hosp.name,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
                     fontSize: 11.sp,
                     color: isDark ? Colors.white : AppColors.textDark,
@@ -899,7 +878,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                   Text(
                     hosp.address!,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 9.sp,
                       color: isDark ? Colors.white54 : AppColors.textMutedDark,
                     ),
@@ -941,7 +919,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
           Text(
             title,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontWeight: FontWeight.w700,
               fontSize: 13.sp,
               color: isDark ? Colors.white70 : AppColors.textDark,
@@ -952,7 +929,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
             description,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 11.sp,
               color: isDark ? Colors.white38 : AppColors.textMutedDark,
             ),

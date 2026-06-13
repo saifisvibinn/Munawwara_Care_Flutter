@@ -81,7 +81,6 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
     _elapsedTimer?.cancel();
     _tabController.dispose();
     _busController.dispose();
-    ref.read(busAttendanceProvider.notifier).reset();
     super.dispose();
   }
 
@@ -771,18 +770,22 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
                   final boardedCount = session.boardedPilgrims.length;
                   final totalPilgrims = session.totalPilgrims;
 
-                  return Container(
-                    margin: EdgeInsets.only(bottom: 12.h),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? AppColors.surfaceDark
-                          : Colors.white,
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: 12.h),
+                    child: Material(
+                    color: isDark
+                        ? AppColors.surfaceDark
+                        : Colors.white,
+                    shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14.r),
-                      border: Border.all(
-                        color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
+                      side: BorderSide(
+                        color: isDark
+                            ? AppColors.dividerDark
+                            : AppColors.dividerLight,
                         width: 0.5,
                       ),
                     ),
+                    clipBehavior: Clip.antiAlias,
                     child: ListTile(
                       contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                       leading: Container(
@@ -856,6 +859,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
                           }
                         });
                       },
+                    ),
                     ),
                   );
                 },

@@ -85,7 +85,6 @@ class _SectionLabel extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontFamily: 'Lexend',
           fontWeight: FontWeight.w600,
           fontSize: 11.sp,
           letterSpacing: 1.2,
@@ -135,7 +134,6 @@ class _LegalRow extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w600,
                   fontSize: 14.sp,
                   color: textPrimary,

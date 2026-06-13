@@ -62,7 +62,6 @@ class ModeratorNavigateButton extends StatelessWidget {
               Text(
                 'nav_go'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 14.sp,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,
@@ -93,7 +92,6 @@ class ModeratorNavigateButton extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: 14.sp,
             fontWeight: FontWeight.w700,
           ),

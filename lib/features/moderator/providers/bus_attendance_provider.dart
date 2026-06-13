@@ -83,10 +83,15 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
   @override
   BusAttendanceState build() => const BusAttendanceState();
 
+  void _commit(BusAttendanceState next) {
+    if (!ref.mounted) return;
+    state = next;
+  }
+
   // ── Create a boarding session ─────────────────────────────────────────────
 
   Future<bool> createSession(String groupId, {String? busIdentifier}) async {
-    state = state.copyWith(isStarting: true, clearError: true);
+    _commit(state.copyWith(isStarting: true, clearError: true));
     try {
       final resp = await ApiService.dio.post(
         '/groups/$groupId/bus-attendance/create',
@@ -106,23 +111,23 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
           ? session.id.substring(session.id.length - 6).toUpperCase()
           : session.id.toUpperCase();
 
-      state = state.copyWith(
+      _commit(state.copyWith(
         isStarting: false,
         session: session,
         qrImageBase64: qrBase64,
         attendanceCode: code,
-      );
+      ));
 
       await fetchStatus(groupId);
       return true;
     } on DioException catch (e) {
-      state = state.copyWith(
+      _commit(state.copyWith(
         isStarting: false,
         error: ApiService.parseError(e),
-      );
+      ));
       return false;
     } catch (e) {
-      state = state.copyWith(isStarting: false, error: e.toString());
+      _commit(state.copyWith(isStarting: false, error: e.toString()));
       return false;
     }
   }
@@ -130,7 +135,7 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
   // ── Start (or resume) a boarding session ──────────────────────────────────
 
   Future<bool> startSession(String groupId, {String? busIdentifier}) async {
-    state = state.copyWith(isStarting: true, clearError: true);
+    _commit(state.copyWith(isStarting: true, clearError: true));
     try {
       final resp = await ApiService.dio.post(
         '/groups/$groupId/bus-attendance/start',
@@ -150,23 +155,23 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
           ? session.id.substring(session.id.length - 6).toUpperCase()
           : session.id.toUpperCase();
 
-      state = state.copyWith(
+      _commit(state.copyWith(
         isStarting: false,
         session: session,
         qrImageBase64: qrBase64,
         attendanceCode: code,
-      );
+      ));
 
       await fetchStatus(groupId);
       return true;
     } on DioException catch (e) {
-      state = state.copyWith(
+      _commit(state.copyWith(
         isStarting: false,
         error: ApiService.parseError(e),
-      );
+      ));
       return false;
     } catch (e) {
-      state = state.copyWith(isStarting: false, error: e.toString());
+      _commit(state.copyWith(isStarting: false, error: e.toString()));
       return false;
     }
   }
@@ -174,7 +179,7 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
   // ── Fetch live boarding status ────────────────────────────────────────────
 
   Future<void> fetchStatus(String groupId) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    _commit(state.copyWith(isLoading: true, clearError: true));
     try {
       final resp = await ApiService.dio.get(
         '/groups/$groupId/bus-attendance/status',
@@ -192,14 +197,14 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
             ? session.id.substring(session.id.length - 6).toUpperCase()
             : session.id.toUpperCase();
         if (state.attendanceCode == null || state.attendanceCode != code) {
-          state = state.copyWith(attendanceCode: code);
+          _commit(state.copyWith(attendanceCode: code));
         }
       }
 
       final boardedRaw = body['boarded'] as List<dynamic>? ?? [];
       final missingRaw = body['missing'] as List<dynamic>? ?? [];
 
-      state = state.copyWith(
+      _commit(state.copyWith(
         isLoading: false,
         hasFetched: true,
         session: session,
@@ -212,11 +217,19 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
             .whereType<Map<String, dynamic>>()
             .map(MissingPilgrim.fromJson)
             .toList(),
-      );
+      ));
     } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, hasFetched: true, error: ApiService.parseError(e));
+      _commit(state.copyWith(
+        isLoading: false,
+        hasFetched: true,
+        error: ApiService.parseError(e),
+      ));
     } catch (e) {
-      state = state.copyWith(isLoading: false, hasFetched: true, error: e.toString());
+      _commit(state.copyWith(
+        isLoading: false,
+        hasFetched: true,
+        error: e.toString(),
+      ));
     }
   }
 
@@ -255,24 +268,24 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
     final sessionId = state.session?.id;
     if (sessionId == null) return false;
 
-    state = state.copyWith(isLoading: true, clearError: true);
+    _commit(state.copyWith(isLoading: true, clearError: true));
     try {
       await ApiService.dio.post(
         '/groups/$groupId/bus-attendance/complete',
         data: {'session_id': sessionId},
       );
-      state = state.copyWith(
+      _commit(state.copyWith(
         isLoading: false,
         clearSession: true,
         boarded: const [],
         missing: const [],
-      );
+      ));
       return true;
     } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
+      _commit(state.copyWith(isLoading: false, error: ApiService.parseError(e)));
       return false;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      _commit(state.copyWith(isLoading: false, error: e.toString()));
       return false;
     }
   }
@@ -314,7 +327,7 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
 
       final updatedMissing = [...state.missing]..removeAt(missingIdx);
       final updatedBoarded = [newBoarded, ...state.boarded];
-      state = state.copyWith(boarded: updatedBoarded, missing: updatedMissing);
+      _commit(state.copyWith(boarded: updatedBoarded, missing: updatedMissing));
     } else {
       // Move pilgrim from boarded → missing
       final boardedIdx = state.boarded.indexWhere((b) => b.id == pilgrimId);
@@ -336,14 +349,14 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
 
       final updatedBoarded = [...state.boarded]..removeAt(boardedIdx);
       final updatedMissing = [newMissing, ...state.missing];
-      state = state.copyWith(boarded: updatedBoarded, missing: updatedMissing);
+      _commit(state.copyWith(boarded: updatedBoarded, missing: updatedMissing));
     }
   }
 
   // ── Fetch history sessions ─────────────────────────────────────────────
 
   Future<void> fetchHistory(String groupId) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    _commit(state.copyWith(isLoading: true, clearError: true));
     try {
       final resp = await ApiService.dio.get(
         '/groups/$groupId/bus-attendance/history',
@@ -355,27 +368,27 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
           .map(BoardingSession.fromJson)
           .toList();
 
-      state = state.copyWith(
+      _commit(state.copyWith(
         isLoading: false,
         history: list,
-      );
+      ));
     } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
+      _commit(state.copyWith(isLoading: false, error: ApiService.parseError(e)));
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      _commit(state.copyWith(isLoading: false, error: e.toString()));
     }
   }
 
   // ── Fetch specific past session details ──────────────────────────────────
 
   Future<void> fetchSessionDetails(String groupId, String sessionId) async {
-    state = state.copyWith(
+    _commit(state.copyWith(
       isLoading: true,
       clearError: true,
       clearSession: true,
       boarded: const [],
       missing: const [],
-    );
+    ));
     try {
       final resp = await ApiService.dio.get(
         '/groups/$groupId/bus-attendance/session/$sessionId',
@@ -388,7 +401,7 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
       final boardedRaw = body['boarded'] as List<dynamic>? ?? [];
       final missingRaw = body['missing'] as List<dynamic>? ?? [];
 
-      state = state.copyWith(
+      _commit(state.copyWith(
         isLoading: false,
         session: session,
         boarded: boardedRaw
@@ -399,18 +412,18 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
             .whereType<Map<String, dynamic>>()
             .map(MissingPilgrim.fromJson)
             .toList(),
-      );
+      ));
     } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: ApiService.parseError(e));
+      _commit(state.copyWith(isLoading: false, error: ApiService.parseError(e)));
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      _commit(state.copyWith(isLoading: false, error: e.toString()));
     }
   }
 
   // ── Reset (when leaving the screen) ───────────────────────────────────────
 
   void reset() {
-    state = const BusAttendanceState();
+    _commit(const BusAttendanceState());
   }
 
   // ── Internal ──────────────────────────────────────────────────────────────
@@ -426,6 +439,6 @@ class BusAttendanceNotifier extends Notifier<BusAttendanceState> {
 // ── Provider declaration ────────────────────────────────────────────────────
 
 final busAttendanceProvider =
-    NotifierProvider<BusAttendanceNotifier, BusAttendanceState>(
+    NotifierProvider.autoDispose<BusAttendanceNotifier, BusAttendanceState>(
   BusAttendanceNotifier.new,
 );

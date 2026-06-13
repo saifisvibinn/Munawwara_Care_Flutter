@@ -146,7 +146,6 @@ class TtsPlayAloudButton extends StatelessWidget {
       label: Text(
         label,
         style: TextStyle(
-          fontFamily: 'Lexend',
           fontWeight: FontWeight.w600,
           fontSize: fontSize,
         ),
@@ -227,7 +226,6 @@ class GroupChatHeader extends StatelessWidget {
                 Text(
                   title,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
                     fontSize: 16.sp,
                     color: titleColor,
@@ -238,7 +236,6 @@ class GroupChatHeader extends StatelessWidget {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 11.sp,
                     color: subtitleColor,
                     fontWeight: FontWeight.w500,

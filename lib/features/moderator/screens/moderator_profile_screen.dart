@@ -10,12 +10,7 @@ import '../../../core/widgets/custom_dialog.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/config/app_locales.dart';
 import '../../../core/widgets/app_settings_expansion.dart';
-import '../../../core/services/api_service.dart';
-import '../../../core/services/callkit_service.dart';
-import '../../../core/services/locale_prefs.dart';
-import '../../../core/services/sos_alert_audio.dart';
 import '../../../core/utils/phone_number_utils.dart';
 import '../../../core/widgets/phone_number_text.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -33,20 +28,6 @@ class ModeratorProfileScreen extends ConsumerStatefulWidget {
 
 class _ModeratorProfileScreenState
     extends ConsumerState<ModeratorProfileScreen> {
-  late String _selectedLocale;
-
-  static List<Map<String, String>> get _languages =>
-      AppLocales.profileLanguages
-          .map(
-            (AppLanguageOption lang) => {
-              'code': lang.code,
-              'name': lang.menuLabel,
-              'native': lang.nativeName,
-              'flag': lang.flag,
-            },
-          )
-          .toList();
-
   @override
   void initState() {
     super.initState();
@@ -56,12 +37,6 @@ class _ModeratorProfileScreenState
       if (!mounted) return;
       if (!ok) context.go('/login');
     });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _selectedLocale = context.locale.languageCode;
   }
 
   Future<void> _signOut() async {
@@ -139,10 +114,7 @@ class _ModeratorProfileScreenState
                       textMuted: textMuted,
                     ),
                     SizedBox(height: 8.h),
-                    _WakelCard(
-                      wakelInfo: authState.wakelInfo,
-                      isDark: isDark,
-                    ),
+                    _WakelCard(wakelInfo: authState.wakelInfo, isDark: isDark),
 
                     SizedBox(height: 28.h),
 
@@ -153,66 +125,6 @@ class _ModeratorProfileScreenState
                       textPrimary: textPrimary,
                       textMuted: textMuted,
                       dividerColor: dividerColor,
-                    ),
-
-                    SizedBox(height: 28.h),
-
-                    // ── LANGUAGE section ─────────────────────────────────────
-                    _SectionLabel(
-                      label: 'settings_language'.tr(),
-                      textMuted: textMuted,
-                    ),
-                    SizedBox(height: 8.h),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(16.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 
-                              isDark ? 0.3 : 0.04,
-                            ),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: List.generate(_languages.length, (i) {
-                          final lang = _languages[i];
-                          final isSelected = _selectedLocale == lang['code'];
-                          final isLast = i == _languages.length - 1;
-                          return _LanguageRow(
-                            lang: lang,
-                            isSelected: isSelected,
-                            isLast: isLast,
-                            isDark: isDark,
-                            dividerColor: dividerColor,
-                            textPrimary: textPrimary,
-                            textMuted: textMuted,
-                            onTap: () async {
-                              final code = lang['code']!;
-                              setState(() => _selectedLocale = code);
-                              context.setLocale(Locale(code));
-                              await LocalePrefs.saveLanguageCode(code);
-                              await SosAlertAudio.stopAndReset();
-                              unawaited(
-                                CallKitService.refreshCachedSupportDisplayName(
-                                  languageCode: code,
-                                ),
-                              );
-                              try {
-                                await ApiService.dio.put(
-                                  '/auth/update-language',
-                                  data: {'language': code},
-                                );
-                              } catch (_) {
-                                // Non-fatal — local language is already applied
-                              }
-                            },
-                          );
-                        }),
-                      ),
                     ),
 
                     SizedBox(height: 28.h),
@@ -229,8 +141,8 @@ class _ModeratorProfileScreenState
                         borderRadius: BorderRadius.circular(16.r),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 
-                              isDark ? 0.3 : 0.04,
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.3 : 0.04,
                             ),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
@@ -449,14 +361,9 @@ class _ProfileCard extends StatelessWidget {
           SizedBox(height: 8.h),
           // Moderator Role Chip
           Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: 14.w,
-              vertical: 4.h,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 4.h),
             decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF452D15)
-                  : const Color(0xFFFFF2E6),
+              color: isDark ? const Color(0xFF452D15) : const Color(0xFFFFF2E6),
               borderRadius: BorderRadius.circular(16.r),
             ),
             child: Text(
@@ -465,7 +372,9 @@ class _ProfileCard extends StatelessWidget {
                 fontFamily: 'Lexend',
                 fontWeight: FontWeight.w800,
                 fontSize: 11.sp,
-                color: isDark ? const Color(0xFFF97316) : const Color(0xFFC2410C),
+                color: isDark
+                    ? const Color(0xFFF97316)
+                    : const Color(0xFFC2410C),
               ),
             ),
           ),
@@ -598,95 +507,6 @@ class _SectionLabel extends StatelessWidget {
           color: textMuted,
         ),
       ),
-    );
-  }
-}
-
-class _LanguageRow extends StatelessWidget {
-  const _LanguageRow({
-    required this.lang,
-    required this.isSelected,
-    required this.isLast,
-    required this.isDark,
-    required this.dividerColor,
-    required this.textPrimary,
-    required this.textMuted,
-    required this.onTap,
-  });
-
-  final Map<String, String> lang;
-  final bool isSelected;
-  final bool isLast;
-  final bool isDark;
-  final Color dividerColor;
-  final Color textPrimary;
-  final Color textMuted;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.vertical(
-            top: isLast == false && lang['code'] == 'en'
-                ? Radius.circular(16.r)
-                : Radius.zero,
-            bottom: isLast ? Radius.circular(16.r) : Radius.zero,
-          ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-            child: Row(
-              children: [
-                // Flag circle
-                Container(
-                  width: 40.w,
-                  height: 40.w,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isDark ? Colors.white12 : const Color(0xFFF1F5F9),
-                  ),
-                  child: Center(
-                    child: Text(
-                      lang['flag']!,
-                      style: TextStyle(fontSize: 20.sp),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 14.w),
-                Expanded(
-                  child: Text(
-                    'lang_${lang['code']}'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15.sp,
-                      color: textPrimary,
-                    ),
-                  ),
-                ),
-                if (isSelected)
-                  Icon(
-                    Icons.check_circle_rounded,
-                    color: AppColors.primary,
-                    size: 22.sp,
-                  )
-                else
-                  SizedBox(width: 22.sp),
-              ],
-            ),
-          ),
-        ),
-        if (!isLast)
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: dividerColor,
-            indent: 16.w,
-            endIndent: 16.w,
-          ),
-      ],
     );
   }
 }

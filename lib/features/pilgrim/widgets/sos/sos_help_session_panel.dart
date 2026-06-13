@@ -113,7 +113,6 @@ class RedesignedSosSentButton extends StatelessWidget {
                               ? 'sos_btn_active'.tr()
                               : 'sos_btn_sent'.tr(),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: (size * 0.11).sp,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
@@ -282,7 +281,6 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
             Text(
               label,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 10.sp,
                 fontWeight: FontWeight.w700,
                 color: isDark ? Colors.white70 : const Color(0xFF475569),
@@ -353,7 +351,6 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
               titleText,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 22.sp,
                 fontWeight: FontWeight.w800,
                 color: titleColor,
@@ -370,7 +367,6 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
                 fullDesc,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 13.5.sp,
                   fontWeight: FontWeight.w500,
                   color: muted,
@@ -410,7 +406,6 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
                                 '(${widget.cooldownSeconds})'
                             : 'sos_call_back'.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.5,
@@ -447,7 +442,6 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
                   child: Text(
                     'sos_cancel_request'.tr(),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.2,
@@ -469,7 +463,6 @@ class _SosHelpSessionPanelState extends State<SosHelpSessionPanel> {
             Text(
               'muslim_featured_categories'.tr().toUpperCase(), // "Featured" or "Other Services"
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 10.5.sp,
                 fontWeight: FontWeight.w800,
                 color: widget.isDark ? Colors.white60 : const Color(0xFF94A3B8),

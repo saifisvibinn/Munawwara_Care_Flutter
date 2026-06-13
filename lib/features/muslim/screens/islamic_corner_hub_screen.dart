@@ -34,7 +34,6 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                 'muslim_corner_title'.tr(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 18.sp,
                   fontWeight: FontWeight.w600,
                   color: context.mPrimary,
@@ -188,7 +187,6 @@ class _PrayerFeaturedCard extends StatelessWidget {
               child: Text(
                 'muslim_retry'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   color: Colors.white,
                   fontSize: 14.sp,
                 ),
@@ -239,7 +237,6 @@ class _PrayerFeaturedCard extends StatelessWidget {
                         Text(
                           'muslim_next_prayer'.tr().toUpperCase(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 11.sp,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 1.2,
@@ -250,7 +247,6 @@ class _PrayerFeaturedCard extends StatelessWidget {
                         Text(
                           '${formatPrayerLabel(next)} — ${formatPrayerTime12h(nextTime, context.locale)}',
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 22.sp,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
@@ -280,7 +276,6 @@ class _PrayerFeaturedCard extends StatelessWidget {
                                   args: [formatMinutesCountdown(minutes)],
                                 ),
                                 style: TextStyle(
-                                  fontFamily: 'Lexend',
                                   fontSize: 12.sp,
                                   fontWeight: FontWeight.w700,
                                   color: context.mPrayerHeroOnAccent,
@@ -350,7 +345,6 @@ class _MiniPrayerSlot extends StatelessWidget {
           Text(
             formatPrayerLabel(name),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 10.sp,
               fontWeight: FontWeight.w500,
               color: highlighted
@@ -362,7 +356,6 @@ class _MiniPrayerSlot extends StatelessWidget {
           Text(
             time.split(':').take(2).join(':'),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 12.sp,
               fontWeight: highlighted ? FontWeight.w700 : FontWeight.w600,
               color: highlighted
@@ -437,7 +430,6 @@ class _HubBentoCard extends StatelessWidget {
                   Text(
                     title,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w600,
                       color: iconColor,
@@ -447,7 +439,6 @@ class _HubBentoCard extends StatelessWidget {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 11.sp,
                       color: context.mCardSubtitle,
                     ),
@@ -542,7 +533,6 @@ class _HubWideCard extends StatelessWidget {
                         Text(
                           title,
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 15.sp,
                             fontWeight: FontWeight.w600,
                             color: iconColor,
@@ -552,7 +542,6 @@ class _HubWideCard extends StatelessWidget {
                         Text(
                           subtitle,
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 11.sp,
                             color: context.mCardSubtitle,
                           ),
@@ -601,7 +590,6 @@ class _NameOfDayCard extends StatelessWidget {
               Text(
                 'muslim_name_of_day'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 12.sp,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1.0,
@@ -618,7 +606,6 @@ class _NameOfDayCard extends StatelessWidget {
                   child: Text(
                     '#${name!.number}',
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w700,
                       color: context.mPrimary,
@@ -652,7 +639,6 @@ class _NameOfDayCard extends StatelessWidget {
                             Text(
                               name!.transliteration,
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 14.sp,
                                 fontWeight: FontWeight.w600,
                                 color: context.mPrimary,
@@ -673,7 +659,6 @@ class _NameOfDayCard extends StatelessWidget {
                             Text(
                               name!.transliteration,
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 18.sp,
                                 fontWeight: FontWeight.w700,
                                 color: context.mOnSurface,
@@ -683,7 +668,6 @@ class _NameOfDayCard extends StatelessWidget {
                             Text(
                               name!.localizedMeaning(lang),
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 13.sp,
                                 height: 1.4,
                                 color: context.mOnSurfaceVariant,

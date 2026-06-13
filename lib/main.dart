@@ -86,9 +86,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           previous.isRestoringSession ||
           !previous.isAuthenticated;
       if (next.isAuthenticated && wasRestoringOrUnauthenticated) {
-        unawaited(
-          ref.read(authProvider.notifier).ensureFcmTokenRegistered(),
-        );
+        unawaited(ref.read(authProvider.notifier).ensureFcmTokenRegistered());
         if (next.token != null) {
           unawaited(
             TamenyLocationService.initialize(
@@ -104,9 +102,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       final lang = context.locale.languageCode;
       unawaited(LocalePrefs.saveLanguageCode(lang));
       unawaited(
-        CallKitService.refreshCachedSupportDisplayName(
-          languageCode: lang,
-        ),
+        CallKitService.refreshCachedSupportDisplayName(languageCode: lang),
       );
     });
   }

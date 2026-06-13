@@ -130,7 +130,6 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                 Text(
                   'profile_title'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 20.sp,
                     fontWeight: FontWeight.w700,
                     color: textPrimary,
@@ -175,7 +174,6 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                             Text(
                               _pilgrim.fullName,
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 18.sp,
                                 fontWeight: FontWeight.bold,
                                 color: textPrimary,
@@ -196,7 +194,6 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                                 Text(
                                   _pilgrim.isOnline ? 'dashboard_active'.tr() : 'profile_offline'.tr(),
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 12.sp,
                                     color: _pilgrim.isOnline ? AppColors.success : textMuted,
                                   ),
@@ -212,7 +209,6 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                                   Text(
                                     '${_pilgrim.batteryPercent}%',
                                     style: TextStyle(
-                                      fontFamily: 'Lexend',
                                       fontSize: 12.sp,
                                       color: _getBatteryColor(_pilgrim.batteryStatus),
                                       fontWeight: FontWeight.w600,
@@ -389,7 +385,6 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                               TextSpan(
                                 text: 'profile_medical_history_unavailable'.tr(),
                                 style: TextStyle(
-                                  fontFamily: 'Lexend',
                                   fontSize: 14.sp,
                                   color: AppColors.error,
                                   height: 1.5,
@@ -401,7 +396,6 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                                   ? 'profile_no_medical_history'.tr()
                                   : medicalHistory,
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 14.sp,
                                 color: textPrimary,
                                 height: 1.5,
@@ -414,7 +408,6 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                     TextSpan(
                       text: _detailsError,
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 12.sp,
                         color: AppColors.error,
                       ),
@@ -487,7 +480,6 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                     child: Text(
                       'profile_no_documents'.tr(),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 13.sp,
                         color: textMuted,
                       ),
@@ -534,7 +526,6 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                                     Text(
                                       'provisioning_tashera_document'.tr(),
                                       style: TextStyle(
-                                        fontFamily: 'Lexend',
                                         fontSize: 13.5.sp,
                                         fontWeight: FontWeight.w600,
                                         color: textPrimary,
@@ -544,7 +535,6 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                                     Text(
                                       'profile_view_document'.tr(),
                                       style: TextStyle(
-                                        fontFamily: 'Lexend',
                                         fontSize: 11.5.sp,
                                         color: AppColors.primary,
                                         fontWeight: FontWeight.w500,
@@ -601,7 +591,6 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                                     Text(
                                       doc.name,
                                       style: TextStyle(
-                                        fontFamily: 'Lexend',
                                         fontSize: 13.5.sp,
                                         fontWeight: FontWeight.w600,
                                         color: textPrimary,
@@ -613,7 +602,6 @@ class _PilgrimProfileSheetState extends ConsumerState<_PilgrimProfileSheet> {
                                     Text(
                                       'profile_view_document'.tr(),
                                       style: TextStyle(
-                                        fontFamily: 'Lexend',
                                         fontSize: 11.5.sp,
                                         color: AppColors.primary,
                                         fontWeight: FontWeight.w500,
@@ -738,7 +726,6 @@ class _SectionTitle extends StatelessWidget {
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
-          fontFamily: 'Lexend',
           fontSize: 11.sp,
           fontWeight: FontWeight.w800,
           color: AppColors.primary,
@@ -787,7 +774,6 @@ class _ProfileInfoRow extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 11.sp,
                     color: AppColors.textMutedLight,
                   ),
@@ -796,7 +782,6 @@ class _ProfileInfoRow extends StatelessWidget {
                     ? PhoneNumberText(
                         value,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontWeight: FontWeight.w600,
                           fontSize: 14.sp,
                           color: isDark ? Colors.white : AppColors.textDark,
@@ -805,7 +790,6 @@ class _ProfileInfoRow extends StatelessWidget {
                     : Text(
                         value,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontWeight: FontWeight.w600,
                           fontSize: 14.sp,
                           color: isDark ? Colors.white : AppColors.textDark,
@@ -847,7 +831,6 @@ class _ActionButton extends StatelessWidget {
           label: Text(
             label,
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: 13.sp,
               fontWeight: FontWeight.w600,
               color: color,
@@ -869,7 +852,6 @@ class _ActionButton extends StatelessWidget {
         label: Text(
           label,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: 13.sp,
             fontWeight: FontWeight.w600,
             color: Colors.white,

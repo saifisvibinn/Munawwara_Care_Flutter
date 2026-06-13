@@ -106,7 +106,6 @@ void showGroupDetailsBottomSheet(
                         Text(
                           'group_details_title'.tr(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 22.sp,
                             fontWeight: FontWeight.w800,
                             color: isDark ? Colors.white : AppColors.textDark,
@@ -231,7 +230,6 @@ class _GroupDetailsBody extends StatelessWidget {
               child: Text(
                 'group_assigned_count'.tr(args: [(moderators.length + (wakelInfo != null ? 1 : 0)).toString()]).toUpperCase(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 10.sp,
                   fontWeight: FontWeight.w700,
                   color: isDark ? const Color(0xFF8C73FF) : const Color(0xFF5B3EFF),
@@ -306,7 +304,6 @@ class _GroupDetailsBody extends StatelessWidget {
                         Text(
                           hotelText,
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 16.sp,
                             fontWeight: FontWeight.w800,
                             color: isDark ? Colors.white : AppColors.textDark,
@@ -316,7 +313,6 @@ class _GroupDetailsBody extends StatelessWidget {
                         Text(
                           hotelAddress ?? "Madinah Central Area, Saudi Arabia",
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 12.sp,
                             color: isDark ? Colors.white70 : const Color(0xFF64748B),
                           ),
@@ -347,7 +343,6 @@ class _GroupDetailsBody extends StatelessWidget {
                                 Text(
                                   '${'group_room_number'.tr()}: $roomNumber',
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 11.sp,
                                     fontWeight: FontWeight.w700,
                                     color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
@@ -372,7 +367,6 @@ class _GroupDetailsBody extends StatelessWidget {
                             label: Text(
                               'group_navigate'.tr(),
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 12.sp,
                                 fontWeight: FontWeight.w700,
                                 color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
@@ -409,7 +403,6 @@ class _GroupDetailsBody extends StatelessWidget {
                           Text(
                             'group_checkin'.tr().toUpperCase(),
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 9.sp,
                               fontWeight: FontWeight.w700,
                               color: isDark ? Colors.white54 : const Color(0xFF94A3B8),
@@ -419,7 +412,6 @@ class _GroupDetailsBody extends StatelessWidget {
                           Text(
                             checkInText,
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 13.sp,
                               fontWeight: FontWeight.w800,
                               color: isDark ? Colors.white : AppColors.textDark,
@@ -443,7 +435,6 @@ class _GroupDetailsBody extends StatelessWidget {
                           Text(
                             'group_checkout'.tr().toUpperCase(),
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 9.sp,
                               fontWeight: FontWeight.w700,
                               color: isDark ? Colors.white54 : const Color(0xFF94A3B8),
@@ -453,7 +444,6 @@ class _GroupDetailsBody extends StatelessWidget {
                           Text(
                             checkOutText,
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 13.sp,
                               fontWeight: FontWeight.w800,
                               color: isDark ? Colors.white : AppColors.textDark,
@@ -537,7 +527,6 @@ class _GroupDetailsBody extends StatelessWidget {
                         Text(
                           localDaysRemainingText,
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 24.sp,
                             fontWeight: FontWeight.w800,
                             color: isDark ? const Color(0xFFF97316) : const Color(0xFFC2410C),
@@ -547,7 +536,6 @@ class _GroupDetailsBody extends StatelessWidget {
                         Text(
                           'group_days_left'.tr().toUpperCase(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 9.sp,
                             fontWeight: FontWeight.w700,
                             color: isDark ? Colors.white54 : const Color(0xFF94A3B8),
@@ -579,7 +567,6 @@ class _GroupDetailsBody extends StatelessWidget {
                         Text(
                           totalDays > 0 ? totalDays.toString() : "—",
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 24.sp,
                             fontWeight: FontWeight.w800,
                             color: isDark ? Colors.white : AppColors.textDark,
@@ -589,7 +576,6 @@ class _GroupDetailsBody extends StatelessWidget {
                         Text(
                           'group_total_days'.tr().toUpperCase(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 9.sp,
                             fontWeight: FontWeight.w700,
                             color: isDark ? Colors.white54 : const Color(0xFF94A3B8),
@@ -653,7 +639,6 @@ class _GroupDetailsBody extends StatelessWidget {
                         Text(
                           insuranceCompany?.name ?? 'profile_not_provided'.tr(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 16.sp,
                             fontWeight: FontWeight.w800,
                             color: isDark ? Colors.white : AppColors.textDark,
@@ -663,7 +648,6 @@ class _GroupDetailsBody extends StatelessWidget {
                         Text(
                           insuranceCompany != null ? 'group_active_coverage'.tr() : 'group_no_active_policy'.tr(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 12.sp,
                             color: isDark ? Colors.white70 : const Color(0xFF64748B),
                           ),
@@ -690,7 +674,6 @@ class _GroupDetailsBody extends StatelessWidget {
                             label: Text(
                               'group_view_policy_document'.tr(),
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 12.sp,
                                 fontWeight: FontWeight.w700,
                                 color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
@@ -721,7 +704,6 @@ class _GroupDetailsBody extends StatelessWidget {
                 Text(
                   'group_covered_hospitals'.tr().toUpperCase(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
                     fontSize: 10.sp,
                     color: isDark ? Colors.white38 : AppColors.textMutedDark,
@@ -766,7 +748,6 @@ class _GroupDetailsBody extends StatelessWidget {
                               Text(
                                 hospital.name,
                                 style: TextStyle(
-                                  fontFamily: 'Lexend',
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13.sp,
                                   color: isDark ? Colors.white : AppColors.textDark,
@@ -776,7 +757,6 @@ class _GroupDetailsBody extends StatelessWidget {
                                 Text(
                                   hospital.address!,
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 11.sp,
                                     color: isDark ? Colors.white54 : AppColors.textMutedDark,
                                   ),
@@ -907,7 +887,6 @@ class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
             Text(
               noRecordsText,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 14.sp,
                 color: widget.isDark ? Colors.white70 : AppColors.textMutedDark,
               ),
@@ -946,7 +925,6 @@ class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
                         Text(
                           widget.wakelInfo!.name,
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 15.sp,
                             fontWeight: FontWeight.w800,
                             color: widget.modText,
@@ -956,7 +934,6 @@ class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
                         Text(
                           'group_admin_coordinator'.tr(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 12.sp,
                             color: widget.isDark ? Colors.white70 : const Color(0xFF64748B),
                           ),
@@ -981,7 +958,6 @@ class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
                                 PhoneNumberText(
                                   widget.wakelInfo!.contactNumber,
                                   style: TextStyle(
-                                    fontFamily: 'Lexend',
                                     fontSize: 12.sp,
                                     fontWeight: FontWeight.w600,
                                     color: widget.modText.withValues(alpha: 0.85),
@@ -1017,7 +993,6 @@ class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
                     child: Text(
                       'group_agency'.tr().toUpperCase(),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 10.sp,
                         fontWeight: FontWeight.w700,
                         color: widget.isDark ? const Color(0xFFB3A3FF) : const Color(0xFF5B3EFF),
@@ -1074,7 +1049,6 @@ class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
                         child: Text(
                           initial,
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontWeight: FontWeight.w800,
                             fontSize: 13.sp,
                             color: widget.isDark ? const Color(0xFFF97316) : const Color(0xFFC2410C),
@@ -1089,7 +1063,6 @@ class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
                             Text(
                               mod.fullName,
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 15.sp,
                                 fontWeight: FontWeight.w800,
                                 color: widget.modText,
@@ -1107,7 +1080,6 @@ class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
                                   Text(
                                     distance,
                                     style: TextStyle(
-                                      fontFamily: 'Lexend',
                                       fontSize: 11.sp,
                                       color: widget.isDark
                                           ? Colors.white60
@@ -1135,7 +1107,6 @@ class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
                                     PhoneNumberText(
                                       mod.phoneNumber!,
                                       style: TextStyle(
-                                        fontFamily: 'Lexend',
                                         fontSize: 12.sp,
                                         fontWeight: FontWeight.w600,
                                         color: widget.modText.withValues(alpha: 0.85),
@@ -1208,7 +1179,6 @@ class _ModeratorRoleChip extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontFamily: 'Lexend',
           fontSize: 10.sp,
           fontWeight: FontWeight.w700,
           color: fg,
@@ -1230,7 +1200,6 @@ class _SectionLabel extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontFamily: 'Lexend',
           fontWeight: FontWeight.w600,
           fontSize: 11.sp,
           letterSpacing: 1.2,

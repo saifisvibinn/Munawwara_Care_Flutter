@@ -48,7 +48,6 @@ class SafetyDisclaimerBanner extends StatelessWidget {
                 Text(
                   'safety_disclaimer_title'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
                     fontSize: 14.sp,
                     color: isDark ? Colors.white : const Color(0xFF0F3E1F), // Dark green title
@@ -58,7 +57,6 @@ class SafetyDisclaimerBanner extends StatelessWidget {
                 Text(
                   'safety_disclaimer_body'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 11.5.sp,
                     color: muted,
                     height: 1.45,

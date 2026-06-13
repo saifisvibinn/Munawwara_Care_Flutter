@@ -44,7 +44,6 @@ class _AsmaUlHusnaScreenState extends ConsumerState<AsmaUlHusnaScreen> {
               onChanged: (v) =>
                   ref.read(asmaSearchQueryProvider.notifier).setQuery(v),
               style: TextStyle(
-                fontFamily: 'Lexend',
                 color: context.mOnSurface,
               ),
               decoration: InputDecoration(
@@ -121,7 +120,6 @@ class _NameCard extends StatelessWidget {
               Text(
                 '${name.number}',
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 11.sp,
                   fontWeight: FontWeight.w600,
                   color: context.mOnSurfaceVariant,
@@ -142,7 +140,6 @@ class _NameCard extends StatelessWidget {
                 name.transliteration,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: isAr ? 12.sp : 13.sp,
                   fontWeight: isAr ? FontWeight.w500 : FontWeight.w600,
                   color: isAr ? context.mOnSurfaceVariant : context.mPrimary,
@@ -197,7 +194,6 @@ class _NameCard extends StatelessWidget {
             Text(
               name.transliteration,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 18.sp,
                 fontWeight: FontWeight.w600,
                 color: context.mPrimary,

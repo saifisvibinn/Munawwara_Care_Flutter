@@ -172,7 +172,6 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                     ? 'Profile Picture'
                     : 'profile_picture_title'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w700,
                   fontSize: 16.sp,
                   color: textPrimary,
@@ -180,12 +179,15 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
               ),
               SizedBox(height: 16.h),
               ListTile(
-                leading: const Icon(Icons.camera_alt_rounded, color: AppColors.primary),
+                leading: const Icon(
+                  Icons.camera_alt_rounded,
+                  color: AppColors.primary,
+                ),
                 title: Text(
                   'profile_picture_camera'.tr() == 'profile_picture_camera'
                       ? 'Take Photo'
                       : 'profile_picture_camera'.tr(),
-                  style: TextStyle(fontFamily: 'Lexend', color: textPrimary),
+                  style: TextStyle(color: textPrimary),
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -193,12 +195,15 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_rounded, color: AppColors.primary),
+                leading: const Icon(
+                  Icons.photo_library_rounded,
+                  color: AppColors.primary,
+                ),
                 title: Text(
                   'profile_picture_gallery'.tr() == 'profile_picture_gallery'
                       ? 'Choose from Gallery'
                       : 'profile_picture_gallery'.tr(),
-                  style: TextStyle(fontFamily: 'Lexend', color: textPrimary),
+                  style: TextStyle(color: textPrimary),
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -235,19 +240,24 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
   void didUpdateWidget(covariant CreatePilgrimCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     final hotelsInsurancesChanged =
-        oldWidget.hotels != widget.hotels || oldWidget.insurances != widget.insurances;
-    final optionsChanged = oldWidget.ethnicityOptions != widget.ethnicityOptions ||
+        oldWidget.hotels != widget.hotels ||
+        oldWidget.insurances != widget.insurances;
+    final optionsChanged =
+        oldWidget.ethnicityOptions != widget.ethnicityOptions ||
         oldWidget.languageOptions != widget.languageOptions;
 
     if (hotelsInsurancesChanged) {
-      final hotelOk = _selectedHotelId == null ||
+      final hotelOk =
+          _selectedHotelId == null ||
           widget.hotels.any((h) => h.id == _selectedHotelId);
-      final insuranceOk = _selectedInsuranceCompanyId == null ||
+      final insuranceOk =
+          _selectedInsuranceCompanyId == null ||
           widget.insurances.any((i) => i.id == _selectedInsuranceCompanyId);
       var roomOk = true;
       if (_selectedRoomId != null) {
-        final h =
-            widget.hotels.where((x) => x.id == _selectedHotelId).firstOrNull;
+        final h = widget.hotels
+            .where((x) => x.id == _selectedHotelId)
+            .firstOrNull;
         final rooms = (h?.rooms ?? const <RoomOption>[])
             .where((r) => r.active)
             .toList();
@@ -273,8 +283,7 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() {
-          final langCodes =
-              widget.languageOptions.map((l) => l.code).toSet();
+          final langCodes = widget.languageOptions.map((l) => l.code).toSet();
           if (!langCodes.contains(_selectedLanguage)) {
             _selectedLanguage = widget.languageOptions.isNotEmpty
                 ? widget.languageOptions.first.code
@@ -366,7 +375,8 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
       final fieldState = fieldKey.currentState;
       if (fieldState == null || !fieldState.hasError) continue;
 
-      final isMorafeqField = identical(fieldKey, _morafeqNameFieldKey) ||
+      final isMorafeqField =
+          identical(fieldKey, _morafeqNameFieldKey) ||
           identical(fieldKey, _morafeqPhoneFieldKey) ||
           identical(fieldKey, _morafeqEmailFieldKey);
       final isAdditionalField = identical(fieldKey, _ethnicityFieldKey);
@@ -390,22 +400,34 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
       return;
     }
 
-    final selectedHotel =
-        widget.hotels.where((h) => h.id == _selectedHotelId).firstOrNull;
-    final selectedRoom =
-        selectedHotel?.rooms.where((r) => r.id == _selectedRoomId).firstOrNull;
+    final selectedHotel = widget.hotels
+        .where((h) => h.id == _selectedHotelId)
+        .firstOrNull;
+    final selectedRoom = selectedHotel?.rooms
+        .where((r) => r.id == _selectedRoomId)
+        .firstOrNull;
 
     final data = {
       'full_name': _fullNameCtrl.text.trim(),
       'phone_number': _phoneCtrl.text.trim(),
-      'alternative_phone_number': _altPhoneCtrl.text.trim().isEmpty ? null : _altPhoneCtrl.text.trim(),
+      'alternative_phone_number': _altPhoneCtrl.text.trim().isEmpty
+          ? null
+          : _altPhoneCtrl.text.trim(),
       'profile_picture': _profilePicture?.path,
       'tashera_document': _tasheraDocument?.path,
       'documents': _documents.map((f) => f.path).toList(),
-      'morafeq_name': _morafeqNameCtrl.text.trim().isEmpty ? null : _morafeqNameCtrl.text.trim(),
-      'morafeq_phone': _morafeqPhoneCtrl.text.trim().isEmpty ? null : _morafeqPhoneCtrl.text.trim(),
-      'morafeq_email': _morafeqEmailCtrl.text.trim().isEmpty ? null : _morafeqEmailCtrl.text.trim(),
-      'tashera_number': _tasheraNumberCtrl.text.trim().isEmpty ? null : _tasheraNumberCtrl.text.trim(),
+      'morafeq_name': _morafeqNameCtrl.text.trim().isEmpty
+          ? null
+          : _morafeqNameCtrl.text.trim(),
+      'morafeq_phone': _morafeqPhoneCtrl.text.trim().isEmpty
+          ? null
+          : _morafeqPhoneCtrl.text.trim(),
+      'morafeq_email': _morafeqEmailCtrl.text.trim().isEmpty
+          ? null
+          : _morafeqEmailCtrl.text.trim(),
+      'tashera_number': _tasheraNumberCtrl.text.trim().isEmpty
+          ? null
+          : _tasheraNumberCtrl.text.trim(),
       'insurance_company_id': _selectedInsuranceCompanyId,
       'national_id': _nationalIdCtrl.text.trim(),
       'medical_history': _medicalHistoryCtrl.text.trim(),
@@ -428,15 +450,19 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final textMuted =
-        widget.isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
-    final textPrimary =
-        widget.isDark ? AppColors.textLight : AppColors.textDark;
-    final outline =
-        widget.isDark ? AppColors.dividerDark : AppColors.dividerLight;
+    final textMuted = widget.isDark
+        ? AppColors.textMutedLight
+        : AppColors.textMutedDark;
+    final textPrimary = widget.isDark
+        ? AppColors.textLight
+        : AppColors.textDark;
+    final outline = widget.isDark
+        ? AppColors.dividerDark
+        : AppColors.dividerLight;
 
-    final selectedHotel =
-        widget.hotels.where((h) => h.id == _selectedHotelId).firstOrNull;
+    final selectedHotel = widget.hotels
+        .where((h) => h.id == _selectedHotelId)
+        .firstOrNull;
     final rooms = (selectedHotel?.rooms ?? const <RoomOption>[])
         .where((r) => r.active)
         .toList();
@@ -464,8 +490,9 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
         padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 20.h),
         child: Theme(
           data: theme.copyWith(
-            inputDecorationTheme:
-                ProvisioningFormTheme.inputDecorationTheme(widget.isDark),
+            inputDecorationTheme: ProvisioningFormTheme.inputDecorationTheme(
+              widget.isDark,
+            ),
             splashColor: AppColors.primary.withValues(alpha: 0.08),
           ),
           child: Form(
@@ -485,7 +512,6 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                       child: Text(
                         'provisioning_create_account_title'.tr(),
                         style: theme.textTheme.titleMedium?.copyWith(
-                          fontFamily: 'Lexend',
                           fontWeight: FontWeight.w700,
                           color: textPrimary,
                         ),
@@ -493,92 +519,91 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                     ),
                   ],
                 ),
-                 SizedBox(height: ProvisioningFormTheme.gapLg(context)),
-                 Center(
-                   child: Stack(
-                     children: [
-                       GestureDetector(
-                         onTap: _pickProfilePicture,
-                         child: Container(
-                           width: 80.w,
-                           height: 80.w,
-                           decoration: BoxDecoration(
-                             shape: BoxShape.circle,
-                             color: widget.isDark
-                                 ? Colors.white12
-                                 : AppColors.primary.withValues(alpha: 0.08),
-                             border: Border.all(
-                               color: widget.isDark
-                                   ? Colors.white24
-                                   : AppColors.primary.withValues(alpha: 0.24),
-                               width: 2.w,
-                             ),
-                           ),
-                           clipBehavior: Clip.antiAlias,
-                           child: _profilePicture != null
-                               ? Image.file(
-                                   _profilePicture!,
-                                   fit: BoxFit.cover,
-                                   width: 80.w,
-                                   height: 80.w,
-                                 )
-                               : Image.asset(
-                                   _genderSelection.first == 'female'
-                                       ? 'assets/static/pilgrim_female.png'
-                                       : 'assets/static/pilgrim_male.png',
-                                   fit: BoxFit.cover,
-                                   width: 80.w,
-                                   height: 80.w,
-                                 ),
-                         ),
-                       ),
-                       Positioned(
-                         bottom: 0,
-                         right: 0,
-                         child: GestureDetector(
-                           onTap: _pickProfilePicture,
-                           child: Container(
-                             padding: EdgeInsets.all(6.w),
-                             decoration: const BoxDecoration(
-                               shape: BoxShape.circle,
-                               color: AppColors.primary,
-                             ),
-                             child: Icon(
-                               Symbols.camera_enhance,
-                               color: Colors.white,
-                               size: 14.sp,
-                             ),
-                           ),
-                         ),
-                       ),
-                       if (_profilePicture != null)
-                         Positioned(
-                           top: 0,
-                           right: 0,
-                           child: GestureDetector(
-                             onTap: () => setState(() => _profilePicture = null),
-                             child: Container(
-                               padding: EdgeInsets.all(4.w),
-                               decoration: const BoxDecoration(
-                                 shape: BoxShape.circle,
-                                 color: Colors.red,
-                               ),
-                               child: Icon(
-                                 Symbols.close,
-                                 color: Colors.white,
-                                 size: 12.sp,
-                               ),
-                             ),
-                           ),
-                         ),
-                     ],
-                   ),
-                 ),
-                 SizedBox(height: ProvisioningFormTheme.gapMd(context)),
+                SizedBox(height: ProvisioningFormTheme.gapLg(context)),
+                Center(
+                  child: Stack(
+                    children: [
+                      GestureDetector(
+                        onTap: _pickProfilePicture,
+                        child: Container(
+                          width: 80.w,
+                          height: 80.w,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: widget.isDark
+                                ? Colors.white12
+                                : AppColors.primary.withValues(alpha: 0.08),
+                            border: Border.all(
+                              color: widget.isDark
+                                  ? Colors.white24
+                                  : AppColors.primary.withValues(alpha: 0.24),
+                              width: 2.w,
+                            ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: _profilePicture != null
+                              ? Image.file(
+                                  _profilePicture!,
+                                  fit: BoxFit.cover,
+                                  width: 80.w,
+                                  height: 80.w,
+                                )
+                              : Image.asset(
+                                  _genderSelection.first == 'female'
+                                      ? 'assets/static/pilgrim_female.png'
+                                      : 'assets/static/pilgrim_male.png',
+                                  fit: BoxFit.cover,
+                                  width: 80.w,
+                                  height: 80.w,
+                                ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: _pickProfilePicture,
+                          child: Container(
+                            padding: EdgeInsets.all(6.w),
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.primary,
+                            ),
+                            child: Icon(
+                              Symbols.camera_enhance,
+                              color: Colors.white,
+                              size: 14.sp,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (_profilePicture != null)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: () => setState(() => _profilePicture = null),
+                            child: Container(
+                              padding: EdgeInsets.all(4.w),
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.red,
+                              ),
+                              child: Icon(
+                                Symbols.close,
+                                color: Colors.white,
+                                size: 12.sp,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: ProvisioningFormTheme.gapMd(context)),
                 Text(
                   'provisioning_basic_information'.tr(),
                   style: theme.textTheme.labelLarge?.copyWith(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w600,
                     color: textMuted,
                   ),
@@ -649,7 +674,6 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                 Text(
                   'reg_gender'.tr(),
                   style: theme.textTheme.labelLarge?.copyWith(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w600,
                     color: textMuted,
                   ),
@@ -682,10 +706,10 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                     side: BorderSide(color: outline),
                     foregroundColor: textMuted,
                     selectedForegroundColor: AppColors.primary,
-                    selectedBackgroundColor:
-                        AppColors.primary.withValues(alpha: 0.12),
+                    selectedBackgroundColor: AppColors.primary.withValues(
+                      alpha: 0.12,
+                    ),
                     textStyle: TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w600,
                       fontSize: 13.sp,
                     ),
@@ -731,8 +755,9 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                           hintText: 'settings_language'.tr(),
                         ),
                         icon: AppDropdownTheme.menuTrailingIcon(),
-                        dropdownColor:
-                            AppDropdownTheme.menuBackground(widget.isDark),
+                        dropdownColor: AppDropdownTheme.menuBackground(
+                          widget.isDark,
+                        ),
                         borderRadius: AppDropdownTheme.menuBorderRadius(),
                         elevation: AppDropdownTheme.menuElevation(),
                         style: AppDropdownTheme.valueStyle(widget.isDark),
@@ -751,9 +776,8 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                             .toList(),
                         onChanged: widget.languageOptions.isEmpty
                             ? null
-                            : (v) => setState(
-                                  () => _selectedLanguage = v ?? 'en',
-                                ),
+                            : (v) =>
+                                  setState(() => _selectedLanguage = v ?? 'en'),
                       ),
                     ),
                   ],
@@ -784,7 +808,8 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                         ),
                         validator: (v) {
                           final phone = _morafeqPhoneCtrl.text.trim();
-                          if (phone.isNotEmpty && (v == null || v.trim().isEmpty)) {
+                          if (phone.isNotEmpty &&
+                              (v == null || v.trim().isEmpty)) {
                             return 'provisioning_required'.tr();
                           }
                           return null;
@@ -804,7 +829,8 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                         ),
                         validator: (v) {
                           final name = _morafeqNameCtrl.text.trim();
-                          if (name.isNotEmpty && (v == null || v.trim().isEmpty)) {
+                          if (name.isNotEmpty &&
+                              (v == null || v.trim().isEmpty)) {
                             return 'provisioning_required'.tr();
                           }
                           return null;
@@ -874,8 +900,9 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                       SizedBox(height: g),
                       DropdownButtonFormField<String?>(
                         isExpanded: true,
-                        initialValue:
-                            hotelInteractive ? _selectedHotelId : null,
+                        initialValue: hotelInteractive
+                            ? _selectedHotelId
+                            : null,
                         decoration: ProvisioningFormTheme.fieldDecoration(
                           context: context,
                           isDark: widget.isDark,
@@ -883,25 +910,26 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                           prefixIcon: _prefix(Symbols.apartment, textMuted),
                         ),
                         icon: AppDropdownTheme.menuTrailingIcon(),
-                        dropdownColor:
-                            AppDropdownTheme.menuBackground(widget.isDark),
+                        dropdownColor: AppDropdownTheme.menuBackground(
+                          widget.isDark,
+                        ),
                         borderRadius: AppDropdownTheme.menuBorderRadius(),
                         elevation: AppDropdownTheme.menuElevation(),
                         style: AppDropdownTheme.valueStyle(widget.isDark),
                         items: hotelInteractive
                             ? widget.hotels
-                                .map(
-                                  (h) => DropdownMenuItem<String?>(
-                                    value: h.id,
-                                    child: Text(
-                                      h.name,
-                                      style: AppDropdownTheme.menuItemStyle(
-                                        widget.isDark,
+                                  .map(
+                                    (h) => DropdownMenuItem<String?>(
+                                      value: h.id,
+                                      child: Text(
+                                        h.name,
+                                        style: AppDropdownTheme.menuItemStyle(
+                                          widget.isDark,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                )
-                                .toList()
+                                  )
+                                  .toList()
                             : [
                                 DropdownMenuItem<String?>(
                                   value: null,
@@ -926,73 +954,58 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                       SizedBox(height: g),
                       DropdownButtonFormField<String?>(
                         isExpanded: true,
-                        initialValue:
-                            roomInteractive ? _selectedRoomId : null,
-                        decoration:
-                            ProvisioningFormTheme.fieldDecoration(
+                        initialValue: roomInteractive ? _selectedRoomId : null,
+                        decoration: ProvisioningFormTheme.fieldDecoration(
                           context: context,
                           isDark: widget.isDark,
                           hintText: 'provisioning_field_room'.tr(),
                           prefixIcon: _prefix(Symbols.bed, textMuted),
                         ),
                         icon: AppDropdownTheme.menuTrailingIcon(),
-                        dropdownColor:
-                            AppDropdownTheme.menuBackground(
+                        dropdownColor: AppDropdownTheme.menuBackground(
                           widget.isDark,
                         ),
-                        borderRadius:
-                            AppDropdownTheme.menuBorderRadius(),
+                        borderRadius: AppDropdownTheme.menuBorderRadius(),
                         elevation: AppDropdownTheme.menuElevation(),
-                        style:
-                            AppDropdownTheme.valueStyle(widget.isDark),
+                        style: AppDropdownTheme.valueStyle(widget.isDark),
                         items: roomInteractive
-                            ? rooms
-                                .map(
-                                  (r) {
-                                    final full =
-                                        r.currentOccupancy >= r.capacity;
-                                    final base =
-                                        AppDropdownTheme.menuItemStyle(
-                                      widget.isDark,
-                                      fontSize: 13,
-                                    );
-                                    return DropdownMenuItem<String?>(
-                                      value: r.id,
-                                      child: Text(
-                                        '${r.roomNumber}'
-                                        '${r.floor != null ? ' (F${r.floor})' : ''}'
-                                        ' - ${r.currentOccupancy}/'
-                                        '${r.capacity}',
-                                        style: full
-                                            ? base.copyWith(
-                                                color: Colors
-                                                    .green.shade400,
-                                              )
-                                            : base,
-                                      ),
-                                    );
-                                  },
-                                )
-                                .toList()
+                            ? rooms.map((r) {
+                                final full = r.currentOccupancy >= r.capacity;
+                                final base = AppDropdownTheme.menuItemStyle(
+                                  widget.isDark,
+                                  fontSize: 13,
+                                );
+                                return DropdownMenuItem<String?>(
+                                  value: r.id,
+                                  child: Text(
+                                    '${r.roomNumber}'
+                                    '${r.floor != null ? ' (F${r.floor})' : ''}'
+                                    ' - ${r.currentOccupancy}/'
+                                    '${r.capacity}',
+                                    style: full
+                                        ? base.copyWith(
+                                            color: Colors.green.shade400,
+                                          )
+                                        : base,
+                                  ),
+                                );
+                              }).toList()
                             : [
                                 DropdownMenuItem<String?>(
                                   value: null,
                                   enabled: false,
                                   child: Text(
                                     selectedHotel == null
-                                        ? 'manage_select_hotel_first'
-                                            .tr()
+                                        ? 'manage_select_hotel_first'.tr()
                                         : 'provisioning_no_rooms'.tr(),
-                                    style:
-                                        AppDropdownTheme.menuItemStyle(
+                                    style: AppDropdownTheme.menuItemStyle(
                                       widget.isDark,
                                     ),
                                   ),
                                 ),
                               ],
                         onChanged: roomInteractive
-                            ? (v) =>
-                                setState(() => _selectedRoomId = v)
+                            ? (v) => setState(() => _selectedRoomId = v)
                             : null,
                       ),
                       SizedBox(height: g),
@@ -1022,7 +1035,10 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                         onTap: _pickTasheraDocument,
                         borderRadius: BorderRadius.circular(12.r),
                         child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16.w,
+                            vertical: 14.h,
+                          ),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12.r),
                             border: Border.all(
@@ -1034,7 +1050,9 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                             children: [
                               Icon(
                                 Symbols.upload_file,
-                                color: _tasheraDocument != null ? AppColors.primary : textMuted,
+                                color: _tasheraDocument != null
+                                    ? AppColors.primary
+                                    : textMuted,
                                 size: 22.sp,
                               ),
                               SizedBox(width: 12.w),
@@ -1045,7 +1063,6 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                                     Text(
                                       'provisioning_tashera_document'.tr(),
                                       style: TextStyle(
-                                        fontFamily: 'Lexend',
                                         fontSize: 13.sp,
                                         fontWeight: FontWeight.w600,
                                         color: textPrimary,
@@ -1053,11 +1070,14 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                                     ),
                                     SizedBox(height: 2.h),
                                     Text(
-                                      _tasheraDocumentName ?? 'provisioning_tashera_tap_to_upload'.tr(),
+                                      _tasheraDocumentName ??
+                                          'provisioning_tashera_tap_to_upload'
+                                              .tr(),
                                       style: TextStyle(
-                                        fontFamily: 'Lexend',
                                         fontSize: 11.5.sp,
-                                        color: _tasheraDocument != null ? AppColors.primary : textMuted,
+                                        color: _tasheraDocument != null
+                                            ? AppColors.primary
+                                            : textMuted,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -1074,7 +1094,11 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                                       _tasheraDocumentName = null;
                                     });
                                   },
-                                  child: Icon(Symbols.close, color: Colors.red, size: 20.sp),
+                                  child: Icon(
+                                    Symbols.close,
+                                    color: Colors.red,
+                                    size: 20.sp,
+                                  ),
                                 ),
                               ],
                             ],
@@ -1086,15 +1110,22 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                         ..._documents.asMap().entries.map((entry) {
                           final idx = entry.key;
                           final file = entry.value;
-                          final name = file.path.split(Platform.pathSeparator).last;
+                          final name = file.path
+                              .split(Platform.pathSeparator)
+                              .last;
                           final isPdf = name.toLowerCase().endsWith('.pdf');
                           return Padding(
                             padding: EdgeInsets.only(bottom: 8.h),
                             child: Container(
-                              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12.w,
+                                vertical: 10.h,
+                              ),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8.r),
-                                color: widget.isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.02),
+                                color: widget.isDark
+                                    ? Colors.white.withValues(alpha: 0.05)
+                                    : Colors.black.withValues(alpha: 0.02),
                                 border: Border.all(
                                   color: outline.withValues(alpha: 0.5),
                                 ),
@@ -1102,7 +1133,9 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                               child: Row(
                                 children: [
                                   Icon(
-                                    isPdf ? Symbols.picture_as_pdf : Symbols.image,
+                                    isPdf
+                                        ? Symbols.picture_as_pdf
+                                        : Symbols.image,
                                     color: AppColors.primary,
                                     size: 20.sp,
                                   ),
@@ -1111,7 +1144,6 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                                     child: Text(
                                       name,
                                       style: TextStyle(
-                                        fontFamily: 'Lexend',
                                         fontSize: 12.sp,
                                         color: textPrimary,
                                       ),
@@ -1125,7 +1157,11 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                                         _documents.removeAt(idx);
                                       });
                                     },
-                                    child: Icon(Symbols.close, color: Colors.red, size: 18.sp),
+                                    child: Icon(
+                                      Symbols.close,
+                                      color: Colors.red,
+                                      size: 18.sp,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1139,7 +1175,10 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                           onTap: _pickDocument,
                           borderRadius: BorderRadius.circular(12.r),
                           child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16.w,
+                              vertical: 14.h,
+                            ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12.r),
                               border: Border.all(
@@ -1157,12 +1196,12 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                                 SizedBox(width: 12.w),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'provisioning_documents'.tr(),
                                         style: TextStyle(
-                                          fontFamily: 'Lexend',
                                           fontSize: 13.sp,
                                           fontWeight: FontWeight.w600,
                                           color: textPrimary,
@@ -1172,7 +1211,6 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                                       Text(
                                         'provisioning_tap_to_upload_doc'.tr(),
                                         style: TextStyle(
-                                          fontFamily: 'Lexend',
                                           fontSize: 11.5.sp,
                                           color: textMuted,
                                         ),
@@ -1195,10 +1233,15 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                           context: context,
                           isDark: widget.isDark,
                           hintText: 'provisioning_insurance_company'.tr(),
-                          prefixIcon: _prefix(Symbols.health_and_safety, textMuted),
+                          prefixIcon: _prefix(
+                            Symbols.health_and_safety,
+                            textMuted,
+                          ),
                         ),
                         icon: AppDropdownTheme.menuTrailingIcon(),
-                        dropdownColor: AppDropdownTheme.menuBackground(widget.isDark),
+                        dropdownColor: AppDropdownTheme.menuBackground(
+                          widget.isDark,
+                        ),
                         borderRadius: AppDropdownTheme.menuBorderRadius(),
                         elevation: AppDropdownTheme.menuElevation(),
                         style: AppDropdownTheme.valueStyle(widget.isDark),
@@ -1207,7 +1250,9 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                             value: null,
                             child: Text(
                               'provisioning_no_insurance'.tr(),
-                              style: AppDropdownTheme.menuItemStyle(widget.isDark),
+                              style: AppDropdownTheme.menuItemStyle(
+                                widget.isDark,
+                              ),
                             ),
                           ),
                           ...widget.insurances.map(
@@ -1215,12 +1260,15 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                               value: ins.id,
                               child: Text(
                                 ins.name,
-                                style: AppDropdownTheme.menuItemStyle(widget.isDark),
+                                style: AppDropdownTheme.menuItemStyle(
+                                  widget.isDark,
+                                ),
                               ),
                             ),
                           ),
                         ],
-                        onChanged: (v) => setState(() => _selectedInsuranceCompanyId = v),
+                        onChanged: (v) =>
+                            setState(() => _selectedInsuranceCompanyId = v),
                       ),
                       SizedBox(height: g),
                       TextFormField(
@@ -1231,8 +1279,10 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                           context: context,
                           isDark: widget.isDark,
                           hintText: 'reg_medical'.tr(),
-                          prefixIcon:
-                              _prefix(Symbols.medical_services, textMuted),
+                          prefixIcon: _prefix(
+                            Symbols.medical_services,
+                            textMuted,
+                          ),
                         ),
                       ),
                     ],
@@ -1267,7 +1317,6 @@ class _CreatePilgrimCardState extends State<CreatePilgrimCard> {
                             Text(
                               'reg_create_account'.tr(),
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontSize: 15.sp,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -1304,8 +1353,7 @@ class _AdditionalDetailsExpansion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dividerClr =
-        isDark ? AppColors.dividerDark : AppColors.dividerLight;
+    final dividerClr = isDark ? AppColors.dividerDark : AppColors.dividerLight;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1331,21 +1379,19 @@ class _AdditionalDetailsExpansion extends StatelessWidget {
             title: Text(
               'provisioning_additional_details'.tr(),
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w700,
-                    color: textPrimary,
-                  ),
+                fontWeight: FontWeight.w700,
+                color: textPrimary,
+              ),
             ),
             subtitle: Padding(
               padding: EdgeInsets.only(top: 4.h),
               child: Text(
                 'provisioning_optional_logistics'.tr(),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontFamily: 'Lexend',
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12.5.sp,
-                      color: textMuted.withValues(alpha: 0.95),
-                    ),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 12.5.sp,
+                  color: textMuted.withValues(alpha: 0.95),
+                ),
               ),
             ),
             children: [child],
@@ -1376,8 +1422,7 @@ class _MorafeqInfoExpansion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dividerClr =
-        isDark ? AppColors.dividerDark : AppColors.dividerLight;
+    final dividerClr = isDark ? AppColors.dividerDark : AppColors.dividerLight;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1403,21 +1448,19 @@ class _MorafeqInfoExpansion extends StatelessWidget {
             title: Text(
               'morafeq_companion_info'.tr(),
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w700,
-                    color: textPrimary,
-                  ),
+                fontWeight: FontWeight.w700,
+                color: textPrimary,
+              ),
             ),
             subtitle: Padding(
               padding: EdgeInsets.only(top: 4.h),
               child: Text(
                 'morafeq_subtitle'.tr(),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontFamily: 'Lexend',
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12.5.sp,
-                      color: textMuted.withValues(alpha: 0.95),
-                    ),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 12.5.sp,
+                  color: textMuted.withValues(alpha: 0.95),
+                ),
               ),
             ),
             children: [child],
@@ -1475,10 +1518,16 @@ class _SearchSelectionDialogState extends State<_SearchSelectionDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final textPrimary = widget.isDark ? AppColors.textLight : AppColors.textDark;
-    final textMuted = widget.isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final textPrimary = widget.isDark
+        ? AppColors.textLight
+        : AppColors.textDark;
+    final textMuted = widget.isDark
+        ? AppColors.textMutedLight
+        : AppColors.textMutedDark;
     final bg = widget.isDark ? const Color(0xFF1A1A24) : Colors.white;
-    final outline = widget.isDark ? AppColors.dividerDark : AppColors.dividerLight;
+    final outline = widget.isDark
+        ? AppColors.dividerDark
+        : AppColors.dividerLight;
 
     return Dialog(
       backgroundColor: bg,
@@ -1493,7 +1542,6 @@ class _SearchSelectionDialogState extends State<_SearchSelectionDialog> {
             Text(
               widget.title,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 16.sp,
                 fontWeight: FontWeight.w700,
                 color: textPrimary,
@@ -1503,12 +1551,15 @@ class _SearchSelectionDialogState extends State<_SearchSelectionDialog> {
             TextField(
               controller: _searchController,
               autofocus: true,
-              style: TextStyle(fontFamily: 'Lexend', fontSize: 13.sp, color: textPrimary),
+              style: TextStyle(fontSize: 13.sp, color: textPrimary),
               decoration: InputDecoration(
                 hintText: 'common_search'.tr(),
                 hintStyle: TextStyle(color: textMuted),
                 prefixIcon: Icon(Symbols.search, size: 18.sp, color: textMuted),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12.w,
+                  vertical: 8.h,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8.r),
                   borderSide: BorderSide(color: outline),
@@ -1525,16 +1576,13 @@ class _SearchSelectionDialogState extends State<_SearchSelectionDialog> {
                   ? Center(
                       child: Text(
                         'No matches found',
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 12.sp,
-                          color: textMuted,
-                        ),
+                        style: TextStyle(fontSize: 12.sp, color: textMuted),
                       ),
                     )
                   : ListView.separated(
                       itemCount: _filteredOptions.length,
-                      separatorBuilder: (context, index) => Divider(height: 1, color: outline),
+                      separatorBuilder: (context, index) =>
+                          Divider(height: 1, color: outline),
                       itemBuilder: (context, index) {
                         final option = _filteredOptions[index];
                         final isSelected = option == widget.initialValue;
@@ -1547,14 +1595,21 @@ class _SearchSelectionDialogState extends State<_SearchSelectionDialog> {
                           title: Text(
                             _natTr(option),
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 13.sp,
-                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                              color: isSelected ? AppColors.primary : textPrimary,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : textPrimary,
                             ),
                           ),
                           trailing: isSelected
-                              ? Icon(Symbols.check, size: 18.sp, color: AppColors.primary)
+                              ? Icon(
+                                  Symbols.check,
+                                  size: 18.sp,
+                                  color: AppColors.primary,
+                                )
                               : null,
                         );
                       },

@@ -55,10 +55,14 @@ class AppTheme {
   static ThemeData _buildTheme(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
     final primaryColor = AppColors.primary;
-    final backgroundColor = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+    final backgroundColor = isDark
+        ? AppColors.backgroundDark
+        : AppColors.backgroundLight;
     final surfaceColor = isDark ? AppColors.surfaceDark : Colors.white;
     final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
-    final textMuted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final textMuted = isDark
+        ? AppColors.textMutedLight
+        : AppColors.textMutedDark;
 
     return ThemeData(
       useMaterial3: true,
@@ -141,8 +145,8 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark 
-            ? AppColors.surfaceDark 
+        fillColor: isDark
+            ? AppColors.surfaceDark
             : AppColors.iconBgLight.withValues(alpha: 0.5),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12.r),

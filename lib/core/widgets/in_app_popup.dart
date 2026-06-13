@@ -381,7 +381,6 @@ class _PopupCardState extends State<_PopupCard>
                                   ? 'popup_urgent_message'.tr()
                                   : 'popup_new_message'.tr(),
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontWeight: FontWeight.w700,
                                 fontSize: 17.sp,
                                 color: isDark
@@ -393,7 +392,6 @@ class _PopupCardState extends State<_PopupCard>
                           Text(
                             'popup_now'.tr(),
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 10.sp,
                               color: const Color(0xFF9CA3AF),
                             ),
@@ -406,7 +404,6 @@ class _PopupCardState extends State<_PopupCard>
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontWeight: FontWeight.w600,
                           fontSize: 11.sp,
                           color: accent,
@@ -435,7 +432,6 @@ class _PopupCardState extends State<_PopupCard>
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 12.sp,
                   height: 1.35,
                   color: isDark ? Colors.white70 : const Color(0xFF1F2937),
@@ -461,7 +457,6 @@ class _PopupCardState extends State<_PopupCard>
                         label: Text(
                           'msg_stop'.tr(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 11.sp,
                             fontWeight: FontWeight.w600,
                             color: isDark ? Colors.white : AppColors.textDark,
@@ -496,7 +491,6 @@ class _PopupCardState extends State<_PopupCard>
                           label: Text(
                             'popup_replay_audio'.tr(),
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 11.sp,
                               fontWeight: FontWeight.w600,
                               color: onFg,
@@ -540,7 +534,6 @@ class _PopupCardState extends State<_PopupCard>
                 label: Text(
                   'popup_view_chat'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w600,
                     fontSize: 13.sp,
                     color: Colors.white,
@@ -561,7 +554,6 @@ class _PopupCardState extends State<_PopupCard>
               child: Text(
                 'popup_dismiss'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w500,
                   fontSize: 11.sp,
                   color: isDark ? Colors.white54 : const Color(0xFF6B7280),
@@ -623,7 +615,6 @@ class _PopupCardState extends State<_PopupCard>
                             child: Text(
                               'popup_urgent_meetpoint'.tr(),
                               style: TextStyle(
-                                fontFamily: 'Lexend',
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16.sp,
                                 color: red,
@@ -652,7 +643,6 @@ class _PopupCardState extends State<_PopupCard>
                                   Text(
                                     widget.time!,
                                     style: TextStyle(
-                                      fontFamily: 'Lexend',
                                       fontWeight: FontWeight.w700,
                                       fontSize: 11.sp,
                                       color: red,
@@ -669,7 +659,6 @@ class _PopupCardState extends State<_PopupCard>
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontWeight: FontWeight.w600,
                           fontSize: 13.sp,
                           color: isDark
@@ -684,7 +673,6 @@ class _PopupCardState extends State<_PopupCard>
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 12.sp,
                             color: isDark
                                 ? Colors.white60
@@ -714,7 +702,6 @@ class _PopupCardState extends State<_PopupCard>
                         label: Text(
                           'area_navigate'.tr(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontWeight: FontWeight.w600,
                             fontSize: 13.sp,
                             color: Colors.white,
@@ -750,7 +737,6 @@ class _PopupCardState extends State<_PopupCard>
                       child: Text(
                         'popup_dismiss'.tr(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontWeight: FontWeight.w600,
                           fontSize: 13.sp,
                           color: isDark

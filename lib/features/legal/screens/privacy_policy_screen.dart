@@ -68,7 +68,6 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
         title: Text(
           'legal_privacy_policy'.tr(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontWeight: FontWeight.w700,
             fontSize: 18.sp,
             color: textPrimary,
@@ -123,7 +122,6 @@ class _LoadErrorPanel extends StatelessWidget {
                   TextSpan(
                     text: '${'legal_privacy_load_error'.tr()}\n\n',
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w600,
                       fontSize: 14.sp,
                       color: Colors.red.shade700,
@@ -132,7 +130,6 @@ class _LoadErrorPanel extends StatelessWidget {
                   TextSpan(
                     text: message,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 13.sp,
                       color: Colors.red.shade600,
                     ),

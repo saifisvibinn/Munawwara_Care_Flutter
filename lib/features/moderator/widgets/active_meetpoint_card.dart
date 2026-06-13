@@ -56,7 +56,6 @@ class ActiveMeetpointCard extends StatelessWidget {
                       Text(
                         (isExpired ? 'status_expired' : 'area_meetpoint').tr(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontWeight: FontWeight.w800,
                           fontSize: 10.sp,
                           letterSpacing: 0.5,
@@ -68,7 +67,6 @@ class ActiveMeetpointCard extends StatelessWidget {
                   Text(
                     activeMp.name,
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontWeight: FontWeight.w700,
                       fontSize: 14.sp,
                       color: isDark ? Colors.white : AppColors.textDark,
@@ -80,7 +78,6 @@ class ActiveMeetpointCard extends StatelessWidget {
                     Text(
                       '${DateFormat('MMM dd').format(activeMp.meetpointTime!)} @ ${DateFormat('hh:mm a').format(activeMp.meetpointTime!)}',
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: 11.sp,
                         color: accent,
                         fontWeight: FontWeight.w600,

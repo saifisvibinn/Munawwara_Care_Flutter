@@ -60,7 +60,6 @@ class PrayerTimesScreen extends ConsumerWidget {
                       apiFallback: hijri.gregorianFormatted,
                     ),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w600,
                       color: context.mOnSurfaceVariant,
@@ -101,7 +100,6 @@ class PrayerTimesScreen extends ConsumerWidget {
                             ],
                           ),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontSize: 13.sp,
                             fontWeight: FontWeight.w700,
                             color: context.mOnSecondaryContainer,
@@ -195,7 +193,6 @@ class _PrayerRow extends StatelessWidget {
                   child: Text(
                     formatPrayerLabel(name),
                     style: TextStyle(
-                      fontFamily: 'Lexend',
                       fontSize: active ? 17.sp : 14.sp,
                       fontWeight: active ? FontWeight.w700 : FontWeight.w600,
                       color: active ? context.mPrimary : context.mOnSurface,
@@ -208,7 +205,6 @@ class _PrayerRow extends StatelessWidget {
                     Text(
                       formatPrayerTime12h(time, context.locale),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontSize: active ? 17.sp : 14.sp,
                         fontWeight: active ? FontWeight.w700 : FontWeight.w400,
                         color: active
@@ -220,7 +216,6 @@ class _PrayerRow extends StatelessWidget {
                       Text(
                         'muslim_current'.tr().toUpperCase(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 9.sp,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.8,

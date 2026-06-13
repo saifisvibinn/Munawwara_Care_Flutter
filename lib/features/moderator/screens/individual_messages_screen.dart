@@ -420,7 +420,7 @@ class _IndividualMessagesScreenState
               leading: Icon(Symbols.content_copy, size: 22.w),
               title: Text(
                 'msg_copy'.tr(),
-                style: const TextStyle(fontFamily: 'Lexend'),
+                style: const TextStyle(),
               ),
               onTap: () {
                 final plain = messagePlainTextForCopy(msg);
@@ -437,7 +437,7 @@ class _IndividualMessagesScreenState
               leading: Icon(Symbols.reply, size: 22.w),
               title: Text(
                 'msg_reply'.tr(),
-                style: const TextStyle(fontFamily: 'Lexend'),
+                style: const TextStyle(),
               ),
               onTap: () {
                 Navigator.pop(ctx);
@@ -453,7 +453,6 @@ class _IndividualMessagesScreenState
               title: Text(
                 'msg_delete_confirm'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   color: Colors.red.shade400,
                 ),
               ),
@@ -539,7 +538,6 @@ class _IndividualMessagesScreenState
                 Text(
                   widget.recipientName,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
                     fontSize: 16.sp,
                     color: isDark ? Colors.white : AppColors.textDark,
@@ -550,7 +548,6 @@ class _IndividualMessagesScreenState
                 Text(
                   'msg_private_header'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 12.sp,
                     color: AppColors.primary,
                     fontWeight: FontWeight.w600,
@@ -597,7 +594,6 @@ class _IndividualMessagesScreenState
             Text(
               'inbox_empty'.tr(),
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 14.sp,
                 color: AppColors.textMutedLight,
               ),
@@ -681,7 +677,6 @@ class _IndividualMessagesScreenState
                       Text(
                         msg.sender?.fullName ?? 'you'.tr(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 11.sp,
                           fontWeight: FontWeight.w500,
                           color: AppColors.primary,
@@ -690,7 +685,6 @@ class _IndividualMessagesScreenState
                       Text(
                         _formatDate(msg.createdAt),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 11.sp,
                           color: AppColors.textMutedLight,
                         ),
@@ -724,7 +718,6 @@ class _IndividualMessagesScreenState
   Widget _buildTextBody(GroupMessage msg, bool isDark) => Text(
     msg.content ?? '',
     style: TextStyle(
-      fontFamily: 'Lexend',
       fontSize: 14.sp,
       height: 1.5,
       color: isDark ? Colors.white70 : AppColors.textDark,
@@ -760,7 +753,6 @@ class _IndividualMessagesScreenState
         Text(
           text,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: 14.sp,
             height: 1.35,
             color: isDark ? Colors.white70 : AppColors.textDark,
@@ -854,7 +846,6 @@ class _IndividualMessagesScreenState
                       Text(
                         'msg_urgent'.tr(),
                         style: TextStyle(
-                          fontFamily: 'Lexend',
                           fontSize: 12.sp,
                           fontWeight: FontWeight.w600,
                           color: _isUrgent
@@ -893,14 +884,12 @@ class _IndividualMessagesScreenState
               maxLines: 4,
               minLines: 1,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 14.sp,
                 color: isDark ? Colors.white : AppColors.textDark,
               ),
               decoration: InputDecoration(
                 hintText: 'msg_hint_tts'.tr(),
                 hintStyle: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 14.sp,
                   color: AppColors.textMutedLight,
                 ),
@@ -970,7 +959,6 @@ class _IndividualMessagesScreenState
               Text(
                 'msg_tap_record'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w600,
                   fontSize: 14.sp,
                   color: Colors.white,
@@ -1008,7 +996,6 @@ class _IndividualMessagesScreenState
               Text(
                 'msg_recording'.tr(),
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight: FontWeight.w600,
                   fontSize: 13.sp,
                   color: Colors.red.shade600,
@@ -1017,7 +1004,6 @@ class _IndividualMessagesScreenState
               Text(
                 '$min:$sec',
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 12.sp,
                   color: AppColors.textMutedLight,
                 ),
@@ -1041,7 +1027,6 @@ class _IndividualMessagesScreenState
                 Text(
                   'msg_stop'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w600,
                     fontSize: 13.sp,
                     color: Colors.white,
@@ -1186,7 +1171,6 @@ class _TypeButton extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontFamily: 'Lexend',
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w600,
                 color: selected ? AppColors.primary : AppColors.textMutedLight,

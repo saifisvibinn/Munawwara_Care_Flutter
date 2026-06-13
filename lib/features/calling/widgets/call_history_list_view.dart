@@ -329,7 +329,6 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
                 _error!,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   color: textMuted,
                   fontSize: 15.sp,
                 ),
@@ -351,7 +350,6 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
         child: Text(
           widget.missedOnly ? 'missed_calls_empty'.tr() : 'call_history_empty'.tr(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             color: textMuted,
             fontSize: 16.sp,
           ),
@@ -410,7 +408,6 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
               title: Text(
                 otherName,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontWeight:
                       isUnreadMissed ? FontWeight.w700 : FontWeight.w600,
                   fontSize: 14.sp,
@@ -422,7 +419,6 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
                 child: Text(
                   '${outgoing ? 'call_history_outgoing'.tr() : 'call_history_incoming'.tr()} · ${_statusLabel(status)}',
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 12.sp,
                     color: textMuted,
                   ),
@@ -431,7 +427,6 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
               trailing: Text(
                 timeStr,
                 style: TextStyle(
-                  fontFamily: 'Lexend',
                   fontSize: 10.sp,
                   color: textMuted,
                 ),

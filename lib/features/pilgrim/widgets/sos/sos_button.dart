@@ -214,7 +214,6 @@ class SosHoldingContent extends StatelessWidget {
             '$countdown',
             key: ValueKey<int>(countdown),
             style: TextStyle(
-              fontFamily: 'Lexend',
               fontSize: numberSize,
               fontWeight: FontWeight.w900,
               color: Colors.white,
@@ -227,7 +226,6 @@ class SosHoldingContent extends StatelessWidget {
           'sos_keep_holding'.tr(),
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: labelSize,
             fontWeight: FontWeight.w700,
             color: Colors.white.withValues(alpha: 0.85),
@@ -292,7 +290,6 @@ class SosIdleContent extends StatelessWidget {
         Text(
           'sos_title'.tr(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: (size * 0.25).clamp(24.0, 48.0).sp,
             fontWeight: FontWeight.w900,
             color: Colors.white,
@@ -303,7 +300,6 @@ class SosIdleContent extends StatelessWidget {
         Text(
           sosActive ? 'sos_active_text'.tr() : 'sos_hold_label'.tr(),
           style: TextStyle(
-            fontFamily: 'Lexend',
             fontSize: (size * 0.08).clamp(8.0, 14.0).sp,
             fontWeight: FontWeight.w900, // Extra bold
             color: Colors.white, // Fully white

@@ -105,7 +105,6 @@ class SosAlertDialog extends StatelessWidget {
                   'sos_mod_dialog_title'.tr(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontWeight: FontWeight.w800,
                     fontSize: 19.sp,
                     height: 1.2,
@@ -122,7 +121,6 @@ class SosAlertDialog extends StatelessWidget {
                     },
                   ),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 15.sp,
                     height: 1.5,
                     color: bodyColor,
@@ -154,7 +152,6 @@ class SosAlertDialog extends StatelessWidget {
                           child: Text(
                             'sos_mod_dialog_location_unknown'.tr(),
                             style: TextStyle(
-                              fontFamily: 'Lexend',
                               fontSize: 12.5.sp,
                               height: 1.35,
                               color: muted,
@@ -169,7 +166,6 @@ class SosAlertDialog extends StatelessWidget {
                 Text(
                   'sos_mod_dialog_call_hint'.tr(),
                   style: TextStyle(
-                    fontFamily: 'Lexend',
                     fontSize: 12.sp,
                     height: 1.35,
                     color: muted,
@@ -203,7 +199,6 @@ class SosAlertDialog extends StatelessWidget {
                     label: Text(
                       'explore_navigate'.tr(),
                       style: TextStyle(
-                        fontFamily: 'Lexend',
                         fontWeight: FontWeight.w700,
                         fontSize: 14.sp,
                       ),
@@ -231,7 +226,6 @@ class SosAlertDialog extends StatelessWidget {
                         child: Text(
                           'sos_mod_dialog_dismiss'.tr(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontWeight: FontWeight.w600,
                             fontSize: 14.sp,
                           ),
@@ -255,7 +249,6 @@ class SosAlertDialog extends StatelessWidget {
                         child: Text(
                           'sos_mod_dialog_review'.tr(),
                           style: TextStyle(
-                            fontFamily: 'Lexend',
                             fontWeight: FontWeight.w700,
                             fontSize: 14.sp,
                           ),
