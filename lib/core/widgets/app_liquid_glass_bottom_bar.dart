@@ -94,6 +94,31 @@ class _AppLiquidGlassBottomBarState extends State<AppLiquidGlassBottomBar>
     super.dispose();
   }
 
+  int _indexFromLocalDx(double dx, double contentWidth) {
+    final slot =
+        (dx / (contentWidth / widget.items.length)).floor().clamp(0, _maxIndex);
+    if (Directionality.of(context) == TextDirection.rtl) {
+      return _maxIndex - slot;
+    }
+    return slot;
+  }
+
+  double _directionalDelta(double dx, double tabWidth) {
+    final delta = dx / tabWidth;
+    if (Directionality.of(context) == TextDirection.rtl) {
+      return -delta;
+    }
+    return delta;
+  }
+
+  double _directionalFlingVelocity(double pixelsPerSecondDx, double tabWidth) {
+    var velocity = pixelsPerSecondDx / tabWidth;
+    if (Directionality.of(context) == TextDirection.rtl) {
+      velocity = -velocity;
+    }
+    return velocity;
+  }
+
   void _animateTo(int index, {double initialVelocity = 0}) {
     _controller.animateWith(
       SpringSimulation(
@@ -106,9 +131,7 @@ class _AppLiquidGlassBottomBarState extends State<AppLiquidGlassBottomBar>
   }
 
   void _onTapUp(TapUpDetails details, double contentWidth) {
-    final tabWidth = contentWidth / widget.items.length;
-    final index =
-        (details.localPosition.dx / tabWidth).floor().clamp(0, _maxIndex);
+    final index = _indexFromLocalDx(details.localPosition.dx, contentWidth);
     widget.onTap(index);
     _animateTo(index);
   }
@@ -122,12 +145,11 @@ class _AppLiquidGlassBottomBarState extends State<AppLiquidGlassBottomBar>
 
   void _onDragUpdate(DragUpdateDetails details, double contentWidth) {
     final tabWidth = contentWidth / widget.items.length;
-    final dx = details.delta.dx;
-    final delta = dx / tabWidth;
+    final delta = _directionalDelta(details.delta.dx, tabWidth);
 
     final now = details.sourceTimeStamp?.inMicroseconds ??
         DateTime.now().microsecondsSinceEpoch;
-    if (dx.abs() >= 0.4) {
+    if (details.delta.dx.abs() >= 0.4) {
       _velocitySamples.add(_VelocitySample(now, delta));
       final cutoff = now - 90 * 1000;
       while (_velocitySamples.isNotEmpty &&
@@ -157,7 +179,10 @@ class _AppLiquidGlassBottomBarState extends State<AppLiquidGlassBottomBar>
   void _onDragEnd(DragEndDetails details, double contentWidth) {
     _isDragging = false;
     final tabWidth = contentWidth / widget.items.length;
-    final flingVelocity = details.velocity.pixelsPerSecond.dx / tabWidth;
+    final flingVelocity = _directionalFlingVelocity(
+      details.velocity.pixelsPerSecond.dx,
+      tabWidth,
+    );
 
     var target = _position.value.round();
     if (flingVelocity.abs() > 3.0) {
@@ -194,9 +219,10 @@ class _AppLiquidGlassBottomBarState extends State<AppLiquidGlassBottomBar>
         : AppColors.textMutedDark;
 
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final textDirection = Directionality.of(context);
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(margin, 0, margin, bottomInset),
+      padding: EdgeInsetsDirectional.fromSTEB(margin, 0, margin, bottomInset),
       child: AppGlassSurface(
         isDark: widget.isDark,
         borderRadius: AppGlassTheme.borderRadius,
@@ -226,6 +252,7 @@ class _AppLiquidGlassBottomBarState extends State<AppLiquidGlassBottomBar>
                         velocity: _velocity,
                         tabCount: widget.items.length,
                         isDark: widget.isDark,
+                        textDirection: textDirection,
                       ),
                       child: Row(
                         children: List.generate(widget.items.length, (index) {
@@ -270,12 +297,14 @@ class _SelectorPainter extends CustomPainter {
     required this.velocity,
     required this.tabCount,
     required this.isDark,
+    required this.textDirection,
   }) : super(repaint: Listenable.merge([position, velocity]));
 
   final ValueListenable<double> position;
   final ValueListenable<double> velocity;
   final int tabCount;
   final bool isDark;
+  final TextDirection textDirection;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -290,7 +319,10 @@ class _SelectorPainter extends CustomPainter {
 
     final baseWidth = tabWidth * 0.82;
     final selectorWidth = baseWidth * stretch;
-    final x = pos * tabWidth + (tabWidth - selectorWidth) / 2;
+    final visualIndex = textDirection == TextDirection.rtl
+        ? (tabCount - 1 - pos)
+        : pos;
+    final x = visualIndex * tabWidth + (tabWidth - selectorWidth) / 2;
 
     final rrect = RRect.fromRectAndRadius(
       Rect.fromLTWH(x, 2, selectorWidth, size.height - 4),
@@ -308,7 +340,9 @@ class _SelectorPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SelectorPainter old) =>
-      tabCount != old.tabCount || isDark != old.isDark;
+      tabCount != old.tabCount ||
+      isDark != old.isDark ||
+      textDirection != old.textDirection;
 }
 
 class _TabSlot extends StatelessWidget {
@@ -362,8 +396,8 @@ class _TabSlot extends StatelessWidget {
                       fill: proximity > 0.5 ? 1.0 : 0.0,
                     ),
                     if (badge > 0)
-                      Positioned(
-                        right: -8.w,
+                      PositionedDirectional(
+                        end: -8.w,
                         top: -4.h,
                         child: _TabBadge(count: badge),
                       ),
