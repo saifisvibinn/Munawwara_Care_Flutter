@@ -37,10 +37,14 @@ void main() async {
     applyDeviceOrientationPolicy(),
     prepareCoreRuntime(),
   ]);
-  AppLogger.i('Firebase initialized');
+  AppLogger.i('Core runtime ready');
 
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  AppLogger.i('Background message handler registered');
+  try {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    AppLogger.i('Background message handler registered');
+  } catch (e, st) {
+    AppLogger.w('[Startup] FCM background handler skipped: $e\n$st');
+  }
 
   final container = ProviderContainer();
   CallingScope.riverpod = container;
@@ -169,6 +173,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
                 systemNavigationBarContrastEnforced: false,
               ),
               child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
                 onTap: () {
                   FocusManager.instance.primaryFocus?.unfocus();
                 },

@@ -9,7 +9,9 @@ import '../../../core/widgets/custom_dialog.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/config/app_locales.dart';
+import '../../../core/widgets/app_settings_expansion.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/services/locale_prefs.dart';
@@ -80,8 +82,7 @@ class _ModeratorProfileScreenState
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
-    final themeNotifier = ref.read(themeProvider.notifier);
-    final isDark = themeMode == ThemeMode.dark;
+    final isDark = AppTheme.isDarkEffective(themeMode, context);
 
     final authState = ref.watch(authProvider);
     final fullName = authState.fullName ?? 'Moderator';
@@ -145,59 +146,13 @@ class _ModeratorProfileScreenState
 
                     SizedBox(height: 28.h),
 
-                    // ── APPEARANCE section ───────────────────────────────────
-                    _SectionLabel(
-                      label: 'settings_appearance'.tr(),
+                    // ── APP SETTINGS ─────────────────────────────────────────
+                    AppSettingsExpansion(
+                      isDark: isDark,
+                      cardBg: cardBg,
+                      textPrimary: textPrimary,
                       textMuted: textMuted,
-                    ),
-                    SizedBox(height: 8.h),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(16.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 
-                              isDark ? 0.3 : 0.04,
-                            ),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 16.w,
-                          vertical: 14.h,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.dark_mode_outlined,
-                              color: isDark ? Colors.white70 : const Color(0xFF475569),
-                              size: 22.sp,
-                            ),
-                            SizedBox(width: 14.w),
-                            Expanded(
-                              child: Text(
-                                'settings_dark_mode'.tr(),
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15.sp,
-                                  color: textPrimary,
-                                ),
-                              ),
-                            ),
-                            Switch(
-                              value: isDark,
-                              activeThumbColor: AppColors.primary,
-                              activeTrackColor: AppColors.primary.withValues(alpha: 0.3),
-                              onChanged: (_) => themeNotifier.toggle(),
-                            ),
-                          ],
-                        ),
-                      ),
+                      dividerColor: dividerColor,
                     ),
 
                     SizedBox(height: 28.h),

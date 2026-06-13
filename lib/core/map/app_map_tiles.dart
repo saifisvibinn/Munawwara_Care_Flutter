@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -10,12 +13,15 @@ import 'package:url_launcher/url_launcher.dart';
 class AppMapTiles {
   AppMapTiles._();
 
-  /// Shared zoom limits for every in-app [FlutterMap] (gesture + programmatic).
+  /// Zoom limits for Android/web [FlutterMap] + OSM tiles (keeps tile usage reasonable).
   static const double mapMinZoom = 15;
   static const double mapMaxZoom = 17;
 
-  /// Use with [MapController.move] so zoom stays within [mapMinZoom]–[mapMaxZoom].
-  static double clampMapZoom(double zoom) => zoom.clamp(mapMinZoom, mapMaxZoom);
+  /// Programmatic camera zoom. OSM stays capped; MapKit (iOS) uses the requested level.
+  static double clampMapZoom(double zoom) {
+    if (!kIsWeb && Platform.isIOS) return zoom;
+    return zoom.clamp(mapMinZoom, mapMaxZoom);
+  }
 
   /// Kaaba / central Mecca — default when GPS is unavailable.
   static const LatLng fallbackMapCenter = LatLng(21.3891, 39.8579);

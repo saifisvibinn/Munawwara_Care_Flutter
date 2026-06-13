@@ -15,11 +15,26 @@ import flutter_callkit_incoming
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    setupVoipPushRegistry()
+    setupVoipPushRegistryIfEntitled()
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self
     }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  /// PushKit requires `aps-environment` (paid Apple Developer + Push capability).
+  /// Free Personal Team builds have no push entitlement — skip VoIP registration.
+  private func hasPushEntitlement() -> Bool {
+    guard let provisionURL = Bundle.main.url(
+      forResource: "embedded",
+      withExtension: "mobileprovision",
+    ),
+      let data = try? Data(contentsOf: provisionURL),
+      let raw = String(data: data, encoding: .isoLatin1)
+    else {
+      return false
+    }
+    return raw.contains("<key>aps-environment</key>")
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
@@ -29,9 +44,21 @@ import flutter_callkit_incoming
     ) {
       LocationChannelHandler.register(with: registrar)
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(
+      forPlugin: "MapKitBridge",
+    ) {
+      MapKitBridge.register(with: registrar)
+    }
   }
 
-  private func setupVoipPushRegistry() {
+  private func setupVoipPushRegistryIfEntitled() {
+    guard hasPushEntitlement() else {
+      NSLog(
+        "[Runner] Skipping VoIP PushKit — no aps-environment entitlement "
+          + "(expected on free Apple ID until Push Notifications is enabled)"
+      )
+      return
+    }
     let mainQueue = DispatchQueue.main
     let registry = PKPushRegistry(queue: mainQueue)
     registry.delegate = self

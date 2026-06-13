@@ -150,49 +150,57 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           : AppColors.backgroundLight,
       body: Stack(
         children: [
-          // Background Blurs
-          Positioned(
-            top: -96.h,
-            right: -96.w,
-            width: 384.w,
-            height: 384.w,
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.primary.withValues(alpha: isDark ? 0.05 : 0.1),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(
-                      alpha: isDark ? 0.05 : 0.1,
+          // Background blurs — must not intercept touches.
+          IgnorePointer(
+            child: Stack(
+              children: [
+                Positioned(
+                  top: -96.h,
+                  right: -96.w,
+                  width: 384.w,
+                  height: 384.w,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primary.withValues(
+                        alpha: isDark ? 0.05 : 0.1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(
+                            alpha: isDark ? 0.05 : 0.1,
+                          ),
+                          blurRadius: 100,
+                          spreadRadius: 20,
+                        ),
+                      ],
                     ),
-                    blurRadius: 100,
-                    spreadRadius: 20,
                   ),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            top: MediaQuery.of(context).size.height / 2,
-            left: -96.w,
-            width: 288.w,
-            height: 288.w,
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.accentGold.withValues(
-                  alpha: isDark ? 0.05 : 0.1,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.accentGold.withValues(
-                      alpha: isDark ? 0.05 : 0.1,
+                Positioned(
+                  top: MediaQuery.of(context).size.height / 2,
+                  left: -96.w,
+                  width: 288.w,
+                  height: 288.w,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.accentGold.withValues(
+                        alpha: isDark ? 0.05 : 0.1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.accentGold.withValues(
+                            alpha: isDark ? 0.05 : 0.1,
+                          ),
+                          blurRadius: 100,
+                          spreadRadius: 20,
+                        ),
+                      ],
                     ),
-                    blurRadius: 100,
-                    spreadRadius: 20,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 

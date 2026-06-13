@@ -31,6 +31,24 @@ class ThemeNotifier extends Notifier<ThemeMode> {
     await setMode(next);
   }
 
+  bool get followsSystem => state == ThemeMode.system;
+
+  Future<void> setFollowSystem(
+    bool follow, {
+    required bool effectiveIsDark,
+  }) async {
+    if (follow) {
+      await setMode(ThemeMode.system);
+      return;
+    }
+    await setMode(effectiveIsDark ? ThemeMode.dark : ThemeMode.light);
+  }
+
+  Future<void> setDarkEnabled(bool enabled) async {
+    if (followsSystem) return;
+    await setMode(enabled ? ThemeMode.dark : ThemeMode.light);
+  }
+
   bool get isDark => state == ThemeMode.dark;
 
   static String _toString(ThemeMode m) {

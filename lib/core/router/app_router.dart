@@ -1,9 +1,12 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/splash/screens/splash_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/device_care_onboarding_screen.dart';
+import '../../features/auth/screens/ios_device_setup_screen.dart';
 
 import '../../features/pilgrim/screens/pilgrim_dashboard_screen.dart';
 import '../../features/moderator/screens/moderator_dashboard_screen.dart';
@@ -45,7 +48,12 @@ class AppRouter {
       GoRoute(
         path: '/device-care-onboarding',
         name: 'device-care-onboarding',
-        builder: (context, state) => const DeviceCareOnboardingScreen(),
+        builder: (context, state) {
+          if (Platform.isIOS) {
+            return const IosDeviceSetupScreen();
+          }
+          return const DeviceCareOnboardingScreen();
+        },
       ),
       GoRoute(
         path: '/pilgrim-dashboard',

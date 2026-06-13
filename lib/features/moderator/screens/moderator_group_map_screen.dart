@@ -10,14 +10,17 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:easy_localization/easy_localization.dart';
 
+import '../../../core/map/app_map_controller.dart';
 import '../../../core/map/app_map_marker_cluster.dart';
 import '../../../core/map/app_map_tiles.dart';
+import '../../../core/map/widgets/app_platform_map.dart';
 import '../../../core/services/location_permission_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/map_circle_fab.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../providers/moderator_provider.dart';
+import '../widgets/moderator_map_marker_data.dart';
 import '../widgets/moderator_map_widgets.dart';
 import '../widgets/pilgrim_marker_layout.dart';
 
@@ -44,7 +47,7 @@ class ModeratorGroupMapScreen extends ConsumerStatefulWidget {
 
 class _ModeratorGroupMapScreenState
     extends ConsumerState<ModeratorGroupMapScreen> {
-  final _mapController = MapController();
+  final _mapController = createAppMapController();
   final _dssController = DraggableScrollableController();
   final _searchController = TextEditingController();
   String _searchQuery = '';
@@ -154,9 +157,17 @@ class _ModeratorGroupMapScreenState
         });
   }
 
+  void _centerOnPilgrim(PilgrimInGroup p) {
+    if (!p.hasLocation) return;
+    _mapController.move(
+      LatLng(p.lat!, p.lng!),
+      AppMapTiles.clampMapZoom(17),
+    );
+  }
+
   void _centerOnMe() {
     final target = _myLocation ?? AppMapTiles.fallbackMapCenter;
-    _mapController.move(target, AppMapTiles.clampMapZoom(15));
+    _mapController.move(target, AppMapTiles.clampMapZoom(15), preserveZoom: true);
   }
 
   void _centerOnGroup() {
@@ -259,25 +270,28 @@ class _ModeratorGroupMapScreenState
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final pilgrims = widget.group.pilgrims;
     final locatedPilgrims = pilgrims.where((p) => p.hasLocation).toList();
+    final mapMarkers = ModeratorMapMarkers.pilgrims(
+      locatedPilgrims,
+      focusedId: widget.focusPilgrimId,
+    );
 
     return Scaffold(
       body: Stack(
         children: [
-          // ── Map ──
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _myLocation ?? AppMapTiles.fallbackMapCenter,
-              initialZoom: AppMapTiles.clampMapZoom(14),
-              minZoom: AppMapTiles.mapMinZoom,
-              maxZoom: AppMapTiles.mapMaxZoom,
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.all,
-              ),
-            ),
-            children: [
-              ...AppMapTiles.baseLayers(isDark: isDark),
-              // Pilgrim markers (clustered when overlapping)
+          AppPlatformMap(
+            controller: _mapController,
+            initialCenter: _myLocation ?? AppMapTiles.fallbackMapCenter,
+            initialZoom: AppMapTiles.clampMapZoom(14),
+            isDark: isDark,
+            markers: mapMarkers,
+            showsUserLocation: true,
+            onMarkerTap: (marker) {
+              final p = marker.payload;
+              if (p is PilgrimInGroup) {
+                _centerOnPilgrim(p);
+              }
+            },
+            flutterLayers: (ctx) => [
               AppMapMarkerCluster.layer(
                 markerChildBehavior: false,
                 markers: PilgrimMarkerLayout.pointsForMarkers(locatedPilgrims)
@@ -285,7 +299,7 @@ class _ModeratorGroupMapScreenState
                   final selected =
                       widget.focusPilgrimId == item.pilgrim.id;
                   final sz = PilgrimMapMarker.mapMarkerSize(
-                    context,
+                    ctx,
                     isSelected: selected,
                   );
                   return Marker(
@@ -304,31 +318,6 @@ class _ModeratorGroupMapScreenState
                   );
                 }).toList(),
               ),
-              // My location (drawn above clusters)
-              if (_myLocation != null)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _myLocation!,
-                      width: 20.w,
-                      height: 20.w,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2.5),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.5),
-                              blurRadius: 8,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
             ],
           ),
 

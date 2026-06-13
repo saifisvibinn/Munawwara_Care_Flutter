@@ -20,13 +20,16 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/rendering.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../../core/utils/open_maps_navigation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/services/location_permission_service.dart';
 import '../../../core/services/socket_service.dart';
+import '../../../core/map/app_map_controller.dart';
 import '../../../core/map/app_map_marker_cluster.dart';
 import '../../../core/map/app_map_tiles.dart';
+import '../../../core/map/widgets/app_platform_map.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_popup_menu.dart';
 import '../providers/moderator_provider.dart';
@@ -40,6 +43,7 @@ import 'bus_attendance_screen.dart';
 import 'individual_messages_screen.dart';
 import '../widgets/pilgrim_profile_sheet.dart';
 import '../widgets/area_picker_screen.dart';
+import '../widgets/moderator_map_marker_data.dart';
 import '../widgets/moderator_map_widgets.dart';
 import '../widgets/pilgrim_marker_layout.dart';
 import '../../shared/models/suggested_area_model.dart';
@@ -73,13 +77,66 @@ class GroupManagementScreen extends ConsumerStatefulWidget {
 }
 
 class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
-  final _mapController = MapController();
+  final _mapController = createAppMapController();
   final _dssController = DraggableScrollableController();
   final _searchController = TextEditingController();
   final ValueNotifier<double> _sheetExtent = ValueNotifier(0.28);
   String _searchQuery = '';
 
   bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+  bool _shouldStackSheetActions(
+    BuildContext context, {
+    double? maxWidth,
+  }) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final width = maxWidth ?? MediaQuery.sizeOf(context).width;
+    return textScale > 1.15 || width < 360;
+  }
+
+  double _sheetTitleBlockHeight(BuildContext context, {double? maxWidth}) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    if (_shouldStackSheetActions(context, maxWidth: maxWidth)) {
+      final titleHeight = 22.h * textScale.clamp(1.0, 1.5) * 2;
+      return titleHeight + 8.h + 44.h + 10.h;
+    }
+    return 44.h * textScale.clamp(1.0, 1.3) + 10.h;
+  }
+
+  double _sheetHeaderHeight(
+    BuildContext context, {
+    required bool hasMeetpoint,
+    double? maxWidth,
+  }) {
+    final handle = 24.h;
+    final search = 60.h;
+    final meetpoint = hasMeetpoint ? 90.h : 0;
+    return handle +
+        _sheetTitleBlockHeight(context, maxWidth: maxWidth) +
+        search +
+        meetpoint;
+  }
+
+  double _sheetMinExtent(
+    BuildContext context, {
+    required bool hasMeetpoint,
+    double? maxWidth,
+  }) {
+    final screenH = MediaQuery.sizeOf(context).height;
+    if (screenH <= 0) return 0.2;
+    final header = _sheetHeaderHeight(
+      context,
+      hasMeetpoint: hasMeetpoint,
+      maxWidth: maxWidth,
+    );
+    return (header / screenH + 0.01).clamp(0.18, 0.72);
+  }
+
+  List<double> _sheetSnapSizes(double minExtent) {
+    const mid = 0.28;
+    const max = 0.72;
+    return [minExtent, mid, max]..sort();
+  }
 
   LatLng? _myLocation;
   StreamSubscription<Position>? _locationSub;
@@ -335,23 +392,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
       );
       return;
     }
-    final lat = p.lat!;
-    final lng = p.lng!;
-    // Try Google Maps app first (works even when app is installed)
-    final googleMapsApp = Uri.parse('google.navigation:q=$lat,$lng&mode=w');
-    final googleMapsWeb = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking',
-    );
-    try {
-      if (await canLaunchUrl(googleMapsApp)) {
-        await launchUrl(googleMapsApp);
-      } else {
-        await launchUrl(googleMapsWeb, mode: LaunchMode.externalApplication);
-      }
-    } catch (_) {
-      // Final fallback — open in browser
-      await launchUrl(googleMapsWeb, mode: LaunchMode.externalApplication);
-    }
+    await OpenMapsNavigation.pickTravelModeAndLaunch(context, p.lat!, p.lng!);
   }
 
   // ── Navigation Beacon ───────────────────────────────────────────────────────
@@ -1451,6 +1492,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                     _mapController.move(
                       _myLocation!,
                       AppMapTiles.clampMapZoom(16),
+                      preserveZoom: true,
                     );
                   }
                 },
@@ -1557,25 +1599,47 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     final filtered = _getFiltered(group);
     final areaState = _scopedAreaState(ref.watch(suggestedAreaProvider));
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final headerHeight = 24.h + 54.h + 60.h + (areaState.activeMeetpoint != null ? 90.h : 0);
+    final sheetContentWidth = MediaQuery.sizeOf(context).width - 32.w;
+    final hasMeetpoint = areaState.activeMeetpoint != null;
+    final headerHeight = _sheetHeaderHeight(
+      context,
+      hasMeetpoint: hasMeetpoint,
+      maxWidth: sheetContentWidth,
+    );
+    final minSheetExtent = _sheetMinExtent(
+      context,
+      hasMeetpoint: hasMeetpoint,
+      maxWidth: sheetContentWidth,
+    );
+    final sheetSnapSizes = _sheetSnapSizes(minSheetExtent);
+
+    final mapMarkers = [
+      ...ModeratorMapMarkers.pilgrims(
+        locatedPilgrims,
+        focusedId: _focusedPilgrimId,
+      ),
+      ...ModeratorMapMarkers.areas(areaState.areas),
+    ];
 
     return Scaffold(
       body: Stack(
         children: [
-          // ── Map (full screen) ─────────────────────────────────────────────
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _myLocation ?? AppMapTiles.fallbackMapCenter,
-              initialZoom: AppMapTiles.clampMapZoom(14),
-              minZoom: AppMapTiles.mapMinZoom,
-              maxZoom: AppMapTiles.mapMaxZoom,
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.all,
-              ),
-            ),
-            children: [
-              ...AppMapTiles.baseLayers(isDark: isDark),
+          AppPlatformMap(
+            controller: _mapController,
+            initialCenter: _myLocation ?? AppMapTiles.fallbackMapCenter,
+            initialZoom: AppMapTiles.clampMapZoom(14),
+            isDark: isDark,
+            markers: mapMarkers,
+            showsUserLocation: true,
+            onMarkerTap: (marker) {
+              final payload = marker.payload;
+              if (payload is PilgrimInGroup) {
+                _focusPilgrim(payload);
+              } else if (payload is SuggestedArea) {
+                _showAreaList(group, areaState);
+              }
+            },
+            flutterLayers: (ctx) => [
               AppMapMarkerCluster.layer(
                 markers: [
                   ...PilgrimMarkerLayout.pointsForMarkers(locatedPilgrims).map((
@@ -1583,7 +1647,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                   ) {
                     final selected = _focusedPilgrimId == item.pilgrim.id;
                     final sz = PilgrimMapMarker.mapMarkerSize(
-                      context,
+                      ctx,
                       isSelected: selected,
                     );
                     return Marker(
@@ -1617,30 +1681,6 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                     ),
                 ],
               ),
-              if (_myLocation != null)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _myLocation!,
-                      width: 20.w,
-                      height: 20.w,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2.5),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.5),
-                              blurRadius: 8,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
             ],
           ),
 
@@ -1862,20 +1902,23 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
           ),
 
           Positioned.fill(
-            child: NotificationListener<DraggableScrollableNotification>(
-              onNotification: (notification) {
-                _sheetExtent.value = notification.extent;
-                return false; // Let it bubble up if needed
-              },
-              child: DraggableScrollableSheet(
-                controller: _dssController,
-                expand: false,
-                initialChildSize: 0.28,
-                minChildSize: 0.1,
-                maxChildSize: 0.72,
-                snap: true,
-                snapSizes: const [0.1, 0.28, 0.72],
-                builder: (ctx, scrollController) => DecoratedBox(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                NotificationListener<DraggableScrollableNotification>(
+                  onNotification: (notification) {
+                    _sheetExtent.value = notification.extent;
+                    return false;
+                  },
+                  child: DraggableScrollableSheet(
+                    controller: _dssController,
+                    expand: false,
+                    initialChildSize: 0.28,
+                    minChildSize: minSheetExtent,
+                    maxChildSize: 0.72,
+                    snap: true,
+                    snapSizes: sheetSnapSizes,
+                    builder: (ctx, scrollController) => DecoratedBox(
                   decoration: BoxDecoration(
                     color: isDark ? AppColors.surfaceDark : Colors.white,
                     borderRadius: BorderRadius.vertical(
@@ -1906,27 +1949,38 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                 if (screenHeight > 0) {
                                   final currentSize = _dssController.size;
                                   final newSize = currentSize - (details.delta.dy / screenHeight);
-                                  _dssController.jumpTo(newSize.clamp(0.1, 0.72));
+                                  _dssController.jumpTo(
+                                    newSize.clamp(minSheetExtent, 0.72),
+                                  );
                                 }
                               }
                             },
                             onVerticalDragEnd: (details) {
                               if (_dssController.isAttached) {
                                 final currentSize = _dssController.size;
-                                const snapSizes = [0.1, 0.28, 0.72];
+                                const maxSnap = 0.72;
                                 double targetSize = currentSize;
 
                                 final velocity = details.primaryVelocity ?? 0.0;
                                 if (velocity < -300) {
-                                  final largerSizes = snapSizes.where((s) => s > currentSize).toList();
-                                  targetSize = largerSizes.isNotEmpty ? largerSizes.first : snapSizes.last;
+                                  final largerSizes = sheetSnapSizes
+                                      .where((s) => s > currentSize)
+                                      .toList();
+                                  targetSize = largerSizes.isNotEmpty
+                                      ? largerSizes.first
+                                      : maxSnap;
                                 } else if (velocity > 300) {
-                                  final smallerSizes = snapSizes.where((s) => s < currentSize).toList();
-                                  targetSize = smallerSizes.isNotEmpty ? smallerSizes.last : snapSizes.first;
+                                  final smallerSizes = sheetSnapSizes
+                                      .where((s) => s < currentSize)
+                                      .toList();
+                                  targetSize = smallerSizes.isNotEmpty
+                                      ? smallerSizes.last
+                                      : minSheetExtent;
                                 } else {
-                                  double closestSnap = snapSizes.first;
-                                  double minDiff = (currentSize - closestSnap).abs();
-                                  for (final size in snapSizes) {
+                                  double closestSnap = sheetSnapSizes.first;
+                                  double minDiff =
+                                      (currentSize - closestSnap).abs();
+                                  for (final size in sheetSnapSizes) {
                                     final diff = (currentSize - size).abs();
                                     if (diff < minDiff) {
                                       minDiff = diff;
@@ -1937,13 +1991,14 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                 }
 
                                 _dssController.animateTo(
-                                  targetSize,
+                                  targetSize.clamp(minSheetExtent, maxSnap),
                                   duration: const Duration(milliseconds: 250),
                                   curve: Curves.easeOutCubic,
                                 );
                               }
                             },
-                            child: Container(
+                            child: ClipRect(
+                              child: Container(
                               color: isDark ? AppColors.surfaceDark : Colors.white,
                               child: SingleChildScrollView(
                                 physics: const NeverScrollableScrollPhysics(),
@@ -1969,12 +2024,21 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                 // Sheet header
                                 Padding(
                                   padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
-                                  child: Row(
-                                    children: [
-                                      Text(
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final stackActions = _shouldStackSheetActions(
+                                        context,
+                                        maxWidth: constraints.maxWidth,
+                                      );
+
+                                      final title = Text(
                                         group.totalPilgrims == 0
                                             ? 'group_no_pilgrims'.tr()
-                                            : 'group_pilgrims_count'.tr(args: [group.totalPilgrims.toString()]),
+                                            : 'group_pilgrims_count'.tr(
+                                                args: [
+                                                  group.totalPilgrims.toString(),
+                                                ],
+                                              ),
                                         style: TextStyle(
                                           fontFamily: 'Lexend',
                                           fontWeight: FontWeight.w700,
@@ -1983,91 +2047,175 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                               ? Colors.white
                                               : AppColors.textDark,
                                         ),
-                                      ),
-                                      const Spacer(),
-                                      // Chat button with label
-                                      GestureDetector(
-                                        onTap: () => Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => GroupMessagesScreen(
-                                              groupId: group.id,
-                                              groupName: group.groupName,
-                                              currentUserId: widget.currentUserId,
-                                            ),
-                                          ),
-                                        ),
-                                        child: Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 12.w,
-                                            vertical: 8.h,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: isDark ? AppColors.primary.withValues(alpha: 0.12) : const Color(0xFFFFF3EC),
-                                            borderRadius: BorderRadius.circular(20.r),
-                                            border: Border.all(
-                                              color: isDark ? AppColors.primary.withValues(alpha: 0.4) : const Color(0xFFF5C4A0),
-                                              width: 0.5,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Symbols.chat_bubble,
-                                                size: 16.w,
-                                                color: isDark ? AppColors.primary : const Color(0xFFC0450A),
-                                              ),
-                                              SizedBox(width: 6.w),
-                                              Text(
-                                                'group_menu_chat'.tr(),
-                                                style: TextStyle(
-                                                  fontFamily: 'Lexend',
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 13.sp,
-                                                  color: isDark ? AppColors.primary : const Color(0xFFC0450A),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      );
+
+                                      final actions = Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          GestureDetector(
+                                            onTap: () =>
+                                                Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    GroupMessagesScreen(
+                                                  groupId: group.id,
+                                                  groupName: group.groupName,
+                                                  currentUserId:
+                                                      widget.currentUserId,
                                                 ),
                                               ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(width: 8.w),
-                                      if (group.sosCount > 0)
-                                        Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 8.w,
-                                            vertical: 4.h,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFFFF1F2),
-                                            borderRadius: BorderRadius.circular(100.r),
-                                            border: Border.all(
-                                              color: const Color(0xFFFFE4E6),
                                             ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Symbols.warning,
-                                                size: 12.w,
-                                                color: const Color(0xFFDC2626),
-                                                fill: 1,
+                                            child: Container(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 12.w,
+                                                vertical: 8.h,
                                               ),
-                                              SizedBox(width: 3.w),
-                                              Text(
-                                                '${group.sosCount} SOS',
-                                                style: TextStyle(
-                                                  fontFamily: 'Lexend',
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize: 11.sp,
-                                                  color: const Color(0xFFDC2626),
+                                              decoration: BoxDecoration(
+                                                color: isDark
+                                                    ? AppColors.primary
+                                                        .withValues(alpha: 0.12)
+                                                    : const Color(0xFFFFF3EC),
+                                                borderRadius:
+                                                    BorderRadius.circular(20.r),
+                                                border: Border.all(
+                                                  color: isDark
+                                                      ? AppColors.primary
+                                                          .withValues(alpha: 0.4)
+                                                      : const Color(0xFFF5C4A0),
+                                                  width: 0.5,
                                                 ),
                                               ),
-                                            ],
+                                              child: ConstrainedBox(
+                                                constraints: BoxConstraints(
+                                                  maxWidth: 112.w,
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      Symbols.chat_bubble,
+                                                      size: 16.w,
+                                                      color: isDark
+                                                          ? AppColors.primary
+                                                          : const Color(
+                                                              0xFFC0450A,
+                                                            ),
+                                                    ),
+                                                    SizedBox(width: 6.w),
+                                                    Expanded(
+                                                      child: Text(
+                                                        'group_menu_chat'.tr(),
+                                                        maxLines: 1,
+                                                        overflow:
+                                                            TextOverflow.ellipsis,
+                                                        style: TextStyle(
+                                                          fontFamily: 'Lexend',
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          fontSize: 13.sp,
+                                                          color: isDark
+                                                              ? AppColors.primary
+                                                              : const Color(
+                                                                  0xFFC0450A,
+                                                                ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                    ],
+                                          if (group.sosCount > 0) ...[
+                                            SizedBox(width: 8.w),
+                                            Container(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 8.w,
+                                                vertical: 4.h,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFFFF1F2),
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                  100.r,
+                                                ),
+                                                border: Border.all(
+                                                  color: const Color(
+                                                    0xFFFFE4E6,
+                                                  ),
+                                                ),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    Symbols.warning,
+                                                    size: 12.w,
+                                                    color: const Color(
+                                                      0xFFDC2626,
+                                                    ),
+                                                    fill: 1,
+                                                  ),
+                                                  SizedBox(width: 3.w),
+                                                  Flexible(
+                                                    child: Text(
+                                                      '${group.sosCount} SOS',
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: TextStyle(
+                                                        fontFamily: 'Lexend',
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        fontSize: 11.sp,
+                                                        color: const Color(
+                                                          0xFFDC2626,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      );
+
+                                      if (stackActions) {
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            title,
+                                            SizedBox(height: 8.h),
+                                            Align(
+                                              alignment: AlignmentDirectional
+                                                  .centerEnd,
+                                              child: actions,
+                                            ),
+                                          ],
+                                        );
+                                      }
+
+                                      return Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Expanded(child: title),
+                                          SizedBox(width: 8.w),
+                                          Flexible(
+                                            fit: FlexFit.loose,
+                                            child: SingleChildScrollView(
+                                              scrollDirection: Axis.horizontal,
+                                              reverse: true,
+                                              child: actions,
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
                                   ),
                                 ),
                                 // Active Meetpoint Card (if exists)
@@ -2088,7 +2236,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                           AppMapTiles.clampMapZoom(17),
                                         );
                                         _dssController.animateTo(
-                                          0.08,
+                                          minSheetExtent,
                                           duration: const Duration(milliseconds: 300),
                                           curve: Curves.easeOut,
                                         );
@@ -2166,6 +2314,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                   ],
                                 ),
                               ),
+                            ),
                             ),
                         ),
                       ),
@@ -2256,6 +2405,23 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                 ),
               ), // DraggableScrollableSheet
             ), // NotificationListener
+                ValueListenableBuilder<double>(
+                  valueListenable: _sheetExtent,
+                  builder: (context, extent, _) {
+                    final screenH = MediaQuery.sizeOf(context).height;
+                    return Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      height: screenH * (1 - extent),
+                      child: const IgnorePointer(
+                        child: SizedBox.expand(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
           ), // Positioned.fill
         ],
       ),

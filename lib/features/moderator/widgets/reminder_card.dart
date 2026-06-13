@@ -38,31 +38,49 @@ class ReminderCard extends StatelessWidget {
           // Status badge + time
           Row(
             children: [
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20.r),
-                ),
-                child: Text(
-                  'reminder_status_${reminder.status}'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontSize: 10.sp,
-                    fontWeight: FontWeight.w700,
-                    color: statusColor,
+              Flexible(
+                fit: FlexFit.loose,
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20.r),
+                  ),
+                  child: Text(
+                    'reminder_status_${reminder.status}'.tr(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontSize: 10.sp,
+                      fontWeight: FontWeight.w700,
+                      color: statusColor,
+                    ),
                   ),
                 ),
               ),
-              const Spacer(),
-              Icon(Symbols.schedule, size: 14.sp, color: Colors.grey),
-              SizedBox(width: 4.w),
-              Text(
-                timeStr,
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontSize: 11.sp,
-                  color: Colors.grey,
+              SizedBox(width: 8.w),
+              Flexible(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Symbols.schedule, size: 14.sp, color: Colors.grey),
+                    SizedBox(width: 4.w),
+                    Flexible(
+                      child: Text(
+                        timeStr,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 11.sp,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -97,6 +115,8 @@ class ReminderCard extends StatelessWidget {
                   children: [
                     Text(
                       _targetLabel(reminder),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Lexend',
                         fontSize: 12.sp,
@@ -112,6 +132,8 @@ class ReminderCard extends StatelessWidget {
                               .map((d) => 'reminder_weekday_short_$d'.tr())
                               .join(', '),
                         }),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: 'Lexend',
                           fontSize: 11.sp,
@@ -119,27 +141,34 @@ class ReminderCard extends StatelessWidget {
                         ),
                       ),
                     ],
+                    if (reminder.repeatCount > 1 ||
+                        reminder.weeklyDays.isNotEmpty) ...[
+                      SizedBox(height: 4.h),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Symbols.repeat, size: 14.sp, color: Colors.grey),
+                          SizedBox(width: 4.w),
+                          Flexible(
+                            child: Text(
+                              reminder.weeklyDays.isNotEmpty
+                                  ? '${reminder.firesSent}/${reminder.repeatCount}'
+                                  : '${reminder.firesSent}/${reminder.repeatCount}  · every ${_formatInterval(reminder.repeatIntervalMin)}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontSize: 12.sp,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
-              if (reminder.repeatCount > 1 ||
-                  reminder.weeklyDays.isNotEmpty) ...[
-                SizedBox(width: 8.w),
-                Icon(Symbols.repeat, size: 14.sp, color: Colors.grey),
-                SizedBox(width: 4.w),
-                Flexible(
-                  child: Text(
-                    reminder.weeklyDays.isNotEmpty
-                        ? '${reminder.firesSent}/${reminder.repeatCount}'
-                        : '${reminder.firesSent}/${reminder.repeatCount}  · every ${_formatInterval(reminder.repeatIntervalMin)}',
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 12.sp,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
 

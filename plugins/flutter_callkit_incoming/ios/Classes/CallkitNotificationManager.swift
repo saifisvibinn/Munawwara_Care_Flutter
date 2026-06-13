@@ -18,11 +18,26 @@ public class CallkitNotificationManager: NSObject {
     private override init() {
         super.init()
     }
+
+    private func presentationOptions() -> UNNotificationPresentationOptions {
+        if #available(iOS 14.0, *) {
+            return [.banner, .list, .sound, .badge]
+        }
+        return [.alert, .sound, .badge]
+    }
+
+    private func rootViewController() -> UIViewController? {
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first { $0.isKeyWindow }
+        return window?.rootViewController
+    }
     
     public func userNotificationCenter(_ center: UNUserNotificationCenter,
                                        willPresent notification: UNNotification,
                                        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.alert, .sound, .badge])
+        completionHandler(presentationOptions())
     }
     
     public func addNotificationCategory(_ nameCallbackAction: String) {
@@ -63,7 +78,7 @@ public class CallkitNotificationManager: NSObject {
                             }
                         }
                     })
-                    UIApplication.shared.keyWindow?.rootViewController?.present(alert, animated: true)
+                    self.rootViewController()?.present(alert, animated: true)
                 }
                 
             case .denied:
@@ -78,7 +93,7 @@ public class CallkitNotificationManager: NSObject {
                             UIApplication.shared.open(settingsUrl)
                         }
                     })
-                    UIApplication.shared.keyWindow?.rootViewController?.present(alert, animated: true)
+                    self.rootViewController()?.present(alert, animated: true)
                 }
                 
             case .authorized, .provisional, .ephemeral:

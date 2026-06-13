@@ -12,6 +12,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_settings_expansion.dart';
 import '../../../core/widgets/legal_support_section.dart';
 import '../../../core/config/app_locales.dart';
 import '../../../core/services/api_service.dart';
@@ -196,7 +197,6 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
-    final themeNotifier = ref.read(themeProvider.notifier);
     final isDark = AppTheme.isDarkEffective(themeMode, context);
 
     final authState = ref.watch(authProvider);
@@ -396,91 +396,13 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
                     const TamenyTrackingToggle(),
                     SizedBox(height: 28.h),
 
-                    // ── APPEARANCE section ───────────────────────────────
-                    _SectionLabel(
-                      label: 'settings_appearance'.tr(),
+                    // ── APP SETTINGS ─────────────────────────────────────
+                    AppSettingsExpansion(
+                      isDark: isDark,
+                      cardBg: cardBg,
+                      textPrimary: textPrimary,
                       textMuted: textMuted,
-                    ),
-                    SizedBox(height: 8.h),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(16.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 
-                              isDark ? 0.3 : 0.06,
-                            ),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 16.w,
-                          vertical: 14.h,
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40.w,
-                              height: 40.w,
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? AppColors.surfaceDark
-                                    : AppColors.primary.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12.r),
-                              ),
-                              child: Icon(
-                                Icons.dark_mode_rounded,
-                                color: AppColors.primary,
-                                size: 20.sp,
-                              ),
-                            ),
-                            SizedBox(width: 14.w),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'settings_dark_mode'.tr(),
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 15.sp,
-                                      color: textPrimary,
-                                    ),
-                                  ),
-                                  SizedBox(height: 2.h),
-                                  Text(
-                                    'settings_dark_mode_sub'.tr(),
-                                    style: TextStyle(
-                                      fontFamily: 'Lexend',
-                                      fontSize: 12.sp,
-                                      color: textMuted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Switch(
-                              value: isDark,
-                              activeThumbColor: AppColors.primary,
-                              activeTrackColor: AppColors.primary.withValues(
-                                alpha: 0.3,
-                              ),
-                              inactiveThumbColor: isDark
-                                  ? AppColors.textLight
-                                  : Colors.grey,
-                              inactiveTrackColor: isDark
-                                  ? AppColors.surfaceDark
-                                  : Colors.grey.shade300,
-                              onChanged: (_) => themeNotifier.toggle(),
-                            ),
-                          ],
-                        ),
-                      ),
+                      dividerColor: dividerColor,
                     ),
 
                     SizedBox(height: 28.h),

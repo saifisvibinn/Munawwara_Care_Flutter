@@ -4,5 +4,5 @@
     <color name="splash_background">#FFF0F0F8</color>
     <!-- Brand color used for FCM notification accent -->
     <color name="notification_color">#FFF97316</color>
-    <color name="ic_launcher_background">#FFFFFFFF</color>
+    <color name="ic_launcher_background">#FFFFFF</color>
 </resources>

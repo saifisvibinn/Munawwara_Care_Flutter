@@ -37,10 +37,40 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
-    
-    # Force all pod dependencies to align to iOS 15.5 target
+
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+      config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+      config.build_settings['SWIFT_SUPPRESS_WARNINGS'] = 'YES'
+
+      # permission_handler: without these macros iOS location requests are no-ops
+      # and the app incorrectly falls through to opening Settings.
+      definitions = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
+      definitions = [definitions] if definitions.is_a?(String)
+      %w[PERMISSION_LOCATION=1 PERMISSION_NOTIFICATIONS=1].each do |definition|
+        definitions << definition unless definitions.include?(definition)
+      end
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = definitions
+    end
+  end
+
+  runner_project = installer.aggregate_targets
+    .map(&:user_project)
+    .uniq
+    .find { |project| project.path.basename.to_s == 'Runner.xcodeproj' }
+
+  runner_project&.targets&.each do |target|
+    next unless target.name == 'Runner'
+
+    target.build_configurations.each do |config|
+      config.build_settings['CLANG_WARN_OBJC_IMPLICIT_OWNERSHIP'] = 'NO'
+      config.build_settings['OTHER_LDFLAGS'] ||= ['$(inherited)']
+      flags = config.build_settings['OTHER_LDFLAGS']
+      flags = [flags] if flags.is_a?(String)
+      unless flags.include?('-Wl,-no_warn_duplicate_libraries')
+        flags << '-Wl,-no_warn_duplicate_libraries'
+      end
+      config.build_settings['OTHER_LDFLAGS'] = flags
     end
   end
 end

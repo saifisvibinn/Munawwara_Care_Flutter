@@ -25,8 +25,21 @@ final class LocationChannelHandler: NSObject, FlutterPlugin, CLLocationManagerDe
   override init() {
     super.init()
     locationManager.delegate = self
-    locationManager.allowsBackgroundLocationUpdates = true
+    // Must not set allowsBackgroundLocationUpdates until authorizedAlways —
+    // iOS terminates the app if this is true without Always authorization.
     locationManager.pausesLocationUpdatesAutomatically = false
+  }
+
+  func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    applyBackgroundLocationSettings()
+  }
+
+  private func applyBackgroundLocationSettings() {
+    let always = locationManager.authorizationStatus == .authorizedAlways
+    locationManager.allowsBackgroundLocationUpdates = always
+    if always {
+      locationManager.pausesLocationUpdatesAutomatically = false
+    }
   }
 
   func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -46,6 +59,7 @@ final class LocationChannelHandler: NSObject, FlutterPlugin, CLLocationManagerDe
       if status == .notDetermined {
         locationManager.requestAlwaysAuthorization()
       }
+      applyBackgroundLocationSettings()
       locationManager.startMonitoringSignificantLocationChanges()
       result(true)
     case "stopSignificantLocationChanges":

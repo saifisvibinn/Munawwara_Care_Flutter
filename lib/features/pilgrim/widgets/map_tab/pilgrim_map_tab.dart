@@ -8,8 +8,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../../core/map/app_map_controller.dart';
+import '../../../../core/map/app_map_marker_data.dart';
 import '../../../../core/map/app_map_marker_cluster.dart';
 import '../../../../core/map/app_map_tiles.dart';
+import '../../../../core/map/widgets/app_platform_map.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/map_circle_fab.dart';
 import '../../../shared/models/suggested_area_model.dart';
@@ -18,6 +21,7 @@ import '../../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../../providers/pilgrim_provider.dart';
 import 'pilgrim_area_marker.dart';
 import 'hospitals_cycle_button.dart';
+import '../../models/insurance_company.dart';
 import 'suggestions_cycle_button.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,7 +30,8 @@ import 'suggestions_cycle_button.dart';
 
 class PilgrimMapTab extends StatelessWidget {
   final LatLng? myLocation;
-  final MapController mapController;
+  final LatLng? Function()? resolveMyLocation;
+  final AppMapController mapController;
   final PilgrimState pilgrimState;
   final String? profileGender;
   final List<SuggestedArea> areas;
@@ -34,11 +39,84 @@ class PilgrimMapTab extends StatelessWidget {
   const PilgrimMapTab({
     super.key,
     required this.myLocation,
+    this.resolveMyLocation,
     required this.mapController,
     required this.pilgrimState,
     required this.profileGender,
     required this.areas,
   });
+
+  LatLng _offsetIfTooCloseToMe(LatLng p) {
+    final me = myLocation;
+    if (me == null) return p;
+    final dM = Geolocator.distanceBetween(
+      me.latitude, me.longitude, p.latitude, p.longitude,
+    );
+    if (dM > 8) return p;
+    const meters = 10.0;
+    final latRad = me.latitude * math.pi / 180.0;
+    final dLat = meters / 111320.0;
+    final dLng = meters / (111320.0 * math.cos(latRad).abs().clamp(0.2, 1.0));
+    return LatLng(p.latitude + dLat, p.longitude + dLng);
+  }
+
+  List<AppMapMarkerData> _markerData(
+    List<HospitalLocation> hospitals,
+    List<dynamic> beacons,
+    bool isDark,
+  ) {
+    final markers = <AppMapMarkerData>[];
+    for (final hospital in hospitals) {
+      markers.add(
+        AppMapMarkerData(
+          id: 'hospital_${hospital.id}',
+          point: LatLng(hospital.latitude, hospital.longitude),
+          kind: AppMapMarkerKind.hospital,
+          title: hospital.name,
+          tintArgb: 0xFFE53935,
+          glyphName: 'cross.fill',
+          payload: hospital,
+        ),
+      );
+    }
+    for (final area in areas) {
+      markers.add(
+        AppMapMarkerData(
+          id: 'area_${area.id}',
+          point: LatLng(area.latitude, area.longitude),
+          kind: AppMapMarkerKind.area,
+          title: area.name,
+          subtitle: area.isMeetpoint ? 'Meetpoint' : null,
+          tintArgb: area.isMeetpoint ? 0xFFDC2626 : AppColors.primary.toARGB32(),
+          glyphName: area.isMeetpoint ? 'exclamationmark.triangle.fill' : 'mappin',
+          payload: area,
+        ),
+      );
+    }
+    for (final b in beacons) {
+      markers.add(
+        AppMapMarkerData(
+          id: 'beacon_${b.moderatorId}',
+          point: _offsetIfTooCloseToMe(LatLng(b.lat, b.lng)),
+          kind: AppMapMarkerKind.beacon,
+          title: b.name,
+          tintArgb: AppColors.primary.toARGB32(),
+          glyphName: 'person.fill',
+          payload: b,
+        ),
+      );
+    }
+    return markers;
+  }
+
+  void _onMarkerTap(BuildContext context, AppMapMarkerData marker) {
+    final payload = marker.payload;
+    if (payload is SuggestedArea) {
+      showAreaInfo(context, payload);
+    } else if (payload is HospitalLocation) {
+      showHospitalInfo(context, payload);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,44 +128,25 @@ class PilgrimMapTab extends StatelessWidget {
 
     final insuranceCompany = pilgrimState.profile?.insuranceCompany;
     final hospitals = insuranceCompany?.hospitals ?? const [];
-
-    LatLng offsetIfTooCloseToMe(LatLng p) {
-      final me = myLocation;
-      if (me == null) return p;
-      final dM = Geolocator.distanceBetween(
-        me.latitude, me.longitude, p.latitude, p.longitude,
-      );
-      if (dM > 8) return p;
-      const meters = 10.0;
-      final latRad = me.latitude * math.pi / 180.0;
-      final dLat = meters / 111320.0;
-      final dLng = meters / (111320.0 * math.cos(latRad).abs().clamp(0.2, 1.0));
-      return LatLng(p.latitude + dLat, p.longitude + dLng);
-    }
+    final markerData = _markerData(hospitals, beacons, isDark);
 
     void centerOnMe() {
-      final target = myLocation ?? AppMapTiles.fallbackMapCenter;
-      mapController.move(target, AppMapTiles.clampMapZoom(15));
+      final target =
+          resolveMyLocation?.call() ?? myLocation ?? AppMapTiles.fallbackMapCenter;
+      mapController.move(target, AppMapTiles.clampMapZoom(15), preserveZoom: true);
     }
-
 
     return Stack(
       children: [
-        // ── Map ──────────────────────────────────────────────────────────────
-        FlutterMap(
-          mapController: mapController,
-          options: MapOptions(
-            initialCenter: myLocation ?? AppMapTiles.fallbackMapCenter,
-            initialZoom: AppMapTiles.clampMapZoom(15),
-            minZoom: AppMapTiles.mapMinZoom,
-            maxZoom: AppMapTiles.mapMaxZoom,
-            interactionOptions: const InteractionOptions(
-              flags: InteractiveFlag.all,
-            ),
-          ),
-          children: [
-            ...AppMapTiles.baseLayers(isDark: isDark),
-            // Areas, meetpoints & moderator beacons — clustered when overlapping
+        AppPlatformMap(
+          controller: mapController,
+          initialCenter: myLocation ?? AppMapTiles.fallbackMapCenter,
+          initialZoom: AppMapTiles.clampMapZoom(15),
+          isDark: isDark,
+          markers: markerData,
+          showsUserLocation: true,
+          onMarkerTap: (AppMapMarkerData m) => _onMarkerTap(context, m),
+          flutterLayers: (ctx) => [
             AppMapMarkerCluster.layer(
               markers: [
                 for (var hospital in hospitals)
@@ -130,7 +189,7 @@ class PilgrimMapTab extends StatelessWidget {
                   ),
                 for (final b in beacons)
                   Marker(
-                    point: offsetIfTooCloseToMe(LatLng(b.lat, b.lng)),
+                    point: _offsetIfTooCloseToMe(LatLng(b.lat, b.lng)),
                     width: 92.w,
                     height: 90.h,
                     child: Column(
@@ -195,7 +254,6 @@ class PilgrimMapTab extends StatelessWidget {
                   ),
               ],
             ),
-            // My location (always on top, never clustered)
             if (myLocation != null)
               MarkerLayer(
                 markers: [
@@ -252,7 +310,6 @@ class PilgrimMapTab extends StatelessWidget {
           ],
         ),
 
-        // ── Top overlay: group name ───────────────────────────────────────────
         if (group != null)
           SafeArea(
             child: Padding(
@@ -298,7 +355,6 @@ class PilgrimMapTab extends StatelessWidget {
             ),
           ),
 
-        // ── Center on me FAB ─────────────────────────────────────────────────
         Positioned(
           right: 14.w,
           bottom: fabBottom,
@@ -308,7 +364,6 @@ class PilgrimMapTab extends StatelessWidget {
           ),
         ),
 
-        // ── Meetpoint FAB ────────────────────────────────────────────────────
         if (areas.any((a) => a.isMeetpoint))
           Positioned(
             right: 14.w,
@@ -343,7 +398,6 @@ class PilgrimMapTab extends StatelessWidget {
             ),
           ),
 
-        // ── Suggestions FAB ──────────────────────────────────────────────────
         if (areas.any((a) => !a.isMeetpoint))
           Positioned(
             right: 14.w,
@@ -356,7 +410,6 @@ class PilgrimMapTab extends StatelessWidget {
             ),
           ),
 
-        // ── Hospital FAB ─────────────────────────────────────────────────────
         if (hospitals.isNotEmpty)
           Positioned(
             right: 14.w,
@@ -372,7 +425,6 @@ class PilgrimMapTab extends StatelessWidget {
             ),
           ),
 
-        // ── No location message ──────────────────────────────────────────────
         if (myLocation == null)
           Center(
             child: Container(

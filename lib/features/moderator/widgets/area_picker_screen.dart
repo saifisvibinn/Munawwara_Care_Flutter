@@ -9,12 +9,15 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:dio/dio.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../core/map/app_map_controller.dart';
 import '../../../core/map/app_map_marker_cluster.dart';
 import '../../../core/map/app_map_tiles.dart';
+import '../../../core/map/widgets/app_platform_map.dart';
 import '../../../core/services/location_permission_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../shared/providers/suggested_area_provider.dart';
+import 'moderator_map_marker_data.dart';
 import 'moderator_map_widgets.dart';
 import 'active_meetpoint_card.dart';
 import '../../shared/models/suggested_area_model.dart';
@@ -88,7 +91,7 @@ class AreaPickerScreen extends ConsumerStatefulWidget {
 }
 
 class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
-  final _mapController = MapController();
+  final _mapController = createAppMapController();
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
   final _sheetController = DraggableScrollableController();
@@ -514,48 +517,45 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
         _selectedLocation ??
         widget.initialCenter ??
         const LatLng(21.4225, 39.8262);
+    final areas = ref.watch(suggestedAreaProvider).areas;
     return Positioned.fill(
-      child: FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(
-          initialCenter: center,
-          initialZoom: AppMapTiles.clampMapZoom(15),
-          minZoom: AppMapTiles.mapMinZoom,
-          maxZoom: AppMapTiles.mapMaxZoom,
-          onPositionChanged: (pos, hasGesture) {
-            if (_isFullScreenMap) {
-              if (hasGesture) {
-                _mapCenter = pos.center;
-              }
-              return;
-            }
-            final target = pos.center;
+      child: AppPlatformMap(
+        controller: _mapController,
+        initialCenter: center,
+        initialZoom: AppMapTiles.clampMapZoom(15),
+        isDark: isDark,
+        markers: ModeratorMapMarkers.areas(areas),
+        onPositionChanged: (target, hasGesture) {
+          if (_isFullScreenMap) {
             if (hasGesture) {
-              setState(() => _selectedLocation = target);
-            } else {
-              setState(() {
-                _selectedLocation = target;
-                _pickedPoint = target;
-              });
+              _mapCenter = target;
             }
-          },
-        ),
-        children: [
-          ...AppMapTiles.baseLayers(isDark: isDark),
+            return;
+          }
+          if (hasGesture) {
+            // Avoid setState during pan — it rebuilds UiKitView and blocks gestures.
+            _selectedLocation = target;
+          } else {
+            setState(() {
+              _selectedLocation = target;
+              _pickedPoint = target;
+            });
+          }
+        },
+        flutterLayers: (ctx) => [
           AppMapMarkerCluster.layer(
             markerChildBehavior: false,
             markers: [
-              ...ref.watch(suggestedAreaProvider).areas.map(
-                    (a) => Marker(
-                      point: LatLng(a.latitude, a.longitude),
-                      width: 48.w,
-                      height: 48.w,
-                      child: Opacity(
-                        opacity: 0.6,
-                        child: AreaMapMarker(area: a),
-                      ),
-                    ),
+              for (final a in areas)
+                Marker(
+                  point: LatLng(a.latitude, a.longitude),
+                  width: 48.w,
+                  height: 48.w,
+                  child: Opacity(
+                    opacity: 0.6,
+                    child: AreaMapMarker(area: a),
                   ),
+                ),
             ],
           ),
         ],
@@ -672,7 +672,7 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
   }
 
   void _showConfirmSelectionModal() async {
-    final point = _mapCenter ?? _mapController.camera.center;
+    final point = _mapCenter ?? _mapController.center;
     final address = await _reverseGeocode(point);
 
     if (!mounted) return;

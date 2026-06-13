@@ -661,13 +661,15 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                             size: 20.sp,
                           ),
                           SizedBox(width: 8.w),
-                          Text(
-                            'reminder_scheduling_section'.tr(),
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13.sp,
-                              color: textPrimary,
+                          Expanded(
+                            child: Text(
+                              'reminder_scheduling_section'.tr(),
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13.sp,
+                                color: textPrimary,
+                              ),
                             ),
                           ),
                         ],
@@ -824,18 +826,24 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                   ),
                   SizedBox(height: 18.h),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
-                        'reminder_repeat_count'.tr(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13.sp,
-                          color: textPrimary,
+                      Expanded(
+                        child: Text(
+                          'reminder_repeat_count'.tr(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13.sp,
+                            color: textPrimary,
+                          ),
                         ),
                       ),
+                      SizedBox(width: 8.w),
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
                             onPressed: () {
@@ -938,12 +946,13 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
             // CREATE BUTTON
             SizedBox(
               width: double.infinity,
-              height: 52.h,
               child: FilledButton.icon(
                 onPressed: _isCreating ? null : _createReminders,
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
+                  minimumSize: Size(double.infinity, 52.h),
+                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14.r),
                   ),
@@ -960,6 +969,9 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                     : Icon(Symbols.add_alert, size: 22.sp),
                 label: Text(
                   _isCreating ? 'reminder_creating'.tr() : 'reminder_create_btn'.tr(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: 'Lexend',
                     fontWeight: FontWeight.w700,
@@ -978,13 +990,17 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                   size: 24.sp,
                 ),
                 SizedBox(width: 10.w),
-                Text(
-                  'reminder_history_section'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20.sp,
-                    color: textPrimary,
+                Expanded(
+                  child: Text(
+                    'reminder_history_section'.tr(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20.sp,
+                      color: textPrimary,
+                    ),
                   ),
                 ),
               ],

@@ -29,6 +29,7 @@ enum DeviceCareActionKind {
   autostart,
   notifications,
   lockScreenCalls,
+  backgroundAppRefresh,
 }
 
 class DeviceCareStep {
@@ -81,6 +82,7 @@ class OemSettingsService {
   static const _prefAutostartAck = 'device_care_autostart_ack_v1';
   static const _prefBatteryManualAck = 'device_care_battery_manual_ack_v1';
   static const _prefLockScreenCallAck = 'device_care_lock_screen_call_ack_v1';
+  static const _prefBackgroundRefreshAck = 'device_care_ios_bg_refresh_ack_v1';
   static const _channel = MethodChannel('com.munawwaracare.android/oem_settings');
 
   static DeviceCareActionKind? _pendingReturnKind;
@@ -162,6 +164,12 @@ class OemSettingsService {
   }
 
   static DeviceCareContent defaultContent() {
+    if (!kIsWeb && Platform.isIOS) {
+      return DeviceCareContent(
+        steps: _buildIosStepsList(),
+        profile: DeviceOemProfile.standard,
+      );
+    }
     const profile = DeviceOemProfile.standard;
     return DeviceCareContent(
       steps: _buildStepsList(profile, includeLockScreen: false),
@@ -191,6 +199,9 @@ class OemSettingsService {
         break;
       case DeviceCareActionKind.lockScreenCalls:
         await _reconcileLockScreenCallAfterSettingsReturn();
+        break;
+      case DeviceCareActionKind.backgroundAppRefresh:
+        await markBackgroundRefreshManuallyAcknowledged();
         break;
     }
   }
@@ -271,6 +282,9 @@ class OemSettingsService {
           return prefs.getBool(_prefLockScreenCallAck) ?? false;
         }
         return await _canUseFullScreenForCalls();
+      case DeviceCareActionKind.backgroundAppRefresh:
+        if (!Platform.isIOS) return true;
+        return prefs.getBool(_prefBackgroundRefreshAck) ?? false;
     }
   }
 
@@ -288,6 +302,11 @@ class OemSettingsService {
   static Future<void> markLockScreenCallStepManuallyAcknowledged() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefLockScreenCallAck, true);
+  }
+
+  static Future<void> markBackgroundRefreshManuallyAcknowledged() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefBackgroundRefreshAck, true);
   }
 
   static Future<void> _reconcileLockScreenCallAfterSettingsReturn() async {
@@ -324,6 +343,7 @@ class OemSettingsService {
       DeviceCareActionKind.autostart => _autostartGuide(profile),
       DeviceCareActionKind.notifications => _notificationsGuide(profile),
       DeviceCareActionKind.lockScreenCalls => _lockScreenCallGuide(profile),
+      DeviceCareActionKind.backgroundAppRefresh => _iosBackgroundRefreshGuide(),
     };
   }
 
@@ -402,21 +422,29 @@ class OemSettingsService {
     return _buildStepsList(profile, includeLockScreen: includeLock);
   }
 
-  /// iOS: location Always + notifications (no OEM battery/autostart steps).
+  /// iOS: location Always, notifications, Background App Refresh guidance.
   static List<DeviceCareStep> _buildIosStepsList() {
     return const [
       DeviceCareStep(
         kind: DeviceCareActionKind.location,
-        titleKey: 'location_onboarding_title',
-        descriptionKey: 'location_onboarding_desc',
-        actionLabelKey: 'location_onboarding_btn',
-        footnoteKey: 'location_onboarding_important',
+        titleKey: 'ios_setup_location_title',
+        descriptionKey: 'ios_setup_location_desc',
+        actionLabelKey: 'ios_setup_location_btn',
+        footnoteKey: 'ios_setup_location_footnote',
       ),
       DeviceCareStep(
         kind: DeviceCareActionKind.notifications,
-        titleKey: 'device_care_step_notifications_title',
-        descriptionKey: 'device_care_step_notifications_desc',
-        actionLabelKey: 'device_care_open_notifications',
+        titleKey: 'ios_setup_notifications_title',
+        descriptionKey: 'ios_setup_notifications_desc',
+        actionLabelKey: 'ios_setup_notifications_btn',
+        footnoteKey: 'ios_setup_notifications_footnote',
+      ),
+      DeviceCareStep(
+        kind: DeviceCareActionKind.backgroundAppRefresh,
+        titleKey: 'ios_setup_bg_refresh_title',
+        descriptionKey: 'ios_setup_bg_refresh_desc',
+        actionLabelKey: 'ios_setup_bg_refresh_btn',
+        footnoteKey: 'ios_setup_bg_refresh_footnote',
       ),
     ];
   }
@@ -502,7 +530,10 @@ class OemSettingsService {
     if (kIsWeb) return false;
     switch (kind) {
       case DeviceCareActionKind.location:
-        final granted = await requestLocationPermissionsFlow(context);
+        final granted = await requestLocationPermissionsFlow(
+          context,
+          onOpenAppSettings: () => noteOpenedSettings(kind),
+        );
         if (granted && context.mounted) {
           await TamenyLocationService.enableTracking(
             context,
@@ -566,6 +597,10 @@ class OemSettingsService {
             return false;
           }
         }
+        return false;
+      case DeviceCareActionKind.backgroundAppRefresh:
+        noteOpenedSettings(kind);
+        await openAppSettings();
         return false;
     }
   }
@@ -644,6 +679,15 @@ class OemSettingsService {
         'device_care_decoy_lock_screen',
         'device_care_decoy_silent_notifications',
       ],
+    );
+  }
+
+  static DeviceCareSettingsGuide _iosBackgroundRefreshGuide() {
+    return const DeviceCareSettingsGuide(
+      titleKey: 'ios_setup_bg_refresh_title',
+      instructionKey: 'ios_setup_bg_refresh_desc',
+      highlightLabelKey: 'ios_setup_bg_refresh_footnote',
+      decoyLabelKeys: [],
     );
   }
 

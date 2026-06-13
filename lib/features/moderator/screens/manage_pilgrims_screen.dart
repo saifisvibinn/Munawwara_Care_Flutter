@@ -760,35 +760,38 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
                     SizedBox(height: 12.h),
 
                     // Filter chips
-                    Row(
-                      children: [
-                        _FilterChip(
-                          label: 'manage_filter_all'.tr(args: ['${all.length}']),
-                          selected: _filter == 'all',
-                          onTap: () => setState(() => _filter = 'all'),
-                          isDark: isDark,
-                        ),
-                        SizedBox(width: 8.w),
-                        _FilterChip(
-                          label:
-                              'manage_filter_unassigned'.tr(args: ['${all.where((p) => !p.isAssigned).length}']),
-                          selected: _filter == 'unassigned',
-                          onTap: () =>
-                              setState(() => _filter = 'unassigned'),
-                          isDark: isDark,
-                          accentColor: const Color(0xFFFF8400),
-                        ),
-                        SizedBox(width: 8.w),
-                        _FilterChip(
-                          label:
-                              'manage_filter_assigned'.tr(args: ['${all.where((p) => p.isAssigned).length}']),
-                          selected: _filter == 'assigned',
-                          onTap: () =>
-                              setState(() => _filter = 'assigned'),
-                          isDark: isDark,
-                          accentColor: Colors.green,
-                        ),
-                      ],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _FilterChip(
+                            label: 'manage_filter_all'.tr(args: ['${all.length}']),
+                            selected: _filter == 'all',
+                            onTap: () => setState(() => _filter = 'all'),
+                            isDark: isDark,
+                          ),
+                          SizedBox(width: 8.w),
+                          _FilterChip(
+                            label:
+                                'manage_filter_unassigned'.tr(args: ['${all.where((p) => !p.isAssigned).length}']),
+                            selected: _filter == 'unassigned',
+                            onTap: () =>
+                                setState(() => _filter = 'unassigned'),
+                            isDark: isDark,
+                            accentColor: const Color(0xFFFF8400),
+                          ),
+                          SizedBox(width: 8.w),
+                          _FilterChip(
+                            label:
+                                'manage_filter_assigned'.tr(args: ['${all.where((p) => p.isAssigned).length}']),
+                            selected: _filter == 'assigned',
+                            onTap: () =>
+                                setState(() => _filter = 'assigned'),
+                            isDark: isDark,
+                            accentColor: Colors.green,
+                          ),
+                        ],
+                      ),
                     ),
                     if (_filter == 'unassigned') ...[
                       SizedBox(height: 12.h),

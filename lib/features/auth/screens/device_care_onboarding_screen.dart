@@ -210,6 +210,7 @@ class _DeviceCareStepCard extends StatelessWidget {
         DeviceCareActionKind.autostart => Symbols.rocket_launch,
         DeviceCareActionKind.notifications => Symbols.notifications_active,
         DeviceCareActionKind.lockScreenCalls => Symbols.phonelink_lock,
+        DeviceCareActionKind.backgroundAppRefresh => Symbols.refresh,
       };
 
   bool get _usesGuideSheet =>

@@ -36,19 +36,21 @@ class DashboardTabPageView extends StatelessWidget {
     required this.onPageChanged,
     required this.children,
     this.backgroundColor,
+    this.physics,
   });
 
   final PageController controller;
   final ValueChanged<int> onPageChanged;
   final List<Widget> children;
   final Color? backgroundColor;
+  final ScrollPhysics? physics;
 
   @override
   Widget build(BuildContext context) {
     final pageView = PageView(
       clipBehavior: Clip.hardEdge,
       controller: controller,
-      physics: const PageScrollPhysics(),
+      physics: physics ?? const PageScrollPhysics(),
       onPageChanged: onPageChanged,
       children: [
         for (var i = 0; i < children.length; i++)

@@ -53,6 +53,8 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -76,12 +78,12 @@
 	<string>Munawwara Care needs permission to save QR codes to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Munawwara Care needs permission to save QR codes to your photo library.</string>
+	<key>io.flutter.embedded_views_preview</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
 		<string>audio</string>
-		<string>remote-notification</string>
-		<string>voip</string>
 	</array>
 </dict>
 </plist>

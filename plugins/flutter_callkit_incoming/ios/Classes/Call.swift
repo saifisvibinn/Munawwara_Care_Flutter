@@ -320,7 +320,7 @@ public class Call: NSObject {
             map["nameCaller"] = nameCaller
             map["handle"] = handle
             
-            var mapExtras = extra as? [String: Any]
+            let mapExtras = extra as? [String: Any]
             
             if (mapExtras == nil) {
                 print("error casting dictionary to [String: Any]")

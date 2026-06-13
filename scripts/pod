@@ -1,0 +1,3 @@
+#!/bin/bash
+# CocoaPods on this Mac needs Logger loaded before ActiveSupport (Ruby 2.6).
+exec ruby -rlogger /Users/saif/.gem/ruby/2.6.0/bin/pod "$@"

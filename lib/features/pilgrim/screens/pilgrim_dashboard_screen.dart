@@ -4,7 +4,8 @@ import 'package:battery_plus/battery_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import '../../../core/map/app_map_controller.dart';
+import '../../../core/map/app_map_tiles.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -24,7 +25,6 @@ import '../../../core/services/location_permission_service.dart';
 import '../../../core/services/oem_settings_service.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/services/socket_service.dart';
-import '../../../core/map/app_map_tiles.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/keep_alive_tab.dart';
@@ -169,7 +169,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   bool _isGpsEnabled = true;
   bool _hasLocPermission = true;
   final Battery _battery = Battery();
-  final MapController _mapController = MapController();
+  final AppMapController _mapController = createAppMapController();
   LatLng? _myLatLng;
   /// True after opening the map tab before the first GPS fix (recenter then).
   bool _pilgrimMapAwaitingFirstFix = false;
@@ -1098,7 +1098,11 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   Future<void> _applyPilgrimGpsPosition(Position pos) async {
     if (!mounted) return;
     final ll = LatLng(pos.latitude, pos.longitude);
-    setState(() => _myLatLng = ll);
+    if (_currentTab == 1) {
+      _myLatLng = ll;
+    } else {
+      setState(() => _myLatLng = ll);
+    }
     _loadWeatherAlert(
       latitude: pos.latitude,
       longitude: pos.longitude,
@@ -1131,7 +1135,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     final target = _myLatLng ?? AppMapTiles.fallbackMapCenter;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _mapController.move(target, AppMapTiles.clampMapZoom(15));
+      _mapController.move(target, AppMapTiles.clampMapZoom(15), preserveZoom: true);
     });
   }
 
@@ -1812,6 +1816,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       ),
       PilgrimMapTab(
         myLocation: _myLatLng,
+        resolveMyLocation: () => _myLatLng,
         mapController: _mapController,
         pilgrimState: pilgrimState,
         profileGender: pilgrimState.profile?.gender,
@@ -1886,6 +1891,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                 backgroundColor: isDark
                     ? AppColors.backgroundDark
                     : const Color(0xfff1f5f3),
+                physics: _currentTab == 1
+                    ? const NeverScrollableScrollPhysics()
+                    : const PageScrollPhysics(),
                 onPageChanged: _handlePageChanged,
                 children: tabs,
               ),

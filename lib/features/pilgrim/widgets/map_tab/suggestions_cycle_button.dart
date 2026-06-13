@@ -1,11 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/map/app_map_controller.dart';
 import '../../../../core/map/app_map_tiles.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../shared/models/suggested_area_model.dart';
@@ -246,7 +246,7 @@ void showAreaInfo(BuildContext context, SuggestedArea area) {
 
 class SuggestionsCycleButton extends StatefulWidget {
   final List<SuggestedArea> areas;
-  final MapController mapController;
+  final AppMapController mapController;
   final void Function(SuggestedArea) onAreaSelected;
 
   const SuggestionsCycleButton({
@@ -324,11 +324,7 @@ class _SuggestionsCycleButtonState extends State<SuggestionsCycleButton> {
                             Navigator.pop(ctx);
                             widget.mapController.move(
                               LatLng(area.latitude, area.longitude),
-                              AppMapTiles.clampMapZoom(
-                                widget.mapController.camera.zoom > 16.0
-                                    ? widget.mapController.camera.zoom
-                                    : 16.5,
-                              ),
+                              AppMapTiles.clampMapZoom(16.5),
                             );
                             widget.onAreaSelected(area);
                           },

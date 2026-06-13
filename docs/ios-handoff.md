@@ -2,10 +2,10 @@
 
 **Purpose:** Complete project context and step-by-step handoff for the agent (or developer) implementing the iOS version.  
 **App:** Munawwara Care — group safety and coordination for Hajj & Umrah.  
-**Current version:** `1.1.2+12` (`pubspec.yaml`)  
-**Last updated:** June 12, 2026  
+**Current version:** `1.1.3+13` (`pubspec.yaml`)  
+**Last updated:** June 13, 2026  
 **Android status:** Production-track (Google Play internal testing, release `com.munawwaracare.android`)  
-**iOS status:** Native layer implemented on branch `IOS` — Mac agent runs setup below  
+**iOS status:** Native layer + toolchain verified — `flutter build ios --no-codesign` succeeds on branch `IOS`  
 **Git branch:** `IOS` (pushed to `origin/IOS`)
 
 > Compliance and policy notes in this document are engineering aids only — not legal advice.
@@ -23,9 +23,11 @@
 | `GoogleService-Info.plist.example` | Done — copy real file from Firebase |
 | iOS device-care steps (location + notifications) | Done in `oem_settings_service.dart` |
 | VoIP token cached locally (`ios_voip_push_token`) | Done — backend upload pending |
+| CocoaPods dependency conflict (Firebase vs MLKit) | **Done** — upgraded `firebase_*`, `google_mlkit_*`, `mobile_scanner` |
+| `pod install` + release build on Mac | **Done** — see Step 3 below |
 | Firebase `GoogleService-Info.plist` on disk | **You** — download from Firebase Console |
 | Apple Developer Program + APNs key in Firebase | **You** — required for push |
-| Xcode signing + `pod install` on Mac | **You** |
+| Xcode signing + first `flutter run` on iPhone | **You** — connect device via USB |
 | Backend `voip_token` endpoint | **Future** — for killed-state VoIP pushes |
 
 ---
@@ -54,17 +56,40 @@ Send this file to the Mac agent. Work on branch **`IOS`**.
 Step 1 — Clone / checkout (no enrollment needed)
   git fetch origin
   git checkout IOS
-  cd Flutter_Munawwara
+  cd Munawwara_Care_Flutter
 
 Step 2 — Environment
   cp .env.example .env
   # Set API_BASE_URL, AGORA_APP_ID, GOOGLE_MAPS_API_KEY (same as Android)
 
 Step 3 — Flutter + CocoaPods (no enrollment needed)
+  flutter config --no-enable-swift-package-manager
+  # Required when the repo lives under a path with spaces (e.g. "Munawwara Care").
+  # SPM fails to resolve pubspec.yaml with URL-encoded spaces.
+
+  flutter precache --ios
   flutter pub get
+
+  # CocoaPods on this Mac needs a Logger preload (Ruby 2.6). Use the project wrapper:
+  export PATH="$(pwd)/scripts:$PATH"
   cd ios && pod install && cd ..
 
+  # Dependency fix already applied in pubspec.yaml (June 13, 2026):
+  # - firebase_core ^3.13 / firebase_messaging ^15.2 → Firebase iOS SDK 11.x
+  # - google_mlkit_* ^0.13.1, mobile_scanner ^7.2 → MLKitVision 10.x / GoogleDataTransport 10.x
+
+  # Verify compile (no signing):
+  flutter build ios --no-codesign
+  # ✓ Verified: builds Runner.app (~174 MB)
+
+  # Xcode warnings (June 13, 2026):
+  # - App icons: dart run flutter_launcher_icons (orphan legacy PNGs removed from AppIcon.appiconset)
+  # - Pod deprecations: ios/Podfile post_install sets GCC_WARN_INHIBIT_ALL_WARNINGS + SWIFT_SUPPRESS_WARNINGS
+  # - Runner: CLANG_WARN_OBJC_IMPLICIT_OWNERSHIP=NO (mobile_scanner header), -Wl,-no_warn_duplicate_libraries
+  # - Local fork: plugins/flutter_callkit_incoming Swift polish (keyWindow, notification presentation)
+
 Step 4 — First device run (free Apple ID OK)
+  export PATH="$(pwd)/scripts:$PATH"
   # Connect iPhone via USB, trust device
   flutter devices
   flutter run -d <iphone-device-id>
@@ -158,7 +183,7 @@ Munawwara Care connects **pilgrims** (Hajj/Umrah participants) with **moderators
 
 **Support contact:** `munawwaracare@gmail.com` (in-app forms + store listings).
 
-**Privacy policy URL (in-app WebView):** https://saifisvibinn.github.io/munawwara-privacy/  
+**Privacy policy URL (in-app WebView):** <https://saifisvibinn.github.io/munawwara-privacy/>  
 **Repo draft:** `docs/privacy-policy.md` — must stay in sync with live site.
 
 ---
@@ -417,13 +442,10 @@ Important events: `group_updated`, `sos_alert`, `sos-handling`, `sos-resolved`, 
 
 `mc_backend_app/services/pushNotificationService.js` — FCM multicast, data-only messages for calls/SOS.
 
-**Current limitation for iOS calls:** Backend sends incoming calls via **standard FCM data messages** to `user.fcm_token`. For reliable iOS incoming calls when app is killed, Apple expects **VoIP Push (PushKit)**. The `flutter_callkit_incoming` plugin supports this, but:
+**Current limitation for iOS calls:** Backend sends incoming calls via **standard FCM data messages** to `user.fcm_token`. For reliable iOS incoming calls when app is killed, Apple expects **VoIP Push (PushKit)**. Client-side PushKit is **implemented** in `AppDelegate.swift` (branch `IOS`); remaining gaps:
 
-1. `AppDelegate.swift` has **no PushKit wiring**
-2. Dart never calls `FlutterCallkitIncoming.getDevicePushTokenVoIP()`
-3. Backend has **no `voip_token` field** — only `fcm_token`
-
-**This is the highest-risk iOS gap for parity with Android call reliability.**
+1. Backend has **no `voip_token` field** — only `fcm_token`
+2. Dart does not yet upload VoIP token to backend (cached locally as `ios_voip_push_token`)
 
 ---
 
@@ -550,7 +572,7 @@ See `docs/secure-session-storage.md`.
 | Platform | ID | Status |
 |----------|-----|--------|
 | Android | `com.munawwaracare.android` | Production |
-| iOS | `com.example.flutterMunawwara` | **Placeholder — must change** |
+| iOS | `com.munawwaracare.ios` | Done (branch `IOS`) |
 
 ### 11.2 Android method channels (implement iOS equivalents where applicable)
 
@@ -594,19 +616,19 @@ See `docs/secure-session-storage.md`.
 | Portrait | Phone portrait only |
 | App icons | `flutter_launcher_icons` with `ios: true` |
 | Scene delegate | `SceneDelegate.swift` (Flutter template) |
-| AppDelegate | **Bare template — no PushKit, no location channel** |
+| AppDelegate | PushKit + CallKit + location channel registered |
 
 ### 12.2 What is missing
 
 | Item | Impact |
 |------|--------|
 | `GoogleService-Info.plist` | Firebase / FCM won't initialize on device |
-| Real bundle ID + signing | Cannot install on device |
-| `.entitlements` (push, background) | Capabilities not enabled |
-| PushKit + VoIP in AppDelegate | Unreliable / broken incoming calls when killed |
-| APNs key in Firebase Console | FCM won't deliver to iOS |
-| Location method channel Swift | Killed-state location won't work |
-| `pod install` on Mac | Required after clone |
+| Real bundle ID + signing | Bundle ID done — Xcode Team signing still needed for device |
+| `.entitlements` (push, background) | Done — `Runner.entitlements` |
+| PushKit + VoIP in AppDelegate | Done (branch `IOS`) |
+| APNs key in Firebase Console | FCM won't deliver to iOS until configured |
+| Location method channel Swift | Done — `LocationChannelHandler.swift` |
+| `pod install` on Mac | Done — use `scripts/pod` wrapper (see Step 3) |
 | Physical device testing | Simulator inadequate for calls / push |
 
 ---
@@ -627,25 +649,25 @@ See `docs/secure-session-storage.md`.
 
 ### Priority 1 — Verify on device
 
-8. FCM token registration (`PUT /api/auth/fcm-token` → 200)
-9. Push notifications (SOS, chat) — requires enrollment + APNs
-10. CallKit incoming calls — foreground first, then background/killed
-11. Tameny tracking → Always location → SLC heartbeat (`source: ios_significant_change` in backend logs)
-12. **`flutter_background_service` iOS** — verify foreground notification while tracking
+1. FCM token registration (`PUT /api/auth/fcm-token` → 200)
+2. Push notifications (SOS, chat) — requires enrollment + APNs
+3. CallKit incoming calls — foreground first, then background/killed
+4. Tameny tracking → Always location → SLC heartbeat (`source: ios_significant_change` in backend logs)
+5. **`flutter_background_service` iOS** — verify foreground notification while tracking
 
 ### Priority 2 — Backend + polish
 
-13. **Backend:** `voip_token` field + upload endpoint (killed-state VoIP calls)
-14. Restrict Agora / Google API keys for `com.munawwaracare.ios`
-15. Test 8 locales + RTL (`ar`, `ur`, `fa`)
-16. Verify `PopScope` on `voice_call_screen.dart` blocks swipe-back during active call
+1. **Backend:** `voip_token` field + upload endpoint (killed-state VoIP calls)
+2. Restrict Agora / Google API keys for `com.munawwaracare.ios`
+3. Test 8 locales + RTL (`ar`, `ur`, `fa`)
+4. Verify `PopScope` on `voice_call_screen.dart` blocks swipe-back during active call
 
 ### Priority 3 — App Store
 
-17. App Store Connect app record, screenshots, privacy nutrition labels
-18. TestFlight internal testing
-19. App Review demo accounts (moderator + fresh pilgrim code)
-20. Privacy policy URL live and matching `docs/privacy-policy.md`
+1. App Store Connect app record, screenshots, privacy nutrition labels
+2. TestFlight internal testing
+3. App Review demo accounts (moderator + fresh pilgrim code)
+4. Privacy policy URL live and matching `docs/privacy-policy.md`
 
 ---
 
@@ -800,8 +822,8 @@ Parallel to `docs/google-play-policy-review.md`:
 | Item | Notes |
 |------|-------|
 | App Privacy labels | Location (precise + background), audio, contact info, health-related fields, device ID |
-| Privacy policy URL | https://saifisvibinn.github.io/munawwara-privacy/ |
-| Support URL / email | munawwaracare@gmail.com |
+| Privacy policy URL | <https://saifisvibinn.github.io/munawwara-privacy/> |
+| Support URL / email | <munawwaracare@gmail.com> |
 | Age rating | Not directed at children under 13 |
 | Demo access | Moderator login + fresh pilgrim QR/code |
 | Background location review notes | Pilgrim safety / SOS / group coordination — cite in-app disclosure |
@@ -943,12 +965,14 @@ Phase 8 — App Store (ongoing)
 | State management? | Riverpod 3 |
 | Voice media? | Agora audio (not WebRTC) |
 | Incoming calls plugin? | Local fork `plugins/flutter_callkit_incoming` |
-| Biggest remaining gap? | Firebase plist + Apple Dev enrollment + push/calls testing |
+| Biggest remaining gap? | Firebase plist + Apple Dev enrollment + device smoke test |
 | Apple enrollment first? | **No** for first run; **yes** before push/killed calls/TestFlight |
 | Which branch? | `IOS` |
+| Repo folder name? | `Munawwara_Care_Flutter` (parent path has a space — disable SPM) |
+| CocoaPods on this Mac? | Use `export PATH="$(pwd)/scripts:$PATH"` then `pod install` |
 | Can I develop on Windows only? | **No** — need Mac for build/sign/device test |
 | First file to edit for calls? | `ios/Runner/AppDelegate.swift` + read `voice-calls-architecture.md` |
-| Support email? | munawwaracare@gmail.com |
+| Support email? | <munawwaracare@gmail.com> |
 | Production API example? | See `.env.example` / `backend-url-setup-guide.md` |
 
 ---

@@ -9,11 +9,20 @@ import '../utils/app_logger.dart';
 
 /// Minimum work before [runApp]: Firebase, localization, env file load.
 Future<void> prepareCoreRuntime() async {
-  await Future.wait<void>([
-    Firebase.initializeApp(),
-    EasyLocalization.ensureInitialized(),
-    dotenv.load(fileName: '.env'),
-  ]);
+  await EasyLocalization.ensureInitialized();
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e, st) {
+    AppLogger.e('[Startup] dotenv.load failed: $e\n$st');
+  }
+
+  try {
+    await Firebase.initializeApp();
+  } catch (e, st) {
+    AppLogger.e('[Startup] Firebase.initializeApp failed: $e\n$st');
+    // Continue without FCM — login/map/chat still work for smoke testing.
+  }
+
   await SecureSessionStore.migrateFromSharedPreferencesIfNeeded();
 }
 

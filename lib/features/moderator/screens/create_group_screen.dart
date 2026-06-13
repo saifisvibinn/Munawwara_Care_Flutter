@@ -295,6 +295,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
         // ── Duration Dates ──
         Text(
           '${'group_stay_duration'.tr()} (${'optional'.tr()})',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontFamily: 'Lexend',
             fontWeight: FontWeight.w600,
@@ -340,18 +342,22 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                         color: AppColors.textMutedLight,
                       ),
                       SizedBox(width: 8.w),
-                      Text(
-                        _checkInDate != null
-                            ? DateFormat('yyyy-MM-dd').format(_checkInDate!)
-                            : 'group_checkin'.tr(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 14.sp,
-                          color: _checkInDate != null
-                              ? (isDark
-                                    ? const Color(0xFFE2E8F0)
-                                    : AppColors.textDark)
-                              : AppColors.textMutedLight,
+                      Expanded(
+                        child: Text(
+                          _checkInDate != null
+                              ? DateFormat('yyyy-MM-dd').format(_checkInDate!)
+                              : 'group_checkin'.tr(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 14.sp,
+                            color: _checkInDate != null
+                                ? (isDark
+                                      ? const Color(0xFFE2E8F0)
+                                      : AppColors.textDark)
+                                : AppColors.textMutedLight,
+                          ),
                         ),
                       ),
                     ],
@@ -396,18 +402,22 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                         color: AppColors.textMutedLight,
                       ),
                       SizedBox(width: 8.w),
-                      Text(
-                        _checkOutDate != null
-                            ? DateFormat('yyyy-MM-dd').format(_checkOutDate!)
-                            : 'group_checkout'.tr(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 14.sp,
-                          color: _checkOutDate != null
-                              ? (isDark
-                                    ? const Color(0xFFE2E8F0)
-                                    : AppColors.textDark)
-                              : AppColors.textMutedLight,
+                      Expanded(
+                        child: Text(
+                          _checkOutDate != null
+                              ? DateFormat('yyyy-MM-dd').format(_checkOutDate!)
+                              : 'group_checkout'.tr(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 14.sp,
+                            color: _checkOutDate != null
+                                ? (isDark
+                                      ? const Color(0xFFE2E8F0)
+                                      : AppColors.textDark)
+                                : AppColors.textMutedLight,
+                          ),
                         ),
                       ),
                     ],
@@ -458,10 +468,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
         // ── Create button ──
         SizedBox(
           width: double.infinity,
-          height: 54.h,
           child: ElevatedButton(
             onPressed: _isLoading ? null : _submit,
-            style: ElevatedButton.styleFrom(),
+            style: ElevatedButton.styleFrom(
+              minimumSize: Size(double.infinity, 54.h),
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+            ),
             child: _isLoading
                 ? SizedBox(
                     width: 22.w,
@@ -473,15 +485,21 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                   )
                 : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Symbols.add, size: 20.w),
                       SizedBox(width: 8.w),
-                      Text(
-                        'create_group_btn'.tr(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15.sp,
+                      Flexible(
+                        child: Text(
+                          'create_group_btn'.tr(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15.sp,
+                          ),
                         ),
                       ),
                     ],
@@ -627,13 +645,17 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                           color: AppColors.primary,
                         ),
                         SizedBox(width: 6.w),
-                        Text(
-                          'create_group_copy_code'.tr(),
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13.sp,
-                            color: AppColors.primary,
+                        Flexible(
+                          child: Text(
+                            'create_group_copy_code'.tr(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13.sp,
+                              color: AppColors.primary,
+                            ),
                           ),
                         ),
                       ],

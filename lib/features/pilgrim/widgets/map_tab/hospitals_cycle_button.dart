@@ -1,6 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import '../../../../core/map/app_map_controller.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -131,7 +131,7 @@ void showHospitalInfo(BuildContext context, HospitalLocation hospital) {
 
 class HospitalsCycleButton extends StatefulWidget {
   final List<HospitalLocation> hospitals;
-  final MapController mapController;
+  final AppMapController mapController;
   final void Function(HospitalLocation) onHospitalSelected;
 
   const HospitalsCycleButton({
@@ -208,11 +208,7 @@ class _HospitalsCycleButtonState extends State<HospitalsCycleButton> {
                             Navigator.pop(ctx);
                             widget.mapController.move(
                               LatLng(hospital.latitude, hospital.longitude),
-                              AppMapTiles.clampMapZoom(
-                                widget.mapController.camera.zoom > 16.0
-                                    ? widget.mapController.camera.zoom
-                                    : 16.5,
-                              ),
+                              AppMapTiles.clampMapZoom(16.5),
                             );
                             widget.onHospitalSelected(hospital);
                           },
