@@ -42,11 +42,7 @@ class AppMapController {
 
   void updateCenter(LatLng center) => _lastCenter = center;
 
-  void move(
-    LatLng center,
-    double zoom, {
-    bool preserveZoom = false,
-  }) {
+  void move(LatLng center, double zoom, {bool preserveZoom = false}) {
     final clamped = AppMapTiles.clampMapZoom(zoom);
     _lastCenter = center;
     if (!kIsWeb && Platform.isIOS && _iosChannel != null) {

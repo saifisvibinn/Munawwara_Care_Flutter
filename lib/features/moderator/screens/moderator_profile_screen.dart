@@ -93,19 +93,19 @@ class _ModeratorProfileScreenState
                     children: [
                       SizedBox(height: 24.h),
                       _ProfileCard(
-                      initials: initials,
-                      fullName: fullName,
-                      isDark: isDark,
-                      cardBg: cardBg,
-                      textPrimary: textPrimary,
-                      textMuted: textMuted,
-                      imageUrl: authState.profilePicture,
-                      onEditTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ModeratorProfileEditScreen(),
+                        initials: initials,
+                        fullName: fullName,
+                        isDark: isDark,
+                        cardBg: cardBg,
+                        textPrimary: textPrimary,
+                        textMuted: textMuted,
+                        imageUrl: authState.profilePicture,
+                        onEditTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ModeratorProfileEditScreen(),
+                          ),
                         ),
                       ),
-                    ),
 
                     SizedBox(height: 28.h),
 
@@ -273,88 +273,106 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppGlassCard(
-      isDark: isDark,
-      padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 16.w),
-      child: Column(
-        children: [
-          Stack(
-            children: [
-              Container(
-                width: 90.w,
-                height: 90.w,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
+    return SizedBox(
+      width: double.infinity,
+      child: AppGlassCard(
+        isDark: isDark,
+        padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 16.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Center(
+              child: SizedBox(
+                width: 88.w,
+                height: 88.w,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 88.w,
+                      height: 88.w,
+                      padding: EdgeInsets.all(3.w),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [AppColors.primary, AppColors.primaryDark],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: ModeratorAvatar(
+                        size: 82.w,
+                        initials: initials,
+                        imageUrl: imageUrl,
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: GestureDetector(
+                        onTap: onEditTap,
+                        child: Container(
+                          padding: EdgeInsets.all(7.w),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.primary,
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.backgroundDark
+                                  : Colors.white,
+                              width: 2.w,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.edit_rounded,
+                            color: Colors.white,
+                            size: 14.sp,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: 16.h),
+            SizedBox(
+              width: double.infinity,
+              child: Text(
+                fullName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 20.sp,
+                  color: textPrimary,
+                ),
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 4.h),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF452D15) : const Color(0xFFFFF2E6),
+                borderRadius: BorderRadius.circular(16.r),
+              ),
+              child: Text(
+                'settings_role_moderator'.tr().toUpperCase(),
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11.sp,
                   color: isDark
-                      ? Colors.white12
-                      : AppColors.primary.withValues(alpha: 0.08),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white24
-                        : AppColors.primary.withValues(alpha: 0.24),
-                    width: 2.w,
-                  ),
-                ),
-                child: Center(
-                  child: ModeratorAvatar(
-                    size: 86.w,
-                    initials: initials,
-                    imageUrl: imageUrl,
-                  ),
+                      ? const Color(0xFFF97316)
+                      : const Color(0xFFC2410C),
                 ),
               ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: GestureDetector(
-                  onTap: onEditTap,
-                  child: Container(
-                    padding: EdgeInsets.all(7.w),
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.primary,
-                    ),
-                    child: Icon(
-                      Icons.edit_rounded,
-                      color: Colors.white,
-                      size: 14.sp,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16.h),
-          Text(
-            fullName,
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontWeight: FontWeight.w800,
-              fontSize: 20.sp,
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
             ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 8.h),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 4.h),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF452D15) : const Color(0xFFFFF2E6),
-              borderRadius: BorderRadius.circular(16.r),
-            ),
-            child: Text(
-              'settings_role_moderator'.tr().toUpperCase(),
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontWeight: FontWeight.w800,
-                fontSize: 11.sp,
-                color: isDark
-                    ? const Color(0xFFF97316)
-                    : const Color(0xFFC2410C),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
