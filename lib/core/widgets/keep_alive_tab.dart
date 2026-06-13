@@ -47,18 +47,26 @@ class DashboardTabPageView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pageView = PageView(
-      clipBehavior: Clip.hardEdge,
-      controller: controller,
-      physics: physics ?? const PageScrollPhysics(),
-      onPageChanged: onPageChanged,
-      children: [
-        for (var i = 0; i < children.length; i++)
-          KeepAliveTab(
-            key: ValueKey<int>(i),
-            child: children[i],
-          ),
-      ],
+    final pageView = NotificationListener<ScrollStartNotification>(
+      onNotification: (notification) {
+        if (notification.depth == 0) {
+          FocusManager.instance.primaryFocus?.unfocus();
+        }
+        return false;
+      },
+      child: PageView(
+        clipBehavior: Clip.hardEdge,
+        controller: controller,
+        physics: physics ?? const PageScrollPhysics(),
+        onPageChanged: onPageChanged,
+        children: [
+          for (var i = 0; i < children.length; i++)
+            KeepAliveTab(
+              key: ValueKey<int>(i),
+              child: children[i],
+            ),
+        ],
+      ),
     );
     final bg = backgroundColor;
     if (bg == null) return pageView;

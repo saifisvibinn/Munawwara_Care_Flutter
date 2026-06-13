@@ -714,11 +714,12 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab>
       color: AppColors.primary,
       onRefresh: _onPullRefresh,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
           20.w,
-          12.h,
+          AppGlassTheme.provisionSubNavScrollPadding(context),
           20.w,
-          AppGlassTheme.bottomNavScrollPadding(context),
+          AppGlassTheme.dashboardScrollBottomPadding(context),
         ),
         children: [
           _buildHeader(context, isDark),
@@ -771,11 +772,12 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab>
       color: AppColors.primary,
       onRefresh: _onPullRefresh,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
           16.w,
-          16.h,
+          AppGlassTheme.provisionSubNavScrollPadding(context),
           16.w,
-          AppGlassTheme.bottomNavScrollPadding(context),
+          AppGlassTheme.dashboardScrollBottomPadding(context),
         ),
         children: [
           _buildHeader(context, isDark),
@@ -875,65 +877,37 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab>
         AppDashboardBackground(
           isDark: isDark,
           child: Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            surfaceTintColor: Colors.transparent,
-            toolbarHeight: 56.h,
+            extendBody: true,
+            resizeToAvoidBottomInset: false,
             backgroundColor: Colors.transparent,
-            titleSpacing: 16.w,
-            centerTitle: true,
-            title: AppGlassSurface(
-              isDark: isDark,
-              borderRadius: BorderRadius.circular(14.r),
-              padding: EdgeInsets.symmetric(horizontal: 8.w),
-              child: TabBar(
-                controller: _provisionTabController,
-                dividerHeight: 0,
-                indicatorSize: TabBarIndicatorSize.label,
-                indicatorWeight: 2,
-                indicatorColor: AppColors.primary,
-                labelColor: AppColors.primary,
-                unselectedLabelColor: isDark
-                    ? AppColors.textMutedLight
-                    : AppColors.textMutedDark,
-                labelStyle: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14.sp,
+            body: Stack(
+              children: [
+                TabBarView(
+                  controller: _provisionTabController,
+                  children: [
+                    _buildProvisionTabBody(
+                      context,
+                      groups: groups,
+                      isLoadingGroups: isLoadingGroups,
+                    ),
+                    _buildTrackerTabBody(
+                      context,
+                      groups: groups,
+                      isLoadingGroups: isLoadingGroups,
+                    ),
+                    const ManagePilgrimsScreen(),
+                  ],
                 ),
-                unselectedLabelStyle: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14.sp,
-                ),
-                tabs: [
-                  Tab(text: 'provision_tab_provision'.tr()),
-                  Tab(text: 'provision_tab_tracker'.tr()),
-                  Tab(text: 'provision_tab_manage'.tr()),
-                ],
-              ),
+                if (!AppGlassTheme.isKeyboardVisible(context))
+                  Positioned(
+                    top: AppGlassTheme.provisionSubNavTopOffset(context),
+                    left: 16.w,
+                    right: 16.w,
+                    child: _buildProvisionSubNav(isDark),
+                  ),
+              ],
             ),
           ),
-          body: TabBarView(
-            controller: _provisionTabController,
-            children: [
-              _buildProvisionTabBody(
-                context,
-                groups: groups,
-                isLoadingGroups: isLoadingGroups,
-              ),
-              _buildTrackerTabBody(
-                context,
-                groups: groups,
-                isLoadingGroups: isLoadingGroups,
-              ),
-              const ManagePilgrimsScreen(),
-            ],
-          ),
-        ),
         ),
         if (_isBulkCapturing)
           Container(
@@ -984,6 +958,46 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab>
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildProvisionSubNav(bool isDark) {
+    return SizedBox(
+      width: double.infinity,
+      child: AppGlassSurface(
+        isDark: isDark,
+        borderRadius: AppGlassTheme.borderRadius,
+        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 6.h),
+        child: TabBar(
+          controller: _provisionTabController,
+          dividerHeight: 0,
+          indicatorSize: TabBarIndicatorSize.tab,
+          indicator: BoxDecoration(
+            borderRadius: BorderRadius.circular(18.r),
+            color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.1),
+          ),
+          labelColor: AppColors.primary,
+          unselectedLabelColor:
+              isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
+          labelStyle: TextStyle(
+            fontFamily: 'Lexend',
+            fontWeight: FontWeight.w800,
+            fontSize: 13.sp,
+          ),
+          unselectedLabelStyle: TextStyle(
+            fontFamily: 'Lexend',
+            fontWeight: FontWeight.w600,
+            fontSize: 13.sp,
+          ),
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          splashFactory: NoSplash.splashFactory,
+          tabs: [
+            Tab(text: 'provision_tab_provision'.tr()),
+            Tab(text: 'provision_tab_tracker'.tr()),
+            Tab(text: 'provision_tab_manage'.tr()),
+          ],
+        ),
+      ),
     );
   }
 

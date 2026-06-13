@@ -512,7 +512,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
           16.w,
-          AppGlassTheme.floatingBottomBarHeight(context) + 8.h,
+          AppGlassTheme.dashboardScrollBottomPadding(context),
           16.w,
           12.h,
         ),

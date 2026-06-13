@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:convert';
 import 'dart:ui' as ui;
 
@@ -33,6 +32,7 @@ import '../../../core/map/app_map_tiles.dart';
 import '../../../core/map/widgets/app_platform_map.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_popup_menu.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../providers/moderator_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/providers/call_provider.dart';
@@ -77,23 +77,17 @@ class GroupManagementScreen extends ConsumerStatefulWidget {
       _GroupManagementScreenState();
 }
 
-class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
+class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
+    with WidgetsBindingObserver {
   final _mapController = createAppMapController();
   final _dssController = DraggableScrollableController();
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   final ValueNotifier<double> _sheetExtent = ValueNotifier(0.28);
   String _searchQuery = '';
+  double? _sheetExtentBeforeKeyboard;
 
   bool get isDark => Theme.of(context).brightness == Brightness.dark;
-
-  bool _shouldStackSheetActions(
-    BuildContext context, {
-    double? maxWidth,
-  }) {
-    final textScale = MediaQuery.textScalerOf(context).scale(1);
-    final width = maxWidth ?? MediaQuery.sizeOf(context).width;
-    return textScale > 1.15 || width < 300;
-  }
 
   double _sheetMinExtent(
     BuildContext context, {
@@ -101,10 +95,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
   }) {
     final screenH = MediaQuery.sizeOf(context).height;
     if (screenH <= 0) return 0.22;
-    final stacked = _shouldStackSheetActions(context);
-    final titleBlock = stacked ? 84.h : 54.h;
-    final header = 24.h + titleBlock + 60.h + (hasMeetpoint ? 90.h : 0);
-    return (header / screenH + 0.025).clamp(0.20, 0.72);
+    final titleBlock = 44.h;
+    final header = 16.h + titleBlock + 52.h + (hasMeetpoint ? 82.h : 0);
+    return (header / screenH + 0.02).clamp(0.18, 0.72);
   }
 
   List<double> _sheetSnapSizes(double minExtent) {
@@ -123,6 +116,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Synchronously restore from Riverpod (survives hot reload, no flicker)
     _navBeaconEnabled = _navBeaconCache[widget.groupId] ?? false;
     _initLocation();
@@ -132,6 +126,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     _searchController.addListener(() {
       if (mounted) setState(() => _searchQuery = _searchController.text);
     });
+    _searchFocusNode.addListener(_onSearchFocusChanged);
     // Load suggested areas & meetpoints
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(suggestedAreaProvider.notifier).load(widget.groupId);
@@ -219,8 +214,65 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     }
   }
 
+  void _onSearchFocusChanged() {
+    if (!mounted || !_dssController.isAttached) return;
+    if (_searchFocusNode.hasFocus) {
+      _sheetExtentBeforeKeyboard = _sheetExtent.value;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _syncSheetWithKeyboard();
+      });
+      return;
+    }
+    final restore = _sheetExtentBeforeKeyboard;
+    _sheetExtentBeforeKeyboard = null;
+    if (restore != null && _dssController.size > restore + 0.01) {
+      unawaited(
+        _dssController.animateTo(
+          restore,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        ),
+      );
+    }
+  }
+
+  void _syncSheetWithKeyboard() {
+    if (!mounted || !_searchFocusNode.hasFocus || !_dssController.isAttached) {
+      return;
+    }
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    if (keyboard <= 0) return;
+    final areaState = _scopedAreaState(ref.read(suggestedAreaProvider));
+    final minExtent = _sheetMinExtent(
+      context,
+      hasMeetpoint: areaState.activeMeetpoint != null,
+    );
+    final screenH = MediaQuery.sizeOf(context).height;
+    if (screenH <= 0) return;
+    final target = ((keyboard + 148.h) / screenH).clamp(minExtent, 0.72);
+    if (_dssController.size < target - 0.015) {
+      unawaited(
+        _dssController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        ),
+      );
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (mounted && _searchFocusNode.hasFocus) {
+      _syncSheetWithKeyboard();
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _searchFocusNode.removeListener(_onSearchFocusChanged);
+    _searchFocusNode.dispose();
     _mapController.dispose();
     _dssController.dispose();
     _searchController.dispose();
@@ -1445,6 +1497,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
 
   /// Recenter button — positioned above the bottom sheet at any snap height.
   Widget _buildMapControls() {
+    if (AppGlassTheme.isKeyboardVisible(context)) {
+      return const SizedBox.shrink();
+    }
     final hasLocation = _myLocation != null;
     return ValueListenableBuilder<double>(
       valueListenable: _sheetExtent,
@@ -1471,24 +1526,12 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                     );
                   }
                 },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
+                child: AppGlassSurface(
+                  isDark: isDark,
+                  borderRadius: BorderRadius.circular(24.r),
                   padding: EdgeInsets.symmetric(
                     horizontal: 14.w,
                     vertical: 10.h,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.surfaceDark : Colors.white,
-                    borderRadius: BorderRadius.circular(24.r),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(
-                          alpha: isDark ? 0.35 : 0.12,
-                        ),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1553,8 +1596,6 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     );
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final group = ref
@@ -1590,6 +1631,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
     ];
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           AppPlatformMap(
@@ -1671,23 +1713,12 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                         onTap: () => Navigator.of(context).pop(),
                       ),
                     ),
-                    Container(
+                    AppGlassSurface(
+                      isDark: isDark,
+                      borderRadius: BorderRadius.circular(14.r),
                       padding: EdgeInsets.symmetric(
                         horizontal: 14.w,
                         vertical: 10.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppColors.surfaceDark : Colors.white,
-                        borderRadius: BorderRadius.circular(14.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(
-                              alpha: isDark ? 0.3 : 0.08,
-                            ),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1753,117 +1784,83 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
               child: SizedBox(
                 width: 40.w,
                 height: 40.w,
-                child: PopupMenuButton<String>(
-                  tooltip: '',
-                  padding: EdgeInsets.zero,
-                  offset: AppPopupMenu.offsetBelowCircular40,
-                  shape: AppPopupMenu.panelShape(),
-                  constraints: AppPopupMenu.panelConstraints(),
-                  color: AppPopupMenu.panelColor(isDark),
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'nav':
-                        _toggleNavBeacon(group);
-                      case 'manage':
-                        _showManageSheet(group);
-                      case 'logistics':
-                        _openLogisticsScreen(group);
-                      case 'attendance':
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => BusAttendanceScreen(
-                              groupId: group.id,
-                              groupName: group.groupName,
-                            ),
+                child: AppGlassPopupMenuAnchor<String>(
+                isDark: isDark,
+                semanticLabel: 'group_menu_manage'.tr(),
+                constraints: AppPopupMenu.panelConstraints(),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'nav':
+                      _toggleNavBeacon(group);
+                    case 'manage':
+                      _showManageSheet(group);
+                    case 'logistics':
+                      _openLogisticsScreen(group);
+                    case 'attendance':
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => BusAttendanceScreen(
+                            groupId: group.id,
+                            groupName: group.groupName,
                           ),
-                        );
-                      case 'areas':
-                        _showAreaActions(group, areaState);
-                      case 'leave':
-                        _handleLeaveGroup(group);
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    PopupMenuItem(
-                      value: 'nav',
-                      child: AppPopupMenu.actionRow(
-                        icon: Symbols.navigation,
-                        label: _navBeaconEnabled
-                            ? 'group_menu_disable_beacon'.tr()
-                            : 'group_menu_enable_beacon'.tr(),
-                        isDark: isDark,
-                        iconColor: _navBeaconEnabled
-                            ? AppColors.primary
-                            : (isDark
-                                  ? Colors.white70
-                                  : AppColors.textMutedLight),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'manage',
-                      child: AppPopupMenu.actionRow(
-                        icon: Symbols.settings,
-                        label: 'group_menu_manage'.tr(),
-                        isDark: isDark,
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'logistics',
-                      child: AppPopupMenu.actionRow(
-                        icon: Symbols.domain,
-                        label: 'group_menu_logistics'.tr(),
-                        isDark: isDark,
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'attendance',
-                      child: AppPopupMenu.actionRow(
-                        icon: Symbols.fact_check,
-                        label: 'attendance_title'.tr(),
-                        isDark: isDark,
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'areas',
-                      child: AppPopupMenu.actionRow(
-                        icon: Symbols.pin_drop,
-                        label: 'group_menu_areas'.tr(),
-                        isDark: isDark,
-                      ),
-                    ),
-                    const PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: 'leave',
-                      child: AppPopupMenu.actionRow(
-                        icon: Symbols.exit_to_app,
-                        label: 'group_leave_option'.tr(),
-                        isDark: isDark,
-                        destructive: true,
-                      ),
-                    ),
-                  ],
-                  child: Container(
-                    width: 40.w,
-                    height: 40.w,
-                    decoration: BoxDecoration(
-                      color: isDark ? AppColors.surfaceDark : Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(
-                            alpha: isDark ? 0.3 : 0.10,
-                          ),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
                         ),
-                      ],
-                    ),
-                    child: Icon(
-                      Symbols.more_vert,
-                      size: 22.w,
-                      color: isDark ? Colors.white : AppColors.textDark,
-                    ),
+                      );
+                    case 'areas':
+                      _showAreaActions(group, areaState);
+                    case 'leave':
+                      _handleLeaveGroup(group);
+                  }
+                },
+                items: [
+                  AppGlassPopupMenuItem(
+                    value: 'nav',
+                    icon: Symbols.navigation,
+                    label: _navBeaconEnabled
+                        ? 'group_menu_disable_beacon'.tr()
+                        : 'group_menu_enable_beacon'.tr(),
+                    iconColor: _navBeaconEnabled
+                        ? AppColors.primary
+                        : (isDark ? Colors.white70 : AppColors.textMutedLight),
                   ),
+                  AppGlassPopupMenuItem(
+                    value: 'manage',
+                    icon: Symbols.settings,
+                    label: 'group_menu_manage'.tr(),
+                  ),
+                  AppGlassPopupMenuItem(
+                    value: 'logistics',
+                    icon: Symbols.domain,
+                    label: 'group_menu_logistics'.tr(),
+                  ),
+                  AppGlassPopupMenuItem(
+                    value: 'attendance',
+                    icon: Symbols.fact_check,
+                    label: 'attendance_title'.tr(),
+                  ),
+                  AppGlassPopupMenuItem(
+                    value: 'areas',
+                    icon: Symbols.pin_drop,
+                    label: 'group_menu_areas'.tr(),
+                  ),
+                  const AppGlassPopupMenuItem<String>.divider(),
+                  AppGlassPopupMenuItem(
+                    value: 'leave',
+                    icon: Symbols.exit_to_app,
+                    label: 'group_leave_option'.tr(),
+                    destructive: true,
+                  ),
+                ],
+                child: AppGlassSurface(
+                  isDark: isDark,
+                  borderRadius: BorderRadius.circular(20.r),
+                  width: 40.w,
+                  height: 40.w,
+                  child: Icon(
+                    Symbols.more_vert,
+                    size: 22.w,
+                    color: isDark ? Colors.white : AppColors.textDark,
+                  ),
+                ),
                 ),
               ),
             ),
@@ -1886,33 +1883,23 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                     maxChildSize: 0.72,
                     snap: true,
                     snapSizes: sheetSnapSizes,
-                    builder: (ctx, scrollController) => DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.surfaceDark : Colors.white,
+                    builder: (ctx, scrollController) => ClipRRect(
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(24.r),
+                  ),
+                  child: AppGlassSurface(
+                    isDark: isDark,
                     borderRadius: BorderRadius.vertical(
                       top: Radius.circular(24.r),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(
-                          alpha: isDark ? 0.3 : 0.08,
-                        ),
-                        blurRadius: 16,
-                        offset: const Offset(0, -4),
-                      ),
-                    ],
-                  ),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final maxHeaderHeight = math.max(
-                        0.0,
-                        constraints.maxHeight - 36.h,
-                      );
-
-                      return Column(
+                    padding: EdgeInsets.zero,
+                    child: Column(
                     children: [
                       GestureDetector(
                         behavior: HitTestBehavior.translucent,
+                        onVerticalDragStart: (_) {
+                          FocusManager.instance.primaryFocus?.unfocus();
+                        },
                         onVerticalDragUpdate: (details) {
                           if (_dssController.isAttached) {
                             final screenHeight =
@@ -1969,19 +1956,14 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                             );
                           }
                         },
-                        child: ConstrainedBox(
-                          constraints:
-                              BoxConstraints(maxHeight: maxHeaderHeight),
-                          child: SingleChildScrollView(
-                            physics: const ClampingScrollPhysics(),
-                            child: Column(
+                        child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             // Drag handle
                             Center(
                               child: Padding(
                                 padding:
-                                    EdgeInsets.only(top: 12.h, bottom: 8.h),
+                                    EdgeInsets.only(top: 8.h, bottom: 4.h),
                                 child: Container(
                                   width: 36.w,
                                   height: 4.h,
@@ -1997,202 +1979,135 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                             // Sheet header
                             Padding(
                               padding:
-                                  EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final stackActions =
-                                      _shouldStackSheetActions(
-                                    context,
-                                    maxWidth: constraints.maxWidth,
-                                  );
-
-                                  final title = Text(
-                                        group.totalPilgrims == 0
-                                            ? 'group_no_pilgrims'.tr()
-                                            : 'group_pilgrims_count'.tr(
-                                                args: [
-                                                  group.totalPilgrims.toString(),
-                                                ],
-                                              ),
-                                        style: TextStyle(
-                                          fontFamily: 'Lexend',
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 15.sp,
-                                          color: isDark
-                                              ? Colors.white
-                                              : AppColors.textDark,
+                                  EdgeInsets.fromLTRB(16.w, 0, 16.w, 6.h),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      group.totalPilgrims == 0
+                                          ? 'group_no_pilgrims'.tr()
+                                          : 'group_pilgrims_count'.tr(
+                                              args: [
+                                                group.totalPilgrims
+                                                    .toString(),
+                                              ],
+                                            ),
+                                      style: TextStyle(
+                                        fontFamily: 'Lexend',
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 15.sp,
+                                        color: isDark
+                                            ? Colors.white
+                                            : AppColors.textDark,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8.w),
+                                  GestureDetector(
+                                    onTap: () =>
+                                        Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => GroupMessagesScreen(
+                                          groupId: group.id,
+                                          groupName: group.groupName,
+                                          currentUserId: widget.currentUserId,
                                         ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      );
-
-                                      final actions = Row(
+                                      ),
+                                    ),
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 12.w,
+                                        vertical: 8.h,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? AppColors.primary
+                                                .withValues(alpha: 0.12)
+                                            : const Color(0xFFFFF3EC),
+                                        borderRadius:
+                                            BorderRadius.circular(20.r),
+                                        border: Border.all(
+                                          color: isDark
+                                              ? AppColors.primary
+                                                  .withValues(alpha: 0.4)
+                                              : const Color(0xFFF5C4A0),
+                                          width: 0.5,
+                                        ),
+                                      ),
+                                      child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          GestureDetector(
-                                            onTap: () =>
-                                                Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    GroupMessagesScreen(
-                                                  groupId: group.id,
-                                                  groupName: group.groupName,
-                                                  currentUserId:
-                                                      widget.currentUserId,
-                                                ),
-                                              ),
-                                            ),
-                                            child: Container(
-                                              padding: EdgeInsets.symmetric(
-                                                horizontal: 12.w,
-                                                vertical: 8.h,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: isDark
-                                                    ? AppColors.primary
-                                                        .withValues(alpha: 0.12)
-                                                    : const Color(0xFFFFF3EC),
-                                                borderRadius:
-                                                    BorderRadius.circular(20.r),
-                                                border: Border.all(
-                                                  color: isDark
-                                                      ? AppColors.primary
-                                                          .withValues(alpha: 0.4)
-                                                      : const Color(0xFFF5C4A0),
-                                                  width: 0.5,
-                                                ),
-                                              ),
-                                              child: ConstrainedBox(
-                                                constraints: BoxConstraints(
-                                                  maxWidth: 112.w,
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Icon(
-                                                      Symbols.chat_bubble,
-                                                      size: 16.w,
-                                                      color: isDark
-                                                          ? AppColors.primary
-                                                          : const Color(
-                                                              0xFFC0450A,
-                                                            ),
-                                                    ),
-                                                    SizedBox(width: 6.w),
-                                                    Expanded(
-                                                      child: Text(
-                                                        'group_menu_chat'.tr(),
-                                                        maxLines: 1,
-                                                        overflow:
-                                                            TextOverflow.ellipsis,
-                                                        style: TextStyle(
-                                                          fontFamily: 'Lexend',
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          fontSize: 13.sp,
-                                                          color: isDark
-                                                              ? AppColors.primary
-                                                              : const Color(
-                                                                  0xFFC0450A,
-                                                                ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
+                                          Icon(
+                                            Symbols.chat_bubble,
+                                            size: 16.w,
+                                            color: isDark
+                                                ? AppColors.primary
+                                                : const Color(0xFFC0450A),
                                           ),
-                                          if (group.sosCount > 0) ...[
-                                            SizedBox(width: 8.w),
-                                            Container(
-                                              padding: EdgeInsets.symmetric(
-                                                horizontal: 8.w,
-                                                vertical: 4.h,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFFFF1F2),
-                                                borderRadius:
-                                                    BorderRadius.circular(
-                                                  100.r,
-                                                ),
-                                                border: Border.all(
-                                                  color: const Color(
-                                                    0xFFFFE4E6,
-                                                  ),
-                                                ),
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(
-                                                    Symbols.warning,
-                                                    size: 12.w,
-                                                    color: const Color(
-                                                      0xFFDC2626,
-                                                    ),
-                                                    fill: 1,
-                                                  ),
-                                                  SizedBox(width: 3.w),
-                                                  Flexible(
-                                                    child: Text(
-                                                      '${group.sosCount} SOS',
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: TextStyle(
-                                                        fontFamily: 'Lexend',
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        fontSize: 11.sp,
-                                                        color: const Color(
-                                                          0xFFDC2626,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      );
-
-                                      if (stackActions) {
-                                        return Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.stretch,
-                                          children: [
-                                            title,
-                                            SizedBox(height: 8.h),
-                                            Align(
-                                              alignment: AlignmentDirectional
-                                                  .centerEnd,
-                                              child: actions,
-                                            ),
-                                          ],
-                                        );
-                                      }
-
-                                      return Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: [
-                                          Expanded(child: title),
-                                          SizedBox(width: 8.w),
-                                          Flexible(
-                                            fit: FlexFit.loose,
-                                            child: SingleChildScrollView(
-                                              scrollDirection: Axis.horizontal,
-                                              reverse: true,
-                                              child: actions,
+                                          SizedBox(width: 6.w),
+                                          Text(
+                                            'group_menu_chat'.tr(),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontFamily: 'Lexend',
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13.sp,
+                                              color: isDark
+                                                  ? AppColors.primary
+                                                  : const Color(0xFFC0450A),
                                             ),
                                           ),
                                         ],
-                                      );
-                                    },
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  if (group.sosCount > 0) ...[
+                                    SizedBox(width: 8.w),
+                                    Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 8.w,
+                                        vertical: 4.h,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFF1F2),
+                                        borderRadius:
+                                            BorderRadius.circular(100.r),
+                                        border: Border.all(
+                                          color: const Color(0xFFFFE4E6),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Symbols.warning,
+                                            size: 12.w,
+                                            color: const Color(0xFFDC2626),
+                                            fill: 1,
+                                          ),
+                                          SizedBox(width: 3.w),
+                                          Text(
+                                            '${group.sosCount} SOS',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontFamily: 'Lexend',
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 11.sp,
+                                              color: const Color(0xFFDC2626),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
                                 // Active Meetpoint Card (if exists)
                                 if (areaState.activeMeetpoint != null)
                                   Padding(
@@ -2222,73 +2137,74 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                                 Padding(
                                   padding: EdgeInsets.symmetric(
                                     horizontal: 12.w,
-                                    vertical: 10.h,
+                                    vertical: 6.h,
                                   ),
-                                  child: Container(
-                                    height: 40.h,
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? Colors.white.withValues(alpha: 0.06)
-                                          : const Color(0xFFF7F8FC),
-                                      borderRadius: BorderRadius.circular(10.r),
-                                      border: Border.all(
-                                        color: isDark
-                                            ? Colors.white.withValues(alpha: 0.12)
-                                            : const Color(0x0D000000),
-                                        width: 0.5,
-                                      ),
-                                    ),
-                                    child: TextField(
-                                      controller: _searchController,
-                                      style: TextStyle(
-                                        fontFamily: 'Lexend',
-                                        fontSize: 13.sp,
-                                        color: isDark
-                                            ? Colors.white
-                                            : AppColors.textDark,
-                                      ),
-                                      decoration: InputDecoration(
-                                        hintText: 'group_search_hint'.tr(),
-                                        hintStyle: TextStyle(
+                                  child: AppGlassSurface(
+                                    isDark: isDark,
+                                    borderRadius: BorderRadius.circular(12.r),
+                                    padding: EdgeInsets.zero,
+                                    child: SizedBox(
+                                      height: 44.h,
+                                      child: TextField(
+                                        controller: _searchController,
+                                        focusNode: _searchFocusNode,
+                                        style: TextStyle(
                                           fontFamily: 'Lexend',
                                           fontSize: 13.sp,
                                           color: isDark
-                                              ? Colors.white.withValues(alpha: 0.38)
-                                              : AppColors.textMutedLight,
+                                              ? Colors.white
+                                              : AppColors.textDark,
                                         ),
-                                        prefixIcon: Icon(
-                                          Symbols.search,
-                                          size: 18.w,
-                                          color: isDark
-                                              ? Colors.white.withValues(alpha: 0.54)
-                                              : AppColors.textMutedLight,
-                                        ),
-                                        suffixIcon: _searchQuery.isNotEmpty
-                                            ? IconButton(
-                                                icon: Icon(
-                                                  Symbols.close,
-                                                  size: 16.w,
-                                                  color: isDark
-                                                      ? Colors.white.withValues(alpha: 0.54)
-                                                      : AppColors.textMutedLight,
-                                                ),
-                                                onPressed: () {
-                                                  _searchController.clear();
-                                                  setState(() => _searchQuery = '');
-                                                },
-                                              )
-                                            : null,
-                                        border: InputBorder.none,
-                                        contentPadding: EdgeInsets.symmetric(
-                                          vertical: 11.h,
+                                        decoration: InputDecoration(
+                                          hintText: 'group_search_hint'.tr(),
+                                          hintStyle: TextStyle(
+                                            fontFamily: 'Lexend',
+                                            fontSize: 13.sp,
+                                            color: isDark
+                                                ? Colors.white
+                                                    .withValues(alpha: 0.38)
+                                                : AppColors.textMutedLight,
+                                          ),
+                                          prefixIcon: Icon(
+                                            Symbols.search,
+                                            size: 18.w,
+                                            color: isDark
+                                                ? Colors.white
+                                                    .withValues(alpha: 0.54)
+                                                : AppColors.textMutedLight,
+                                          ),
+                                          suffixIcon: _searchQuery.isNotEmpty
+                                              ? IconButton(
+                                                  icon: Icon(
+                                                    Symbols.close,
+                                                    size: 16.w,
+                                                    color: isDark
+                                                        ? Colors.white
+                                                            .withValues(
+                                                              alpha: 0.54,
+                                                            )
+                                                        : AppColors
+                                                            .textMutedLight,
+                                                  ),
+                                                  onPressed: () {
+                                                    _searchController.clear();
+                                                    setState(
+                                                      () => _searchQuery = '',
+                                                    );
+                                                  },
+                                                )
+                                              : null,
+                                          border: InputBorder.none,
+                                          contentPadding:
+                                              EdgeInsets.symmetric(
+                                            vertical: 11.h,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
                                 ),
                           ],
-                            ),
-                          ),
                         ),
                       ),
                       Expanded(
@@ -2307,8 +2223,13 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                               )
                             : ListView.builder(
                                 controller: scrollController,
-                                padding:
-                                    EdgeInsets.fromLTRB(12.w, 0, 12.w, 24.h),
+                                padding: EdgeInsets.fromLTRB(
+                                  12.w,
+                                  0,
+                                  12.w,
+                                  24.h +
+                                      MediaQuery.viewInsetsOf(ctx).bottom,
+                                ),
                                 itemCount: filtered.length,
                                 itemBuilder: (ctx, i) {
                                   final p = filtered[i];
@@ -2376,12 +2297,11 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
                               ),
                       ),
                     ],
-                      );
-                    },
                   ),
                 ),
-              ), // DraggableScrollableSheet
-            ), // NotificationListener
+              ), // ClipRRect
+            ), // DraggableScrollableSheet
+          ), // NotificationListener
                 ValueListenableBuilder<double>(
                   valueListenable: _sheetExtent,
                   builder: (context, extent, _) {

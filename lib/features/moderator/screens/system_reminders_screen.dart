@@ -48,6 +48,9 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
   @override
   void didUpdateWidget(covariant SystemRemindersScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.isTabActive && !widget.isTabActive) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
     if (oldWidget.isTabActive != widget.isTabActive) {
       _syncRefreshTimer();
       if (widget.isTabActive) {
@@ -78,6 +81,9 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
 
   void _onAudienceTabChanged() {
     if (!mounted) return;
+    if (_audienceTabController.indexIsChanging) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
     final i = _audienceTabController.index;
     if (i == _targetAudienceIndex) return;
     setState(() => _targetAudienceIndex = i);
@@ -288,7 +294,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
             20.w,
             12.h,
             20.w,
-            AppGlassTheme.bottomNavScrollPadding(context),
+            AppGlassTheme.dashboardScrollBottomPadding(context),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

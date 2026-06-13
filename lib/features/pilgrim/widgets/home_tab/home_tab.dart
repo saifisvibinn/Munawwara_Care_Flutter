@@ -260,7 +260,7 @@ class PilgrimHomeTab extends StatelessWidget {
                     SliverToBoxAdapter(child: _homeBody(group)),
                     SliverPadding(
                       padding: EdgeInsets.only(
-                        bottom: AppGlassTheme.bottomNavScrollPadding(context),
+                        bottom: AppGlassTheme.dashboardScrollBottomPadding(context),
                       ),
                     ),
                   ],

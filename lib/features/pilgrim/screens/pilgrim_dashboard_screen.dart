@@ -1036,6 +1036,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             (_pageController.page?.round() ?? _currentTab) == index)) {
       return;
     }
+    FocusManager.instance.primaryFocus?.unfocus();
     if (!_pageController.hasClients) {
       final previousTab = _currentTab;
       setState(() {
@@ -1846,6 +1847,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       },
       child: Scaffold(
         extendBody: true,
+        resizeToAvoidBottomInset: false,
         backgroundColor: Colors.transparent,
         body: Stack(
           children: [
@@ -1905,16 +1907,17 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                 ),
               ],
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: AppGlassTheme.floatingBottomBarBottomOffset(context),
-              child: PilgrimBottomNav(
-                currentIndex: _currentTab,
-                onTap: (index) => _goToTab(index, animate: false),
-                unreadMessages: ref.watch(messageProvider).unreadCount,
+            if (!AppGlassTheme.isKeyboardVisible(context))
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: AppGlassTheme.floatingBottomBarBottomOffset(context),
+                child: PilgrimBottomNav(
+                  currentIndex: _currentTab,
+                  onTap: (index) => _goToTab(index, animate: false),
+                  unreadMessages: ref.watch(messageProvider).unreadCount,
+                ),
               ),
-            ),
           ],
         ),
       ),

@@ -16,6 +16,7 @@ import '../../../core/map/app_map_tiles.dart';
 import '../../../core/map/widgets/app_platform_map.dart';
 import '../../../core/services/location_permission_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/widgets/map_circle_fab.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
@@ -46,11 +47,13 @@ class ModeratorGroupMapScreen extends ConsumerStatefulWidget {
 }
 
 class _ModeratorGroupMapScreenState
-    extends ConsumerState<ModeratorGroupMapScreen> {
+    extends ConsumerState<ModeratorGroupMapScreen> with WidgetsBindingObserver {
   final _mapController = createAppMapController();
   final _dssController = DraggableScrollableController();
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   String _searchQuery = '';
+  double? _sheetExtentBeforeKeyboard;
 
   LatLng? _myLocation;
   StreamSubscription<Position>? _locationSub;
@@ -59,16 +62,72 @@ class _ModeratorGroupMapScreenState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initLocation();
     _searchController.addListener(() {
       if (mounted) {
         setState(() => _searchQuery = _searchController.text.toLowerCase());
       }
     });
+    _searchFocusNode.addListener(_onSearchFocusChanged);
+  }
+
+  void _onSearchFocusChanged() {
+    if (!mounted || !_dssController.isAttached) return;
+    if (_searchFocusNode.hasFocus) {
+      _sheetExtentBeforeKeyboard = _dssController.size;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _syncSheetWithKeyboard();
+      });
+      return;
+    }
+    final restore = _sheetExtentBeforeKeyboard;
+    _sheetExtentBeforeKeyboard = null;
+    if (restore != null && _dssController.size > restore + 0.01) {
+      unawaited(
+        _dssController.animateTo(
+          restore,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        ),
+      );
+    }
+  }
+
+  void _syncSheetWithKeyboard() {
+    if (!mounted || !_searchFocusNode.hasFocus || !_dssController.isAttached) {
+      return;
+    }
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    if (keyboard <= 0) return;
+    final screenH = MediaQuery.sizeOf(context).height;
+    if (screenH <= 0) return;
+    const minExtent = 0.1;
+    const maxExtent = 0.7;
+    final target = ((keyboard + 148.h) / screenH).clamp(minExtent, maxExtent);
+    if (_dssController.size < target - 0.015) {
+      unawaited(
+        _dssController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        ),
+      );
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (mounted && _searchFocusNode.hasFocus) {
+      _syncSheetWithKeyboard();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _searchFocusNode.removeListener(_onSearchFocusChanged);
+    _searchFocusNode.dispose();
     _mapController.dispose();
     _dssController.dispose();
     _searchController.dispose();
@@ -276,6 +335,7 @@ class _ModeratorGroupMapScreenState
     );
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           AppPlatformMap(
@@ -331,48 +391,20 @@ class _ModeratorGroupMapScreenState
                 padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 0),
                 child: Row(
                   children: [
-                    // Back button
-                    GestureDetector(
+                    CircleButton(
+                      icon: Symbols.arrow_back,
+                      matchTextDirection: true,
                       onTap: () => Navigator.of(context).pop(),
-                      child: Container(
-                        width: 42.w,
-                        height: 42.w,
-                        decoration: BoxDecoration(
-                          color: isDark ? AppColors.surfaceDark : Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          Symbols.arrow_back,
-                          size: 20.w,
-                          color: isDark ? Colors.white : AppColors.textDark,
-                        ),
-                      ),
                     ),
                     SizedBox(width: 10.w),
                     // Group name card
                     Flexible(
-                      child: Container(
+                      child: AppGlassSurface(
+                        isDark: isDark,
+                        borderRadius: BorderRadius.circular(14.r),
                         padding: EdgeInsets.symmetric(
                           horizontal: 14.w,
                           vertical: 10.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppColors.surfaceDark : Colors.white,
-                          borderRadius: BorderRadius.circular(14.r),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.08),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -482,18 +514,19 @@ class _ModeratorGroupMapScreenState
           ),
 
           // ── Right-side FABs ──
-          Positioned(
-            right: 14.w,
-            bottom: 220.h,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                MapCircleFab(icon: Symbols.my_location, onTap: _centerOnMe),
-                SizedBox(height: 10.h),
-                MapCircleFab(icon: Symbols.group, onTap: _centerOnGroup),
-              ],
+          if (!AppGlassTheme.isKeyboardVisible(context))
+            Positioned(
+              right: 14.w,
+              bottom: 220.h,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  MapCircleFab(icon: Symbols.my_location, onTap: _centerOnMe),
+                  SizedBox(height: 10.h),
+                  MapCircleFab(icon: Symbols.group, onTap: _centerOnGroup),
+                ],
+              ),
             ),
-          ),
 
           // ── Pilgrim list sheet ──
           DraggableScrollableSheet(
@@ -503,20 +536,22 @@ class _ModeratorGroupMapScreenState
             maxChildSize: 0.7,
             snap: true,
             snapSizes: const [0.1, 0.28, 0.7],
-            builder: (ctx, scrollController) => Container(
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceDark : Colors.white,
+            builder: (ctx, scrollController) => ClipRRect(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+              child: AppGlassSurface(
+                isDark: isDark,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: Column(
+                padding: EdgeInsets.zero,
+                child: Column(
                 children: [
+                  GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onVerticalDragStart: (_) {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                   // Drag handle
                   Padding(
                     padding: EdgeInsets.only(top: 12.h, bottom: 8.h),
@@ -591,44 +626,52 @@ class _ModeratorGroupMapScreenState
                   // Search bar
                   Padding(
                     padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
-                    child: Container(
-                      height: 40.h,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.backgroundDark
-                            : const Color(0xFFF0F0F8),
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 13.sp,
-                          color: isDark ? Colors.white : AppColors.textDark,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Search pilgrims...',
-                          hintStyle: TextStyle(
+                    child: AppGlassSurface(
+                      isDark: isDark,
+                      borderRadius: BorderRadius.circular(12.r),
+                      padding: EdgeInsets.zero,
+                      child: SizedBox(
+                        height: 44.h,
+                        child: TextField(
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          style: TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 13.sp,
-                            color: AppColors.textMutedLight,
+                            color: isDark ? Colors.white : AppColors.textDark,
                           ),
-                          prefixIcon: Icon(
-                            Symbols.search,
-                            size: 18.w,
-                            color: AppColors.textMutedLight,
+                          decoration: InputDecoration(
+                            hintText: 'Search pilgrims...',
+                            hintStyle: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 13.sp,
+                              color: AppColors.textMutedLight,
+                            ),
+                            prefixIcon: Icon(
+                              Symbols.search,
+                              size: 18.w,
+                              color: AppColors.textMutedLight,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 11.h),
                           ),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 11.h),
                         ),
                       ),
+                    ),
+                  ),
+                      ],
                     ),
                   ),
                   // Pilgrim list
                   Expanded(
                     child: ListView.builder(
                       controller: scrollController,
-                      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
+                      padding: EdgeInsets.fromLTRB(
+                        16.w,
+                        0,
+                        16.w,
+                        24.h + MediaQuery.viewInsetsOf(ctx).bottom,
+                      ),
                       itemCount: _filteredPilgrims.length,
                       itemBuilder: (ctx, i) =>
                           _PilgrimListTile(pilgrim: _filteredPilgrims[i]),
@@ -637,6 +680,7 @@ class _ModeratorGroupMapScreenState
                 ],
               ),
             ),
+          ),
           ),
         ],
       ),

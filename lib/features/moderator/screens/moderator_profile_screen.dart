@@ -86,7 +86,7 @@ class _ModeratorProfileScreenState
                     20.w,
                     0,
                     20.w,
-                    AppGlassTheme.bottomNavScrollPadding(context),
+                    AppGlassTheme.dashboardScrollBottomPadding(context),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

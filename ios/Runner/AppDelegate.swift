@@ -4,6 +4,7 @@ import Flutter
 import PushKit
 import UIKit
 import UserNotifications
+import flutter_background_service_ios
 import flutter_callkit_incoming
 
 @main
@@ -19,6 +20,7 @@ import flutter_callkit_incoming
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self
     }
+    SwiftFlutterBackgroundServicePlugin.taskIdentifier = "dev.flutter.background.refresh"
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

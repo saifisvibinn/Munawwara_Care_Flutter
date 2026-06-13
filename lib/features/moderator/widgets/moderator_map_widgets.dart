@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass_surface.dart';
 import '../../shared/models/suggested_area_model.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../providers/moderator_provider.dart';
@@ -43,34 +44,24 @@ class CircleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? AppColors.surfaceDark : Colors.white;
     final fg = isDark ? Colors.white : AppColors.textDark;
     final sz = 42.w;
     final iconWidget = Icon(icon, size: sz * 0.48, color: fg);
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AppGlassSurface(
+        isDark: isDark,
+        borderRadius: BorderRadius.circular(sz / 2),
         width: sz,
         height: sz,
-        decoration: BoxDecoration(
-          color: bg,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: bg == Colors.white
-                  ? Colors.black.withValues(alpha: 0.1)
-                  : bg.withValues(alpha: 0.45),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
+        child: Center(
+          child: matchTextDirection
+              ? Transform.flip(
+                  flipX: Directionality.of(context) == TextDirection.rtl,
+                  child: iconWidget,
+                )
+              : iconWidget,
         ),
-        child: matchTextDirection
-            ? Transform.flip(
-                flipX: Directionality.of(context) == TextDirection.rtl,
-                child: iconWidget,
-              )
-            : iconWidget,
       ),
     );
   }

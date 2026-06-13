@@ -54,7 +54,7 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                     20.w,
                     8.h,
                     20.w,
-                    AppGlassTheme.bottomNavScrollPadding(context),
+                    AppGlassTheme.dashboardScrollBottomPadding(context),
                   ),
                   children: [
                     bundleAsync.when(

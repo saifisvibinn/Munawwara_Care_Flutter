@@ -534,6 +534,7 @@ class _ModeratorDashboardScreenState
             (_pageController.page?.round() ?? _currentTab) == index)) {
       return;
     }
+    FocusManager.instance.primaryFocus?.unfocus();
     if (!_pageController.hasClients) {
       setState(() => _currentTab = index);
       return;
@@ -596,6 +597,7 @@ class _ModeratorDashboardScreenState
       },
       child: Scaffold(
         extendBody: true,
+        resizeToAvoidBottomInset: false,
         backgroundColor: Colors.transparent,
         body: Stack(
           children: [
@@ -667,7 +669,7 @@ class _ModeratorDashboardScreenState
             // FAB lives in the body Stack — Scaffold's floatingActionButton slot
             // clips/constrains hit targets for tall expanded menus, so "Join Group"
             // often received no taps.
-            if (_currentTab == 0)
+            if (_currentTab == 0 && !AppGlassTheme.isKeyboardVisible(context))
               PositionedDirectional(
                 end: 16.w,
                 bottom: AppGlassTheme.floatingBottomBarHeight(context) + 16.h,
@@ -686,11 +688,12 @@ class _ModeratorDashboardScreenState
                       ),
                 ),
               ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: AppGlassTheme.floatingBottomBarBottomOffset(context),
-              child: _ModBottomNav(
+            if (!AppGlassTheme.isKeyboardVisible(context))
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: AppGlassTheme.floatingBottomBarBottomOffset(context),
+                child: _ModBottomNav(
                 currentIndex: _currentTab,
                 onTap: (index) => _goToTab(index, animate: false),
               ),
@@ -1069,8 +1072,12 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     _syncFilteredGroups(state.groups);
     final groups = _displayGroups;
-    final showEmptyState =
+    final canShowPlaceholder =
         !state.isLoading && state.error == null && groups.isEmpty;
+    final showSearchNoResults =
+        canShowPlaceholder && _searchQuery.isNotEmpty;
+    final showEmptyState =
+        canShowPlaceholder && _searchQuery.isEmpty;
 
     return AppDashboardBackground(
       isDark: isDark,
@@ -1238,11 +1245,25 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                 ),
               ),
 
+            // ── Search no results ──
+            if (showSearchNoResults)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _GroupsEmptyState(
+                  isDark: isDark,
+                  titleKey: 'group_not_found',
+                ),
+              ),
+
             // ── Empty State ──
             if (showEmptyState)
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: _GroupsEmptyState(isDark: isDark),
+                child: _GroupsEmptyState(
+                  isDark: isDark,
+                  titleKey: 'dashboard_empty_title',
+                  subtitleKey: 'dashboard_empty_subtitle',
+                ),
               ),
 
             // ── Group cards list ──
@@ -1252,7 +1273,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                   20.w,
                   0,
                   20.w,
-                  AppGlassTheme.bottomNavScrollPadding(context),
+                  AppGlassTheme.dashboardScrollBottomPadding(context),
                 ),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate((ctx, i) {
@@ -1275,7 +1296,14 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
 
 class _GroupsEmptyState extends StatelessWidget {
   final bool isDark;
-  const _GroupsEmptyState({required this.isDark});
+  final String titleKey;
+  final String? subtitleKey;
+
+  const _GroupsEmptyState({
+    required this.isDark,
+    required this.titleKey,
+    this.subtitleKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1303,27 +1331,32 @@ class _GroupsEmptyState extends StatelessWidget {
             ),
           ),
           SizedBox(height: 14.h),
-          Text(
-            'dashboard_empty_title'.tr(),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 30.sp,
-              color: isDark ? Colors.white : const Color(0xFF1A1A4E),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              titleKey.tr(),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 28.sp,
+                color: isDark ? Colors.white : const Color(0xFF1A1A4E),
+              ),
             ),
           ),
-          SizedBox(height: 8.h),
-          Text(
-            'dashboard_empty_subtitle'.tr(),
-            textAlign: TextAlign.center,
-            maxLines: 3,
-            style: TextStyle(
-              fontSize: 14.sp,
-              height: 1.3,
-              color: isDark ? const Color(0xFFCBD5E1) : AppColors.textDark,
+          if (subtitleKey != null) ...[
+            SizedBox(height: 8.h),
+            Text(
+              subtitleKey!.tr(),
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              style: TextStyle(
+                fontSize: 14.sp,
+                height: 1.3,
+                color: isDark ? const Color(0xFFCBD5E1) : AppColors.textDark,
+              ),
             ),
-          ),
+          ],
           SizedBox(height: 96.h),
         ],
       ),

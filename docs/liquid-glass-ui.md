@@ -19,6 +19,7 @@ All live under `lib/core/widgets/glass/` (barrel: `app_glass.dart`):
 | `AppGlassCard` | Dashboard cards with optional watermark |
 | `AppGlassIconButton` | 44pt header / toolbar circles |
 | `AppGlassSearchField` | Moderator search + filter slot |
+| `AppGlassPopupMenuAnchor` | Map/toolbar contextual menus (overlay blur, source-anchored) |
 | `AppDashboardBackground` | Soft gradient mesh so blur reads over content |
 
 Bottom navigation uses `AppLiquidGlassBottomBar` in `lib/core/widgets/app_liquid_glass_bottom_bar.dart` (custom glass shell + subtle selected pill; not the package's sliding selector).
@@ -28,10 +29,11 @@ Bottom navigation uses `AppLiquidGlassBottomBar` in `lib/core/widgets/app_liquid
 From [Adopting Liquid Glass](https://developer.apple.com/documentation/TechnologyOverviews/adopting-liquid-glass):
 
 1. **Functional layer vs content** — Glass is reserved for navigation chrome (tab bar, headers, FABs, primary cards). Lists, form fields, and chat bubbles stay solid so content stays legible.
-2. **Avoid overuse** — One glass layer per visual block; no nested glass-on-glass (e.g. hub outer shell only, flat inner tiles).
+2. **Avoid overuse** — One glass layer per visual block; no nested glass-on-glass (e.g. hub outer shell only, flat inner tiles). Context menus use one glass shell with solid rows inside.
 3. **Scroll separation** — Tab roots use `AppGlassTheme.bottomNavScrollPadding` (~72.h + safe area) so scroll content clears the floating bar (similar to iOS scroll edge treatment).
-4. **Concentric radii** — 26.r surfaces aligned with the floating tab bar.
-5. **Accessibility / performance** — Pass `enableGlass: false` on `AppGlassSurface` for reduced-transparency QA or low-end devices; lower `AppGlassTheme.blurSigma` if profiling shows jank.
+4. **Concentric radii** — 26.r surfaces aligned with the floating tab bar; popovers use `cardRadius` (24.r).
+5. **Popovers** — `AppGlassPopupMenuAnchor` inserts into the overlay so blur samples live content; menu anchors to trigger per Apple's popover guidance (see Menus and toolbars / Windows and modals in the adoption guide).
+6. **Accessibility / performance** — Pass `enableGlass: false` on `AppGlassSurface` for reduced-transparency QA or low-end devices; lower `AppGlassTheme.blurSigma` if profiling shows jank.
 
 ## Scaffold requirement
 

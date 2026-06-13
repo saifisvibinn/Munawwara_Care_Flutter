@@ -31,6 +31,9 @@ class AppGlassTheme {
 
   static BorderRadius get iconButtonRadius => BorderRadius.circular(22.r);
 
+  /// Tight gap between a toolbar control and its anchored popover (iOS inline).
+  static Offset get popoverGapBelowTrigger => Offset(0, 8.h);
+
   static LiquidGlassThemeData of(bool isDark) =>
       isDark ? LiquidGlassThemeData.dark() : LiquidGlassThemeData.light();
 
@@ -51,10 +54,40 @@ class AppGlassTheme {
   static double floatingBottomBarBottomOffset(BuildContext context) => 0;
 
   /// Bottom scroll padding so content clears the floating glass nav bar.
+  /// Includes [bottomNavScrollPaddingExtra] so primary buttons are not clipped.
+  static double get bottomNavScrollPaddingExtra => 32.h;
+
   static double bottomNavScrollPadding(BuildContext context) =>
-      floatingBottomBarHeight(context);
+      floatingBottomBarHeight(context) + bottomNavScrollPaddingExtra;
+
+  /// True when the software keyboard is open.
+  static bool isKeyboardVisible(BuildContext context) =>
+      MediaQuery.viewInsetsOf(context).bottom > 0;
+
+  /// Bottom padding for dashboard tab scroll views.
+  /// Uses keyboard inset when open; otherwise clears the floating tab bar.
+  static double dashboardScrollBottomPadding(BuildContext context) {
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    if (keyboard > 0) return keyboard + 16.h;
+    return bottomNavScrollPadding(context);
+  }
 
   /// Bottom inset for map overlay controls (locate, suggestions, hospitals).
   static double mapControlsBottomInset(BuildContext context) =>
       floatingBottomBarHeight(context) + 40.h;
+
+  /// Glass pill height for the Provision / Activation / Manage sub-nav.
+  static double get provisionSubNavPillHeight => 6.h + 48.h + 6.h;
+
+  /// Top inset for the floating provisioning sub-nav (below status bar).
+  static double provisionSubNavTopOffset(BuildContext context) =>
+      MediaQuery.viewPaddingOf(context).top + 8.h;
+
+  /// Top scroll padding so content clears the floating provisioning sub-nav.
+  static double provisionSubNavScrollPadding(BuildContext context) {
+    if (isKeyboardVisible(context)) {
+      return MediaQuery.viewPaddingOf(context).top + 8.h;
+    }
+    return provisionSubNavTopOffset(context) + provisionSubNavPillHeight + 8.h;
+  }
 }

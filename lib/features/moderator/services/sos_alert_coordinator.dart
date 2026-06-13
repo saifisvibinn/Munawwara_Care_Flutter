@@ -380,6 +380,7 @@ class SosAlertCoordinator {
 
     final groupLabel = payload.groupName.isEmpty ? '—' : payload.groupName;
     final profilePicture = await _resolvePilgrimProfilePicture(payload);
+    if (!ctx.mounted) return;
 
     final gid = payload.groupId?.trim() ?? '';
     final modName = _getModeratorName();

@@ -78,10 +78,15 @@
 	<string>Munawwara Care needs permission to save QR codes to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Munawwara Care needs permission to save QR codes to your photo library.</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>dev.flutter.background.refresh</string>
+	</array>
 	<key>io.flutter.embedded_views_preview</key>
 	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
+		<string>fetch</string>
 		<string>location</string>
 		<string>audio</string>
 	</array>

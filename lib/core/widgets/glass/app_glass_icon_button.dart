@@ -47,7 +47,7 @@ class AppGlassIconButton extends StatelessWidget {
               ),
             ),
           ),
-          if (badge != null) badge!,
+          ?badge,
         ],
       ),
     );

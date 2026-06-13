@@ -11,6 +11,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dropdown_theme.dart';
 import '../providers/manage_pilgrims_provider.dart';
 import '../providers/moderator_provider.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import '../../../core/widgets/phone_number_text.dart';
@@ -676,15 +677,19 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
     final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
     final filtered = _filtered(all);
 
-    return SafeArea(
-      child: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: _refresh,
-        child: CustomScrollView(
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _refresh,
+      child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
+                padding: EdgeInsets.fromLTRB(
+                  16.w,
+                  AppGlassTheme.provisionSubNavScrollPadding(context),
+                  16.w,
+                  0,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -988,7 +993,12 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
               )
             else
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 100.h),
+                padding: EdgeInsets.fromLTRB(
+                  16.w,
+                  0,
+                  16.w,
+                  AppGlassTheme.dashboardScrollBottomPadding(context),
+                ),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (_, i) => _PilgrimCard(
@@ -1019,7 +1029,6 @@ class _ManagePilgrimsScreenState extends ConsumerState<ManagePilgrimsScreen> {
               ),
           ],
         ),
-      ),
     );
   }
 }
