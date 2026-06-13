@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/app_logger.dart';
+import '../../../core/utils/open_maps_navigation.dart';
 import '../../../core/services/incoming_chat_sfx.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/tts_cloud_api.dart';
@@ -214,10 +214,7 @@ class ChatNotificationHelper {
           time: displayTime,
           onNavigate: (lat != null && lng != null)
               ? () {
-                  final url = Uri.parse(
-                    'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
-                  );
-                  launchUrl(url, mode: LaunchMode.externalApplication);
+                  OpenMapsNavigation.launch(context, lat, lng);
                 }
               : null,
         );

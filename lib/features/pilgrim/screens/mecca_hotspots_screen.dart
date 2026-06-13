@@ -6,11 +6,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/explore_geo.dart';
 import '../../../core/services/explore_places_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/open_maps_navigation.dart';
 import '../models/explore_place.dart';
 
 class MeccaHotspotsScreen extends StatefulWidget {
@@ -246,74 +246,7 @@ class _MeccaHotspotsScreenState extends State<MeccaHotspotsScreen> {
   }
 
   Future<void> _openInMaps(ExplorePlace p) async {
-    final ok = await _confirmOpenGoogleMaps();
-    if (!ok) return;
-
-    final uris = <Uri>[
-      // Best on Android when Google Maps is installed.
-      Uri.parse(
-        'google.navigation:q=${p.latitude},${p.longitude}&mode=w',
-      ),
-      // Generic geo fallback.
-      Uri.parse('geo:${p.latitude},${p.longitude}?q=${p.latitude},${p.longitude}'),
-      // Web fallback.
-      Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}',
-      ),
-    ];
-
-    for (final uri in uris) {
-      try {
-        final didLaunch = await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
-        if (didLaunch) return;
-      } catch (_) {}
-    }
-
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('explore_open_maps_failed_title'.tr()),
-        content: SelectableText.rich(
-          TextSpan(
-            text: 'explore_open_maps_failed_body'.tr(),
-            style: TextStyle(
-              color: Colors.red.shade700,
-            ),
-          ),
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('dialog_ok'.tr()),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<bool> _confirmOpenGoogleMaps() async {
-    final res = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('explore_open_maps_title'.tr()),
-        content: Text('explore_open_maps_body'.tr()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('dialog_cancel'.tr()),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('explore_open_maps_open'.tr()),
-          ),
-        ],
-      ),
-    );
-    return res ?? false;
+    await OpenMapsNavigation.launch(context, p.latitude, p.longitude);
   }
 
   @override

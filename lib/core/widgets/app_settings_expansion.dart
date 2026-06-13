@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../navigation/navigation_app.dart';
+import '../providers/navigation_preference_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/app_language_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import 'app_language_picker_sheet.dart';
+import 'navigation_app_settings_sheet.dart';
 
 /// Expandable app settings (appearance + language) for pilgrim and moderator profiles.
 class AppSettingsExpansion extends ConsumerWidget {
@@ -35,6 +38,8 @@ class AppSettingsExpansion extends ConsumerWidget {
     final currentLanguageCode = context.locale.languageCode;
     final currentLanguageName =
         AppLanguageService.nativeNameForCode(currentLanguageCode);
+    final navPreference = ref.watch(navigationPreferenceProvider);
+    final navPreferenceLabel = navPreference.displayName;
 
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -111,7 +116,85 @@ class AppSettingsExpansion extends ConsumerWidget {
                 isDark: isDark,
               ),
             ),
+            Divider(height: 1, color: dividerColor),
+            _NavigationSettingsRow(
+              currentLabel: navPreferenceLabel,
+              isDark: isDark,
+              textPrimary: textPrimary,
+              textMuted: textMuted,
+              onTap: () => showNavigationAppSettingsSheet(
+                context: context,
+                ref: ref,
+                isDark: isDark,
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Disclosure-style row for preferred navigation app.
+class _NavigationSettingsRow extends StatelessWidget {
+  const _NavigationSettingsRow({
+    required this.currentLabel,
+    required this.isDark,
+    required this.textPrimary,
+    required this.textMuted,
+    required this.onTap,
+  });
+
+  final String currentLabel;
+  final bool isDark;
+  final Color textPrimary;
+  final Color textMuted;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+          child: Row(
+            children: [
+              Icon(
+                Icons.navigation_rounded,
+                size: 22.sp,
+                color: AppColors.primary,
+              ),
+              SizedBox(width: 14.w),
+              Expanded(
+                child: Text(
+                  'settings_nav_app_title'.tr(),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15.sp,
+                    color: textPrimary,
+                  ),
+                ),
+              ),
+              Text(
+                currentLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 15.sp,
+                  color: textMuted,
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20.sp,
+                color: textMuted.withValues(alpha: 0.65),
+              ),
+            ],
+          ),
         ),
       ),
     );

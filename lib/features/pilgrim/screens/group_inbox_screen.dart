@@ -7,11 +7,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/utils/open_maps_navigation.dart';
 import '../../../core/services/tts_cloud_api.dart';
 import '../../../core/services/speech_service.dart';
 import '../../../core/widgets/standard_snackbar.dart';
@@ -1091,10 +1091,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
             SizedBox(height: 16.h),
             ElevatedButton.icon(
               onPressed: () {
-                final url = Uri.parse(
-                  'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
-                );
-                launchUrl(url, mode: LaunchMode.externalApplication);
+                OpenMapsNavigation.launch(context, lat, lng);
               },
               icon: Icon(Symbols.navigation, size: 18.w, color: Colors.white),
               label: Text(

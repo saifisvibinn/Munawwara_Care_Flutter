@@ -11,9 +11,9 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/open_maps_navigation.dart';
 import '../../../core/services/speech_service.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import '../../../core/widgets/standard_snackbar.dart';
@@ -947,10 +947,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
             SizedBox(height: 16.h),
             ElevatedButton.icon(
               onPressed: () {
-                final url = Uri.parse(
-                  'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
-                );
-                launchUrl(url, mode: LaunchMode.externalApplication);
+                OpenMapsNavigation.launch(context, lat, lng);
               },
               icon: Icon(Symbols.navigation, size: 18.w, color: Colors.white),
               label: Text(

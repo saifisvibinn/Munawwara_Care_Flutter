@@ -1,22 +1,14 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/utils/open_maps_navigation.dart';
 import '../providers/pilgrim_provider.dart';
 
 Future<void> launchModeratorWalkingDirections({
   required double lat,
   required double lng,
 }) async {
-  final uri = Uri.parse(
-    'https://www.google.com/maps/dir/?api=1'
-    '&destination=$lat,$lng&travelmode=walking',
-  );
-  try {
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  } catch (_) {
-    // Ignore — maps app may be unavailable.
-  }
+  await OpenMapsNavigation.launch(null, lat, lng);
 }
 
 /// Opens walking directions for an active moderator navigation beacon.

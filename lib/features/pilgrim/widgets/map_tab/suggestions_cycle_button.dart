@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/map/app_map_controller.dart';
 import '../../../../core/map/app_map_tiles.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/open_maps_navigation.dart';
 import '../../../shared/models/suggested_area_model.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,61 +164,10 @@ void showAreaInfo(BuildContext context, SuggestedArea area) {
             height: 50.h,
             child: ElevatedButton.icon(
               onPressed: () async {
-                final confirmed = await showDialog<bool>(
-                  context: ctx,
-                  builder: (dialogCtx) => AlertDialog(
-                    backgroundColor:
-                        isDark ? AppColors.surfaceDark : Colors.white,
-                    title: Text(
-                      'area_navigate_confirm_title'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        color: isDark ? Colors.white : AppColors.textDark,
-                      ),
-                    ),
-                    content: Text(
-                      'area_navigate_confirm_message'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        color: isDark ? Colors.white70 : AppColors.textDark,
-                      ),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(dialogCtx, false),
-                        child: const Text(
-                          'area_cancel',
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            color: AppColors.textMutedLight,
-                          ),
-                        ).tr(),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(dialogCtx, true),
-                        child: const Text(
-                          'area_open_maps',
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            color: AppColors.primary,
-                          ),
-                        ).tr(),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirmed == true) {
-                  if (!ctx.mounted) return;
-                  Navigator.pop(ctx);
-                  final lat = area.latitude;
-                  final lng = area.longitude;
-                  final uri = Uri.parse(
-                    'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking',
-                  );
-                  try {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  } catch (_) {}
-                }
+                final lat = area.latitude;
+                final lng = area.longitude;
+                Navigator.pop(ctx);
+                await OpenMapsNavigation.launch(context, lat, lng);
               },
               icon: Icon(Symbols.navigation,
                   size: 20.w, color: Colors.white, fill: 1),
@@ -386,71 +335,11 @@ class _SuggestionsCycleButtonState extends State<SuggestionsCycleButton> {
                                 ),
                                 GestureDetector(
                                   onTap: () async {
-                                    final confirmed =
-                                        await showDialog<bool>(
-                                      context: ctx,
-                                      builder: (dialogCtx) => AlertDialog(
-                                        backgroundColor: isDark
-                                            ? AppColors.surfaceDark
-                                            : Colors.white,
-                                        title: Text(
-                                          'area_navigate_confirm_title'.tr(),
-                                          style: TextStyle(
-                                            fontFamily: 'Lexend',
-                                            color: isDark
-                                                ? Colors.white
-                                                : AppColors.textDark,
-                                          ),
-                                        ),
-                                        content: Text(
-                                          'area_navigate_confirm_message'
-                                              .tr(),
-                                          style: TextStyle(
-                                            fontFamily: 'Lexend',
-                                            color: isDark
-                                                ? Colors.white70
-                                                : AppColors.textDark,
-                                          ),
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(
-                                                dialogCtx, false),
-                                            child: Text(
-                                              'area_cancel'.tr(),
-                                              style: const TextStyle(
-                                                fontFamily: 'Lexend',
-                                                color:
-                                                    AppColors.textMutedLight,
-                                              ),
-                                            ),
-                                          ),
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(
-                                                dialogCtx, true),
-                                            child: Text(
-                                              'area_open_maps'.tr(),
-                                              style: const TextStyle(
-                                                fontFamily: 'Lexend',
-                                                color: AppColors.primary,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                    await OpenMapsNavigation.launch(
+                                      context,
+                                      area.latitude,
+                                      area.longitude,
                                     );
-                                    if (confirmed == true) {
-                                      final lat = area.latitude;
-                                      final lng = area.longitude;
-                                      final uri = Uri.parse(
-                                        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking',
-                                      );
-                                      try {
-                                        await launchUrl(uri,
-                                            mode: LaunchMode
-                                                .externalApplication);
-                                      } catch (_) {}
-                                    }
                                   },
                                   child: Padding(
                                     padding: EdgeInsets.symmetric(
