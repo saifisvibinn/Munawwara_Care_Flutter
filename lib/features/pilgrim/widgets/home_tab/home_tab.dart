@@ -258,6 +258,12 @@ class PilgrimHomeTab extends StatelessWidget {
                       ),
                     ),
                     SliverToBoxAdapter(child: _homeBody(group)),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 0),
+                        child: SafetyDisclaimerBanner(isDark: isDark),
+                      ),
+                    ),
                     SliverPadding(
                       padding: EdgeInsets.only(
                         bottom: AppGlassTheme.dashboardScrollBottomPadding(context),
@@ -577,11 +583,6 @@ class _HomeBody extends StatelessWidget {
                             ],
                           )),
             ),
-            SizedBox(
-              height: 20.h,
-            ), // Pushed SafetyDisclaimerBanner down slightly
-
-            SafetyDisclaimerBanner(isDark: isDark),
           ],
         ),
       ),

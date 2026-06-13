@@ -50,6 +50,7 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                   await ref.read(prayerBundleProvider.future);
                 },
                 child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: EdgeInsets.fromLTRB(
                     20.w,
                     8.h,

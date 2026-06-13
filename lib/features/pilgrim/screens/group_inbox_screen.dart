@@ -487,6 +487,8 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
   }
 
   Widget _buildMessageList(List<GroupMessage> filtered) {
+    final navClearance = AppGlassTheme.bottomNavScrollPadding(context);
+
     if (filtered.isEmpty) {
       return RefreshIndicator(
         color: AppColors.primary,
@@ -497,6 +499,9 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
             SliverFillRemaining(
               hasScrollBody: false,
               child: _buildEmpty(),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.only(bottom: navClearance),
             ),
           ],
         ),
@@ -510,15 +515,13 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         controller: _scrollController,
         reverse: true,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(
-          16.w,
-          AppGlassTheme.dashboardScrollBottomPadding(context),
-          16.w,
-          12.h,
-        ),
-        itemCount: filtered.length,
+        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 12.h),
+        itemCount: filtered.length + 1,
         itemBuilder: (_, i) {
-          final msg = filtered[filtered.length - 1 - i];
+          if (i == 0) {
+            return SizedBox(height: navClearance);
+          }
+          final msg = filtered[filtered.length - i];
           return _buildCard(msg);
         },
       ),
