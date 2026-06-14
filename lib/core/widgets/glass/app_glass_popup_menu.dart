@@ -70,9 +70,31 @@ class _AppGlassPopupMenuAnchorState<T> extends State<AppGlassPopupMenuAnchor<T>>
   final _triggerKey = GlobalKey();
   OverlayEntry? _entry;
   AnimationController? _controller;
+  bool _isClosing = false;
+  ModalRoute<void>? _hostRoute;
+
+  bool get _isMenuVisible => _entry != null;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nextRoute = ModalRoute.of(context);
+    if (_hostRoute != nextRoute) {
+      _hostRoute?.animation?.removeStatusListener(_onHostRouteAnimation);
+      _hostRoute = nextRoute;
+      _hostRoute?.animation?.addStatusListener(_onHostRouteAnimation);
+    }
+  }
+
+  void _onHostRouteAnimation(AnimationStatus status) {
+    if (status == AnimationStatus.reverse) {
+      _removeMenu(immediate: true);
+    }
+  }
 
   @override
   void dispose() {
+    _hostRoute?.animation?.removeStatusListener(_onHostRouteAnimation);
     _removeMenu(immediate: true);
     super.dispose();
   }
@@ -80,14 +102,16 @@ class _AppGlassPopupMenuAnchorState<T> extends State<AppGlassPopupMenuAnchor<T>>
   void _removeMenu({bool immediate = false}) {
     final entry = _entry;
     final controller = _controller;
-    _entry = null;
-    _controller = null;
-
     if (entry == null) return;
+    if (_isClosing && !immediate) return;
 
     void tearDown() {
+      controller?.removeListener(entry.markNeedsBuild);
       entry.remove();
       controller?.dispose();
+      _entry = null;
+      _controller = null;
+      _isClosing = false;
     }
 
     if (immediate || controller == null) {
@@ -95,14 +119,20 @@ class _AppGlassPopupMenuAnchorState<T> extends State<AppGlassPopupMenuAnchor<T>>
       return;
     }
 
-    controller.reverse().then((_) => tearDown());
+    _isClosing = true;
+    controller.reverse().whenComplete(tearDown);
   }
 
-  void _openMenu() {
-    if (_entry != null) {
+  void _toggleMenu() {
+    if (_isMenuVisible) {
       _removeMenu();
       return;
     }
+    _openMenu();
+  }
+
+  void _openMenu() {
+    if (_isMenuVisible) return;
 
     final triggerBox =
         _triggerKey.currentContext?.findRenderObject() as RenderBox?;
@@ -112,12 +142,14 @@ class _AppGlassPopupMenuAnchorState<T> extends State<AppGlassPopupMenuAnchor<T>>
     final triggerSize = triggerBox.size;
     final gap = widget.offset ?? AppGlassTheme.popoverGapBelowTrigger;
 
-    _controller = AnimationController(
+    final controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 200),
+      reverseDuration: const Duration(milliseconds: 150),
     );
+    _controller = controller;
     final animation = CurvedAnimation(
-      parent: _controller!,
+      parent: controller,
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
     );
@@ -132,12 +164,18 @@ class _AppGlassPopupMenuAnchorState<T> extends State<AppGlassPopupMenuAnchor<T>>
         final triggerEnd = triggerOrigin.dx + triggerSize.width;
 
         return Stack(
+          clipBehavior: Clip.none,
           children: [
-            Positioned.fill(
+            // Re-tapping the trigger sits above the map stack; capture it here
+            // so the menu toggles closed like iOS toolbar menus.
+            Positioned(
+              left: triggerOrigin.dx,
+              top: triggerOrigin.dy,
+              width: triggerSize.width,
+              height: triggerSize.height,
               child: GestureDetector(
                 onTap: _removeMenu,
-                behavior: HitTestBehavior.translucent,
-                child: const SizedBox.expand(),
+                behavior: HitTestBehavior.opaque,
               ),
             ),
             Positioned(
@@ -146,21 +184,24 @@ class _AppGlassPopupMenuAnchorState<T> extends State<AppGlassPopupMenuAnchor<T>>
               right: isRtl
                   ? null
                   : screen.width - triggerEnd - gap.dx,
-              child: FadeTransition(
-                opacity: animation,
-                child: ScaleTransition(
-                  scale: Tween<double>(begin: 0.92, end: 1).animate(animation),
-                  alignment:
-                      isRtl ? Alignment.topLeft : Alignment.topRight,
-                  child: _GlassMenuPanel<T>(
-                    isDark: widget.isDark,
-                    items: widget.items,
-                    constraints: widget.constraints ??
-                        AppPopupMenu.panelConstraints(),
-                    onSelect: (value) {
-                      _removeMenu();
-                      widget.onSelected(value);
-                    },
+              child: TapRegion(
+                onTapOutside: (_) => _removeMenu(),
+                child: FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 0.94, end: 1).animate(animation),
+                    alignment:
+                        isRtl ? Alignment.topLeft : Alignment.topRight,
+                    child: _GlassMenuPanel<T>(
+                      isDark: widget.isDark,
+                      items: widget.items,
+                      constraints: widget.constraints ??
+                          AppPopupMenu.panelConstraints(),
+                      onSelect: (value) {
+                        _removeMenu();
+                        widget.onSelected(value);
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -171,8 +212,9 @@ class _AppGlassPopupMenuAnchorState<T> extends State<AppGlassPopupMenuAnchor<T>>
     );
 
     _entry = entry;
+    controller.addListener(entry.markNeedsBuild);
     Overlay.of(context).insert(entry);
-    _controller!.forward();
+    controller.forward();
   }
 
   @override
@@ -183,7 +225,7 @@ class _AppGlassPopupMenuAnchorState<T> extends State<AppGlassPopupMenuAnchor<T>>
       child: KeyedSubtree(
         key: _triggerKey,
         child: GestureDetector(
-          onTap: _openMenu,
+          onTap: _toggleMenu,
           behavior: HitTestBehavior.opaque,
           child: widget.child,
         ),
@@ -210,15 +252,18 @@ class _GlassMenuPanel<T> extends StatelessWidget {
     final dividerColor =
         isDark ? AppColors.dividerDark : const Color(0xFFE2E8F0);
 
-    return ConstrainedBox(
-      constraints: constraints,
-      child: AppGlassSurface(
-        isDark: isDark,
-        borderRadius: AppGlassTheme.cardRadius,
-        padding: EdgeInsets.symmetric(vertical: 6.h),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    return IntrinsicWidth(
+      child: ConstrainedBox(
+        constraints: constraints,
+        child: AppGlassSurface(
+          isDark: isDark,
+          glassTheme: AppGlassTheme.popoverOf(isDark),
+          borderRadius: AppGlassTheme.cardRadius,
+          padding: EdgeInsets.symmetric(vertical: 6.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             for (final item in items)
               if (item.isDivider)
                 Padding(
@@ -235,7 +280,8 @@ class _GlassMenuPanel<T> extends StatelessWidget {
                   isDark: isDark,
                   onTap: () => onSelect(item.value as T),
                 ),
-          ],
+            ],
+          ),
         ),
       ),
     );

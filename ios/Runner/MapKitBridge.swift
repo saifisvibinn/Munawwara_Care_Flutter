@@ -134,6 +134,9 @@ final class MunawwaraMapPlatformView: NSObject, FlutterPlatformView, MKMapViewDe
       }
       applyMarkers(rawMarkers)
       result(true)
+    case "restoreGestures":
+      ensureMapInteractionEnabled()
+      result(true)
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -200,13 +203,16 @@ final class MunawwaraMapPlatformView: NSObject, FlutterPlatformView, MKMapViewDe
     )
   }
 
-  /// MKMapView scroll gestures can stall after programmatic camera moves when
-  /// embedded in Flutter platform views — re-enable internal recognizers.
+  /// MKMapView scroll gestures can stall after programmatic camera moves or
+  /// when an iOS back-swipe is cancelled mid-gesture over the platform view.
   private func ensureMapInteractionEnabled() {
     mapView.isUserInteractionEnabled = true
     mapView.isScrollEnabled = true
     mapView.isZoomEnabled = true
     mapView.isRotateEnabled = true
+    for recognizer in mapView.gestureRecognizers ?? [] {
+      recognizer.isEnabled = true
+    }
     for subview in mapView.subviews {
       subview.isUserInteractionEnabled = true
       for recognizer in subview.gestureRecognizers ?? [] {

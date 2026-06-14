@@ -16,9 +16,10 @@ typedef AppMapMarkerTap = void Function(AppMapMarkerData marker);
 typedef AppFlutterMapLayerBuilder = List<Widget> Function(BuildContext context);
 typedef AppMapPositionChanged = void Function(LatLng center, bool hasGesture);
 
-/// Forward pan/pinch/tap to MKMapView — one factory per recognizer type only.
+/// Forward pan/pinch/tap to MKMapView. [EagerGestureRecognizer] is safe here
+/// because map routes disable iOS interactive back-swipe ([appMapPageRoute]).
 final Set<Factory<OneSequenceGestureRecognizer>> kIosMapGestureRecognizers = {
-  Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+  Factory<EagerGestureRecognizer>(() => EagerGestureRecognizer()),
 };
 
 /// In-app map: native Apple MapKit on iOS, [FlutterMap] elsewhere.

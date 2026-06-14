@@ -17,6 +17,7 @@ class AppGlassSurface extends StatelessWidget {
     this.height,
     this.onTap,
     this.enableGlass = true,
+    this.glassTheme,
   });
 
   final Widget child;
@@ -27,10 +28,14 @@ class AppGlassSurface extends StatelessWidget {
   final double? height;
   final VoidCallback? onTap;
   final bool enableGlass;
+  /// Override material (e.g. [AppGlassTheme.popoverOf] for compact menus).
+  final LiquidGlassThemeData? glassTheme;
 
   @override
   Widget build(BuildContext context) {
     final radius = borderRadius ?? AppGlassTheme.borderRadius;
+
+    final resolvedTheme = glassTheme ?? AppGlassTheme.of(isDark);
 
     Widget surface = CupertinoTheme(
       data: CupertinoThemeData(
@@ -38,8 +43,8 @@ class AppGlassSurface extends StatelessWidget {
         primaryColor: AppColors.primary,
       ),
       child: CupertinoLiquidGlass(
-        theme: AppGlassTheme.of(isDark),
-        blurSigma: AppGlassTheme.blurSigma,
+        theme: resolvedTheme,
+        blurSigma: glassTheme == null ? AppGlassTheme.blurSigma : null,
         borderRadius: radius,
         padding: padding,
         width: width,

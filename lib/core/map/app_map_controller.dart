@@ -66,6 +66,14 @@ class AppMapController {
     await _iosChannel!.invokeMethod('setMarkers', {'markers': markers});
   }
 
+  /// Re-enable MKMapView pan/zoom after gesture conflicts (e.g. cancelled back-swipe).
+  Future<void> restoreGestures() async {
+    if (kIsWeb || !Platform.isIOS || _iosChannel == null) return;
+    try {
+      await _iosChannel!.invokeMethod('restoreGestures');
+    } catch (_) {}
+  }
+
   void dispose() {
     _flutter?.dispose();
     _flutter = null;

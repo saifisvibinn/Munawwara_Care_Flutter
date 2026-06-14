@@ -34,6 +34,17 @@ class AppGlassTheme {
   /// Tight gap between a toolbar control and its anchored popover (iOS inline).
   static Offset get popoverGapBelowTrigger => Offset(0, 8.h);
 
+  /// Lighter glass for anchored popovers — map/content stays visible through
+  /// the panel (Apple context-menu / dock-style material, not a solid sheet).
+  static LiquidGlassThemeData popoverOf(bool isDark) {
+    return of(isDark).copyWith(
+      blurSigma: 18,
+      tintOpacity: isDark ? 0.38 : 0.32,
+      vibrancyIntensity: isDark ? 0.1 : 0.06,
+      specularOpacity: isDark ? 0.16 : 0.18,
+    );
+  }
+
   static LiquidGlassThemeData of(bool isDark) =>
       isDark ? LiquidGlassThemeData.dark() : LiquidGlassThemeData.light();
 

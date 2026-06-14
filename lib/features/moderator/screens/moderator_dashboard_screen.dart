@@ -28,6 +28,7 @@ import '../../calling/providers/call_provider.dart';
 import '../../calling/screens/voice_call_screen.dart';
 import '../../calling/native_call_coordinator.dart' show isNavigatingToCall;
 import '../../../core/router/app_router.dart' show AppRouter;
+import '../../../core/router/app_page_routes.dart';
 import '../../invitations/providers/invitation_provider.dart';
 import '../../invitations/widgets/pending_invitations_section.dart';
 import '../../notifications/providers/notification_provider.dart';
@@ -1399,7 +1400,7 @@ class _GroupCard extends ConsumerWidget {
       onTap: () {
         final userId = ref.read(authProvider).userId ?? '';
         Navigator.of(context).push(
-          MaterialPageRoute(
+          appMapPageRoute(
             builder: (_) =>
                 GroupManagementScreen(groupId: group.id, currentUserId: userId),
           ),
@@ -1545,7 +1546,7 @@ class _GroupCard extends ConsumerWidget {
                               final userId =
                                   ref.read(authProvider).userId ?? '';
                               Navigator.of(context).push(
-                                MaterialPageRoute(
+                                appMapPageRoute(
                                   builder: (_) => GroupManagementScreen(
                                     groupId: group.id,
                                     currentUserId: userId,
