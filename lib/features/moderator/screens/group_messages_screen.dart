@@ -22,6 +22,7 @@ import '../../shared/models/message_model.dart';
 import '../../shared/providers/message_provider.dart';
 import '../../shared/services/message_realtime_binder.dart';
 import '../providers/moderator_provider.dart';
+import '../../shared/widgets/group_broadcast_composer.dart';
 import '../../shared/widgets/group_chat_theme.dart';
 import '../../shared/widgets/message_widgets.dart';
 
@@ -46,12 +47,11 @@ class GroupMessagesScreen extends ConsumerStatefulWidget {
       _GroupMessagesScreenState();
 }
 
-class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
+class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
+    with WidgetsBindingObserver {
   // Scroll
   final _scrollController = ScrollController();
 
-  // Compose: TTS (default) or voice only — no plain text channel.
-  String _composeMode = 'tts'; // 'tts' | 'voice'
   bool _isUrgent = false;
   final _textController = TextEditingController();
 
@@ -81,6 +81,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _messageNotifier = ref.read(messageProvider.notifier);
 
     // Audio listeners
@@ -117,6 +118,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     _textController.dispose();
     _recordTimer?.cancel();
@@ -129,6 +131,20 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   }
 
   // ── Data ──────────────────────────────────────────────────────────────────
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    if (!mounted) return;
+    final keyboardOpen = WidgetsBinding
+            .instance.platformDispatcher.views.first.viewInsets.bottom >
+        0;
+    if (keyboardOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollToBottom();
+      });
+    }
+  }
 
   Future<void> _load() async {
     await ref.read(messageProvider.notifier).loadMessages(widget.groupId);
@@ -484,16 +500,21 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
 
   // ── Delete ─────────────────────────────────────────────────────────────────
 
+  Future<bool> _confirmDeleteMessage(GroupMessage msg) async {
+    return await StandardDialog.show<bool>(
+          context: context,
+          title: 'msg_delete_title',
+          content: 'msg_delete_body',
+          confirmText: 'msg_delete_confirm',
+          cancelText: 'settings_cancel',
+          isDestructive: true,
+        ) ??
+        false;
+  }
+
   Future<void> _deleteMessage(GroupMessage msg) async {
-    final confirmed = await StandardDialog.show<bool>(
-      context: context,
-      title: 'msg_delete_title',
-      content: 'msg_delete_body',
-      confirmText: 'msg_delete_confirm',
-      cancelText: 'settings_cancel',
-      isDestructive: true,
-    );
-    if (confirmed != true) return;
+    final confirmed = await _confirmDeleteMessage(msg);
+    if (!confirmed) return;
     final ok = await ref.read(messageProvider.notifier).deleteMessage(msg.id);
     if (!ok) _snack('msg_delete_failed'.tr());
   }
@@ -524,35 +545,69 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
       }
     });
 
-    return Scaffold(
-      backgroundColor: GroupChatTheme.scaffoldBackground(isDark),
-      body: SafeArea(
-        child: Column(
-          children: [
-            GroupChatHeader(
+    return AppDashboardBackground(
+      isDark: isDark,
+      child: Stack(
+        children: [
+          Scaffold(
+            backgroundColor: Colors.transparent,
+            resizeToAvoidBottomInset: false,
+            body: Column(
+              children: [
+                Expanded(
+                  child: showLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : _buildMessageList(msgState.messages, isDark),
+                ),
+                GroupBroadcastComposer(
+                  isDark: isDark,
+                  isUrgent: _isUrgent,
+                  onUrgentChanged: (v) => setState(() => _isUrgent = v),
+                  textController: _textController,
+                  isSending: msgState.isSending,
+                  onSendTts: _sendTtsMessage,
+                  onMicTap: _startRecording,
+                  showVoiceInput:
+                      _isRecording || _recordedPath != null,
+                  replyStrip: _replyTarget != null
+                      ? MessageReplyComposerStrip(
+                          snapshot: _snapshotForReplyDraft(_replyTarget!),
+                          isDark: isDark,
+                          onCancel: () => setState(() => _replyTarget = null),
+                        )
+                      : null,
+                  voiceInput: _buildVoiceInput(isDark, msgState.isSending),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: GroupBroadcastNavBar(
               isDark: isDark,
               title: widget.groupName,
-              subtitle: 'msg_broadcasts'.tr(),
-              onRefresh: _refreshMessages,
               onBack: () => Navigator.of(context).maybePop(),
               showBrandAvatar: true,
             ),
-            Expanded(
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
               child: AppScrollFadeOverlay(
-                showTop: false,
-                backgroundColor: GroupChatTheme.scaffoldBackground(isDark),
-                child: showLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
-                    )
-                  : _buildMessageList(msgState.messages, isDark),
+                backgroundColor: AppGlassTheme.dashboardBackgroundColor(isDark),
+                showBottom: false,
+                topExtent: GroupBroadcastNavBar.overlayHeight(context),
+                fadeOpacity: 1,
+                child: const SizedBox.expand(),
               ),
             ),
-            _buildComposer(isDark, msgState.isSending),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -562,18 +617,40 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   // ── Message list ───────────────────────────────────────────────────────────
 
   Widget _buildMessageList(List<GroupMessage> messages, bool isDark) {
+    final topPad = GroupBroadcastNavBar.scrollTopPadding(context);
+    final keyboardOpen = AppGlassTheme.isKeyboardVisible(context);
+
     if (messages.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Symbols.inbox, size: 48.w, color: AppColors.textMutedLight),
-            SizedBox(height: 12.h),
-            Text(
-              'inbox_empty'.tr(),
-              style: TextStyle(
-                fontSize: 15.sp,
-                color: AppColors.textMutedLight,
+      return RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: _refreshMessages,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.only(top: topPad),
+            ),
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Symbols.inbox,
+                      size: 48.w,
+                      color: AppColors.textMutedLight,
+                    ),
+                    SizedBox(height: 12.h),
+                    Text(
+                      'inbox_empty'.tr(),
+                      style: TextStyle(
+                        fontSize: 15.sp,
+                        color: AppColors.textMutedLight,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -587,11 +664,9 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
       child: ListView.builder(
         controller: _scrollController,
         reverse: true,
-        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
+        padding: EdgeInsets.fromLTRB(0, topPad, 0, keyboardOpen ? 8.h : 16.h),
         itemCount: messages.length,
         itemBuilder: (_, i) {
-          // reverse:true renders index 0 at the bottom;
-          // map to newest-first order so newest = bottom.
           final msg = messages[messages.length - 1 - i];
           return _buildCard(msg, isDark);
         },
@@ -602,139 +677,77 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
   // ── Message card ───────────────────────────────────────────────────────────
 
   Widget _buildCard(GroupMessage msg, bool isDark) {
-    final cardBg = GroupChatTheme.cardBackground(
-      isDark,
-      urgent: msg.isUrgent,
-      highlightNew: false,
-    );
-    final borderColor = GroupChatTheme.cardBorderColor(
-      isDark,
-      urgent: msg.isUrgent,
-      highlightNew: false,
-    );
-    final borderWidth = GroupChatTheme.cardBorderWidth(
-      urgent: msg.isUrgent,
-      highlightNew: false,
-    );
-
-    return GestureDetector(
+    return GroupBroadcastMessageCard(
+      isDark: isDark,
+      isUrgent: msg.isUrgent,
+      isNew: false,
+      dismissKey: ValueKey('mod_msg_${msg.id}'),
       onLongPress: () => _openMessageActions(msg),
-      child: Container(
-        margin: EdgeInsets.only(bottom: 10.h),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(14.r),
-          border: Border.all(color: borderColor, width: borderWidth),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.035),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
+      onConfirmDelete: () => _confirmDeleteMessage(msg),
+      onDismissed: () {
+        ref.read(messageProvider.notifier).deleteMessage(msg.id).then((ok) {
+          if (!ok && mounted) _snack('msg_delete_failed'.tr());
+        });
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (msg.recipientId != null)
             Padding(
-              padding: EdgeInsets.fromLTRB(14.w, 10.h, 40.w, 12.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+              padding: EdgeInsets.only(bottom: 6.h),
+              child: Builder(
+                builder: (context) {
+                  final modState = ref.watch(moderatorProvider);
+                  final pilgrim = modState.currentGroup?.pilgrims.firstWhere(
+                    (p) => p.id == msg.recipientId,
+                    orElse: () => PilgrimInGroup(
+                      id: '',
+                      fullName: 'msg_private_indicator'.tr(),
+                    ),
+                  );
+                  return PrivateIndicator(
+                    isForPilgrim: false,
+                    recipientName: pilgrim?.fullName,
+                  );
+                },
+              ),
+            ),
+          if (msg.recipientId == null)
+            Padding(
+              padding: EdgeInsets.only(bottom: 6.h),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  if (msg.recipientId != null)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 6.h),
-                      child: Builder(
-                        builder: (context) {
-                          final modState = ref.watch(moderatorProvider);
-                          final pilgrim =
-                              modState.currentGroup?.pilgrims.firstWhere(
-                            (p) => p.id == msg.recipientId,
-                            orElse: () => PilgrimInGroup(
-                              id: '',
-                              fullName: 'msg_private_indicator'.tr(),
-                            ),
-                          );
-                          return PrivateIndicator(
-                            isForPilgrim: false,
-                            recipientName: pilgrim?.fullName,
-                          );
-                        },
-                      ),
-                    ),
-                  if (msg.recipientId == null)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 6.h),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          _modGroupScopeChip(isDark: isDark),
-                          if (msg.isUrgent) ...[
-                            SizedBox(width: 8.w),
-                            const UrgentBadge(),
-                          ],
-                        ],
-                      ),
-                    )
-                  else if (msg.isUrgent)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 6.h),
-                      child: const UrgentBadge(),
-                    ),
-                  if (msg.replySnapshot != null)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 8.h),
-                      child: MessageReplyQuote(
-                        snapshot: msg.replySnapshot!,
-                        isDark: isDark,
-                      ),
-                    ),
-                  if (msg.type == 'text') _buildTextBody(msg, isDark),
-                  if (msg.type == 'voice') _buildVoiceBody(msg, isDark),
-                  if (msg.type == 'tts') _buildTtsBody(msg, isDark),
-                  if (msg.type == 'meetpoint') _buildMeetpointBody(msg, isDark),
-                  SizedBox(height: 6.h),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        msg.sender?.fullName ?? 'you'.tr(),
-                        style: TextStyle(
-                          fontSize: 11.sp,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      Text(
-                        _formatDate(msg.createdAt),
-                        style: TextStyle(
-                          fontSize: 11.sp,
-                          color: AppColors.textMutedLight,
-                        ),
-                      ),
-                    ],
-                  ),
+                  GroupScopeChip(isDark: isDark),
+                  if (msg.isUrgent) ...[
+                    SizedBox(width: 8.w),
+                    const UrgentBadge(),
+                  ],
                 ],
               ),
+            )
+          else if (msg.isUrgent)
+            Padding(
+              padding: EdgeInsets.only(bottom: 6.h),
+              child: const UrgentBadge(),
             ),
-            Positioned(
-              top: 4.h,
-              right: 4.w,
-              child: IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.all(4.w),
-                constraints: BoxConstraints.tightFor(width: 32.w, height: 32.w),
-                onPressed: () => _deleteMessage(msg),
-                icon: Icon(
-                  Symbols.delete_outline,
-                  size: 18.w,
-                  color: Colors.red.shade400,
-                ),
-              ),
+          if (msg.replySnapshot != null)
+            MessageReplyQuote(
+              snapshot: msg.replySnapshot!,
+              isDark: isDark,
             ),
-          ],
-        ),
+          if (msg.type == 'text') _buildTextBody(msg, isDark),
+          if (msg.type == 'voice') _buildVoiceBody(msg, isDark),
+          if (msg.type == 'tts') _buildTtsBody(msg, isDark),
+          if (msg.type == 'meetpoint') _buildMeetpointBody(msg, isDark),
+          SizedBox(height: 8.h),
+          GroupBroadcastMetaRow(
+            senderLabel: msg.sender?.fullName ?? 'you'.tr(),
+            timestamp: _formatDate(msg.createdAt),
+            isDark: isDark,
+          ),
+        ],
       ),
     );
   }
@@ -792,47 +805,19 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
             color: bodyColor,
           ),
         ),
-        SizedBox(height: 6.h),
-        TtsPlayAloudButton(
-          isSpeaking: isSpeaking,
-          isLoading: isLoading,
-          compact: true,
-          onPressed: () => _toggleTts(msg),
-          idleLabel: 'msg_play_aloud'.tr(),
-          playingLabel: 'msg_playing'.tr(),
+        SizedBox(height: 8.h),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TtsPlayAloudButton(
+            isSpeaking: isSpeaking,
+            isLoading: isLoading,
+            compact: true,
+            onPressed: () => _toggleTts(msg),
+            idleLabel: 'msg_play_aloud'.tr(),
+            playingLabel: 'msg_playing'.tr(),
+          ),
         ),
       ],
-    );
-  }
-
-  /// Broadcast (whole group) scope — private rows use [PrivateIndicator].
-  Widget _modGroupScopeChip({required bool isDark}) {
-    final bg = isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : AppColors.primary.withValues(alpha: 0.1);
-    final fg = isDark ? Colors.white70 : AppColors.primary;
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(6.r),
-        border: Border.all(color: fg.withValues(alpha: 0.28)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Symbols.groups, size: 13.w, color: fg),
-          SizedBox(width: 4.w),
-          Text(
-            'msg_mod_group_scope'.tr(),
-            style: TextStyle(
-              fontSize: 10.sp,
-              fontWeight: FontWeight.w600,
-              color: fg,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -972,165 +957,6 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
           ],
         ],
       ),
-    );
-  }
-
-  // ── Composer ───────────────────────────────────────────────────────────────
-
-  Widget _buildComposer(bool isDark, bool isSending) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, -3),
-          ),
-        ],
-      ),
-      padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_replyTarget != null)
-            MessageReplyComposerStrip(
-              snapshot: _snapshotForReplyDraft(_replyTarget!),
-              isDark: isDark,
-              onCancel: () => setState(() => _replyTarget = null),
-            ),
-          // Text (read aloud) vs voice + urgent toggle
-          Row(
-            children: [
-              _TypeButton(
-                label: 'msg_tab_text'.tr(),
-                icon: Symbols.text_fields,
-                selected: _composeMode == 'tts',
-                onTap: () => setState(() {
-                  _composeMode = 'tts';
-                  _discardRecording();
-                }),
-              ),
-              SizedBox(width: 6.w),
-              _TypeButton(
-                label: 'msg_tab_voice'.tr(),
-                icon: Symbols.mic,
-                selected: _composeMode == 'voice',
-                onTap: () => setState(() => _composeMode = 'voice'),
-              ),
-              const Spacer(),
-              // Urgent toggle
-              GestureDetector(
-                onTap: () => setState(() => _isUrgent = !_isUrgent),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 12.w,
-                    vertical: 6.h,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _isUrgent
-                        ? Colors.red.shade600
-                        : (isDark
-                              ? Colors.white10
-                              : Colors.black.withValues(alpha: 0.05)),
-                    borderRadius: BorderRadius.circular(20.r),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Symbols.warning,
-                        size: 14.w,
-                        color: _isUrgent
-                            ? Colors.white
-                            : AppColors.textMutedLight,
-                      ),
-                      SizedBox(width: 4.w),
-                      Text(
-                        'msg_urgent'.tr(),
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w600,
-                          color: _isUrgent
-                              ? Colors.white
-                              : AppColors.textMutedLight,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 10.h),
-          if (_composeMode != 'voice')
-            _buildTtsComposer(isDark, isSending)
-          else
-            _buildVoiceInput(isDark, isSending),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTtsComposer(bool isDark, bool isSending) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white10 : const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(14.r),
-            ),
-            child: TextField(
-              controller: _textController,
-              maxLines: 4,
-              minLines: 1,
-              style: TextStyle(
-                fontSize: 14.sp,
-                color: isDark ? Colors.white : AppColors.textDark,
-              ),
-              decoration: InputDecoration(
-                hintText: 'msg_hint_tts'.tr(),
-                hintStyle: TextStyle(
-                  fontSize: 14.sp,
-                  color: AppColors.textMutedLight,
-                ),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 14.w,
-                  vertical: 10.h,
-                ),
-              ),
-            ),
-          ),
-        ),
-        SizedBox(width: 10.w),
-        GestureDetector(
-          onTap: isSending ? null : _sendTtsMessage,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            width: 44.w,
-            height: 44.w,
-            decoration: BoxDecoration(
-              color: isSending
-                  ? AppColors.textMutedLight
-                  : (_isUrgent ? Colors.red.shade600 : AppColors.primary),
-              borderRadius: BorderRadius.circular(13.r),
-            ),
-            child: isSending
-                ? Padding(
-                    padding: EdgeInsets.all(12.w),
-                    child: const CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : Icon(Symbols.send, size: 20.w, color: Colors.white),
-          ),
-        ),
-      ],
     );
   }
 
@@ -1329,74 +1155,5 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
     if (diff == 0) return '${'inbox_today'.tr()}  $time';
     if (diff == 1) return '${'inbox_yesterday'.tr()}  $time';
     return '${dt.day}/${dt.month}/${dt.year}  $time';
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Composer type button
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _TypeButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _TypeButton({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 7.h),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppColors.primary
-              : (isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : Colors.white),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: selected
-                ? AppColors.primary
-                : (isDark
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : const Color(0xFFE2E8F0)),
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 14.w,
-              color: selected
-                  ? Colors.white
-                  : (isDark ? Colors.white70 : AppColors.textMutedLight),
-            ),
-            SizedBox(width: 4.w),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11.sp,
-                fontWeight: FontWeight.w600,
-                color: selected
-                    ? Colors.white
-                    : (isDark ? Colors.white70 : AppColors.textMutedLight),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

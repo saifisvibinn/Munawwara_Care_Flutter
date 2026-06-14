@@ -15,61 +15,14 @@ import '../../../core/map/app_map_tiles.dart';
 import '../../../core/map/widgets/app_platform_map.dart';
 import '../../../core/services/location_permission_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../shared/providers/suggested_area_provider.dart';
 import 'moderator_map_marker_data.dart';
 import 'moderator_map_widgets.dart';
 import 'active_meetpoint_card.dart';
 import '../../shared/models/suggested_area_model.dart';
-
-/// Visual tokens for area / meetpoint picker (UI only).
-abstract final class _AreaPickerTheme {
-  static const lightTopBar = Color.fromRGBO(245, 247, 252, 0.88);
-  static const darkTopBar = Color.fromRGBO(18, 22, 30, 0.85);
-  static const lightSheet = Color(0xFFF7F8FC);
-  static const darkSheet = Color(0xFF12151E);
-  static const lightField = Color(0xFFEDEDF4);
-  static const darkField = Color(0xFF1C1F2E);
-  static const lightHandle = Color(0xFFD8D8E0);
-  static const darkHandle = Color(0xFF2E3040);
-  static const sectionLabel = Color(0xFFB0B8C8);
-  static const lightHint = Color(0xFFAAAAAA);
-  static const darkHint = Color(0xFF555555);
-  static const lightChipBg = Color(0xFFE8E8F0);
-  static const lightChipInactiveText = Color(0xFFAAAAAA);
-  static const meetpointRed = Color(0xFFC0392B);
-  static const meetpointRedDark = Color(0xFFE05050);
-
-  static Color accent(bool isDark, bool isMeetpoint) => isMeetpoint
-      ? (isDark ? meetpointRedDark : meetpointRed)
-      : AppColors.primary;
-
-  static Color sheetBg(bool isDark) => isDark ? darkSheet : lightSheet;
-
-  static Color fieldBg(bool isDark) => isDark ? darkField : lightField;
-
-  static Color topBarBg(bool isDark) => isDark ? darkTopBar : lightTopBar;
-
-  static Color topBarBorder(bool isDark) => isDark
-      ? Colors.white.withValues(alpha: 0.06)
-      : Colors.black.withValues(alpha: 0.06);
-
-  static Color overlayBtnFill(bool isDark) => isDark
-      ? Colors.white.withValues(alpha: 0.08)
-      : Colors.white.withValues(alpha: 0.9);
-
-  static Color overlayBtnBorder(bool isDark) => isDark
-      ? Colors.white.withValues(alpha: 0.1)
-      : Colors.black.withValues(alpha: 0.08);
-
-  static Color searchPillBg(bool isDark) => isDark
-      ? Colors.white.withValues(alpha: 0.07)
-      : Colors.white.withValues(alpha: 0.88);
-
-  static Color searchPillBorder(bool isDark) => isDark
-      ? Colors.white.withValues(alpha: 0.08)
-      : Colors.black.withValues(alpha: 0.07);
-}
+import '../../shared/widgets/area_ui_widgets.dart';
 
 /// Area Picker Screen for selecting locations and scheduling meetpoints.
 class AreaPickerScreen extends ConsumerStatefulWidget {
@@ -90,10 +43,13 @@ class AreaPickerScreen extends ConsumerStatefulWidget {
   ConsumerState<AreaPickerScreen> createState() => _AreaPickerScreenState();
 }
 
-class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
+class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen>
+    with WidgetsBindingObserver {
   final _mapController = createAppMapController();
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
+  final _nameFocusNode = FocusNode();
+  final _descFocusNode = FocusNode();
   final _sheetController = DraggableScrollableController();
   final _mapSearchController = TextEditingController();
   final _searchFocusNode = FocusNode();
@@ -117,6 +73,7 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.existingArea != null) {
       _nameController.text = widget.existingArea!.name;
       _descController.text = widget.existingArea!.description;
@@ -152,13 +109,46 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _nominatimDebounce?.cancel();
     _mapController.dispose();
     _nameController.dispose();
     _descController.dispose();
+    _nameFocusNode.dispose();
+    _descFocusNode.dispose();
     _mapSearchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (mounted) _syncSheetWithKeyboard();
+  }
+
+  void _syncSheetWithKeyboard() {
+    if (!mounted || !_sheetController.isAttached) return;
+    final searchFocused = _searchFocusNode.hasFocus;
+    final hasFocus = _nameFocusNode.hasFocus ||
+        _descFocusNode.hasFocus ||
+        searchFocused;
+    if (!hasFocus) return;
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    if (keyboard <= 0) return;
+    final screenH = MediaQuery.sizeOf(context).height;
+    if (screenH <= 0) return;
+    final target = searchFocused
+        ? 0.90
+        : ((keyboard + 148.h) / screenH).clamp(0.44, 0.72);
+    if (_sheetController.size < target - 0.015) {
+      unawaited(
+        _sheetController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        ),
+      );
+    }
   }
 
   void _collapseMapSearch() {
@@ -175,7 +165,17 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
   void _expandMapSearch() {
     setState(() => _mapSearchExpanded = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _searchFocusNode.requestFocus();
+      if (!mounted) return;
+      _searchFocusNode.requestFocus();
+      if (_sheetController.isAttached && _sheetController.size < 0.85) {
+        unawaited(
+          _sheetController.animateTo(
+            0.90,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          ),
+        );
+      }
     });
   }
 
@@ -472,7 +472,7 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(
-              foregroundColor: _AreaPickerTheme.meetpointRed,
+              foregroundColor: AreaUiTheme.meetpointRed,
             ),
             child: Text('group_delete'.tr()),
           ),
@@ -495,16 +495,30 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMeetpoint = widget.areaType == 'meetpoint';
-    final accentColor = _AreaPickerTheme.accent(isDark, isMeetpoint);
+    final accentColor = AreaUiTheme.accent(isDark, isMeetpoint: isMeetpoint);
 
     return Scaffold(
-      backgroundColor: _AreaPickerTheme.sheetBg(isDark),
+      backgroundColor: AreaUiTheme.sheetBg(isDark),
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
           _buildMapLayer(isDark, accentColor),
           if (_isFullScreenMap) _buildFullScreenMapOverlays(isDark, accentColor),
-          if (!_isFullScreenMap) _buildFloatingTopBar(isDark, isMeetpoint),
+          if (!_isFullScreenMap)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: AreaPickerFloatingNav(
+                isDark: isDark,
+                title: isMeetpoint
+                    ? 'area_meetpoint'.tr()
+                    : 'area_suggest'.tr(),
+                onBack: () => Navigator.pop(context),
+                onLocate: _recenterOnMe,
+                isLocating: _recenteringGps,
+              ),
+            ),
           if (!_isFullScreenMap) _buildCenterPinOverlay(accentColor),
           _buildBottomSheet(isDark, accentColor, isMeetpoint),
         ],
@@ -597,8 +611,28 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
   }
 
   Widget _buildFullScreenMapOverlays(bool isDark, Color accentColor) {
+    final backdrop = AppGlassTheme.groupBroadcastNavBackdropColor(isDark);
+
     return Stack(
       children: [
+        Positioned(
+          left: 0,
+          right: 0,
+          top: 0,
+          height: 120.h,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [backdrop, backdrop.withValues(alpha: 0)],
+                  stops: const [0.55, 1.0],
+                ),
+              ),
+            ),
+          ),
+        ),
         Positioned(
           left: 0,
           right: 0,
@@ -614,6 +648,26 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
                     Colors.transparent,
                     Colors.black.withValues(alpha: isDark ? 0.5 : 0.32),
                   ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 6.h),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: AppGlassIconButton(
+                  isDark: isDark,
+                  icon: Symbols.arrow_back,
+                  onTap: () => setState(() => _isFullScreenMap = false),
+                  size: 42.w,
                 ),
               ),
             ),
@@ -678,151 +732,319 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
     if (!mounted) return;
 
     final isMeetpoint = widget.areaType == 'meetpoint';
-    final accentColor = _AreaPickerTheme.accent(
+    final accentColor = AreaUiTheme.accent(
       Theme.of(context).brightness == Brightness.dark,
-      isMeetpoint,
+      isMeetpoint: isMeetpoint,
     );
 
     showModalBottomSheet<void>(
       context: context,
-      useSafeArea: true,
+      useSafeArea: false,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         final sheetDark = Theme.of(ctx).brightness == Brightness.dark;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: _AreaPickerTheme.sheetBg(sheetDark),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-            ),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(24.w, 12.h, 24.w, 16.h),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 36.w,
-                    height: 4.h,
-                    decoration: BoxDecoration(
-                      color: sheetDark
-                          ? Colors.white.withValues(alpha: 0.2)
-                          : Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2.r),
-                    ),
-                  ),
-                  SizedBox(height: 20.h),
-                  Icon(Symbols.location_on, size: 40.w, color: accentColor, fill: 1),
-                  SizedBox(height: 14.h),
-                  Text(
-                    address ?? 'area_selected_location_label'.tr(),
-                    textAlign: TextAlign.center,
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w500,
-                      height: 1.4,
-                      color: sheetDark ? Colors.white : AppColors.textDark,
-                    ),
-                  ),
-                  SizedBox(height: 28.h),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52.h,
-                    child: FilledButton(
-                      onPressed: () {
-                        setState(() {
-                          _pickedPoint = point;
-                          _selectedLocation = point;
-                          _isFullScreenMap = false;
-                          if (address != null) {
-                            _nameController.text =
-                                address.split(',').first.trim();
-                          }
-                        });
-                        Navigator.pop(ctx);
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: accentColor,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14.r),
-                        ),
-                      ),
-                      child: Text(
-                        'area_use_this_location'.tr(),
-                        style: const TextStyle(
-                          fontFamily: 'Lexend',
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 8.h),
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: Text(
-                      'area_keep_searching'.tr(),
-                      style: TextStyle(
-                        color: AppColors.textMutedLight,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Lexend',
-                      ),
-                    ),
-                  ),
-                ],
+        final textPrimary =
+            sheetDark ? AppColors.textLight : AppColors.textDark;
+
+        return AreaSheetScaffold(
+          isDark: sheetDark,
+          edgeToEdge: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Symbols.location_on,
+                size: 40.w,
+                color: accentColor,
+                fill: 1,
               ),
-            ),
+              SizedBox(height: 14.h),
+              Text(
+                address ?? 'area_selected_location_label'.tr(),
+                textAlign: TextAlign.center,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                  height: 1.4,
+                  color: textPrimary,
+                ),
+              ),
+              SizedBox(height: 24.h),
+              AreaPrimaryButton(
+                label: 'area_use_this_location'.tr(),
+                accentColor: accentColor,
+                onPressed: () {
+                  setState(() {
+                    _pickedPoint = point;
+                    _selectedLocation = point;
+                    _isFullScreenMap = false;
+                    if (address != null) {
+                      _nameController.text =
+                          address.split(',').first.trim();
+                    }
+                  });
+                  Navigator.pop(ctx);
+                },
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(
+                  'area_keep_searching'.tr(),
+                  style: TextStyle(
+                    color: AreaUiTheme.sectionLabel(sheetDark),
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Lexend',
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-  Widget _buildFloatingTopBar(bool isDark, bool isMeetpoint) {
-    final topPad = MediaQuery.of(context).padding.top;
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: _AreaPickerTheme.topBarBg(isDark),
-          border: Border(
-            bottom: BorderSide(
-              width: 0.5,
-              color: _AreaPickerTheme.topBarBorder(isDark),
+  Widget _buildBottomSheet(bool isDark, Color accentColor, bool isMeetpoint) {
+    if (_isFullScreenMap) return const SizedBox.shrink();
+
+    final keyboardBottom = MediaQuery.viewInsetsOf(context).bottom;
+    final keyboardOpen = keyboardBottom > 0;
+
+    return NotificationListener<DraggableScrollableNotification>(
+      onNotification: (notification) {
+        if (notification.extent <= notification.minExtent + 0.02) {
+          FocusManager.instance.primaryFocus?.unfocus();
+        }
+        return false;
+      },
+      child: DraggableScrollableSheet(
+        controller: _sheetController,
+        initialChildSize: 0.44,
+        minChildSize: 0.08,
+        maxChildSize: 0.92,
+        snap: false,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: BoxDecoration(
+              color: AreaUiTheme.sheetBg(isDark),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(26.r)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
+                  blurRadius: 24,
+                  offset: const Offset(0, -4),
+                ),
+              ],
             ),
-          ),
-        ),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(16.w, topPad + 8.h, 16.w, 10.h),
-          child: Row(
-            children: [
-              _buildOverlayButton(
-                icon: Symbols.arrow_back,
-                isDark: isDark,
-                onTap: () => Navigator.pop(context),
-              ),
-              Expanded(
-                child: Text(
-                  isMeetpoint ? 'area_meetpoint'.tr() : 'area_suggest'.tr(),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14.sp,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
+            child: SingleChildScrollView(
+              controller: scrollController,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16.w,
+                  10.h,
+                  16.w,
+                  keyboardBottom +
+                      (keyboardOpen ? 8.h : MediaQuery.paddingOf(context).bottom + 16.h),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(child: AreaSheetGrabber(isDark: isDark)),
+                    SizedBox(height: 12.h),
+                    if (_mapSearchExpanded) ...[
+                      AreaInsetGroup(
+                        isDark: isDark,
+                        children: [
+                          AreaInsetSearchRow(
+                            isDark: isDark,
+                            accentColor: accentColor,
+                            controller: _mapSearchController,
+                            hint: 'area_search_hint'.tr(),
+                            focusNode: _searchFocusNode,
+                            onChanged: _scheduleNominatimSearch,
+                            onCollapse: _collapseMapSearch,
+                            showClear: _mapSearchController.text.isNotEmpty,
+                            onClear: () {
+                              _mapSearchController.clear();
+                              setState(() {
+                                _nominatimResults = [];
+                                _nominatimLoading = false;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 8.h),
+                      _buildSearchSuggestionsPanel(isDark, accentColor),
+                    ] else ...[
+                      AreaSheetTitle(
+                        isDark: isDark,
+                        title: isMeetpoint
+                            ? 'area_meetpoint'.tr()
+                            : 'area_suggest'.tr(),
+                      ),
+                      SizedBox(height: 14.h),
+                      AreaMapToolsGroup(
+                        isDark: isDark,
+                        accentColor: accentColor,
+                        searchLabel: 'area_search_area'.tr(),
+                        movePinLabel: 'area_move_pin'.tr(),
+                        onSearch: _expandMapSearch,
+                        onMovePin: _openFullscreenMapPicker,
+                      ),
+                      SizedBox(height: 12.h),
+                      if (isMeetpoint &&
+                          ref.watch(suggestedAreaProvider).activeMeetpoint !=
+                              null) ...[
+                        ActiveMeetpointCard(
+                          activeMp: ref
+                              .watch(suggestedAreaProvider)
+                              .activeMeetpoint!,
+                          isDark: isDark,
+                          onDelete: () => _deleteActiveMeetpoint(
+                            ref.read(suggestedAreaProvider).activeMeetpoint!.id,
+                          ),
+                        ),
+                        SizedBox(height: 12.h),
+                      ],
+                      AreaSectionLabel(
+                        isDark: isDark,
+                        label: 'area_name_desc_header'.tr(),
+                      ),
+                      AreaInsetGroup(
+                        isDark: isDark,
+                        children: [
+                          AreaInsetTextRow(
+                            isDark: isDark,
+                            icon: isMeetpoint
+                                ? Symbols.location_on
+                                : Symbols.pin_drop,
+                            iconColor: accentColor,
+                            controller: _nameController,
+                            hint: 'area_name_hint'.tr(),
+                            focusNode: _nameFocusNode,
+                          ),
+                          AreaInsetTextRow(
+                            isDark: isDark,
+                            icon: Symbols.description,
+                            iconColor: accentColor,
+                            controller: _descController,
+                            hint: 'area_desc_hint'.tr(),
+                            maxLines: 4,
+                            minLines: 2,
+                            focusNode: _descFocusNode,
+                          ),
+                        ],
+                      ),
+                      if (isMeetpoint) ...[
+                        SizedBox(height: 16.h),
+                        AreaSectionLabel(
+                          isDark: isDark,
+                          label: 'area_schedule_title'.tr(),
+                        ),
+                        AreaInsetGroup(
+                          isDark: isDark,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildScheduleHalf(
+                                    isDark: isDark,
+                                    accentColor: accentColor,
+                                    icon: Symbols.calendar_today,
+                                    value: _meetpointTime == null
+                                        ? 'area_select_date'.tr()
+                                        : DateFormat('MMM dd, yyyy')
+                                            .format(_meetpointTime!),
+                                    onTap: _onSelectDate,
+                                  ),
+                                ),
+                                Container(
+                                  width: 0.5,
+                                  height: 44.h,
+                                  color: AreaUiTheme.divider(isDark),
+                                ),
+                                Expanded(
+                                  child: _buildScheduleHalf(
+                                    isDark: isDark,
+                                    accentColor: accentColor,
+                                    icon: Symbols.schedule,
+                                    value: _meetpointTime == null
+                                        ? 'area_select_time'.tr()
+                                        : DateFormat('hh:mm a')
+                                            .format(_meetpointTime!),
+                                    onTap: _onSelectTime,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 16.h),
+                        AreaSectionLabel(
+                          isDark: isDark,
+                          label: 'area_reminder_label'.tr(),
+                        ),
+                        _buildReminderSegmented(isDark, accentColor),
+                      ],
+                      SizedBox(height: 20.h),
+                      AreaPrimaryButton(
+                        label: widget.existingArea != null
+                            ? (isMeetpoint
+                                ? 'area_update_meetpoint'.tr()
+                                : 'area_update_suggestion'.tr())
+                            : (isMeetpoint
+                                ? 'area_set_meetpoint'.tr()
+                                : 'area_add_suggestion'.tr()),
+                        accentColor: accentColor,
+                        isLoading: _submitting,
+                        onPressed: _submitting ? null : _submit,
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              _buildOverlayButton(
-                icon: Symbols.my_location,
-                isDark: isDark,
-                isLoading: _recenteringGps,
-                onTap: _recenterOnMe,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildScheduleHalf({
+    required bool isDark,
+    required Color accentColor,
+    required IconData icon,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+          child: Row(
+            children: [
+              Icon(icon, size: 18.w, color: accentColor),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w500,
+                    color: textPrimary,
+                  ),
+                ),
               ),
             ],
           ),
@@ -831,215 +1053,76 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
     );
   }
 
-  Widget _buildSheetMapTools(bool isDark, Color accentColor) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_mapSearchExpanded) ...[
-          _buildMapSearchExpanded(isDark, accentColor),
-          SizedBox(height: 8.h),
-        ],
-        _buildMapSearchSuggestionsPanel(isDark, accentColor),
-        if (_mapSearchExpanded &&
-            _mapSearchController.text.trim().length >= 3)
-          SizedBox(height: 8.h),
-        _buildMapActionPillsRow(isDark, accentColor),
-        SizedBox(height: 12.h),
-      ],
-    );
-  }
+  Widget _buildReminderSegmented(bool isDark, Color accentColor) {
+    final minutesUntil = _meetpointTime?.difference(DateTime.now()).inMinutes;
+    final outline = AreaUiTheme.divider(isDark);
+    final textMuted = AreaUiTheme.sectionLabel(isDark);
 
-  Widget _buildMapActionPillsRow(bool isDark, Color accentColor) {
-    return Row(
-      children: [
-        Expanded(
-          child: Material(
-            color: _AreaPickerTheme.searchPillBg(isDark),
-            borderRadius: BorderRadius.circular(10),
-            child: InkWell(
-              onTap: _expandMapSearch,
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: _AreaPickerTheme.searchPillBorder(isDark),
-                    width: 0.5,
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Symbols.search,
-                      size: 18.w,
-                      color: isDark ? Colors.white70 : AppColors.textDark,
-                    ),
-                    SizedBox(width: 6.w),
-                    Flexible(
-                      child: Text(
-                        'area_search_area'.tr(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12.sp,
-                          color: isDark ? Colors.white : AppColors.textDark,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: accentColor,
+              secondary: accentColor,
+            ),
+      ),
+      child: SegmentedButton<int>(
+        segments: [0, 5, 15, 30, 60].map((mins) {
+          final disabled =
+              mins > 0 && minutesUntil != null && minutesUntil <= mins;
+          return ButtonSegment<int>(
+            value: mins,
+            enabled: !disabled,
+            label: Text(
+              mins == 0 ? 'area_reminder_none'.tr() : '${mins}m',
+              style: TextStyle(fontSize: 11.sp),
+            ),
+          );
+        }).toList(),
+        selected: {_reminderMinutes},
+        onSelectionChanged: (next) {
+          if (next.isNotEmpty) setState(() => _reminderMinutes = next.first);
+        },
+        multiSelectionEnabled: false,
+        emptySelectionAllowed: false,
+        showSelectedIcon: false,
+        style: ButtonStyle(
+          padding: WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 4.w, vertical: 8.h),
+          ),
+          side: WidgetStatePropertyAll(BorderSide(color: outline)),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return Colors.white;
+            return textMuted;
+          }),
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return accentColor;
+            return Colors.transparent;
+          }),
+          textStyle: WidgetStatePropertyAll(
+            TextStyle(
+              fontFamily: 'Lexend',
+              fontWeight: FontWeight.w600,
+              fontSize: 11.sp,
             ),
           ),
-        ),
-        SizedBox(width: 10.w),
-        Expanded(
-          child: Material(
-            color: accentColor,
-            borderRadius: BorderRadius.circular(10),
-            child: InkWell(
-              onTap: _openFullscreenMapPicker,
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Symbols.add_location_alt,
-                      size: 18.w,
-                      color: Colors.white,
-                    ),
-                    SizedBox(width: 6.w),
-                    Flexible(
-                      child: Text(
-                        'area_move_pin'.tr(),
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12.sp,
-                          color: Colors.white,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMapSearchExpanded(bool isDark, Color accentColor) {
-    return Material(
-      color: _AreaPickerTheme.searchPillBg(isDark),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: _AreaPickerTheme.searchPillBorder(isDark),
-            width: 0.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              icon: Icon(
-                Symbols.arrow_back,
-                color: isDark ? Colors.white : AppColors.textDark,
-                size: 20.w,
-              ),
-              onPressed: _collapseMapSearch,
-            ),
-            Expanded(
-              child: TextField(
-                controller: _mapSearchController,
-                focusNode: _searchFocusNode,
-                onChanged: _scheduleNominatimSearch,
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontSize: 12.sp,
-                  color: isDark ? Colors.white : AppColors.textDark,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'area_search_hint'.tr(),
-                  hintStyle: TextStyle(
-                    color: isDark
-                        ? _AreaPickerTheme.darkHint
-                        : _AreaPickerTheme.lightHint,
-                    fontSize: 12.sp,
-                  ),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 10.h),
-                ),
-              ),
-            ),
-            if (_mapSearchController.text.isNotEmpty)
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: Icon(
-                  Symbols.close,
-                  color: isDark
-                      ? _AreaPickerTheme.darkHint
-                      : _AreaPickerTheme.lightHint,
-                  size: 18.w,
-                ),
-                onPressed: () {
-                  _mapSearchController.clear();
-                  setState(() {
-                    _nominatimResults = [];
-                    _nominatimLoading = false;
-                  });
-                },
-              ),
-          ],
         ),
       ),
     );
   }
 
-  Widget _buildMapSearchSuggestionsPanel(bool isDark, Color accentColor) {
-    if (!_mapSearchExpanded) {
-      return const SizedBox.shrink();
-    }
-    final panel = _buildSearchSuggestionsPanel(isDark, accentColor);
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: panel,
-    );
-  }
-
-  /// Keeps the suggestions list above the keyboard and below the top bar.
+  /// Keeps the suggestions list filling the expanded search sheet.
   double _suggestionsListMaxHeight(BuildContext context) {
     final mq = MediaQuery.of(context);
-    const searchBarHeight = 52.0;
-    final topBarHeight = mq.padding.top + 58;
-    const mapPillsRowHeight = 48.0;
-    final fromViewport = mq.size.height -
-        mq.viewInsets.bottom -
-        searchBarHeight -
-        topBarHeight -
-        mapPillsRowHeight;
-    const sheetInitialFraction = 0.44;
-    final sheetTopY = mq.size.height * (1 - sheetInitialFraction);
-    final fromSheetTop = sheetTopY -
-        topBarHeight -
-        searchBarHeight -
-        mq.viewInsets.bottom -
-        8;
-    final maxH = fromViewport < fromSheetTop ? fromViewport : fromSheetTop;
-    return maxH.clamp(72.0, 240.h);
+    final keyboard = mq.viewInsets.bottom;
+    const chromeHeight = 120.0;
+    final sheetFraction = _mapSearchExpanded ? 0.90 : 0.44;
+    final sheetHeight = mq.size.height * sheetFraction;
+    final available = sheetHeight -
+        chromeHeight -
+        keyboard -
+        mq.padding.bottom -
+        24;
+    return available.clamp(72.0, 420.h);
   }
 
   void _openFullscreenMapPicker() {
@@ -1052,21 +1135,15 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
       return const SizedBox.shrink(key: ValueKey('sug_hidden'));
     }
     final maxListHeight = _suggestionsListMaxHeight(context);
+    final muted = AreaUiTheme.sectionLabel(isDark);
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
 
     if (_nominatimLoading && _nominatimResults.isEmpty) {
-      return Material(
+      return AreaInsetGroup(
         key: const ValueKey('sug_loading'),
-        color: _AreaPickerTheme.sheetBg(isDark),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: _AreaPickerTheme.searchPillBorder(isDark),
-              width: 0.5,
-            ),
-          ),
-          child: Padding(
+        isDark: isDark,
+        children: [
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 20.h),
             child: Center(
               child: SizedBox(
@@ -1079,501 +1156,94 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen> {
               ),
             ),
           ),
-        ),
+        ],
       );
     }
 
     if (!_nominatimLoading && _nominatimResults.isEmpty) {
-      return Material(
+      return AreaInsetGroup(
         key: const ValueKey('sug_empty'),
-        color: _AreaPickerTheme.sheetBg(isDark),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: _AreaPickerTheme.searchPillBorder(isDark),
-              width: 0.5,
-            ),
-          ),
-          child: Padding(
+        isDark: isDark,
+        children: [
+          Padding(
             padding: EdgeInsets.all(16.w),
             child: Text(
               'area_no_places_found'.tr(),
               style: TextStyle(
                 fontFamily: 'Lexend',
-                fontSize: 12.sp,
-                color: isDark
-                    ? _AreaPickerTheme.darkHint
-                    : _AreaPickerTheme.lightHint,
+                fontSize: 13.sp,
+                color: muted,
               ),
             ),
           ),
-        ),
+        ],
       );
     }
 
-    return Material(
+    return AreaInsetGroup(
       key: ValueKey('sug_list_${_nominatimResults.length}'),
-      color: _AreaPickerTheme.sheetBg(isDark),
-      borderRadius: BorderRadius.circular(10),
-      clipBehavior: Clip.antiAlias,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: _AreaPickerTheme.searchPillBorder(isDark),
-            width: 0.5,
-          ),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: ConstrainedBox(
+      isDark: isDark,
+      children: [
+        ConstrainedBox(
           constraints: BoxConstraints(maxHeight: maxListHeight),
           child: ListView.separated(
             shrinkWrap: true,
-            padding: EdgeInsets.symmetric(vertical: 6.h),
+            padding: EdgeInsets.zero,
             physics: const ClampingScrollPhysics(),
             itemCount: _nominatimResults.length,
             separatorBuilder: (context, index) => Divider(
-              height: 1,
-              indent: 16.w,
-              endIndent: 16.w,
-              color: isDark ? Colors.white10 : Colors.grey.shade200,
+              height: 0.5,
+              thickness: 0.5,
+              indent: 14.w,
+              color: AreaUiTheme.divider(isDark),
             ),
             itemBuilder: (context, i) {
               final r = _nominatimResults[i];
               final name = r['display_name'] as String;
-              return InkWell(
-                onTap: () {
-                  final p = LatLng(r['lat'] as double, r['lon'] as double);
-                  final label = name.split(',').first.trim();
-                  _applyNominatimPick(p, label);
-                },
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 16.w,
-                    vertical: 12.h,
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Symbols.location_on,
-                        size: 20.w,
-                        color: accentColor,
-                        fill: 1,
-                      ),
-                      SizedBox(width: 12.w),
-                      Expanded(
-                        child: Text(
-                          name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontSize: 13.sp,
-                            height: 1.35,
-                            color: isDark ? Colors.white : AppColors.textDark,
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    final p = LatLng(r['lat'] as double, r['lon'] as double);
+                    final label = name.split(',').first.trim();
+                    _applyNominatimPick(p, label);
+                  },
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 14.w,
+                      vertical: 12.h,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Symbols.location_on,
+                          size: 20.w,
+                          color: muted,
+                        ),
+                        SizedBox(width: 10.w),
+                        Expanded(
+                          child: Text(
+                            name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'Lexend',
+                              fontSize: 13.sp,
+                              height: 1.35,
+                              color: textPrimary,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );
             },
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildBottomSheet(bool isDark, Color accentColor, bool isMeetpoint) {
-    if (_isFullScreenMap) return const SizedBox.shrink();
-
-    return DraggableScrollableSheet(
-      controller: _sheetController,
-      initialChildSize: 0.44,
-      minChildSize: 0.08,
-      maxChildSize: 0.92,
-      snap: false,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: _AreaPickerTheme.sheetBg(isDark),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-          ),
-          child: SingleChildScrollView(
-            controller: scrollController,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                16.w,
-                8.h,
-                16.w,
-                MediaQuery.of(context).padding.bottom + 16.h,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSheetMapTools(isDark, accentColor),
-                  Center(
-                    child: Container(
-                      width: 34,
-                      height: 3,
-                      margin: EdgeInsets.only(bottom: 16.h),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? _AreaPickerTheme.darkHandle
-                            : _AreaPickerTheme.lightHandle,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  if (isMeetpoint && ref.watch(suggestedAreaProvider).activeMeetpoint != null) ...[
-                    ActiveMeetpointCard(
-                      activeMp: ref.watch(suggestedAreaProvider).activeMeetpoint!,
-                      isDark: isDark,
-                      onDelete: () => _deleteActiveMeetpoint(ref.read(suggestedAreaProvider).activeMeetpoint!.id),
-                    ),
-                  ],
-                  _buildSectionHeader('area_name_desc_header'.tr()),
-                  SizedBox(height: 6.h),
-                  _buildTextField(
-                    _nameController,
-                    isMeetpoint ? Symbols.location_on : Symbols.pin_drop,
-                    'area_name_hint'.tr(),
-                    accentColor,
-                    isDark,
-                    accentIcon: true,
-                  ),
-                  SizedBox(height: 12.h),
-                  _buildTextField(
-                    _descController,
-                    Symbols.description,
-                    'area_desc_hint'.tr(),
-                    isDark
-                        ? _AreaPickerTheme.darkHint
-                        : _AreaPickerTheme.lightHint,
-                    isDark,
-                    accentIcon: false,
-                  ),
-                  if (isMeetpoint) ...[
-                    SizedBox(height: 20.h),
-                    _buildSectionHeader('area_schedule_title'.tr()),
-                    SizedBox(height: 8.h),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: _buildDateTimeTile(
-                            value: _meetpointTime == null
-                                ? 'area_select_date'.tr()
-                                : DateFormat('MMM dd, yyyy')
-                                    .format(_meetpointTime!),
-                            icon: Symbols.calendar_today,
-                            isDark: isDark,
-                            accentColor: accentColor,
-                            onTap: _onSelectDate,
-                          ),
-                        ),
-                        SizedBox(width: 12.w),
-                        Expanded(
-                          flex: 2,
-                          child: _buildDateTimeTile(
-                            value: _meetpointTime == null
-                                ? 'area_select_time'.tr()
-                                : DateFormat('hh:mm a')
-                                    .format(_meetpointTime!),
-                            icon: Symbols.schedule,
-                            isDark: isDark,
-                            accentColor: accentColor,
-                            onTap: _onSelectTime,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 20.h),
-                    _buildSectionHeader('area_reminder_label'.tr()),
-                    SizedBox(height: 8.h),
-                    _buildReminderOptions(isDark, accentColor),
-                  ],
-                  SizedBox(height: 22.h),
-                  _buildSubmitButton(isMeetpoint, accentColor),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildOverlayButton({
-    required IconData icon,
-    required bool isDark,
-    required VoidCallback onTap,
-    bool isLoading = false,
-  }) {
-    return Container(
-      width: 40.w,
-      height: 40.w,
-      decoration: BoxDecoration(
-        color: _AreaPickerTheme.overlayBtnFill(isDark),
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: _AreaPickerTheme.overlayBtnBorder(isDark),
-          width: 0.5,
-        ),
-      ),
-      child: IconButton(
-        padding: EdgeInsets.zero,
-        icon: isLoading
-            ? SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: isDark ? Colors.white : AppColors.textDark,
-                ),
-              )
-            : Icon(
-                icon,
-                size: 20.w,
-                color: isDark ? Colors.white : AppColors.textDark,
-              ),
-        onPressed: isLoading ? null : onTap,
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title.toUpperCase(),
-      style: TextStyle(
-        fontFamily: 'Lexend',
-        fontWeight: FontWeight.w600,
-        fontSize: 10.sp,
-        letterSpacing: 1.2,
-        color: _AreaPickerTheme.sectionLabel,
-      ),
-    );
-  }
-
-  Widget _buildTextField(
-    TextEditingController controller,
-    IconData icon,
-    String hint,
-    Color iconColor,
-    bool isDark, {
-    required bool accentIcon,
-  }) {
-    final fieldBorder = isDark
-        ? BorderSide(
-            color: Colors.white.withValues(alpha: 0.05),
-            width: 0.5,
-          )
-        : BorderSide.none;
-    return TextField(
-      controller: controller,
-      style: TextStyle(
-        fontFamily: 'Lexend',
-        fontSize: 14.sp,
-        color: isDark ? Colors.white : AppColors.textDark,
-      ),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(
-          color: isDark ? _AreaPickerTheme.darkHint : _AreaPickerTheme.lightHint,
-          fontSize: 13.sp,
-        ),
-        prefixIcon: Icon(icon, size: 20.w, color: iconColor),
-        filled: true,
-        fillColor: _AreaPickerTheme.fieldBg(isDark),
-        contentPadding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.r),
-          borderSide: fieldBorder,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.r),
-          borderSide: fieldBorder,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.r),
-          borderSide: accentIcon
-              ? BorderSide(color: iconColor, width: 1)
-              : fieldBorder,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDateTimeTile({
-    required String value,
-    required IconData icon,
-    required bool isDark,
-    required Color accentColor,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10.r),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-        decoration: BoxDecoration(
-          color: _AreaPickerTheme.fieldBg(isDark),
-          borderRadius: BorderRadius.circular(10.r),
-          border: isDark
-              ? Border.all(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  width: 0.5,
-                )
-              : null,
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 18.w, color: accentColor),
-            SizedBox(width: 8.w),
-            Expanded(
-              child: Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? Colors.white : AppColors.textDark,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReminderChip({
-    required String label,
-    required bool isSelected,
-    required bool isDisabled,
-    required bool isDark,
-    required Color accentColor,
-    required VoidCallback? onTap,
-  }) {
-    return Opacity(
-      opacity: isDisabled ? 0.38 : 1.0,
-      child: Material(
-        color: isSelected
-            ? accentColor
-            : (isDark ? _AreaPickerTheme.darkField : _AreaPickerTheme.lightChipBg),
-        borderRadius: BorderRadius.circular(20.r),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20.r),
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20.r),
-              border: isSelected
-                  ? null
-                  : Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.05)
-                          : Colors.transparent,
-                      width: 0.5,
-                    ),
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontSize: 11.sp,
-                fontWeight: FontWeight.w500,
-                color: isSelected
-                    ? Colors.white
-                    : (isDark
-                        ? _AreaPickerTheme.darkHint
-                        : _AreaPickerTheme.lightChipInactiveText),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReminderOptions(bool isDark, Color accentColor) {
-    final minutesUntil = _meetpointTime?.difference(DateTime.now()).inMinutes;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [0, 5, 15, 30, 60].map((mins) {
-          final isSelected = _reminderMinutes == mins;
-          final isDisabled =
-              mins > 0 && minutesUntil != null && minutesUntil <= mins;
-          return Padding(
-            padding: EdgeInsets.only(right: 8.w),
-            child: _buildReminderChip(
-              label: mins == 0 ? 'area_reminder_none'.tr() : '${mins}m',
-              isSelected: isSelected,
-              isDisabled: isDisabled,
-              isDark: isDark,
-              accentColor: accentColor,
-              onTap: isDisabled
-                  ? null
-                  : () => setState(() => _reminderMinutes = mins),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildSubmitButton(bool isMeetpoint, Color accentColor) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: _submitting ? null : _submit,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: accentColor,
-          disabledBackgroundColor: accentColor,
-          disabledForegroundColor: Colors.white,
-          foregroundColor: Colors.white,
-          padding: EdgeInsets.symmetric(vertical: 13.h),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.r),
-          ),
-          elevation: 0,
-          shadowColor: Colors.transparent,
-        ),
-        child: _submitting
-            ? SizedBox(
-                width: 22.w,
-                height: 22.w,
-                child: const CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.5,
-                ),
-              )
-            : Text(
-                widget.existingArea != null
-                    ? (isMeetpoint
-                        ? 'area_update_meetpoint'.tr()
-                        : 'area_update_suggestion'.tr())
-                    : (isMeetpoint
-                        ? 'area_set_meetpoint'.tr()
-                        : 'area_add_suggestion'.tr()),
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13.sp,
-                  color: Colors.white,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-      ),
+      ],
     );
   }
 }

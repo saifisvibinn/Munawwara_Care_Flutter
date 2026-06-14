@@ -5,6 +5,7 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 
 class DocumentViewerScreen extends ConsumerWidget {
@@ -75,14 +76,9 @@ class DocumentViewerScreen extends ConsumerWidget {
                       url,
                       headers: headers,
                       onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Failed to load PDF: ${details.description}',
-                              style: const TextStyle(),
-                            ),
-                            backgroundColor: AppColors.error,
-                          ),
+                        StandardSnackBar.showError(
+                          context,
+                          'Failed to load PDF: ${details.description}',
                         );
                       },
                     )

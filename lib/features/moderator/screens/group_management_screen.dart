@@ -48,6 +48,7 @@ import '../widgets/moderator_map_marker_data.dart';
 import '../widgets/moderator_map_widgets.dart';
 import '../widgets/pilgrim_marker_layout.dart';
 import '../../shared/models/suggested_area_model.dart';
+import '../../shared/widgets/area_ui_widgets.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -945,92 +946,38 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-        ),
-        padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 32.h),
+      builder: (ctx) => AreaSheetScaffold(
+        isDark: isDark,
+        maxHeightFactor: 0.5,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 40.w,
-              height: 4.h,
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white24 : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2.r),
-              ),
-            ),
-            SizedBox(height: 20.h),
-            Text(
-              'area_manage_title'.tr(),
-              style: TextStyle(
-                fontFamily: 'Lexend',
-                fontWeight: FontWeight.w700,
-                fontSize: 18.sp,
-                color: isDark ? Colors.white : AppColors.textDark,
-              ),
+            AreaSheetTitle(
+              isDark: isDark,
+              title: 'area_manage_title'.tr(),
             ),
             SizedBox(height: 20.h),
             Row(
               children: [
                 Expanded(
-                  child: GestureDetector(
+                  child: AreaTypeActionCard(
+                    isDark: isDark,
+                    label: 'area_suggest'.tr(),
+                    icon: Symbols.add_location,
+                    accentColor: AppColors.primary,
                     onTap: () {
                       Navigator.pop(ctx);
                       _openAreaPicker(group, 'suggestion');
                     },
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        vertical: 20.h,
-                        horizontal: 12.w,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.surfaceDark
-                            : AppColors.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(16.r),
-                        border: Border.all(
-                          color: isDark
-                              ? AppColors.primary.withValues(alpha: 0.25)
-                              : AppColors.primary.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 52.w,
-                            height: 52.w,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Symbols.add_location,
-                              color: Colors.white,
-                              size: 26.w,
-                            ),
-                          ),
-                          SizedBox(height: 12.h),
-                          Text(
-                            'area_suggest'.tr(),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13.sp,
-                              color: isDark ? Colors.white : AppColors.textDark,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 ),
                 SizedBox(width: 12.w),
                 Expanded(
-                  child: GestureDetector(
+                  child: AreaTypeActionCard(
+                    isDark: isDark,
+                    label: 'area_meetpoint'.tr(),
+                    icon: Symbols.crisis_alert,
+                    accentColor: AreaUiTheme.meetpointRed,
                     onTap: () {
                       Navigator.pop(ctx);
                       if (areaState.hasMeetpoint) {
@@ -1042,118 +989,45 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
                       }
                       _openAreaPicker(group, 'meetpoint');
                     },
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        vertical: 20.h,
-                        horizontal: 12.w,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0x22DC2626)
-                            : const Color(0xFFFEF2F2),
-                        borderRadius: BorderRadius.circular(16.r),
-                        border: Border.all(
-                          color: isDark
-                              ? const Color(0x33DC2626)
-                              : const Color(0xFFFECACA),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 52.w,
-                            height: 52.w,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFDC2626),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Symbols.crisis_alert,
-                              color: Colors.white,
-                              size: 26.w,
-                            ),
-                          ),
-                          SizedBox(height: 12.h),
-                          Text(
-                            'area_meetpoint'.tr(),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontFamily: 'Lexend',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13.sp,
-                              color: isDark ? Colors.white : AppColors.textDark,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 ),
               ],
             ),
             if (areaState.areas.isNotEmpty) ...[
               SizedBox(height: 16.h),
-              Divider(color: Colors.grey.shade200),
-              SizedBox(height: 8.h),
-              GestureDetector(
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showAreaList(group, areaState);
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(vertical: 14.h),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.backgroundDark
-                        : const Color(0xFFF0F0F8),
-                    borderRadius: BorderRadius.circular(14.r),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Symbols.list,
-                        size: 18.w,
-                        color: isDark
-                            ? AppColors.textLight
-                            : AppColors.textDark,
+              AreaInsetGroup(
+                isDark: isDark,
+                children: [
+                  AreaInsetValueRow(
+                    isDark: isDark,
+                    icon: Symbols.list,
+                    iconColor: AppColors.primary,
+                    label: 'area_view_all'.tr(),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _showAreaList(group, areaState);
+                    },
+                    trailing: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 8.w,
+                        vertical: 2.h,
                       ),
-                      SizedBox(width: 8.w),
-                      Text(
-                        'area_view_all'.tr(),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10.r),
+                      ),
+                      child: Text(
+                        '${areaState.areas.length}',
                         style: TextStyle(
                           fontFamily: 'Lexend',
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14.sp,
-                          color: isDark
-                              ? AppColors.textLight
-                              : AppColors.textDark,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12.sp,
+                          color: AppColors.primary,
                         ),
                       ),
-                      SizedBox(width: 6.w),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 8.w,
-                          vertical: 2.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10.r),
-                        ),
-                        child: Text(
-                          '${areaState.areas.length}',
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12.sp,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ],
@@ -1172,35 +1046,15 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
           final liveAreaState = _scopedAreaState(
             ref.watch(suggestedAreaProvider),
           );
-          return Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.65,
-            ),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.surfaceDark : Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-            ),
-            padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
+          return AreaSheetScaffold(
+            isDark: isDark,
+            scrollControlled: true,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 40.w,
-                  height: 4.h,
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white24 : Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2.r),
-                  ),
-                ),
-                SizedBox(height: 16.h),
-                Text(
-                  'area_view_all'.tr(),
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 17.sp,
-                    color: isDark ? Colors.white : AppColors.textDark,
-                  ),
+                AreaSheetTitle(
+                  isDark: isDark,
+                  title: 'area_view_all'.tr(),
                 ),
                 SizedBox(height: 16.h),
                 Flexible(
@@ -1218,230 +1072,98 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
                             ),
                           ),
                         )
-                      : ListView.builder(
+                      : ListView.separated(
                           shrinkWrap: true,
                           itemCount: liveAreaState.areas.length,
+                          separatorBuilder: (_, _) => SizedBox(height: 8.h),
                           itemBuilder: (_, i) {
                             final area = liveAreaState.areas[i];
-                            return Container(
-                              margin: EdgeInsets.only(bottom: 10.h),
-                              padding: EdgeInsets.all(12.w),
-                              decoration: BoxDecoration(
-                                color: area.isMeetpoint
-                                    ? (isDark
-                                          ? const Color(0xFF450a0a)
-                                          : const Color(0xFFFEF2F2))
-                                    : (isDark
-                                          ? AppColors.backgroundDark
-                                          : const Color(0xFFF0F0F8)),
-                                borderRadius: BorderRadius.circular(14.r),
-                                border: Border.all(
-                                  color: area.isMeetpoint
-                                      ? (isDark
-                                            ? const Color(0xFF991b1b)
-                                            : const Color(0xFFFECACA))
-                                      : Colors.transparent,
+                            return AreaInsetGroup(
+                              isDark: isDark,
+                              children: [
+                                AreaListRow(
+                                  isDark: isDark,
+                                  name: area.name,
+                                  description: area.description.isNotEmpty
+                                      ? area.description
+                                      : null,
+                                  isMeetpoint: area.isMeetpoint,
+                                  onTap: () {
+                                    Navigator.pop(ctx);
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => AreaPickerScreen(
+                                          groupId: group.id,
+                                          areaType: area.areaType,
+                                          existingArea: area,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        visualDensity: VisualDensity.compact,
+                                        icon: Icon(
+                                          Symbols.my_location,
+                                          size: 20.w,
+                                          color: AppColors.primary,
+                                        ),
+                                        onPressed: () {
+                                          Navigator.pop(ctx);
+                                          _mapController.move(
+                                            LatLng(
+                                              area.latitude,
+                                              area.longitude,
+                                            ),
+                                            AppMapTiles.clampMapZoom(17),
+                                          );
+                                        },
+                                      ),
+                                      IconButton(
+                                        visualDensity: VisualDensity.compact,
+                                        icon: Icon(
+                                          Symbols.delete,
+                                          size: 20.w,
+                                          color: Colors.red,
+                                        ),
+                                        onPressed: () async {
+                                          if (area.isMeetpoint) {
+                                            final shouldDelete =
+                                                await StandardDialog.show<bool>(
+                                                  context: context,
+                                                  title:
+                                                      'area_delete_meetpoint_confirm_title',
+                                                  content:
+                                                      'area_delete_meetpoint_confirm_message',
+                                                  confirmText:
+                                                      'msg_delete_confirm',
+                                                  cancelText: 'area_cancel',
+                                                  isDestructive: true,
+                                                ) ??
+                                                false;
+                                            if (!shouldDelete) return;
+                                          }
+                                          final ok = await ref
+                                              .read(
+                                                suggestedAreaProvider.notifier,
+                                              )
+                                              .deleteArea(group.id, area.id);
+                                          if (!context.mounted) return;
+                                          if (ok) {
+                                            StandardSnackBar.showSuccess(
+                                              context,
+                                              'area_deleted'.tr(),
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 36.w,
-                                    height: 36.w,
-                                    decoration: BoxDecoration(
-                                      color: area.isMeetpoint
-                                          ? const Color(0xFFDC2626)
-                                          : AppColors.primary,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      area.isMeetpoint
-                                          ? Symbols.crisis_alert
-                                          : Symbols.pin_drop,
-                                      color: Colors.white,
-                                      size: 18.w,
-                                    ),
-                                  ),
-                                  SizedBox(width: 10.w),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Flexible(
-                                              child: Text(
-                                                area.name,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  fontFamily: 'Lexend',
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 13.sp,
-                                                  color: isDark
-                                                      ? Colors.white
-                                                      : AppColors.textDark,
-                                                ),
-                                              ),
-                                            ),
-                                            SizedBox(width: 6.w),
-                                            Container(
-                                              padding: EdgeInsets.symmetric(
-                                                horizontal: 6.w,
-                                                vertical: 2.h,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: area.isMeetpoint
-                                                    ? const Color(
-                                                        0xFFDC2626,
-                                                      ).withValues(alpha: 0.15)
-                                                    : AppColors.primary
-                                                          .withValues(
-                                                            alpha: 0.15,
-                                                          ),
-                                                borderRadius:
-                                                    BorderRadius.circular(6.r),
-                                              ),
-                                              child: Text(
-                                                area.isMeetpoint
-                                                    ? 'area_meetpoint'.tr()
-                                                    : 'area_suggestion_label'
-                                                          .tr(),
-                                                style: TextStyle(
-                                                  fontFamily: 'Lexend',
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 9.sp,
-                                                  color: area.isMeetpoint
-                                                      ? const Color(0xFFDC2626)
-                                                      : AppColors.primary,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        if (area.description.isNotEmpty)
-                                          Text(
-                                            area.description,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontFamily: 'Lexend',
-                                              fontSize: 11.sp,
-                                              color: AppColors.textMutedLight,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  // Focus on map
-                                  GestureDetector(
-                                    onTap: () {
-                                      Navigator.pop(ctx);
-                                      _mapController.move(
-                                        LatLng(area.latitude, area.longitude),
-                                        AppMapTiles.clampMapZoom(17),
-                                      );
-                                    },
-                                    child: Container(
-                                      width: 32.w,
-                                      height: 32.w,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primary.withValues(
-                                          alpha: 0.1,
-                                        ),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Symbols.my_location,
-                                        size: 15.w,
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(width: 6.w),
-                                  // Edit
-                                  GestureDetector(
-                                    onTap: () {
-                                      Navigator.pop(ctx);
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              AreaPickerScreen(
-                                                groupId: group.id,
-                                                areaType: area.areaType,
-                                                existingArea: area,
-                                              ),
-                                        ),
-                                      );
-                                    },
-                                    child: Container(
-                                      width: 32.w,
-                                      height: 32.w,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.info.withValues(
-                                          alpha: 0.1,
-                                        ),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Symbols.edit,
-                                        size: 15.w,
-                                        color: AppColors.info,
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(width: 6.w),
-                                  // Delete
-                                  GestureDetector(
-                                    onTap: () async {
-                                      if (area.isMeetpoint) {
-                                        final shouldDelete =
-                                            await StandardDialog.show<bool>(
-                                              context: context,
-                                              title:
-                                                  'area_delete_meetpoint_confirm_title',
-                                              content:
-                                                  'area_delete_meetpoint_confirm_message',
-                                              confirmText: 'msg_delete_confirm',
-                                              cancelText: 'area_cancel',
-                                              isDestructive: true,
-                                            ) ??
-                                            false;
-
-                                        if (!shouldDelete) return;
-                                      }
-
-                                      final ok = await ref
-                                          .read(suggestedAreaProvider.notifier)
-                                          .deleteArea(group.id, area.id);
-                                      if (!context.mounted) return;
-                                      if (ok) {
-                                        StandardSnackBar.showSuccess(
-                                          context,
-                                          'area_deleted'.tr(),
-                                        );
-                                      }
-                                    },
-                                    child: Container(
-                                      width: 32.w,
-                                      height: 32.w,
-                                      decoration: BoxDecoration(
-                                        color: Colors.red.withValues(
-                                          alpha: 0.1,
-                                        ),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Symbols.delete,
-                                        size: 15.w,
-                                        color: Colors.red,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              ],
                             );
                           },
                         ),
@@ -2426,8 +2148,9 @@ class _QrShareSheetState extends State<_QrShareSheet> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('group_share_failed'.tr(args: ['$e']))),
+        StandardSnackBar.showError(
+          context,
+          'group_share_failed'.tr(args: ['$e']),
         );
       }
     } finally {

@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -61,46 +62,259 @@ class SupportBrandAvatar extends StatelessWidget {
 
 /// Shared layout tokens for pilgrim group inbox and moderator group messages.
 abstract final class GroupChatTheme {
-  static const Color urgentRed = Color(0xFFDC2626);
+  static const Color urgentAccentBar = Color(0xFFDC2626);
 
   static Color scaffoldBackground(bool isDark) =>
-      isDark ? AppColors.backgroundDark : const Color(0xFFF1F5F6);
+      AppGlassTheme.dashboardBackgroundColor(isDark);
 
-  static Color cardBackground(bool isDark, {required bool urgent, required bool highlightNew}) {
+  static Color cardBackground(
+    bool isDark, {
+    required bool urgent,
+    required bool highlightNew,
+  }) {
     if (urgent) {
-      return isDark ? const Color(0xFF221A1A) : const Color(0xFFFFFBFB);
+      return isDark ? const Color(0xFF2A1C1C) : const Color(0xFFFFF5F5);
     }
     if (highlightNew) {
-      return isDark ? const Color(0xFF1A2A1A) : const Color(0xFFECFDF5);
+      return isDark
+          ? AppColors.primary.withValues(alpha: 0.08)
+          : AppColors.primary.withValues(alpha: 0.06);
     }
     return isDark ? AppColors.surfaceDark : Colors.white;
   }
 
   static Color cardBorderColor(bool isDark, {required bool urgent, required bool highlightNew}) {
-    if (urgent) return urgentRed;
-    if (highlightNew) return AppColors.primary.withValues(alpha: 0.5);
-    return isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFE8EEF2);
+    if (isDark) {
+      return Colors.white.withValues(alpha: 0.08);
+    }
+    return const Color(0xFFE5E5EA);
   }
 
-  static double cardBorderWidth({required bool urgent, required bool highlightNew}) {
-    if (urgent) return 1.5;
-    if (highlightNew) return 1.2;
-    return 1.0;
-  }
+  static double cardBorderWidth({required bool urgent, required bool highlightNew}) => 0.5;
+
+  static Color listGapColor(bool isDark) =>
+      isDark ? AppColors.backgroundDark : const Color(0xFFF2F2F7);
 
   /// Matches the pilgrim inbox filter row background (moderator uses as spacer below header).
   static Color filterStripBackground(bool isDark) =>
       isDark ? AppColors.surfaceDark : const Color(0xFFF8FAFC);
 }
 
-/// Shared “play aloud” / TTS control (info blue) for pilgrim inbox and moderator group chat.
+/// Solid message row shell — independent cards with spacing.
+class GroupBroadcastMessageCard extends StatelessWidget {
+  const GroupBroadcastMessageCard({
+    super.key,
+    required this.isDark,
+    required this.isUrgent,
+    required this.isNew,
+    required this.child,
+    this.dismissKey,
+    this.onLongPress,
+    this.onConfirmDelete,
+    this.onDismissed,
+    this.animate = false,
+  });
+
+  final bool isDark;
+  final bool isUrgent;
+  final bool isNew;
+  final Widget child;
+  final Key? dismissKey;
+  final VoidCallback? onLongPress;
+  final Future<bool> Function()? onConfirmDelete;
+  final VoidCallback? onDismissed;
+  final bool animate;
+
+  Widget _buildShell(BuildContext context) {
+    final cardBg = GroupChatTheme.cardBackground(
+      isDark,
+      urgent: isUrgent,
+      highlightNew: isNew && !isUrgent,
+    );
+    final divider = isDark ? AppColors.dividerDark : const Color(0xFFE5E5EA);
+    final radius = 10.r;
+
+    final shell = Container(
+      margin: EdgeInsets.fromLTRB(20.w, 0, 20.w, 10.h),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: divider, width: 0.5),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isUrgent)
+                Container(
+                  width: 3.w,
+                  color: GroupChatTheme.urgentAccentBar,
+                ),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    isUrgent ? 12.w : 14.w,
+                    14.h,
+                    14.w,
+                    14.h,
+                  ),
+                  child: child,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (animate) {
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 400),
+        child: shell,
+      );
+    }
+    return shell;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget card = GestureDetector(
+      onLongPress: onLongPress,
+      behavior: HitTestBehavior.opaque,
+      child: _buildShell(context),
+    );
+
+    if (onConfirmDelete != null && onDismissed != null) {
+      card = Dismissible(
+        key: dismissKey ?? const ValueKey('broadcast_card'),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: EdgeInsets.only(right: 20.w),
+          margin: EdgeInsets.fromLTRB(20.w, 0, 20.w, 10.h),
+          decoration: BoxDecoration(
+            color: GroupChatTheme.urgentAccentBar,
+            borderRadius: BorderRadius.circular(10.r),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Symbols.delete, color: Colors.white, size: 22.sp),
+              SizedBox(height: 4.h),
+              Text(
+                'msg_delete_confirm'.tr(),
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  color: Colors.white,
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        confirmDismiss: (_) => onConfirmDelete!(),
+        onDismissed: (_) => onDismissed!(),
+        child: card,
+      );
+    }
+
+    return card;
+  }
+}
+
+/// Shared metadata footer for moderator broadcast cards.
+class GroupBroadcastMetaRow extends StatelessWidget {
+  const GroupBroadcastMetaRow({
+    super.key,
+    required this.senderLabel,
+    required this.timestamp,
+    required this.isDark,
+  });
+
+  final String senderLabel;
+  final String timestamp;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Text(
+            senderLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w500,
+              color: muted,
+            ),
+          ),
+        ),
+        SizedBox(width: 8.w),
+        Text(
+          timestamp,
+          style: TextStyle(
+            fontFamily: 'Lexend',
+            fontSize: 12.sp,
+            color: muted,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Compact group-scope chip for moderator broadcast cards.
+class GroupScopeChip extends StatelessWidget {
+  const GroupScopeChip({super.key, required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = isDark ? Colors.white70 : AppColors.textMutedDark;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : const Color(0xFFF2F2F7),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Symbols.groups, size: 13.w, color: fg),
+          SizedBox(width: 4.w),
+          Text(
+            'msg_mod_group_scope'.tr(),
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shared “play aloud” / TTS control — bordered secondary action (system blue).
 class TtsPlayAloudButton extends StatelessWidget {
   final bool isSpeaking;
   final bool isLoading;
   final VoidCallback onPressed;
   final String idleLabel;
   final String playingLabel;
-  /// Tighter padding and type for moderator cards / short TTS lines.
   final bool compact;
 
   const TtsPlayAloudButton({
@@ -115,6 +329,17 @@ class TtsPlayAloudButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fg = isSpeaking ? Colors.white : AppColors.info;
+    final bg = isSpeaking
+        ? AppColors.info
+        : (isDark
+            ? AppColors.info.withValues(alpha: 0.12)
+            : AppColors.info.withValues(alpha: 0.08));
+    final borderColor = isSpeaking
+        ? AppColors.info
+        : AppColors.info.withValues(alpha: isDark ? 0.35 : 0.45);
+
     Widget leadingIcon;
     String label;
 
@@ -122,12 +347,12 @@ class TtsPlayAloudButton extends StatelessWidget {
       leadingIcon = SizedBox(
         width: 18.w,
         height: 18.w,
-        child: CircularProgressIndicator(
+        child: const CircularProgressIndicator(
           strokeWidth: 2,
           color: AppColors.info,
         ),
       );
-      label = idleLabel; // keep label stable during load
+      label = idleLabel;
     } else if (isSpeaking) {
       leadingIcon = Icon(Symbols.stop, size: compact ? 18.w : 20.w);
       label = playingLabel;
@@ -136,193 +361,221 @@ class TtsPlayAloudButton extends StatelessWidget {
       label = idleLabel;
     }
 
-    final vPad = compact ? 8.h : 12.h;
-    final hPad = compact ? 14.w : 18.w;
-    final fontSize = compact ? 13.sp : 14.sp;
-
-    return FilledButton.tonalIcon(
-      // Disable taps while buffering to prevent double-trigger
-      onPressed: isLoading ? null : onPressed,
-      icon: leadingIcon,
-      label: Text(
-        label,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: fontSize,
-        ),
-      ),
-      style: FilledButton.styleFrom(
-        backgroundColor: isSpeaking
-            ? AppColors.info
-            : AppColors.info.withValues(alpha: 0.14),
-        foregroundColor: isSpeaking ? Colors.white : AppColors.info,
-        disabledBackgroundColor: AppColors.info.withValues(alpha: 0.10),
-        disabledForegroundColor: AppColors.info.withValues(alpha: 0.60),
-        padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.r),
-        ),
-        elevation: 0,
-      ),
-    );
-  }
-}
-
-/// Header row shared by group inbox (pilgrim) and group messages (moderator).
-class GroupChatHeader extends StatelessWidget {
-  final bool isDark;
-  final bool useGlass;
-  final String title;
-  final String subtitle;
-  final VoidCallback onRefresh;
-  final VoidCallback? onBack;
-  final bool showBrandAvatar;
-
-  const GroupChatHeader({
-    super.key,
-    required this.isDark,
-    this.useGlass = false,
-    required this.title,
-    required this.subtitle,
-    required this.onRefresh,
-    this.onBack,
-    this.showBrandAvatar = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final titleColor = isDark ? Colors.white : AppColors.textDark;
-    final subtitleColor = isDark ? Colors.white60 : AppColors.textMutedLight;
-
-    final headerContent = Row(
-      children: [
-        if (onBack != null) ...[
-          IconButton(
-            icon: Icon(
-              Symbols.arrow_back,
-              color: isDark ? Colors.white : AppColors.textDark,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isLoading ? null : onPressed,
+        borderRadius: BorderRadius.circular(12.r),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: compact ? 40.h : 44.h),
+          child: Ink(
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 14.w : 16.w,
+              vertical: compact ? 8.h : 10.h,
             ),
-            onPressed: onBack,
-          ),
-          SizedBox(width: 4.w),
-        ],
-        if (showBrandAvatar) ...[
-          SupportBrandAvatar(isDark: isDark),
-          SizedBox(width: 10.w),
-        ],
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16.sp,
-                  color: titleColor,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 11.sp,
-                  color: subtitleColor,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-        AppGlassIconButton(
-          isDark: isDark,
-          icon: Symbols.refresh,
-          onTap: onRefresh,
-          size: 36.w,
-        ),
-      ],
-    );
-
-    if (useGlass) {
-      return AppGlassSurface(
-        isDark: isDark,
-        borderRadius: AppGlassTheme.cardRadius,
-        padding: EdgeInsets.fromLTRB(4.w, 6.h, 8.w, 6.h),
-        child: headerContent,
-      );
-    }
-
-    return Container(
-      padding: EdgeInsets.fromLTRB(4.w, 6.h, 12.w, 6.h),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          if (onBack != null) ...[
-            IconButton(
-              icon: Icon(
-                Symbols.arrow_back,
-                color: isDark ? Colors.white : AppColors.textDark,
-              ),
-              onPressed: onBack,
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(color: borderColor),
             ),
-            SizedBox(width: 4.w),
-          ],
-          if (showBrandAvatar) ...[
-            SupportBrandAvatar(isDark: isDark),
-            SizedBox(width: 10.w),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16.sp,
-                    color: titleColor,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                IconTheme(
+                  data: IconThemeData(color: fg, size: compact ? 18.w : 20.w),
+                  child: leadingIcon,
                 ),
+                SizedBox(width: 8.w),
                 Text(
-                  subtitle,
+                  label,
                   style: TextStyle(
-                    fontSize: 11.sp,
-                    color: subtitleColor,
-                    fontWeight: FontWeight.w500,
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w600,
+                    fontSize: compact ? 13.sp : 14.sp,
+                    color: fg,
                   ),
                 ),
               ],
             ),
           ),
-          GestureDetector(
-            onTap: onRefresh,
-            child: Container(
-              width: 36.w,
-              height: 36.w,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10.r),
-              ),
-              child: Icon(
-                Symbols.refresh,
-                size: 18.w,
-                color: AppColors.primary,
-              ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Large title block at the top of the broadcast scroll area (iOS style).
+class GroupBroadcastPageHeader extends StatelessWidget {
+  const GroupBroadcastPageHeader({
+    super.key,
+    required this.isDark,
+    required this.title,
+    this.subtitle,
+  });
+
+  final bool isDark;
+  final String title;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final textMuted = isDark
+        ? AppColors.textMutedLight
+        : AppColors.textMutedDark;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 16.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontWeight: FontWeight.w800,
+              fontSize: 28.sp,
+              letterSpacing: -0.5,
+              height: 1.15,
+              color: textPrimary,
             ),
           ),
+          if (subtitle != null && subtitle!.isNotEmpty) ...[
+            SizedBox(height: 4.h),
+            Text(
+              subtitle!,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w500,
+                color: textMuted,
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// Floating nav chrome — back affordance + optional centered context pill.
+class GroupBroadcastNavBar extends StatelessWidget {
+  const GroupBroadcastNavBar({
+    super.key,
+    required this.isDark,
+    required this.title,
+    this.subtitle,
+    this.onBack,
+    this.showBrandAvatar = false,
+  });
+
+  final bool isDark;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onBack;
+  final bool showBrandAvatar;
+
+  /// Height of the floating nav row (safe area + bar).
+  static double overlayHeight(BuildContext context) =>
+      MediaQuery.viewPaddingOf(context).top + 10.h + 42.w + 6.h;
+
+  static double scrollTopPadding(BuildContext context, {double extra = 0}) =>
+      overlayHeight(context) + extra;
+
+  @override
+  Widget build(BuildContext context) {
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final textMuted = isDark
+        ? AppColors.textMutedLight
+        : AppColors.textMutedDark;
+    final backdrop = AppGlassTheme.groupBroadcastNavBackdropColor(isDark);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            backdrop,
+            backdrop.withValues(alpha: 0),
+          ],
+          stops: const [0.55, 1.0],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 6.h),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (onBack != null)
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: AppGlassIconButton(
+                    isDark: isDark,
+                    icon: Symbols.arrow_back,
+                    onTap: onBack!,
+                    size: 42.w,
+                  ),
+                ),
+              if (showBrandAvatar)
+                AppGlassSurface(
+                  isDark: isDark,
+                  borderRadius: BorderRadius.circular(14.r),
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                  glassTheme: AppGlassTheme.groupBroadcastNavPillOf(isDark),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SupportBrandAvatar(
+                        isDark: isDark,
+                        diameter: 28,
+                        iconPadding: 4,
+                        showShadow: false,
+                      ),
+                      SizedBox(width: 8.w),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: 180.w),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: 'Lexend',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13.sp,
+                                color: textPrimary,
+                                decoration: TextDecoration.none,
+                                decorationColor: Colors.transparent,
+                              ),
+                            ),
+                            if (subtitle != null && subtitle!.isNotEmpty)
+                              Text(
+                                subtitle!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 11.sp,
+                                  color: textMuted,
+                                  decoration: TextDecoration.none,
+                                  decorationColor: Colors.transparent,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

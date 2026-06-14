@@ -45,6 +45,26 @@ class AppGlassTheme {
     );
   }
 
+  /// Opaque nav context pill for group broadcast screens — no specular sheen.
+  static LiquidGlassThemeData groupBroadcastNavPillOf(bool isDark) {
+    return of(isDark).copyWith(
+      blurSigma: 24,
+      tintOpacity: isDark ? 0.88 : 0.94,
+      vibrancyIntensity: 0,
+      specularOpacity: 0,
+      borderWidth: 0.5,
+      edgeLightColor: isDark
+          ? const Color(0x28FFFFFF)
+          : const Color(0x35FFFFFF),
+    );
+  }
+
+  /// Solid-ish backdrop tint behind the group broadcast floating nav row.
+  static Color groupBroadcastNavBackdropColor(bool isDark) {
+    final bg = dashboardBackgroundColor(isDark);
+    return bg.withValues(alpha: isDark ? 0.94 : 0.92);
+  }
+
   static LiquidGlassThemeData of(bool isDark) =>
       isDark ? LiquidGlassThemeData.dark() : LiquidGlassThemeData.light();
 

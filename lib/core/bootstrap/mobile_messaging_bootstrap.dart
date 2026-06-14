@@ -21,12 +21,12 @@ import '../../features/shared/helpers/message_visibility.dart';
 import '../../features/shared/providers/message_provider.dart';
 import '../../features/shared/services/message_realtime_binder.dart';
 import '../router/app_router.dart';
+import '../widgets/standard_snackbar.dart';
 import '../utils/route_id_utils.dart';
 import '../services/callkit_service.dart';
 import '../services/incoming_chat_sfx.dart';
 import '../services/notification_service.dart';
 import '../services/tts_cloud_api.dart';
-import '../theme/app_colors.dart';
 import '../utils/app_logger.dart';
 import '../widgets/reminder_popup.dart';
 
@@ -318,13 +318,10 @@ Future<void> bindMobileMessagingServices() async {
         if (body.isNotEmpty) {
           final ctx = AppRouter.navigatorKey.currentContext;
           if (ctx != null && ctx.mounted) {
-            ScaffoldMessenger.of(ctx).showSnackBar(
-              SnackBar(
-                content: Text(body),
-                backgroundColor: AppColors.primary,
-                behavior: SnackBarBehavior.floating,
-                duration: const Duration(seconds: 6),
-              ),
+            StandardSnackBar.showInfo(
+              ctx,
+              body,
+              duration: const Duration(seconds: 6),
             );
           }
         }

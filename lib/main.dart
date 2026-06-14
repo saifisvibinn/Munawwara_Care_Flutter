@@ -18,6 +18,7 @@ import 'core/services/locale_prefs.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/app_logger.dart';
+import 'core/widgets/standard_snackbar.dart';
 import 'core/utils/device_orientation_policy.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/calling/calling_scope.dart';
@@ -173,7 +174,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
                 onTap: () {
                   FocusManager.instance.primaryFocus?.unfocus();
                 },
-                child: _HotReloadSosAlertSuppressor(child: child!),
+                child: StandardSnackBarHost(
+                  child: _HotReloadSosAlertSuppressor(child: child!),
+                ),
               ),
             );
           },

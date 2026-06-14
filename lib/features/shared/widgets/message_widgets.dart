@@ -125,24 +125,26 @@ class UrgentBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const urgentRed = Color(0xFFDC2626);
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 2.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
       decoration: BoxDecoration(
-        color: Colors.red.shade600,
-        borderRadius: BorderRadius.circular(6.r),
+        color: urgentRed.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: urgentRed.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Symbols.warning, size: 10.w, color: Colors.white),
-          SizedBox(width: 3.w),
+          Icon(Symbols.priority_high, size: 12.w, color: urgentRed),
+          SizedBox(width: 4.w),
           Text(
-            'URGENT',
+            'inbox_filter_urgent'.tr(),
             style: TextStyle(
-              fontSize: 9.sp,
+              fontFamily: 'Lexend',
+              fontSize: 11.sp,
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
-              color: Colors.white,
+              color: urgentRed,
             ),
           ),
         ],

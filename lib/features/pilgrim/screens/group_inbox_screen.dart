@@ -439,58 +439,80 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
       _queueAutoTranslate(arrived.toList());
     });
 
+    final pageTitle = 'call_support_display_name'.tr();
+    final pageSubtitle = widget.groupName.isNotEmpty
+        ? widget.groupName
+        : 'inbox_title'.tr();
+    const filterStripHeight = 52.0;
+    final topPad = GroupBroadcastNavBar.scrollTopPadding(
+      context,
+      extra: filterStripHeight.h + 8.h,
+    );
+
     return AppDashboardBackground(
       isDark: isDark,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(12.w, 6.h, 12.w, 0),
-              child: GroupChatHeader(
-                isDark: isDark,
-                useGlass: true,
-                title: 'call_support_display_name'.tr(),
-                subtitle: widget.groupName.isNotEmpty
-                    ? widget.groupName
-                    : 'inbox_title'.tr(),
-                onRefresh: _refreshMessages,
-                onBack: widget.showBackButton
-                    ? () => Navigator.of(context).maybePop()
-                    : null,
-                showBrandAvatar: true,
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 0),
-              child: AppGlassSurface(
-                isDark: isDark,
-                borderRadius: BorderRadius.circular(14.r),
-                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
-                child: _buildFilterRow(isDark, stripBackground: true),
-              ),
-            ),
-            Expanded(
-              child: AppScrollFadeOverlay(
-                showTop: false,
-                useDashboardBottomExtent: !widget.showBackButton,
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
                 child: showLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : _buildMessageList(
+                        filtered,
+                        topPad: topPad,
                       ),
-                    )
-                  : _buildMessageList(filtered),
+              ),
+            ],
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: GroupBroadcastNavBar(
+              isDark: isDark,
+              title: pageTitle,
+              subtitle: pageSubtitle,
+              onBack: widget.showBackButton
+                  ? () => Navigator.of(context).maybePop()
+                  : null,
+              showBrandAvatar: true,
+            ),
+          ),
+          Positioned(
+            top: GroupBroadcastNavBar.overlayHeight(context),
+            left: 20.w,
+            right: 20.w,
+            child: _buildFilterRow(isDark),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AppScrollFadeOverlay(
+                backgroundColor: AppGlassTheme.dashboardBackgroundColor(isDark),
+                showBottom: widget.showBackButton,
+                topExtent: topPad,
+                fadeOpacity: 1,
+                bottomExtent: widget.showBackButton
+                    ? AppGlassTheme.scrollFadeBottomExtentStandalone(context)
+                    : null,
+                child: const SizedBox.expand(),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildMessageList(List<GroupMessage> filtered) {
+  Widget _buildMessageList(
+    List<GroupMessage> filtered, {
+    required double topPad,
+  }) {
     final navClearance = AppGlassTheme.bottomNavScrollPadding(context);
 
     if (filtered.isEmpty) {
@@ -500,6 +522,9 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
+            SliverPadding(
+              padding: EdgeInsets.only(top: topPad),
+            ),
             SliverFillRemaining(
               hasScrollBody: false,
               child: _buildEmpty(),
@@ -519,13 +544,14 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         controller: _scrollController,
         reverse: true,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 12.h),
+        padding: EdgeInsets.fromLTRB(0, topPad, 0, 12.h),
         itemCount: filtered.length + 1,
         itemBuilder: (_, i) {
           if (i == 0) {
             return SizedBox(height: navClearance);
           }
-          final msg = filtered[filtered.length - i];
+          final cardIndex = i;
+          final msg = filtered[filtered.length - cardIndex];
           return _buildCard(msg);
         },
       ),
@@ -534,115 +560,85 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
 
   // ── Filter chips ──────────────────────────────────────────────────────────
 
-  Widget _buildFilterRow(bool isDark, {bool stripBackground = false}) {
-    final bg = stripBackground
-        ? Colors.transparent
-        : GroupChatTheme.filterStripBackground(isDark);
-    final surface = isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white;
-    final border = isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFE2E8F0);
+  Widget _buildFilterRow(bool isDark) {
+    final outline = isDark ? AppColors.dividerDark : AppColors.dividerLight;
+    final textMuted = isDark
+        ? AppColors.textMutedLight
+        : AppColors.textMutedDark;
 
-    Widget buildBox({
-      required String key,
-      required String labelKey,
-      required bool selected,
-      required bool hasDot,
-      required bool isPulsing,
-      required VoidCallback onTap,
-    }) {
-      return Expanded(
-        child: GestureDetector(
-          onTap: onTap,
-          child: AnimatedScale(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOut,
-            scale: isPulsing ? 1.03 : 1.0,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: EdgeInsets.symmetric(vertical: 10.h),
-              decoration: BoxDecoration(
-                color: selected ? AppColors.primary : surface,
-                borderRadius: BorderRadius.circular(14.r),
-                border: Border.all(color: selected ? AppColors.primary : border),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Text(
-                    labelKey.tr(),
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w700,
-                      color: selected
-                          ? Colors.white
-                          : (isDark ? Colors.white70 : AppColors.textDark),
-                    ),
-                  ),
-                  if (hasDot)
-                    Positioned(
-                      right: 10.w,
-                      top: 8.h,
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 200),
-                        opacity: selected ? 0.0 : 1.0,
-                        child: Container(
-                          width: 8.w,
-                          height: 8.w,
-                          decoration: const BoxDecoration(
-                            color: AppColors.error,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+    Widget segmentLabel(String labelKey, {required bool hasDot}) {
+      return Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          Text(labelKey.tr()),
+          if (hasDot)
+            Positioned(
+              right: -10.w,
+              top: -6.h,
+              child: Container(
+                width: 8.w,
+                height: 8.w,
+                decoration: const BoxDecoration(
+                  color: AppColors.error,
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
-          ),
-        ),
+        ],
       );
     }
 
-    return Container(
-      color: bg,
-      padding: stripBackground
-          ? EdgeInsets.zero
-          : EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 10.h),
-      child: Row(
-        children: [
-          buildBox(
-            key: 'all',
-            labelKey: 'inbox_filter_all',
-            selected: _filter == 'all',
-            hasDot: _hasUnreadAll,
-            isPulsing: _pulseAll,
-            onTap: () {
-              setState(() {
-                _filter = 'all';
-                _hasUnreadAll = false;
-                _pulseAll = false;
-              });
-              _pulseAllTimer?.cancel();
-              _pulseAllTimer = null;
-            },
+    return SegmentedButton<String>(
+      segments: [
+        ButtonSegment<String>(
+          value: 'all',
+          label: segmentLabel(
+            'inbox_filter_all',
+            hasDot: (_hasUnreadAll || _pulseAll) && _filter != 'all',
           ),
-          SizedBox(width: 10.w),
-          buildBox(
-            key: 'private',
-            labelKey: 'inbox_filter_only_you',
-            selected: _filter == 'private',
-            hasDot: _hasUnreadPrivate,
-            isPulsing: _pulsePrivate,
-            onTap: () {
-              setState(() {
-                _filter = 'private';
-                _hasUnreadPrivate = false;
-                _pulsePrivate = false;
-              });
-              _pulsePrivateTimer?.cancel();
-              _pulsePrivateTimer = null;
-            },
+        ),
+        ButtonSegment<String>(
+          value: 'private',
+          label: segmentLabel(
+            'inbox_filter_only_you',
+            hasDot: (_hasUnreadPrivate || _pulsePrivate) && _filter != 'private',
           ),
-        ],
+        ),
+      ],
+      selected: {_filter},
+      onSelectionChanged: (next) {
+        if (next.isEmpty) return;
+        final value = next.first;
+        setState(() {
+          _filter = value;
+          if (value == 'all') {
+            _hasUnreadAll = false;
+            _pulseAll = false;
+            _pulseAllTimer?.cancel();
+            _pulseAllTimer = null;
+          } else {
+            _hasUnreadPrivate = false;
+            _pulsePrivate = false;
+            _pulsePrivateTimer?.cancel();
+            _pulsePrivateTimer = null;
+          }
+        });
+      },
+      multiSelectionEnabled: false,
+      emptySelectionAllowed: false,
+      showSelectedIcon: false,
+      style: SegmentedButton.styleFrom(
+        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 10.h),
+        side: BorderSide(color: outline),
+        foregroundColor: textMuted,
+        selectedForegroundColor: AppColors.primary,
+        selectedBackgroundColor: AppColors.primary.withValues(alpha: 0.12),
+        textStyle: TextStyle(
+          fontFamily: 'Lexend',
+          fontWeight: FontWeight.w600,
+          fontSize: 12.sp,
+        ),
       ),
     );
   }
@@ -675,67 +671,32 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     final isUrgent = msg.isUrgent;
     final isNew = _newMessageIds.contains(msg.id);
 
-    final cardBg = GroupChatTheme.cardBackground(
-      isDark,
-      urgent: isUrgent,
-      highlightNew: isNew && !isUrgent,
-    );
-    final borderColor = GroupChatTheme.cardBorderColor(
-      isDark,
-      urgent: isUrgent,
-      highlightNew: isNew && !isUrgent,
-    );
-    final borderWidth = GroupChatTheme.cardBorderWidth(
-      urgent: isUrgent,
-      highlightNew: isNew && !isUrgent,
-    );
-
-    return GestureDetector(
+    return GroupBroadcastMessageCard(
+      isDark: isDark,
+      isUrgent: isUrgent,
+      isNew: isNew,
+      animate: true,
       onLongPress: () => _openInboxCopySheet(msg, isDark),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 400),
-        margin: EdgeInsets.only(bottom: 10.h),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(14.r),
-          border: Border.all(
-            color: borderColor,
-            width: borderWidth,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isNew
-                  ? AppColors.primary.withValues(alpha: 0.1)
-                  : Colors.black.withValues(alpha: isDark ? 0.18 : 0.035),
-              blurRadius: isNew ? 12 : 10,
-              offset: const Offset(0, 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (msg.recipientId != null)
+            Padding(
+              padding: EdgeInsets.only(bottom: 8.h),
+              child: const PrivateIndicator(isForPilgrim: true),
             ),
-          ],
-        ),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 14.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (msg.recipientId != null)
-                Padding(
-                  padding: EdgeInsets.only(bottom: 8.h),
-                  child: const PrivateIndicator(isForPilgrim: true),
-                ),
-              _buildCardHeader(msg, isDark),
-              SizedBox(height: 12.h),
-              if (msg.replySnapshot != null)
-                MessageReplyQuote(
-                  snapshot: msg.replySnapshot!,
-                  isDark: isDark,
-                ),
-              if (msg.type == 'text') _buildTextBody(msg, isDark),
-            if (msg.type == 'voice') _buildVoiceBody(msg, isDark),
-            if (msg.type == 'tts') _buildTtsBody(msg, isDark),
-            if (msg.type == 'meetpoint') _buildMeetpointBody(msg, isDark),
-            ],
-          ),
-        ),
+          _buildCardHeader(msg, isDark),
+          SizedBox(height: 12.h),
+          if (msg.replySnapshot != null)
+            MessageReplyQuote(
+              snapshot: msg.replySnapshot!,
+              isDark: isDark,
+            ),
+          if (msg.type == 'text') _buildTextBody(msg, isDark),
+          if (msg.type == 'voice') _buildVoiceBody(msg, isDark),
+          if (msg.type == 'tts') _buildTtsBody(msg, isDark),
+          if (msg.type == 'meetpoint') _buildMeetpointBody(msg, isDark),
+        ],
       ),
     );
   }
@@ -784,7 +745,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         _inboxTypeChip(msg, isDark),
-        if (msg.isUrgent) _urgentChipCompact(isDark),
+        if (msg.isUrgent) const UrgentBadge(),
       ],
     );
 
@@ -916,33 +877,6 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     );
   }
 
-  Widget _urgentChipCompact(bool isDark) {
-    final c = const Color(0xFFDC2626);
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(8.r),
-        border: Border.all(color: c, width: 1.25),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Symbols.priority_high, size: 14.w, color: c),
-          SizedBox(width: 3.w),
-          Text(
-            'inbox_filter_urgent'.tr(),
-            style: TextStyle(
-              fontSize: 10.sp,
-              fontWeight: FontWeight.w700,
-              color: c,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildTextBody(GroupMessage msg, bool isDark) {
     final original = msg.content ?? '';
     final showingTranslated = _translations.containsKey(msg.id) &&
@@ -1021,12 +955,15 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         SizedBox(height: 12.h),
         _buildTranslateButton(msg, originalText, dense: true),
         SizedBox(height: 10.h),
-        TtsPlayAloudButton(
-          isSpeaking: isSpeaking,
-          isLoading: isLoading,
-          onPressed: () => _toggleTts(msg),
-          idleLabel: 'msg_play_aloud'.tr(),
-          playingLabel: 'msg_playing'.tr(),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TtsPlayAloudButton(
+            isSpeaking: isSpeaking,
+            isLoading: isLoading,
+            onPressed: () => _toggleTts(msg),
+            idleLabel: 'msg_play_aloud'.tr(),
+            playingLabel: 'msg_playing'.tr(),
+          ),
         ),
       ],
     );
