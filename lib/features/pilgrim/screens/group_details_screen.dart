@@ -363,6 +363,7 @@ class _GroupDetailsBody extends StatelessWidget {
                           SizedBox(height: 8.h),
                           ElevatedButton.icon(
                             onPressed: () => launchModeratorWalkingDirections(
+                              context: context,
                               lat: hotelLatitude!,
                               lng: hotelLongitude!,
                             ),
@@ -1142,7 +1143,7 @@ class _GroupModeratorsCardState extends State<_GroupModeratorsCard> {
                         ModeratorNavigateButton(
                           compact: true,
                           onTap: () =>
-                              launchModeratorBeaconDirections(beacon),
+                              launchModeratorBeaconDirections(context, beacon),
                         ),
                     ],
                   ),

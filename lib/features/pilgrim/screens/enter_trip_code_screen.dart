@@ -6,10 +6,11 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:dio/dio.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../../core/services/api_service.dart';
 import '../providers/pilgrim_provider.dart';
-import 'scan_trip_qr_screen.dart';
+import '../widgets/trip_check_in_chrome.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Enter Trip Code Screen
@@ -33,6 +34,8 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
   bool _isLoading = false;
   String _currentCode = '';
 
+  static const _bronze = Color(0xFF8B4513);
+
   @override
   void initState() {
     super.initState();
@@ -41,7 +44,6 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
         _currentCode = _codeController.text.toUpperCase();
       });
     });
-    // Auto-focus after builds
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
@@ -67,7 +69,8 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
       return;
     }
 
-    final targetSuffix = fullSessionId.substring(fullSessionId.length - 6).toUpperCase();
+    final targetSuffix =
+        fullSessionId.substring(fullSessionId.length - 6).toUpperCase();
     if (entered != targetSuffix) {
       StandardSnackBar.showError(
         context,
@@ -90,14 +93,17 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
         setState(() {
           _isLoading = false;
         });
-        // Force-refresh the pilgrim dashboard so attended status updates immediately
         await ref.read(pilgrimProvider.notifier).loadDashboard(force: true);
         if (mounted) {
           StandardSnackBar.showSuccess(
             context,
             'scan_trip_qr_success'.tr(),
           );
-          Navigator.of(context).pop(); // Go back to Home
+          final navigator = Navigator.of(context);
+          navigator.pop();
+          if (navigator.canPop()) {
+            navigator.pop();
+          }
         }
       }
     } on DioException catch (e) {
@@ -124,231 +130,221 @@ class _EnterTripCodeScreenState extends ConsumerState<EnterTripCodeScreen> {
     }
   }
 
+  Widget _buildPinRow(bool isDark) {
+    final outline = isDark ? AppColors.dividerDark : AppColors.dividerLight;
+
+    return GestureDetector(
+      onTap: () => _focusNode.requestFocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Row(
+            children: [
+              for (var index = 0; index < 6; index++) ...[
+                if (index > 0) SizedBox(width: 8.w),
+                Expanded(child: _buildPinCell(index, isDark, outline)),
+              ],
+            ],
+          ),
+          Opacity(
+            opacity: 0,
+            child: TextField(
+              controller: _codeController,
+              focusNode: _focusNode,
+              maxLength: 6,
+              keyboardType: TextInputType.text,
+              textCapitalization: TextCapitalization.characters,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: const InputDecoration(counterText: ''),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPinCell(int index, bool isDark, Color outline) {
+    final char =
+        _currentCode.length > index ? _currentCode[index] : '';
+    final isSelected = _currentCode.length == index && _focusNode.hasFocus;
+    final hasChar = char.isNotEmpty;
+
+    return Container(
+      height: 56.h,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1A2230)
+            : AppColors.iconBgLight.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(
+          color: isSelected
+              ? AppColors.primary
+              : hasChar
+                  ? AppColors.primary.withValues(alpha: 0.45)
+                  : outline.withValues(alpha: 0.65),
+          width: isSelected ? 2 : 1,
+        ),
+      ),
+      child: Text(
+        char,
+        style: TextStyle(
+          fontFamily: 'Lexend',
+          fontSize: 24.sp,
+          fontWeight: FontWeight.w800,
+          color: isDark ? Colors.white : AppColors.textDark,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
+    final textMuted = isDark
+        ? AppColors.textMutedLight
+        : AppColors.textMutedDark;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xfff1f5f3),
-      appBar: AppBar(
-        title: Text(
-          'enter_trip_code_appbar_title'.tr(),
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 18.sp,
-            color: isDark ? Colors.white : AppColors.textDark,
-          ),
-        ),
-        centerTitle: true,
+    return AppDashboardBackground(
+      isDark: isDark,
+      child: Scaffold(
         backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Symbols.arrow_back,
-            color: isDark ? Colors.white : AppColors.textDark,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(height: 24.h),
-                // Keyboard Icon inside circle
-                Center(
-                  child: Container(
-                    padding: EdgeInsets.all(20.w),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFEDD5), // Light orange background
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.keyboard_outlined,
-                      color: AppColors.primary,
-                      size: 44.sp,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 24.h),
-                Text(
-                  'enter_trip_code_body'.tr(),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w500,
-                    color: isDark ? Colors.white70 : AppColors.textDark,
-                    height: 1.4,
-                  ),
-                ),
-                SizedBox(height: 32.h),
-
-                // PIN fields + Invisible TextField overlay
-                Stack(
-                  alignment: Alignment.center,
+        resizeToAvoidBottomInset: true,
+        body: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            SafeArea(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, bottomInset + 24.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Alphanumeric digit boxes
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: List.generate(6, (index) {
-                        String char = '';
-                        if (_currentCode.length > index) {
-                          char = _currentCode[index];
-                        }
-                        final isSelected = _currentCode.length == index && _focusNode.hasFocus;
-
-                        return Container(
-                          width: 44.w,
-                          height: 54.h,
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1E1E2D) : Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(12.r),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppColors.primary
-                                  : (char.isNotEmpty
-                                      ? AppColors.primary.withValues(alpha: 0.5)
-                                      : Colors.transparent),
-                              width: isSelected ? 2 : 1,
-                            ),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            char,
-                            style: TextStyle(
-                              fontSize: 22.sp,
-                              fontWeight: FontWeight.w700,
-                              color: isDark ? Colors.white : AppColors.textDark,
-                            ),
-                          ),
-                        );
-                      }),
+                    TripCheckInPageHeader(
+                      isDark: isDark,
+                      title: 'enter_trip_code_appbar_title'.tr(),
+                      subtitle: 'enter_trip_code_body'.tr(),
                     ),
-                    // Underlying invisible textfield
-                    Opacity(
-                      opacity: 0,
-                      child: TextField(
-                        controller: _codeController,
-                        focusNode: _focusNode,
-                        maxLength: 6,
-                        keyboardType: TextInputType.text,
-                        textCapitalization: TextCapitalization.characters,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        decoration: const InputDecoration(
-                          counterText: '',
+                    SizedBox(height: 20.h),
+                    AppGlassCard(
+                      isDark: isDark,
+                      padding: EdgeInsets.fromLTRB(20.w, 24.h, 20.w, 20.h),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 56.w,
+                              height: 56.w,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.primary.withValues(alpha: 0.22),
+                                ),
+                              ),
+                              child: Icon(
+                                Symbols.keyboard,
+                                size: 28.w,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 24.h),
+                          _buildPinRow(isDark),
+                          SizedBox(height: 20.h),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Symbols.info,
+                                color: textMuted,
+                                size: 18.sp,
+                              ),
+                              SizedBox(width: 8.w),
+                              Flexible(
+                                child: Text(
+                                  'enter_trip_code_validity'.tr(),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w500,
+                                    color: textMuted,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 24.h),
+                    FilledButton(
+                      onPressed: _isLoading ? null : _handleCheckIn,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _bronze,
+                        foregroundColor: Colors.white,
+                        minimumSize: Size(double.infinity, 56.h),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18.r),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: _isLoading
+                          ? SizedBox(
+                              width: 24.w,
+                              height: 24.w,
+                              child: const CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'enter_trip_code_btn'.tr(),
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16.sp,
+                                  ),
+                                ),
+                                SizedBox(width: 8.w),
+                                Icon(Symbols.arrow_forward, size: 18.sp),
+                              ],
+                            ),
+                    ),
+                    SizedBox(height: 8.h),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: TextButton.styleFrom(
+                        foregroundColor: _bronze,
+                        padding: EdgeInsets.symmetric(vertical: 12.h),
+                      ),
+                      child: Text(
+                        'enter_trip_code_rescan_qr'.tr(),
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.sp,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: 32.h),
-
-                // Info card: Codes are valid for 5 minutes
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                  decoration: BoxDecoration(
-                    color: cardBg,
-                    borderRadius: BorderRadius.circular(16.r),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Symbols.info,
-                        color: isDark ? AppColors.textMutedLight : Colors.grey.shade500,
-                        size: 18.sp,
-                      ),
-                      SizedBox(width: 8.w),
-                      Text(
-                        'enter_trip_code_validity'.tr(),
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
-                          color: isDark ? AppColors.textMutedLight : Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 64.h),
-
-                // Check In Button
-                FilledButton(
-                  onPressed: _isLoading ? null : _handleCheckIn,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF8B4513), // Premium brown/bronze
-                    foregroundColor: Colors.white,
-                    minimumSize: Size(double.infinity, 56.h),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18.r),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: _isLoading
-                      ? SizedBox(
-                          width: 24.w,
-                          height: 24.w,
-                          child: const CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'enter_trip_code_btn'.tr(),
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16.sp,
-                              ),
-                            ),
-                            SizedBox(width: 8.w),
-                            Icon(
-                              Symbols.arrow_forward,
-                              size: 18.sp,
-                            ),
-                          ],
-                        ),
-                ),
-                SizedBox(height: 24.h),
-
-                // RE-SCAN QR CODE Button
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (_) => ScanTripQrScreen(
-                          session: widget.session,
-                        ),
-                      ),
-                    );
-                  },
-                  child: Text(
-                    'enter_trip_code_rescan_qr'.tr(),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13.sp,
-                      color: isDark ? AppColors.textMutedLight : Colors.grey.shade600,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            TripCheckInFloatingBackButton(
+              isDark: isDark,
+              onTap: () => Navigator.of(context).pop(),
+            ),
+          ],
         ),
       ),
     );

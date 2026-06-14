@@ -285,6 +285,9 @@ class ModeratorBeacon {
     required this.lat,
     required this.lng,
   });
+
+  /// Back-compat alias — map keys and socket payloads use moderator id.
+  String get moderatorId => id;
 }
 
 // ── Pilgrim State ─────────────────────────────────────────────────────────────

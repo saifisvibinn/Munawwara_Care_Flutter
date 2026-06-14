@@ -1678,7 +1678,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   // ── Navigate to Moderator ──────────────────────────────────────────────────
 
   Future<void> _navigateToModerator(ModeratorBeacon beacon) =>
-      launchModeratorBeaconDirections(beacon);
+      launchModeratorBeaconDirections(context, beacon);
 
   // ── Build ────────────────────────────────────────────────────────────────────
 

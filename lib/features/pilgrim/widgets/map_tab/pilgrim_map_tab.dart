@@ -63,7 +63,7 @@ class PilgrimMapTab extends StatelessWidget {
 
   List<AppMapMarkerData> _markerData(
     List<HospitalLocation> hospitals,
-    List<dynamic> beacons,
+    List<ModeratorBeacon> beacons,
     bool isDark,
   ) {
     final markers = <AppMapMarkerData>[];
@@ -97,7 +97,7 @@ class PilgrimMapTab extends StatelessWidget {
     for (final b in beacons) {
       markers.add(
         AppMapMarkerData(
-          id: 'beacon_${b.moderatorId}',
+          id: 'beacon_${b.id}',
           point: _offsetIfTooCloseToMe(LatLng(b.lat, b.lng)),
           kind: AppMapMarkerKind.beacon,
           title: b.name,

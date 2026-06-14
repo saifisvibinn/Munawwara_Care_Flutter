@@ -1006,106 +1006,95 @@ class _ActiveAttendanceCardState extends State<ActiveAttendanceCard>
     final isDark = widget.isDark;
     final isAttended = widget.session.attended;
 
-    final borderColor = isAttended
-        ? AppColors.success.withValues(alpha: 0.35)
-        : AppColors.primary.withValues(alpha: isDark ? 0.4 : 0.25);
-
     return Padding(
       padding: EdgeInsets.only(bottom: 16.h),
       child: AppGlassCard(
         isDark: isDark,
         onTap: isAttended ? null : widget.onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: AppGlassTheme.cardRadius,
-            border: Border.all(color: borderColor, width: 1.5),
-          ),
-          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
-          child: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(12.w),
-                decoration: BoxDecoration(
-                  color: isAttended
-                      ? AppColors.success.withValues(alpha: 0.12)
-                      : AppColors.primary.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isAttended
-                      ? Icons.check_circle_rounded
-                      : Icons.directions_bus_rounded,
-                  color: isAttended ? AppColors.success : AppColors.primary,
-                  size: 28.sp,
-                ),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: isAttended
+                    ? AppColors.success.withValues(alpha: 0.12)
+                    : AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
               ),
-              SizedBox(width: 16.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          isAttended
-                              ? 'attendance_checked_in'.tr()
-                              : 'attendance_title'.tr(),
-                          style: TextStyle(
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w800,
-                            color: isAttended
-                                ? AppColors.success
-                                : (isDark
-                                      ? Colors.white
-                                      : AppColors.textDark),
-                          ),
+              child: Icon(
+                isAttended
+                    ? Icons.check_circle_rounded
+                    : Icons.directions_bus_rounded,
+                color: isAttended ? AppColors.success : AppColors.primary,
+                size: 28.sp,
+              ),
+            ),
+            SizedBox(width: 16.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        isAttended
+                            ? 'attendance_checked_in'.tr()
+                            : 'attendance_title'.tr(),
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w800,
+                          color: isAttended
+                              ? AppColors.success
+                              : (isDark
+                                    ? Colors.white
+                                    : AppColors.textDark),
                         ),
-                        if (!isAttended) ...[
-                          SizedBox(width: 8.w),
-                          FadeTransition(
-                            opacity: _pulseAnimation,
-                            child: Container(
-                              width: 8.w,
-                              height: 8.w,
-                              decoration: const BoxDecoration(
-                                color: AppColors.success,
-                                shape: BoxShape.circle,
-                              ),
+                      ),
+                      if (!isAttended) ...[
+                        SizedBox(width: 8.w),
+                        FadeTransition(
+                          opacity: _pulseAnimation,
+                          child: Container(
+                            width: 8.w,
+                            height: 8.w,
+                            decoration: const BoxDecoration(
+                              color: AppColors.success,
+                              shape: BoxShape.circle,
                             ),
                           ),
-                        ],
+                        ),
                       ],
+                    ],
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    widget.session.busIdentifier.isNotEmpty
+                        ? widget.session.busIdentifier
+                        : 'Bus / Trip Boarding',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13.sp,
+                      color: isAttended
+                          ? (isDark
+                                ? Colors.white60
+                                : AppColors.textMutedDark)
+                          : (isDark
+                                ? AppColors.textMutedLight
+                                : AppColors.textMutedDark),
+                      fontWeight: FontWeight.w500,
                     ),
-                    SizedBox(height: 4.h),
-                    Text(
-                      widget.session.busIdentifier.isNotEmpty
-                          ? widget.session.busIdentifier
-                          : 'Bus / Trip Boarding',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13.sp,
-                        color: isAttended
-                            ? (isDark
-                                  ? Colors.white60
-                                  : AppColors.textMutedDark)
-                            : (isDark
-                                  ? AppColors.textMutedLight
-                                  : AppColors.textMutedDark),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              if (!isAttended)
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 16.sp,
-                  color: AppColors.primary,
-                ),
-            ],
-          ),
+            ),
+            if (!isAttended)
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16.sp,
+                color: AppColors.primary,
+              ),
+          ],
         ),
       ),
     );

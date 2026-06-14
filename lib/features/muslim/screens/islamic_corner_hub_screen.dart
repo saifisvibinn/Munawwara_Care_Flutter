@@ -14,6 +14,25 @@ import 'duaa_screen.dart';
 import 'prayer_times_screen.dart';
 import '../widgets/muslim_widgets.dart';
 
+double _islamicCornerHeaderOverlayHeight(BuildContext context) =>
+    MediaQuery.viewPaddingOf(context).top + 8.h + 22.h + 8.h;
+
+BoxDecoration _islamicCornerHeaderFadeDecoration(Color backgroundColor) {
+  return BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      stops: const [0.0, 0.42, 0.72, 1.0],
+      colors: [
+        backgroundColor,
+        backgroundColor,
+        backgroundColor.withValues(alpha: 0.72),
+        backgroundColor.withValues(alpha: 0),
+      ],
+    ),
+  );
+}
+
 class IslamicCornerHubScreen extends ConsumerWidget {
   const IslamicCornerHubScreen({super.key});
 
@@ -21,133 +40,159 @@ class IslamicCornerHubScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bundleAsync = ref.watch(prayerBundleProvider);
     final namesAsync = ref.watch(asmaUlHusnaProvider);
+    final isDark = context.isDark;
+    final headerExtent = _islamicCornerHeaderOverlayHeight(context);
+    final fadeBg = AppGlassTheme.dashboardBackgroundColor(isDark);
 
     return AppDashboardBackground(
-      isDark: context.isDark,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
-              child: Text(
-                'muslim_corner_title'.tr(),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w600,
-                  color: context.mPrimary,
+      isDark: isDark,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: RefreshIndicator(
+              color: context.mPrimary,
+              onRefresh: () async {
+                ref.invalidate(prayerBundleProvider);
+                ref.invalidate(asmaUlHusnaProvider);
+                await ref.read(prayerBundleProvider.future);
+              },
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(
+                  20.w,
+                  headerExtent + 8.h,
+                  20.w,
+                  AppGlassTheme.dashboardScrollBottomPadding(context),
                 ),
-              ),
-            ),
-            Expanded(
-              child: RefreshIndicator(
-                color: context.mPrimary,
-                onRefresh: () async {
-                  ref.invalidate(prayerBundleProvider);
-                  ref.invalidate(asmaUlHusnaProvider);
-                  await ref.read(prayerBundleProvider.future);
-                },
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(
-                    20.w,
-                    8.h,
-                    20.w,
-                    AppGlassTheme.dashboardScrollBottomPadding(context),
-                  ),
-                  children: [
-                    bundleAsync.when(
-                      data: (bundle) => _PrayerFeaturedCard(
-                        bundle: bundle,
-                        countdownMinutes: ref.watch(prayerCountdownProvider),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const PrayerTimesScreen(),
-                          ),
-                        ),
-                      ),
-                      loading: () => _PrayerFeaturedCard.loading(),
-                      error: (_, _) => _PrayerFeaturedCard.error(
-                        onRetry: () => ref.invalidate(prayerBundleProvider),
-                      ),
-                    ),
-                    SizedBox(height: 24.h),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 16.h,
-                      crossAxisSpacing: 16.w,
-                      childAspectRatio: 0.95,
-                      children: [
-                        _HubBentoCard(
-                          title: 'muslim_azkar'.tr(),
-                          subtitle: 'muslim_azkar_sub'.tr(),
-                          icon: Symbols.wb_twilight,
-                          tint: context.isDark
-                              ? context.mPrimaryContainer
-                                  .withValues(alpha: 0.92)
-                              : context.mPrimaryFixed
-                                  .withValues(alpha: 0.35),
-                          iconColor: context.mPrimary,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const AzkarScreen(),
-                            ),
-                          ),
-                        ),
-                        _HubBentoCard(
-                          title: 'muslim_duaa'.tr(),
-                          subtitle: 'muslim_duaa_sub'.tr(),
-                          icon: Symbols.folded_hands,
-                          tint: context.isDark
-                              ? const Color(0xFF3D2A18)
-                              : context.mSecondaryFixed
-                                  .withValues(alpha: 0.35),
-                          iconColor: context.mSecondary,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const DuaaScreen(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 16.h),
-                    _HubWideCard(
-                      title: 'muslim_99_names'.tr(),
-                      subtitle: 'muslim_99_names_sub'.tr(),
-                      icon: Symbols.star,
-                      tint: context.isDark
-                          ? context.mTertiaryContainer
-                              .withValues(alpha: 0.55)
-                          : context.mOnTertiaryContainer
-                              .withValues(alpha: 0.12),
-                      iconColor: context.mTertiary,
+                children: [
+                  bundleAsync.when(
+                    data: (bundle) => _PrayerFeaturedCard(
+                      bundle: bundle,
+                      countdownMinutes: ref.watch(prayerCountdownProvider),
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) => const AsmaUlHusnaScreen(),
+                          builder: (_) => const PrayerTimesScreen(),
                         ),
                       ),
                     ),
-                    SizedBox(height: 24.h),
-                    namesAsync.when(
-                      data: (names) {
-                        if (names.isEmpty) return const SizedBox.shrink();
-                        final dayIndex = DateTime.now().dayOfYear % names.length;
-                        return _NameOfDayCard(name: names[dayIndex]);
-                      },
-                      loading: () => const _NameOfDayCard.loading(),
-                      error: (_, _) => const SizedBox.shrink(),
+                    loading: () => _PrayerFeaturedCard.loading(),
+                    error: (_, _) => _PrayerFeaturedCard.error(
+                      onRetry: () => ref.invalidate(prayerBundleProvider),
                     ),
-                  ],
+                  ),
+                  SizedBox(height: 16.h),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: AspectRatio(
+                          aspectRatio: 0.95,
+                          child: _HubBentoCard(
+                            title: 'muslim_azkar'.tr(),
+                            subtitle: 'muslim_azkar_sub'.tr(),
+                            icon: Symbols.wb_twilight,
+                            tint: isDark
+                                ? context.mPrimaryContainer
+                                    .withValues(alpha: 0.92)
+                                : context.mPrimaryFixed
+                                    .withValues(alpha: 0.35),
+                            iconColor: context.mPrimary,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const AzkarScreen(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 16.w),
+                      Expanded(
+                        child: AspectRatio(
+                          aspectRatio: 0.95,
+                          child: _HubBentoCard(
+                            title: 'muslim_duaa'.tr(),
+                            subtitle: 'muslim_duaa_sub'.tr(),
+                            icon: Symbols.folded_hands,
+                            tint: isDark
+                                ? const Color(0xFF3D2A18)
+                                : context.mSecondaryFixed
+                                    .withValues(alpha: 0.35),
+                            iconColor: context.mSecondary,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const DuaaScreen(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16.h),
+                  _HubWideCard(
+                    title: 'muslim_99_names'.tr(),
+                    subtitle: 'muslim_99_names_sub'.tr(),
+                    icon: Symbols.star,
+                    tint: isDark
+                        ? context.mTertiaryContainer
+                            .withValues(alpha: 0.55)
+                        : context.mOnTertiaryContainer
+                            .withValues(alpha: 0.12),
+                    iconColor: context.mTertiary,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const AsmaUlHusnaScreen(),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 24.h),
+                  namesAsync.when(
+                    data: (names) {
+                      if (names.isEmpty) return const SizedBox.shrink();
+                      final dayIndex = DateTime.now().dayOfYear % names.length;
+                      return _NameOfDayCard(name: names[dayIndex]);
+                    },
+                    loading: () => const _NameOfDayCard.loading(),
+                    error: (_, _) => const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AppScrollFadeOverlay(
+                showBottom: false,
+                topExtent: headerExtent,
+                backgroundColor: fadeBg,
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: DecoratedBox(
+              decoration: _islamicCornerHeaderFadeDecoration(fadeBg),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+                  child: Text(
+                    'muslim_corner_title'.tr(),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w600,
+                      color: context.mPrimary,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -221,12 +266,12 @@ class _PrayerFeaturedCard extends StatelessWidget {
     final nextTime = data.prayerTimes[next] ?? '';
     final minutes = countdownMinutes ?? data.currentStatus.minutesUntilNext;
 
-    return AppGlassCard(
-      isDark: context.isDark,
-      onTap: onTap,
-      padding: EdgeInsets.zero,
-      child: Material(
-        color: context.mPrayerHeroFill,
+    return Material(
+      color: context.mPrayerHeroFill,
+      borderRadius: AppGlassTheme.cardRadius,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: AppGlassTheme.cardRadius,
         child: Padding(
           padding: EdgeInsets.all(20.w),

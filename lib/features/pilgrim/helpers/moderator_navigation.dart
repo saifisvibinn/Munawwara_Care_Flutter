@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -5,15 +6,22 @@ import '../../../core/utils/open_maps_navigation.dart';
 import '../providers/pilgrim_provider.dart';
 
 Future<void> launchModeratorWalkingDirections({
+  required BuildContext context,
   required double lat,
   required double lng,
-}) async {
-  await OpenMapsNavigation.launch(null, lat, lng);
-}
+}) =>
+    OpenMapsNavigation.launch(context, lat, lng);
 
 /// Opens walking directions for an active moderator navigation beacon.
-Future<void> launchModeratorBeaconDirections(ModeratorBeacon beacon) =>
-    launchModeratorWalkingDirections(lat: beacon.lat, lng: beacon.lng);
+Future<void> launchModeratorBeaconDirections(
+  BuildContext context,
+  ModeratorBeacon beacon,
+) =>
+    launchModeratorWalkingDirections(
+      context: context,
+      lat: beacon.lat,
+      lng: beacon.lng,
+    );
 
 /// Group moderators with the creator listed first when [createdBy] is known.
 List<ModeratorInfo> sortedGroupModerators(

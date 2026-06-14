@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'app_colors.dart';
 
@@ -25,6 +26,23 @@ class AppTheme {
       ThemeMode.system =>
         MediaQuery.platformBrightnessOf(context) == Brightness.dark,
     };
+  }
+
+  /// Status bar + nav bar icon colors for edge-to-edge UI.
+  ///
+  /// Light app → dark status icons. Dark app → light (white) status icons.
+  static SystemUiOverlayStyle systemUiOverlayStyle({required bool isDark}) {
+    return SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      systemStatusBarContrastEnforced: false,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarIconBrightness:
+          isDark ? Brightness.light : Brightness.dark,
+      systemNavigationBarContrastEnforced: false,
+    );
   }
 
   static const _textTheme = TextTheme(

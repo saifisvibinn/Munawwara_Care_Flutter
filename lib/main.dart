@@ -18,6 +18,7 @@ import 'core/services/locale_prefs.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/app_logger.dart';
+import 'core/widgets/app_system_ui_scope.dart';
 import 'core/widgets/standard_snackbar.dart';
 import 'core/utils/device_orientation_policy.dart';
 import 'features/auth/providers/auth_provider.dart';
@@ -81,6 +82,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    ref.listenManual<ThemeMode>(themeProvider, (previous, next) {
+      _syncSystemUi(next);
+    });
     ref.listenManual<AuthState>(authProvider, (previous, next) {
       final wasRestoringOrUnauthenticated =
           previous == null ||
@@ -105,13 +109,34 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       unawaited(
         CallKitService.refreshCachedSupportDisplayName(languageCode: lang),
       );
+      _syncSystemUi(ref.read(themeProvider));
     });
+  }
+
+  void _syncSystemUi(ThemeMode mode) {
+    if (!mounted) return;
+    final ctx = AppRouter.router.routerDelegate.navigatorKey.currentContext;
+    final isDark = ctx != null
+        ? AppTheme.isDarkEffective(mode, ctx)
+        : mode == ThemeMode.dark ||
+            (mode == ThemeMode.system &&
+                WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+                    Brightness.dark);
+    SystemChrome.setSystemUIOverlayStyle(
+      AppTheme.systemUiOverlayStyle(isDark: isDark),
+    );
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    _syncSystemUi(ref.read(themeProvider));
+    setState(() {});
   }
 
   @override
@@ -132,14 +157,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       minTextAdapt: true,
       ensureScreenSize: false,
       builder: (context, child) {
-        final bool isDarkUi = switch (themeMode) {
-          ThemeMode.dark => true,
-          ThemeMode.light => false,
-          ThemeMode.system =>
-            View.of(context).platformDispatcher.platformBrightness ==
-                Brightness.dark,
-        };
-
         return MaterialApp.router(
           title: 'Munawwara Care',
           debugShowCheckedModeBanner: false,
@@ -153,22 +170,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           locale: context.locale,
           routerConfig: AppRouter.router,
           builder: (context, child) {
-            return AnnotatedRegion<SystemUiOverlayStyle>(
-              value: SystemUiOverlayStyle(
-                statusBarColor: Colors.transparent,
-                statusBarIconBrightness: isDarkUi
-                    ? Brightness.light
-                    : Brightness.dark,
-                statusBarBrightness: isDarkUi
-                    ? Brightness.dark
-                    : Brightness.light,
-                systemNavigationBarColor: Colors.transparent,
-                systemNavigationBarDividerColor: Colors.transparent,
-                systemNavigationBarIconBrightness: isDarkUi
-                    ? Brightness.light
-                    : Brightness.dark,
-                systemNavigationBarContrastEnforced: false,
-              ),
+            return AppSystemUiScope(
+              themeMode: themeMode,
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTap: () {

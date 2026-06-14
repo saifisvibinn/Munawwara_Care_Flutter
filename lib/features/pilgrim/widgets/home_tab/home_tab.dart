@@ -22,6 +22,40 @@ import '../../../../core/widgets/standard_snackbar.dart';
 // Home Tab — fixed app bar; greeting + dashboard scroll below
 // ─────────────────────────────────────────────────────────────────────────────
 
+double _homeHeaderRowHeight(BuildContext context) =>
+    MediaQuery.viewPaddingOf(context).top + 4.h + 34.w + 6.h;
+
+/// Extra band below the fixed header row where scroll content fades out.
+double _homeHeaderFadeTailHeight(BuildContext context) => 32.h;
+
+double _homeHeaderOverlayHeight(BuildContext context) =>
+    _homeHeaderRowHeight(context) + _homeHeaderFadeTailHeight(context);
+
+Widget _homeStrongTopScrollFade({
+  required double height,
+  required Color backgroundColor,
+}) {
+  return SizedBox(
+    height: height,
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: const [0.0, 0.58, 0.78, 0.92, 1.0],
+          colors: [
+            backgroundColor,
+            backgroundColor,
+            backgroundColor.withValues(alpha: 0.96),
+            backgroundColor.withValues(alpha: 0.55),
+            backgroundColor.withValues(alpha: 0),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 class PilgrimHomeTab extends StatelessWidget {
   final PilgrimState pilgrimState;
   final bool isDark;
@@ -117,18 +151,15 @@ class PilgrimHomeTab extends StatelessWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final group = pilgrimState.groupInfo;
-
-    return AppDashboardBackground(
-      isDark: isDark,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
+  Widget _buildFixedHeader(BuildContext context, Color fadeBg) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ColoredBox(
+          color: fadeBg,
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
               padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 6.h),
               child: Row(
                 children: [
@@ -194,87 +225,123 @@ class PilgrimHomeTab extends StatelessWidget {
                 ],
               ),
             ),
-            Expanded(
-              child: RefreshIndicator(
-                color: AppColors.primary,
-                onRefresh: onRefresh,
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: BouncingScrollPhysics(),
-                  ),
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (!isGpsEnabled || !hasLocPermission)
-                              Align(
-                                alignment: AlignmentDirectional.centerStart,
-                                child: Container(
-                                  margin: EdgeInsets.only(
-                                    top: 8.h,
-                                    bottom: 8.h,
-                                  ),
-                                  child: Material(
-                                    color: Colors.red.shade100,
+          ),
+        ),
+        _homeStrongTopScrollFade(
+          height: _homeHeaderFadeTailHeight(context),
+          backgroundColor: fadeBg,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final group = pilgrimState.groupInfo;
+    final headerExtent = _homeHeaderOverlayHeight(context);
+    final fadeBg = AppGlassTheme.dashboardBackgroundColor(isDark);
+
+    return AppDashboardBackground(
+      isDark: isDark,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: onRefresh,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                slivers: [
+                  SliverPadding(padding: EdgeInsets.only(top: headerExtent)),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (!isGpsEnabled || !hasLocPermission)
+                            Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: Container(
+                                margin: EdgeInsets.only(top: 8.h, bottom: 8.h),
+                                child: Material(
+                                  color: Colors.red.shade100,
+                                  borderRadius: BorderRadius.circular(12.r),
+                                  child: InkWell(
                                     borderRadius: BorderRadius.circular(12.r),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(12.r),
-                                      onTap: onLocationInactiveTap,
-                                      child: Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: 16.w,
-                                          vertical: 8.h,
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Symbols.location_off,
-                                              size: 16.w,
+                                    onTap: onLocationInactiveTap,
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 16.w,
+                                        vertical: 8.h,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Symbols.location_off,
+                                            size: 16.w,
+                                            color: Colors.red.shade700,
+                                            fill: 1,
+                                          ),
+                                          SizedBox(width: 8.w),
+                                          Text(
+                                            'Inactive',
+                                            style: TextStyle(
+                                              fontSize: 13.sp,
+                                              fontWeight: FontWeight.w600,
                                               color: Colors.red.shade700,
-                                              fill: 1,
                                             ),
-                                            SizedBox(width: 8.w),
-                                            Text(
-                                              'Inactive',
-                                              style: TextStyle(
-                                                fontSize: 13.sp,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.red.shade700,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                          ],
-                        ),
+                            ),
+                        ],
                       ),
                     ),
-                    SliverToBoxAdapter(child: _homeBody(group)),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 0),
-                        child: SafetyDisclaimerBanner(isDark: isDark),
+                  ),
+                  SliverToBoxAdapter(child: _homeBody(group)),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 0),
+                      child: SafetyDisclaimerBanner(isDark: isDark),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: EdgeInsets.only(
+                      bottom: AppGlassTheme.dashboardScrollBottomPadding(
+                        context,
                       ),
                     ),
-                    SliverPadding(
-                      padding: EdgeInsets.only(
-                        bottom: AppGlassTheme.dashboardScrollBottomPadding(context),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: _homeStrongTopScrollFade(
+                height: headerExtent,
+                backgroundColor: fadeBg,
+              ),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _buildFixedHeader(context, fadeBg),
+          ),
+        ],
       ),
     );
   }
@@ -370,15 +437,15 @@ class _HomeBody extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Group Card (Full Width) ──────────────────────────────────────
-                            GroupCard(
-                              isDark: isDark,
-                              groupName: g?.groupName ?? 'card_no_group'.tr(),
-                              moderators: g?.moderators ?? const [],
-                              createdBy: g?.createdBy,
-                              hotelName: g?.hotelName ?? '',
-                              checkIn: g?.checkIn ?? '',
-                              onTap: onGroupCardTap,
-                            ),
+            GroupCard(
+              isDark: isDark,
+              groupName: g?.groupName ?? 'card_no_group'.tr(),
+              moderators: g?.moderators ?? const [],
+              createdBy: g?.createdBy,
+              hotelName: g?.hotelName ?? '',
+              checkIn: g?.checkIn ?? '',
+              onTap: onGroupCardTap,
+            ),
             if (activeBeacons.isNotEmpty) ...[
               SizedBox(height: 8.h),
               ModeratorNavigateBeaconList(

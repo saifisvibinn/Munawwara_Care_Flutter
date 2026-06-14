@@ -16,7 +16,9 @@ import '../../../core/utils/open_maps_navigation.dart';
 import '../../../core/services/tts_cloud_api.dart';
 import '../../../core/services/speech_service.dart';
 import '../../../core/widgets/standard_snackbar.dart';
+import '../../auth/models/wakel_info.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../providers/pilgrim_provider.dart';
 import '../../shared/helpers/message_visibility.dart';
 import '../../shared/models/message_model.dart';
 import '../../shared/helpers/chat_popup_dedup.dart';
@@ -439,69 +441,45 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
       _queueAutoTranslate(arrived.toList());
     });
 
-    final pageTitle = 'call_support_display_name'.tr();
-    final pageSubtitle = widget.groupName.isNotEmpty
-        ? widget.groupName
-        : 'inbox_title'.tr();
-    const filterStripHeight = 52.0;
-    final topPad = GroupBroadcastNavBar.scrollTopPadding(
-      context,
-      extra: filterStripHeight.h + 8.h,
-    );
+    final wakelInfo = ref.watch(pilgrimProvider).groupInfo?.wakelInfo;
+    final headerExtent = _headerOverlayHeight(context);
+    final bg = AppGlassTheme.dashboardBackgroundColor(isDark);
 
     return AppDashboardBackground(
       isDark: isDark,
       child: Stack(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: showLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
-                        ),
-                      )
-                    : _buildMessageList(
-                        filtered,
-                        topPad: topPad,
-                      ),
+          Positioned.fill(
+            child: showLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                    ),
+                  )
+                : _buildMessageList(
+                      filtered,
+                      headerExtent: headerExtent,
+                      wakelInfo: wakelInfo,
+                    ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AppScrollFadeOverlay(
+                backgroundColor: bg,
+                showBottom: false,
+                topExtent: headerExtent,
+                fadeOpacity: 1,
+                child: const SizedBox.expand(),
               ),
-            ],
+            ),
           ),
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: GroupBroadcastNavBar(
-              isDark: isDark,
-              title: pageTitle,
-              subtitle: pageSubtitle,
-              onBack: widget.showBackButton
-                  ? () => Navigator.of(context).maybePop()
-                  : null,
-              showBrandAvatar: true,
-            ),
-          ),
-          Positioned(
-            top: GroupBroadcastNavBar.overlayHeight(context),
-            left: 20.w,
-            right: 20.w,
-            child: _buildFilterRow(isDark),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: AppScrollFadeOverlay(
-                backgroundColor: AppGlassTheme.dashboardBackgroundColor(isDark),
-                showBottom: widget.showBackButton,
-                topExtent: topPad,
-                fadeOpacity: 1,
-                bottomExtent: widget.showBackButton
-                    ? AppGlassTheme.scrollFadeBottomExtentStandalone(context)
-                    : null,
-                child: const SizedBox.expand(),
-              ),
+            child: _buildFloatingHeader(
+              isDark,
+              wakelInfo,
             ),
           ),
         ],
@@ -509,11 +487,149 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     );
   }
 
+  /// Status bar + floating glass header (margins, pill, filters).
+  double _headerOverlayHeight(BuildContext context) =>
+      MediaQuery.viewPaddingOf(context).top + 114.h;
+
+  String _agencyDisplayName(WakelInfo? wakelInfo) =>
+      wakelInfo?.name.trim().isNotEmpty == true
+          ? wakelInfo!.name
+          : 'call_support_display_name'.tr();
+
+  Widget _buildFloatingHeader(
+    bool isDark,
+    WakelInfo? wakelInfo,
+  ) {
+    final glassPill = AppGlassSurface(
+      isDark: isDark,
+      borderRadius: BorderRadius.circular(16.r),
+      padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
+      glassTheme: AppGlassTheme.groupBroadcastNavPillOf(isDark),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildAgencyBrandRow(isDark, wakelInfo),
+          SizedBox(height: 10.h),
+          _buildFilterRow(isDark),
+        ],
+      ),
+    );
+
+    if (widget.showBackButton) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(
+          14.w,
+          MediaQuery.viewPaddingOf(context).top + 8.h,
+          16.w,
+          0,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(top: 4.h),
+              child: AppGlassIconButton(
+                isDark: isDark,
+                icon: Symbols.arrow_back,
+                onTap: () => Navigator.of(context).maybePop(),
+                size: 42.w,
+              ),
+            ),
+            SizedBox(width: 8.w),
+            Expanded(child: glassPill),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        16.w,
+        MediaQuery.viewPaddingOf(context).top + 8.h,
+        16.w,
+        0,
+      ),
+      child: glassPill,
+    );
+  }
+
+  Widget _buildAgencyAvatar(WakelInfo? wakel, bool isDark, {double size = 32}) {
+    if (wakel == null) {
+      return SupportBrandAvatar(
+        isDark: isDark,
+        diameter: size,
+        iconPadding: size * 0.16,
+        showShadow: false,
+      );
+    }
+
+    return Container(
+      width: size.w,
+      height: size.w,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: isDark ? Colors.white24 : Colors.black12,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: wakel.profilePicture != null && wakel.profilePicture!.isNotEmpty
+          ? Image.network(
+              wakel.profilePicture!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => _buildAgencyAvatarPlaceholder(size),
+            )
+          : _buildAgencyAvatarPlaceholder(size),
+    );
+  }
+
+  Widget _buildAgencyAvatarPlaceholder(double size) {
+    return Center(
+      child: Icon(
+        Icons.explore_rounded,
+        color: const Color(0xFF0F3A5F),
+        size: size * 0.62,
+      ),
+    );
+  }
+
+  Widget _buildAgencyBrandRow(bool isDark, WakelInfo? wakelInfo) {
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final agencyName = _agencyDisplayName(wakelInfo);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildAgencyAvatar(wakelInfo, isDark),
+        SizedBox(width: 10.w),
+        Flexible(
+          child: Text(
+            agencyName,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w700,
+              color: textPrimary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildMessageList(
     List<GroupMessage> filtered, {
-    required double topPad,
+    required double headerExtent,
+    required WakelInfo? wakelInfo,
   }) {
-    final navClearance = AppGlassTheme.bottomNavScrollPadding(context);
+    final navClearance = widget.showBackButton
+        ? MediaQuery.viewPaddingOf(context).bottom + 24.h
+        : AppGlassTheme.dashboardScrollBottomPadding(context);
 
     if (filtered.isEmpty) {
       return RefreshIndicator(
@@ -523,7 +639,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverPadding(
-              padding: EdgeInsets.only(top: topPad),
+              padding: EdgeInsets.only(top: headerExtent),
             ),
             SliverFillRemaining(
               hasScrollBody: false,
@@ -544,15 +660,17 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
         controller: _scrollController,
         reverse: true,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(0, topPad, 0, 12.h),
-        itemCount: filtered.length + 1,
+        padding: EdgeInsets.zero,
+        itemCount: filtered.length + 2,
         itemBuilder: (_, i) {
           if (i == 0) {
             return SizedBox(height: navClearance);
           }
-          final cardIndex = i;
-          final msg = filtered[filtered.length - cardIndex];
-          return _buildCard(msg);
+          if (i == filtered.length + 1) {
+            return SizedBox(height: headerExtent);
+          }
+          final msg = filtered[filtered.length - i];
+          return _buildCard(msg, wakelInfo: wakelInfo);
         },
       ),
     );
@@ -666,7 +784,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
 
   // ── Message card ──────────────────────────────────────────────────────────
 
-  Widget _buildCard(GroupMessage msg) {
+  Widget _buildCard(GroupMessage msg, {required WakelInfo? wakelInfo}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isUrgent = msg.isUrgent;
     final isNew = _newMessageIds.contains(msg.id);
@@ -685,7 +803,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
               padding: EdgeInsets.only(bottom: 8.h),
               child: const PrivateIndicator(isForPilgrim: true),
             ),
-          _buildCardHeader(msg, isDark),
+          _buildCardHeader(msg, isDark, wakelInfo: wakelInfo),
           SizedBox(height: 12.h),
           if (msg.replySnapshot != null)
             MessageReplyQuote(
@@ -730,8 +848,12 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     );
   }
 
-  /// Staff: small Munawwara Care logo + name (trust cue per card), then chips.
-  Widget _buildCardHeader(GroupMessage msg, bool isDark) {
+  /// Staff: agency avatar + name (trust cue per card), then chips.
+  Widget _buildCardHeader(
+    GroupMessage msg,
+    bool isDark, {
+    required WakelInfo? wakelInfo,
+  }) {
     final fromSupport = msg.isFromModerator;
     final metaStyle = TextStyle(
       fontSize: 11.sp,
@@ -756,7 +878,7 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(child: _staffBrandRow(isDark)),
+              Expanded(child: _staffBrandRow(isDark, wakelInfo)),
               SizedBox(width: 8.w),
               Text(
                 _formatDateTime(msg.createdAt),
@@ -816,20 +938,15 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
     );
   }
 
-  /// Compact sender identity for moderator/staff — matches voice-call branding.
-  Widget _staffBrandRow(bool isDark) {
+  /// Compact sender identity for moderator/staff — matches header agency branding.
+  Widget _staffBrandRow(bool isDark, WakelInfo? wakelInfo) {
     return Row(
       children: [
-        SupportBrandAvatar(
-          isDark: isDark,
-          diameter: 30,
-          iconPadding: 5,
-          showShadow: false,
-        ),
+        _buildAgencyAvatar(wakelInfo, isDark, size: 30),
         SizedBox(width: 8.w),
         Expanded(
           child: Text(
-            'call_support_display_name'.tr(),
+            _agencyDisplayName(wakelInfo),
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 13.sp,

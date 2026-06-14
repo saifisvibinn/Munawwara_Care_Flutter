@@ -35,11 +35,13 @@ class AppScrollFadeOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = backgroundColor ?? AppGlassTheme.dashboardBackgroundColor(isDark);
+    final bg =
+        backgroundColor ?? AppGlassTheme.dashboardBackgroundColor(isDark);
     final keyboardOpen = AppGlassTheme.isKeyboardVisible(context);
 
     final resolvedTop = topExtent ?? AppGlassTheme.scrollFadeTopExtent(context);
-    final resolvedBottom = bottomExtent ??
+    final resolvedBottom =
+        bottomExtent ??
         (useDashboardBottomExtent
             ? AppGlassTheme.scrollFadeBottomExtentDashboard(context)
             : AppGlassTheme.scrollFadeBottomExtentStandalone(context));
