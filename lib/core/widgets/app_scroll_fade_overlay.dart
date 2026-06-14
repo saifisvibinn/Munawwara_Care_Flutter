@@ -17,6 +17,7 @@ class AppScrollFadeOverlay extends StatelessWidget {
     this.bottomExtent,
     this.backgroundColor,
     this.useDashboardBottomExtent = false,
+    this.fadeOpacity = 1,
   });
 
   final Widget child;
@@ -25,6 +26,7 @@ class AppScrollFadeOverlay extends StatelessWidget {
   final double? topExtent;
   final double? bottomExtent;
   final Color? backgroundColor;
+  final double fadeOpacity;
 
   /// When true, bottom fade uses [AppGlassTheme.bottomNavScrollPadding] (dashboard
   /// tabs with floating nav). When false, uses safe-area bottom only.
@@ -41,6 +43,7 @@ class AppScrollFadeOverlay extends StatelessWidget {
         (useDashboardBottomExtent
             ? AppGlassTheme.scrollFadeBottomExtentDashboard(context)
             : AppGlassTheme.scrollFadeBottomExtentStandalone(context));
+    final solidFade = bg.withValues(alpha: fadeOpacity.clamp(0.0, 1.0));
 
     return Stack(
       fit: StackFit.expand,
@@ -59,7 +62,7 @@ class AppScrollFadeOverlay extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [bg, bg.withValues(alpha: 0)],
+                    colors: [solidFade, bg.withValues(alpha: 0)],
                   ),
                 ),
               ),
@@ -77,7 +80,7 @@ class AppScrollFadeOverlay extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
-                    colors: [bg, bg.withValues(alpha: 0)],
+                    colors: [solidFade, bg.withValues(alpha: 0)],
                   ),
                 ),
               ),

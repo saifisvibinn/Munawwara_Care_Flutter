@@ -68,8 +68,7 @@ class _ModeratorDashboardScreenState
     extends ConsumerState<ModeratorDashboardScreen>
     with RouteAware, WidgetsBindingObserver {
   bool _isInitializingDashboard = true;
-  int _currentTab =
-      0; // 0=Groups, 1=Provisioning, 2=Reminders, 3=Profile
+  int _currentTab = 0; // 0=Groups, 1=Provisioning, 2=Reminders, 3=Profile
   late final PageController _pageController = PageController(initialPage: 0);
   final _searchController = TextEditingController();
   ModeratorGlobalNavBeaconController? _globalNavBeacon;
@@ -119,10 +118,9 @@ class _ModeratorDashboardScreenState
     unawaited(() async {
       ref.read(notificationProvider.notifier).refetch();
       await ref.read(pendingInvitationsProvider.notifier).fetchPending();
-      await ref.read(moderatorProvider.notifier).loadDashboard(
-            silently: true,
-            force: true,
-          );
+      await ref
+          .read(moderatorProvider.notifier)
+          .loadDashboard(silently: true, force: true);
       if (!mounted) return;
       // After dashboard refresh, ensure we are subscribed to all group rooms
       // (important for newly invited moderators).
@@ -173,9 +171,8 @@ class _ModeratorDashboardScreenState
     final gate = OemSettingsService.onboardingGate;
     final checkId = ++_permissionsCheckGate;
 
-    final showOnboarding = await OemSettingsService.shouldShowOnboardingOnResume(
-      gate: gate,
-    );
+    final showOnboarding =
+        await OemSettingsService.shouldShowOnboardingOnResume(gate: gate);
     if (!mounted ||
         checkId != _permissionsCheckGate ||
         OemSettingsService.isOnboardingSkippedForSession ||
@@ -202,31 +199,33 @@ class _ModeratorDashboardScreenState
     });
     ref.listenManual(callProvider, (prev, next) {
       if (next.status == CallStatus.connected &&
-          (prev?.status == CallStatus.ringing || prev?.status == CallStatus.connecting) &&
+          (prev?.status == CallStatus.ringing ||
+              prev?.status == CallStatus.connecting) &&
           mounted &&
           !isNavigatingToCall &&
           !VoiceCallScreen.isActive) {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const VoiceCallScreen()));
       }
       if (next.status == CallStatus.calling &&
           prev?.status != CallStatus.calling &&
           mounted &&
           !isNavigatingToCall &&
           !VoiceCallScreen.isActive) {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const VoiceCallScreen()));
       }
       if (next.status == CallStatus.connecting &&
-          (prev?.status == CallStatus.calling || prev?.status == CallStatus.ringing) &&
+          (prev?.status == CallStatus.calling ||
+              prev?.status == CallStatus.ringing) &&
           mounted &&
           !isNavigatingToCall &&
           !VoiceCallScreen.isActive) {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const VoiceCallScreen()));
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -269,9 +268,9 @@ class _ModeratorDashboardScreenState
 
   Future<void> _loadRemoteDashboardState() async {
     final hasCached = ref.read(moderatorProvider).groups.isNotEmpty;
-    await ref.read(moderatorProvider.notifier).loadDashboard(
-      silently: hasCached,
-    );
+    await ref
+        .read(moderatorProvider.notifier)
+        .loadDashboard(silently: hasCached);
     if (!mounted) return;
     await _finishModeratorWarmup();
   }
@@ -288,211 +287,211 @@ class _ModeratorDashboardScreenState
   void _connectModeratorRealtime() {
     final auth = ref.read(authProvider);
     if (auth.userId != null) {
-        _globalNavBeacon = ModeratorGlobalNavBeaconController(ref);
-        final socketUrl = ApiService.socketOrigin;
-        // Register before connect so a fast handshake never misses join + beacon.
-        SocketService.onConnected(_onSocketConnected);
-        SocketService.connect(
-          serverUrl: socketUrl,
-          userId: auth.userId!,
-          role: auth.role ?? 'moderator',
-        );
-        // Note: CallNotifier.build() already registers call socket listeners on
-        // first access, and SocketService.connect() re-applies them on every
-        // reconnect via _applyPendingListeners(). No manual reRegisterListeners()
-        // needed here — calling it would cause duplicate handler registration.
-        // Check if there's a pending call accepted from native call screen.
-        // Must run AFTER the socket handshake so the call-answer emit goes through.
-        if (SocketService.isConnected) {
+      _globalNavBeacon = ModeratorGlobalNavBeaconController(ref);
+      final socketUrl = ApiService.socketOrigin;
+      // Register before connect so a fast handshake never misses join + beacon.
+      SocketService.onConnected(_onSocketConnected);
+      SocketService.connect(
+        serverUrl: socketUrl,
+        userId: auth.userId!,
+        role: auth.role ?? 'moderator',
+      );
+      // Note: CallNotifier.build() already registers call socket listeners on
+      // first access, and SocketService.connect() re-applies them on every
+      // reconnect via _applyPendingListeners(). No manual reRegisterListeners()
+      // needed here — calling it would cause duplicate handler registration.
+      // Check if there's a pending call accepted from native call screen.
+      // Must run AFTER the socket handshake so the call-answer emit goes through.
+      if (SocketService.isConnected) {
+        _reconcileCallsAfterSocketReady();
+      } else {
+        void checkOnce() {
+          SocketService.offConnected(checkOnce);
           _reconcileCallsAfterSocketReady();
-        } else {
-          void checkOnce() {
-            SocketService.offConnected(checkOnce);
-            _reconcileCallsAfterSocketReady();
-          }
+        }
 
-          SocketService.onConnected(checkOnce);
-        }
-        if (mounted) {
-          ref.read(notificationProvider.notifier).fetchUnreadCount();
-        }
-        if (SocketService.isConnected) {
-          _onSocketConnected();
-        }
-        unawaited(
-          _globalNavBeacon?.sync(emitImmediateFix: true) ?? Future.value(),
+        SocketService.onConnected(checkOnce);
+      }
+      if (mounted) {
+        ref.read(notificationProvider.notifier).fetchUnreadCount();
+      }
+      if (SocketService.isConnected) {
+        _onSocketConnected();
+      }
+      unawaited(
+        _globalNavBeacon?.sync(emitImmediateFix: true) ?? Future.value(),
+      );
+      SosAlertCoordinator.bindCancelListeners();
+      SocketService.on('sos-alert-received', _onSosAlertArrived);
+      SocketService.on('sos-alert-cancelled', (data) async {
+        if (!mounted) return;
+        final map = data is Map
+            ? Map<String, dynamic>.from(data)
+            : <String, dynamic>{};
+        await SosAlertCoordinator.handleCancelledFromMap(map);
+      });
+      // Cross-moderator status updates (reviewing / in-call)
+      SocketService.on('sos-moderator-responding', (data) async {
+        if (!mounted || data is! Map) return;
+        final map = Map<String, dynamic>.from(data);
+        final pid = map['pilgrim_id']?.toString() ?? '';
+        final gid = map['group_id']?.toString() ?? '';
+        final modId = map['moderator_id']?.toString() ?? '';
+        final modName = map['moderator_name']?.toString() ?? '';
+        if (pid.isEmpty || gid.isEmpty || modId.isEmpty) return;
+        final sid = map['sos_id']?.toString();
+        final sk = (sid != null && sid.isNotEmpty) ? sid : 'c_${pid}_$gid';
+        await ModeratorSosEngagementStore.upsertModeratorStatus(
+          storageKey: sk,
+          pilgrimId: pid,
+          groupId: gid,
+          pilgrimName: map['pilgrim_name']?.toString() ?? '',
+          groupName: map['group_name']?.toString() ?? '',
+          moderatorId: modId,
+          moderatorName: modName,
+          status: 'reviewing',
         );
-        SosAlertCoordinator.bindCancelListeners();
-        SocketService.on('sos-alert-received', _onSosAlertArrived);
-        SocketService.on('sos-alert-cancelled', (data) async {
-          if (!mounted) return;
-          final map = data is Map
-              ? Map<String, dynamic>.from(data)
-              : <String, dynamic>{};
-          await SosAlertCoordinator.handleCancelledFromMap(map);
-        });
-        // Cross-moderator status updates (reviewing / in-call)
-        SocketService.on('sos-moderator-responding', (data) async {
-          if (!mounted || data is! Map) return;
+        SosAlertCoordinator.dismissIfOpenForStorageKey(
+          sk,
+          reasonMessage: modName.trim().isEmpty
+              ? 'sos_claimed_handled_by_other_mod'.tr()
+              : 'sos_claimed_being_reviewed_by'.tr(
+                  namedArgs: {'name': modName},
+                ),
+        );
+        await ref.read(moderatorSosEngagementProvider.notifier).refresh();
+      });
+      SocketService.on('sos-moderator-in-call', (data) async {
+        if (!mounted || data is! Map) return;
+        final map = Map<String, dynamic>.from(data);
+        final pid = map['pilgrim_id']?.toString() ?? '';
+        final gid = map['group_id']?.toString() ?? '';
+        final modId = map['moderator_id']?.toString() ?? '';
+        final modName = map['moderator_name']?.toString() ?? '';
+        if (pid.isEmpty || gid.isEmpty || modId.isEmpty) return;
+        final sid = map['sos_id']?.toString();
+        final sk = (sid != null && sid.isNotEmpty) ? sid : 'c_${pid}_$gid';
+        await ModeratorSosEngagementStore.upsertModeratorStatus(
+          storageKey: sk,
+          pilgrimId: pid,
+          groupId: gid,
+          pilgrimName: map['pilgrim_name']?.toString() ?? '',
+          groupName: map['group_name']?.toString() ?? '',
+          moderatorId: modId,
+          moderatorName: modName,
+          status: 'in_call',
+        );
+        SosAlertCoordinator.dismissIfOpenForStorageKey(
+          sk,
+          reasonMessage: modName.trim().isEmpty
+              ? 'sos_claimed_in_call_other_mod'.tr()
+              : 'sos_claimed_in_call_with'.tr(namedArgs: {'name': modName}),
+        );
+        await ref.read(moderatorSosEngagementProvider.notifier).refresh();
+      });
+      // Listen for missed calls — refresh notification/list + groups
+      SocketService.on('missed-call-received', (_) {
+        _refreshRealtimeState();
+      });
+      // Listen for notification refresh (invitations, areas, etc.)
+      SocketService.on('notification_refresh', (_) {
+        _refreshRealtimeState();
+      });
+      // Group membership/list changes from any device should refresh dashboard
+      SocketService.on('group_updated', (_) {
+        _refreshRealtimeState();
+      });
+      SocketService.on('group_deleted', (_) {
+        _refreshRealtimeState();
+      });
+      SocketService.on('added-to-group', (data) {
+        // Critical: join the new room immediately so SOS realtime works.
+        if (data is Map) {
           final map = Map<String, dynamic>.from(data);
-          final pid = map['pilgrim_id']?.toString() ?? '';
-          final gid = map['group_id']?.toString() ?? '';
-          final modId = map['moderator_id']?.toString() ?? '';
-          final modName = map['moderator_name']?.toString() ?? '';
-          if (pid.isEmpty || gid.isEmpty || modId.isEmpty) return;
-          final sid = map['sos_id']?.toString();
-          final sk = (sid != null && sid.isNotEmpty) ? sid : 'c_${pid}_$gid';
-          await ModeratorSosEngagementStore.upsertModeratorStatus(
-            storageKey: sk,
-            pilgrimId: pid,
-            groupId: gid,
-            pilgrimName: map['pilgrim_name']?.toString() ?? '',
-            groupName: map['group_name']?.toString() ?? '',
-            moderatorId: modId,
-            moderatorName: modName,
-            status: 'reviewing',
-          );
-          SosAlertCoordinator.dismissIfOpenForStorageKey(
-            sk,
-            reasonMessage: modName.trim().isEmpty
-                ? 'sos_claimed_handled_by_other_mod'.tr()
-                : 'sos_claimed_being_reviewed_by'.tr(
-                    namedArgs: {'name': modName},
-                  ),
-          );
-          await ref.read(moderatorSosEngagementProvider.notifier).refresh();
-        });
-        SocketService.on('sos-moderator-in-call', (data) async {
-          if (!mounted || data is! Map) return;
-          final map = Map<String, dynamic>.from(data);
-          final pid = map['pilgrim_id']?.toString() ?? '';
-          final gid = map['group_id']?.toString() ?? '';
-          final modId = map['moderator_id']?.toString() ?? '';
-          final modName = map['moderator_name']?.toString() ?? '';
-          if (pid.isEmpty || gid.isEmpty || modId.isEmpty) return;
-          final sid = map['sos_id']?.toString();
-          final sk = (sid != null && sid.isNotEmpty) ? sid : 'c_${pid}_$gid';
-          await ModeratorSosEngagementStore.upsertModeratorStatus(
-            storageKey: sk,
-            pilgrimId: pid,
-            groupId: gid,
-            pilgrimName: map['pilgrim_name']?.toString() ?? '',
-            groupName: map['group_name']?.toString() ?? '',
-            moderatorId: modId,
-            moderatorName: modName,
-            status: 'in_call',
-          );
-          SosAlertCoordinator.dismissIfOpenForStorageKey(
-            sk,
-            reasonMessage: modName.trim().isEmpty
-                ? 'sos_claimed_in_call_other_mod'.tr()
-                : 'sos_claimed_in_call_with'.tr(namedArgs: {'name': modName}),
-          );
-          await ref.read(moderatorSosEngagementProvider.notifier).refresh();
-        });
-        // Listen for missed calls — refresh notification/list + groups
-        SocketService.on('missed-call-received', (_) {
-          _refreshRealtimeState();
-        });
-        // Listen for notification refresh (invitations, areas, etc.)
-        SocketService.on('notification_refresh', (_) {
-          _refreshRealtimeState();
-        });
-        // Group membership/list changes from any device should refresh dashboard
-        SocketService.on('group_updated', (_) {
-          _refreshRealtimeState();
-        });
-        SocketService.on('group_deleted', (_) {
-          _refreshRealtimeState();
-        });
-        SocketService.on('added-to-group', (data) {
-          // Critical: join the new room immediately so SOS realtime works.
-          if (data is Map) {
-            final map = Map<String, dynamic>.from(data);
-            final gid = map['group_id']?.toString();
-            if (gid != null && gid.trim().isNotEmpty) {
-              SocketService.emit('join_group', gid.trim());
-            }
+          final gid = map['group_id']?.toString();
+          if (gid != null && gid.trim().isNotEmpty) {
+            SocketService.emit('join_group', gid.trim());
           }
-          _refreshRealtimeState();
-        });
-        SocketService.on('profile_updated', (_) {
-          ref.read(authProvider.notifier).fetchProfile();
-          _refreshRealtimeState();
-        });
-        SocketService.on('wakel_updated', (_) {
-          ref.read(authProvider.notifier).fetchProfile();
-          _refreshRealtimeState();
-        });
-        SocketService.on('removed-from-group', (_) {
-          _refreshRealtimeState();
-        });
+        }
+        _refreshRealtimeState();
+      });
+      SocketService.on('profile_updated', (_) {
+        ref.read(authProvider.notifier).fetchProfile();
+        _refreshRealtimeState();
+      });
+      SocketService.on('wakel_updated', (_) {
+        ref.read(authProvider.notifier).fetchProfile();
+        _refreshRealtimeState();
+      });
+      SocketService.on('removed-from-group', (_) {
+        _refreshRealtimeState();
+      });
 
-        // Listen for new group messages globally
-        SocketService.on('new_message', (data) {
-          if (!mounted) return;
+      // Listen for new group messages globally
+      SocketService.on('new_message', (data) {
+        if (!mounted) return;
+        AppLogger.d(
+          '[ModeratorDashboard] Socket event: new_message | Data: $data',
+        );
+        try {
+          // socket.io can deliver data as Map<dynamic,dynamic> — cast safely
+          final map = Map<String, dynamic>.from(data as Map);
           AppLogger.d(
-            '[ModeratorDashboard] Socket event: new_message | Data: $data',
+            '[ModeratorDashboard] is_urgent value in map: ${map['is_urgent']} (type: ${map['is_urgent'].runtimeType})',
           );
-          try {
-            // socket.io can deliver data as Map<dynamic,dynamic> — cast safely
-            final map = Map<String, dynamic>.from(data as Map);
-            AppLogger.d(
-              '[ModeratorDashboard] is_urgent value in map: ${map['is_urgent']} (type: ${map['is_urgent'].runtimeType})',
+          final groupId = map['group_id']?.toString();
+          if (groupId == null) {
+            AppLogger.w(
+              '[ModeratorDashboard] Error: group_id is null in payload',
             );
-            final groupId = map['group_id']?.toString();
-            if (groupId == null) {
-              AppLogger.w(
-                '[ModeratorDashboard] Error: group_id is null in payload',
-              );
-              return;
-            }
-
-            final currentUserId = ref.read(authProvider).userId ?? '';
-            if (!isRawMessageVisibleToUser(
-              map,
-              currentUserId,
-              isModerator: true,
-            )) {
-              return;
-            }
-
-            // Append to message provider so chat is up-to-date if viewed
-            ref.read(messageProvider.notifier).appendMessage(map);
-
-            // Ignore own messages — don't badge for what we sent
-            final senderRaw = map['sender_id'];
-            final senderId = (senderRaw is Map)
-                ? senderRaw['_id']?.toString()
-                : senderRaw?.toString();
-
-            if (senderId == currentUserId) {
-              AppLogger.d(
-                '[ModeratorDashboard] Message from self, skipping badge',
-              );
-              return;
-            }
-
-            // If the user is actively reading this chat, clear count
-            if (ref.read(messageProvider).activeGroupId == groupId) {
-              ref.read(moderatorProvider.notifier).clearUnreadCount(groupId);
-              AppLogger.d(
-                '[ModeratorDashboard] User reading chat, skipping badge',
-              );
-              return;
-            }
-
-            // Instantly increment unread count for UI badge
-            AppLogger.d(
-              '[ModeratorDashboard] Incrementing badge for group: $groupId',
-            );
-            ref.read(moderatorProvider.notifier).incrementUnreadCount(groupId);
-          } catch (e) {
-            AppLogger.e('[ModeratorDashboard] new_message handler error: $e');
+            return;
           }
-        });
 
-        MessageRealtimeBinder.bindDeleteListener();
+          final currentUserId = ref.read(authProvider).userId ?? '';
+          if (!isRawMessageVisibleToUser(
+            map,
+            currentUserId,
+            isModerator: true,
+          )) {
+            return;
+          }
+
+          // Append to message provider so chat is up-to-date if viewed
+          ref.read(messageProvider.notifier).appendMessage(map);
+
+          // Ignore own messages — don't badge for what we sent
+          final senderRaw = map['sender_id'];
+          final senderId = (senderRaw is Map)
+              ? senderRaw['_id']?.toString()
+              : senderRaw?.toString();
+
+          if (senderId == currentUserId) {
+            AppLogger.d(
+              '[ModeratorDashboard] Message from self, skipping badge',
+            );
+            return;
+          }
+
+          // If the user is actively reading this chat, clear count
+          if (ref.read(messageProvider).activeGroupId == groupId) {
+            ref.read(moderatorProvider.notifier).clearUnreadCount(groupId);
+            AppLogger.d(
+              '[ModeratorDashboard] User reading chat, skipping badge',
+            );
+            return;
+          }
+
+          // Instantly increment unread count for UI badge
+          AppLogger.d(
+            '[ModeratorDashboard] Incrementing badge for group: $groupId',
+          );
+          ref.read(moderatorProvider.notifier).incrementUnreadCount(groupId);
+        } catch (e) {
+          AppLogger.e('[ModeratorDashboard] new_message handler error: $e');
+        }
+      });
+
+      MessageRealtimeBinder.bindDeleteListener();
     }
   }
 
@@ -643,29 +642,28 @@ class _ModeratorDashboardScreenState
                   child: AppScrollFadeOverlay(
                     useDashboardBottomExtent: true,
                     child: MediaQuery.removePadding(
-                    context: context,
-                    removeBottom: true,
-                    child: DashboardTabPageView(
-                      controller: _pageController,
-                      backgroundColor:
-                          AppGlassTheme.dashboardBackgroundColor(isDark),
-                      onPageChanged: _handlePageChanged,
-                      children: [
-                      _GroupsHomeTab(
-                        searchController: _searchController,
-                        onNotificationTap: () =>
-                            openModeratorAlertsWithReveal(context),
+                      context: context,
+                      removeBottom: true,
+                      child: DashboardTabPageView(
+                        controller: _pageController,
+                        backgroundColor: AppGlassTheme.dashboardBackgroundColor(
+                          isDark,
+                        ),
+                        onPageChanged: _handlePageChanged,
+                        children: [
+                          _GroupsHomeTab(
+                            searchController: _searchController,
+                            onNotificationTap: () =>
+                                openModeratorAlertsWithReveal(context),
+                          ),
+                          PilgrimProvisioningScreen(
+                            isTabActive: _currentTab == 1,
+                          ),
+                          SystemRemindersScreen(isTabActive: _currentTab == 2),
+                          const ModeratorProfileScreen(),
+                        ],
                       ),
-                      PilgrimProvisioningScreen(
-                        isTabActive: _currentTab == 1,
-                      ),
-                      SystemRemindersScreen(
-                        isTabActive: _currentTab == 2,
-                      ),
-                      const ModeratorProfileScreen(),
-                    ],
-                  ),
-                  ),
+                    ),
                   ),
                 ),
               ],
@@ -679,13 +677,13 @@ class _ModeratorDashboardScreenState
                 bottom: AppGlassTheme.floatingBottomBarHeight(context) + 16.h,
                 child: ModeratorGroupsSpeedDial(
                   onCreateGroup: () =>
-                      Navigator.of(context, rootNavigator: true).push(
+                      Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const CreateGroupScreen(),
                         ),
                       ),
                   onJoinGroup: () =>
-                      Navigator.of(context, rootNavigator: true).push(
+                      Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const JoinGroupScreen(),
                         ),
@@ -698,10 +696,10 @@ class _ModeratorDashboardScreenState
                 right: 0,
                 bottom: AppGlassTheme.floatingBottomBarBottomOffset(context),
                 child: _ModBottomNav(
-                currentIndex: _currentTab,
-                onTap: (index) => _goToTab(index, animate: false),
+                  currentIndex: _currentTab,
+                  onTap: (index) => _goToTab(index, animate: false),
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -721,6 +719,166 @@ enum GroupSortType {
   moderatorCount,
   mostOnline,
   lowBatteryPriority,
+}
+
+class _GroupsHomeHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _GroupsHomeHeaderDelegate({
+    required this.isDark,
+    required this.textPrimary,
+    required this.safeAreaTop,
+    required this.backgroundColor,
+    required this.notifCount,
+    required this.onResourcesTap,
+    required this.onNotificationTap,
+  });
+
+  final bool isDark;
+  final Color textPrimary;
+  final double safeAreaTop;
+  final Color backgroundColor;
+  final int notifCount;
+  final VoidCallback onResourcesTap;
+  final VoidCallback onNotificationTap;
+
+  static const double _topPadding = 12;
+  static const double _expandedRowHeight = 36;
+  static const double _compactHeight = 44;
+
+  @override
+  double get maxExtent =>
+      safeAreaTop + _topPadding.h + _expandedRowHeight.h + 12.h;
+
+  @override
+  double get minExtent => safeAreaTop + _compactHeight.h;
+
+  Widget _actionIcons() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppGlassIconButton(
+          isDark: isDark,
+          icon: Icons.business_center_rounded,
+          onTap: onResourcesTap,
+        ),
+        SizedBox(width: 8.w),
+        AppGlassIconButton(
+          isDark: isDark,
+          icon: Symbols.notifications,
+          onTap: onNotificationTap,
+          badge: notifCount > 0
+              ? Positioned(
+                  top: -2,
+                  right: -2,
+                  child: _CountBadge(count: notifCount, isDark: isDark),
+                )
+              : null,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    context.locale;
+    final collapseRange = maxExtent - minExtent;
+    final t = collapseRange > 0
+        ? (shrinkOffset / collapseRange).clamp(0.0, 1.0)
+        : 0.0;
+    final currentHeight = (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
+    final title = 'dashboard_my_groups'.tr();
+    final titleFontSize = ui.lerpDouble(22.sp, 17.sp, t)!;
+    final topPadding = safeAreaTop + ui.lerpDouble(_topPadding.h, 6.h, t)!;
+    final showExpanded = t < 0.85;
+    final expandedOpacity =
+        showExpanded ? (1 - (t / 0.85)).clamp(0.0, 1.0) : 0.0;
+    final collapsedOpacity =
+        t > 0.12 ? ((t - 0.12) / 0.88).clamp(0.0, 1.0) : 0.0;
+    final showScrollFade = overlapsContent || t > 0.05;
+
+    return SizedBox(
+      height: currentHeight,
+      child: DecoratedBox(
+        decoration: showScrollFade
+            ? BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [0.0, 0.42, 0.72, 1.0],
+                  colors: [
+                    backgroundColor,
+                    backgroundColor,
+                    backgroundColor.withValues(alpha: 0.72),
+                    backgroundColor.withValues(alpha: 0),
+                  ],
+                ),
+              )
+            : const BoxDecoration(color: Colors.transparent),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20.w, topPadding, 20.w, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    if (showExpanded && expandedOpacity > 0)
+                      Opacity(
+                        opacity: expandedOpacity,
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          heightFactor: 1,
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 22.sp,
+                              color: textPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (collapsedOpacity > 0)
+                      Opacity(
+                        opacity: collapsedOpacity,
+                        child: Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: titleFontSize,
+                            color: textPrimary,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              _actionIcons(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _GroupsHomeHeaderDelegate oldDelegate) {
+    return oldDelegate.isDark != isDark ||
+        oldDelegate.textPrimary != textPrimary ||
+        oldDelegate.safeAreaTop != safeAreaTop ||
+        oldDelegate.backgroundColor != backgroundColor ||
+        oldDelegate.notifCount != notifCount;
+  }
 }
 
 class _GroupsHomeTab extends ConsumerStatefulWidget {
@@ -765,9 +923,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        unawaited(
-          ref.read(pendingInvitationsProvider.notifier).fetchPending(),
-        );
+        unawaited(ref.read(pendingInvitationsProvider.notifier).fetchPending());
       }
     });
     _loadSortPreferences();
@@ -786,7 +942,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
     final sortIndex = prefs.getInt('mod_group_sort_type');
     final isAsc = prefs.getBool('mod_group_sort_asc');
     if (mounted) {
-        setState(() {
+      setState(() {
         if (sortIndex != null && sortIndex < GroupSortType.values.length) {
           _sortType = GroupSortType.values[sortIndex];
         }
@@ -1078,222 +1234,201 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
     final groups = _displayGroups;
     final canShowPlaceholder =
         !state.isLoading && state.error == null && groups.isEmpty;
-    final showSearchNoResults =
-        canShowPlaceholder && _searchQuery.isNotEmpty;
-    final showEmptyState =
-        canShowPlaceholder && _searchQuery.isEmpty;
+    final showSearchNoResults = canShowPlaceholder && _searchQuery.isNotEmpty;
+    final showEmptyState = canShowPlaceholder && _searchQuery.isEmpty;
+    final safeAreaTop = MediaQuery.viewPaddingOf(context).top;
+    final fadeBg = AppGlassTheme.dashboardBackgroundColor(isDark);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF1A1A4E);
 
-    return AppDashboardBackground(
-      isDark: isDark,
-      child: SafeArea(
-        bottom: false,
-        child: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: () async {
-          await ref.read(pendingInvitationsProvider.notifier).fetchPending();
-          await ref
-              .read(moderatorProvider.notifier)
-              .loadDashboard(force: true);
-        },
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            // ── Header + search ──
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header row
-                    Row(
+    return Stack(
+      children: [
+        AppDashboardBackground(
+          isDark: isDark,
+          child: Scaffold(
+            extendBody: true,
+            resizeToAvoidBottomInset: false,
+            backgroundColor: Colors.transparent,
+            body: AppScrollFadeOverlay(
+              showBottom: false,
+              topExtent: AppGlassTheme.scrollFadeTopExtent(context),
+              backgroundColor: fadeBg,
+              child: RefreshIndicator(
+                color: AppColors.primary,
+                onRefresh: () async {
+                  await ref
+                      .read(pendingInvitationsProvider.notifier)
+                      .fetchPending();
+                  await ref
+                      .read(moderatorProvider.notifier)
+                      .loadDashboard(force: true);
+                },
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  slivers: [
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _GroupsHomeHeaderDelegate(
+                        isDark: isDark,
+                        textPrimary: textPrimary,
+                        safeAreaTop: safeAreaTop,
+                        backgroundColor: fadeBg,
+                        notifCount: notifCount,
+                        onResourcesTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ResourcesScreen(),
+                            ),
+                          );
+                        },
+                        onNotificationTap: widget.onNotificationTap,
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'dashboard_subtitle'.tr(),
+                              style: TextStyle(
+                                fontSize: 13.sp,
+                                color: AppColors.textMutedLight,
+                              ),
+                            ),
+                            SizedBox(height: 16.h),
+                            PendingInvitationsSection(isDark: isDark),
+                            SizedBox(height: 20.h),
+                            AppGlassSearchField(
+                              isDark: isDark,
+                              controller: widget.searchController,
+                              hintText: 'dashboard_search_groups'.tr(),
+                              filter: AppGlassFilterButton(
+                                isDark: isDark,
+                                icon: Symbols.tune,
+                                onTap: () => _showSortBottomSheet(isDark),
+                                showActiveDot:
+                                    _sortType != GroupSortType.oldestToNewest,
+                              ),
+                            ),
+                            SizedBox(height: 20.h),
+                          ],
+                        ),
+                      ),
+                    ),
+
+              // ── Loading ──
+              if (state.isLoading)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 48),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+
+              // ── Error ──
+              if (!state.isLoading &&
+                  state.error != null &&
+                  state.groups.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 20.w,
+                      vertical: 32.h,
+                    ),
+                    child: Column(
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'dashboard_my_groups'.tr(),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 22.sp,
-                                  color: isDark
-                                      ? Colors.white
-                                      : const Color(0xFF1A1A4E),
-                                ),
-                              ),
-                              SizedBox(height: 2.h),
-                              Text(
-                                'dashboard_subtitle'.tr(),
-                                style: TextStyle(
-                                  fontSize: 13.sp,
-                                  color: AppColors.textMutedLight,
-                                ),
-                              ),
-                            ],
+                        Icon(
+                          Symbols.wifi_off,
+                          size: 48.w,
+                          color: AppColors.textMutedLight,
+                        ),
+                        SizedBox(height: 12.h),
+                        Text(
+                          state.error!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            color: AppColors.textMutedLight,
                           ),
                         ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppGlassIconButton(
-                              isDark: isDark,
-                              icon: Icons.business_center_rounded,
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const ResourcesScreen(),
-                                  ),
-                                );
-                              },
+                        SizedBox(height: 16.h),
+                        TextButton.icon(
+                          onPressed: () => ref
+                              .read(moderatorProvider.notifier)
+                              .loadDashboard(force: true),
+                          icon: Icon(
+                            Symbols.refresh,
+                            size: 18.w,
+                            color: AppColors.primary,
+                          ),
+                          label: Text(
+                            'dashboard_retry'.tr(),
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              color: AppColors.primary,
                             ),
-                            SizedBox(width: 8.w),
-                            AppGlassIconButton(
-                              isDark: isDark,
-                              icon: Symbols.notifications,
-                              onTap: widget.onNotificationTap,
-                              badge: notifCount > 0
-                                  ? Positioned(
-                                      top: -2,
-                                      right: -2,
-                                      child: _CountBadge(
-                                        count: notifCount,
-                                        isDark: isDark,
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
+                  ),
+                ),
 
-                    SizedBox(height: 16.h),
-                    PendingInvitationsSection(isDark: isDark),
-                    SizedBox(height: 20.h),
+              // ── Search no results ──
+              if (showSearchNoResults)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _GroupsEmptyState(
+                    isDark: isDark,
+                    titleKey: 'group_not_found',
+                  ),
+                ),
 
-                    AppGlassSearchField(
-                      isDark: isDark,
-                      controller: widget.searchController,
-                      hintText: 'dashboard_search_groups'.tr(),
-                      filter: AppGlassFilterButton(
-                        isDark: isDark,
-                        icon: Symbols.tune,
-                        onTap: () => _showSortBottomSheet(isDark),
-                        showActiveDot:
-                            _sortType != GroupSortType.oldestToNewest,
-                      ),
-                    ),
+              // ── Empty State ──
+              if (showEmptyState)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _GroupsEmptyState(
+                    isDark: isDark,
+                    titleKey: 'dashboard_empty_title',
+                    subtitleKey: 'dashboard_empty_subtitle',
+                  ),
+                ),
 
-                    SizedBox(height: 20.h),
-                  ],
+              // ── Group cards list ──
+              if (!state.isLoading && groups.isNotEmpty)
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    20.w,
+                    0,
+                    20.w,
+                    AppGlassTheme.dashboardScrollBottomPadding(context),
+                  ),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((ctx, i) {
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: i == groups.length - 1 ? 0 : 12.h,
+                        ),
+                        child: _GroupCard(group: groups[i]),
+                      );
+                    }, childCount: groups.length),
+                  ),
+                ),
+            ],
                 ),
               ),
             ),
-
-            // ── Loading ──
-            if (state.isLoading)
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 48),
-                  child: Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
-                  ),
-                ),
-              ),
-
-            // ── Error ──
-            if (!state.isLoading && state.error != null && state.groups.isEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 20.w,
-                    vertical: 32.h,
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Symbols.wifi_off,
-                        size: 48.w,
-                        color: AppColors.textMutedLight,
-                      ),
-                      SizedBox(height: 12.h),
-                      Text(
-                        state.error!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 14.sp,
-                          color: AppColors.textMutedLight,
-                        ),
-                      ),
-                      SizedBox(height: 16.h),
-                      TextButton.icon(
-                        onPressed: () => ref
-                            .read(moderatorProvider.notifier)
-                            .loadDashboard(force: true),
-                        icon: Icon(
-                          Symbols.refresh,
-                          size: 18.w,
-                          color: AppColors.primary,
-                        ),
-                        label: Text(
-                          'dashboard_retry'.tr(),
-                          style: TextStyle(
-                            fontSize: 14.sp,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            // ── Search no results ──
-            if (showSearchNoResults)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _GroupsEmptyState(
-                  isDark: isDark,
-                  titleKey: 'group_not_found',
-                ),
-              ),
-
-            // ── Empty State ──
-            if (showEmptyState)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _GroupsEmptyState(
-                  isDark: isDark,
-                  titleKey: 'dashboard_empty_title',
-                  subtitleKey: 'dashboard_empty_subtitle',
-                ),
-              ),
-
-            // ── Group cards list ──
-            if (!state.isLoading && groups.isNotEmpty)
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  20.w,
-                  0,
-                  20.w,
-                  AppGlassTheme.dashboardScrollBottomPadding(context),
-                ),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate((ctx, i) {
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: i == groups.length - 1 ? 0 : 12.h,
-                      ),
-                      child: _GroupCard(group: groups[i]),
-                    );
-                  }, childCount: groups.length),
-                ),
-              ),
-          ],
+          ),
         ),
-      ),
-      ),
+      ],
     );
   }
 }
@@ -1390,9 +1525,15 @@ class _GroupCard extends ConsumerWidget {
         .deleteGroup(group.id);
     if (!context.mounted) return;
     if (ok) {
-      StandardSnackBar.showSuccess(context, 'msg_group_deleted'.tr(args: [group.groupName]));
+      StandardSnackBar.showSuccess(
+        context,
+        'msg_group_deleted'.tr(args: [group.groupName]),
+      );
     } else {
-      StandardSnackBar.showError(context, err ?? 'msg_group_delete_failed'.tr());
+      StandardSnackBar.showError(
+        context,
+        err ?? 'msg_group_delete_failed'.tr(),
+      );
     }
   }
 
@@ -1415,292 +1556,279 @@ class _GroupCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-              if (group.sosCount > 0) ...[
-                _GroupSosBanner(count: group.sosCount),
-                SizedBox(height: 12.h),
-              ],
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          if (group.sosCount > 0) ...[
+            _GroupSosBanner(count: group.sosCount),
+            SizedBox(height: 12.h),
+          ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      group.groupName,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 17.sp,
+                        color: isDark ? Colors.white : const Color(0xFF1A1A4E),
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 2.h),
+                    Row(
                       children: [
-                        Text(
-                          group.groupName,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 17.sp,
-                            color: isDark
-                                ? Colors.white
-                                : const Color(0xFF1A1A4E),
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        Icon(
+                          Symbols.tag,
+                          size: 12.w,
+                          color: AppColors.textMutedLight,
                         ),
-                        SizedBox(height: 2.h),
-                        Row(
-                          children: [
-                            Icon(
-                              Symbols.tag,
-                              size: 12.w,
-                              color: AppColors.textMutedLight,
-                            ),
-                            SizedBox(width: 4.w),
-                            Text(
-                              group.groupCode,
-                              style: TextStyle(
-                                fontSize: 11.sp,
-                                color: AppColors.textMutedLight,
-                              ),
-                            ),
-                          ],
+                        SizedBox(width: 4.w),
+                        Text(
+                          group.groupCode,
+                          style: TextStyle(
+                            fontSize: 11.sp,
+                            color: AppColors.textMutedLight,
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  _GroupDeleteButton(
-                    isDark: isDark,
-                    onTap: () => _confirmDelete(context, ref),
-                  ),
-                ],
-              ),
-              SizedBox(height: 12.h),
-              Container(
-                padding: EdgeInsets.only(top: 10.h),
-                decoration: BoxDecoration(
-                  border: Border(
-                    top: BorderSide(
-                      color: isDark
-                          ? const Color(0xFF383018)
-                          : const Color(0xFFEEEEF8),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                        Expanded(
-                          child: _StatCell(
-                            label: 'dashboard_stat_pilgrims'.tr(),
-                            value: '${group.totalPilgrims}',
-                            valueColor: const Color(0xFFF97316),
-                          ),
-                        ),
-                        _VertDivider(isDark: isDark),
-                        Expanded(
-                          child: _StatCell(
-                            label: 'dashboard_stat_moderators'.tr(),
-                            value: '${group.moderatorCount}',
-                            valueColor: const Color(0xFFF97316),
-                          ),
-                        ),
-                        _VertDivider(isDark: isDark),
-                        Expanded(
-                          child: _StatCell(
-                            label: 'dashboard_stat_online'.tr(),
-                            value: '${group.onlineCount}',
-                            valueColor: const Color(0xFFF97316),
-                          ),
-                        ),
-                        _VertDivider(isDark: isDark),
-                        Expanded(
-                          child: _StatCell(
-                            label: 'dashboard_stat_batt_low'.tr(),
-                            value: group.batteryLowCount > 0
-                                ? '${group.batteryLowCount}'
-                                : '—',
-                            valueColor: group.batteryLowCount > 0
-                                ? const Color(0xFFF97316)
-                                : AppColors.textMutedLight,
-                          ),
-                        ),
                   ],
                 ),
               ),
-              SizedBox(height: 12.h),
-              IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // View on Map
-                        Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              final userId =
-                                  ref.read(authProvider).userId ?? '';
-                              Navigator.of(context).push(
-                                appMapPageRoute(
-                                  builder: (_) => GroupManagementScreen(
-                                    groupId: group.id,
-                                    currentUserId: userId,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              alignment: Alignment.center,
-                              padding: EdgeInsets.symmetric(
-                                vertical: 8.h,
-                                horizontal: 10.w,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? const Color(
-                                        0xFF6B7BAE,
-                                      ).withValues(alpha: 0.1)
-                                    : const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(10.r),
-                                border: Border.all(
-                                  color: isDark
-                                      ? const Color(
-                                          0xFF6B7BAE,
-                                        ).withValues(alpha: 0.2)
-                                      : const Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Symbols.map,
-                                    size: 16.w,
-                                    color: const Color(0xFF6B7BAE),
-                                  ),
-                                  SizedBox(width: 6.w),
-                                  Expanded(
-                                    child: Text(
-                                      'dashboard_view_on_map'.tr(),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 12.sp,
-                                        height: 1.2,
-                                        color: const Color(0xFF6B7BAE),
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(width: 4.w),
-                                  Transform.scale(
-                                    scaleX:
-                                        Directionality.of(context) ==
-                                            ui.TextDirection.rtl
-                                        ? -1
-                                        : 1,
-                                    child: Icon(
-                                      Symbols.arrow_forward,
-                                      size: 13.w,
-                                      color: const Color(0xFF6B7BAE),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 10.w),
-                        Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              final userId =
-                                  ref.read(authProvider).userId ?? '';
-                              // Clear unread count when opening
-                              ref
-                                  .read(moderatorProvider.notifier)
-                                  .clearUnreadCount(group.id);
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => GroupMessagesScreen(
-                                    groupId: group.id,
-                                    groupName: group.groupName,
-                                    currentUserId: userId,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              alignment: Alignment.center,
-                              padding: EdgeInsets.symmetric(
-                                vertical: 8.h,
-                                horizontal: 10.w,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? const Color(
-                                        0xFF6B7BAE,
-                                      ).withValues(alpha: 0.1)
-                                    : const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(10.r),
-                                border: Border.all(
-                                  color: isDark
-                                      ? const Color(
-                                          0xFF6B7BAE,
-                                        ).withValues(alpha: 0.2)
-                                      : const Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                alignment: Alignment.center,
-                                children: [
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Symbols.chat_bubble,
-                                        size: 16.w,
-                                        color: const Color(0xFF6B7BAE),
-                                      ),
-                                      SizedBox(width: 6.w),
-                                      Expanded(
-                                        child: Text(
-                                          'chat'.tr(),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 12.sp,
-                                            color: const Color(0xFF6B7BAE),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(width: 4.w),
-                                      Transform.scale(
-                                        scaleX:
-                                            Directionality.of(context) ==
-                                                ui.TextDirection.rtl
-                                            ? -1
-                                            : 1,
-                                        child: Icon(
-                                          Symbols.arrow_forward,
-                                          size: 13.w,
-                                          color: const Color(0xFF6B7BAE),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  if (group.unreadCount > 0)
-                                    Positioned(
-                                      top: -2,
-                                      right: -2,
-                                      child: _CountBadge(
-                                        count: group.unreadCount,
-                                        isDark: isDark,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+              _GroupDeleteButton(
+                isDark: isDark,
+                onTap: () => _confirmDelete(context, ref),
               ),
             ],
           ),
+          SizedBox(height: 12.h),
+          Container(
+            padding: EdgeInsets.only(top: 10.h),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: isDark
+                      ? const Color(0xFF383018)
+                      : const Color(0xFFEEEEF8),
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _StatCell(
+                    label: 'dashboard_stat_pilgrims'.tr(),
+                    value: '${group.totalPilgrims}',
+                    valueColor: const Color(0xFFF97316),
+                  ),
+                ),
+                _VertDivider(isDark: isDark),
+                Expanded(
+                  child: _StatCell(
+                    label: 'dashboard_stat_moderators'.tr(),
+                    value: '${group.moderatorCount}',
+                    valueColor: const Color(0xFFF97316),
+                  ),
+                ),
+                _VertDivider(isDark: isDark),
+                Expanded(
+                  child: _StatCell(
+                    label: 'dashboard_stat_online'.tr(),
+                    value: '${group.onlineCount}',
+                    valueColor: const Color(0xFFF97316),
+                  ),
+                ),
+                _VertDivider(isDark: isDark),
+                Expanded(
+                  child: _StatCell(
+                    label: 'dashboard_stat_batt_low'.tr(),
+                    value: group.batteryLowCount > 0
+                        ? '${group.batteryLowCount}'
+                        : '—',
+                    valueColor: group.batteryLowCount > 0
+                        ? const Color(0xFFF97316)
+                        : AppColors.textMutedLight,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 12.h),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // View on Map
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      final userId = ref.read(authProvider).userId ?? '';
+                      Navigator.of(context).push(
+                        appMapPageRoute(
+                          builder: (_) => GroupManagementScreen(
+                            groupId: group.id,
+                            currentUserId: userId,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      alignment: Alignment.center,
+                      padding: EdgeInsets.symmetric(
+                        vertical: 8.h,
+                        horizontal: 10.w,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF6B7BAE).withValues(alpha: 0.1)
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10.r),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0xFF6B7BAE).withValues(alpha: 0.2)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Symbols.map,
+                            size: 16.w,
+                            color: const Color(0xFF6B7BAE),
+                          ),
+                          SizedBox(width: 6.w),
+                          Expanded(
+                            child: Text(
+                              'dashboard_view_on_map'.tr(),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12.sp,
+                                height: 1.2,
+                                color: const Color(0xFF6B7BAE),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 4.w),
+                          Transform.scale(
+                            scaleX:
+                                Directionality.of(context) ==
+                                    ui.TextDirection.rtl
+                                ? -1
+                                : 1,
+                            child: Icon(
+                              Symbols.arrow_forward,
+                              size: 13.w,
+                              color: const Color(0xFF6B7BAE),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      final userId = ref.read(authProvider).userId ?? '';
+                      // Clear unread count when opening
+                      ref
+                          .read(moderatorProvider.notifier)
+                          .clearUnreadCount(group.id);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => GroupMessagesScreen(
+                            groupId: group.id,
+                            groupName: group.groupName,
+                            currentUserId: userId,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      alignment: Alignment.center,
+                      padding: EdgeInsets.symmetric(
+                        vertical: 8.h,
+                        horizontal: 10.w,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF6B7BAE).withValues(alpha: 0.1)
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10.r),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0xFF6B7BAE).withValues(alpha: 0.2)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.center,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Symbols.chat_bubble,
+                                size: 16.w,
+                                color: const Color(0xFF6B7BAE),
+                              ),
+                              SizedBox(width: 6.w),
+                              Expanded(
+                                child: Text(
+                                  'chat'.tr(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12.sp,
+                                    color: const Color(0xFF6B7BAE),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 4.w),
+                              Transform.scale(
+                                scaleX:
+                                    Directionality.of(context) ==
+                                        ui.TextDirection.rtl
+                                    ? -1
+                                    : 1,
+                                child: Icon(
+                                  Symbols.arrow_forward,
+                                  size: 13.w,
+                                  color: const Color(0xFF6B7BAE),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (group.unreadCount > 0)
+                            Positioned(
+                              top: -2,
+                              right: -2,
+                              child: _CountBadge(
+                                count: group.unreadCount,
+                                isDark: isDark,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1780,9 +1908,7 @@ class _GroupSosBanner extends StatelessWidget {
           SizedBox(width: 10.w),
           Expanded(
             child: Text(
-              'dashboard_group_sos_banner'.tr(
-                namedArgs: {'count': '$count'},
-              ),
+              'dashboard_group_sos_banner'.tr(namedArgs: {'count': '$count'}),
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 12.sp,
@@ -1815,10 +1941,7 @@ class _GroupSosBanner extends StatelessWidget {
 }
 
 class _GroupDeleteButton extends StatelessWidget {
-  const _GroupDeleteButton({
-    required this.isDark,
-    required this.onTap,
-  });
+  const _GroupDeleteButton({required this.isDark, required this.onTap});
 
   final bool isDark;
   final VoidCallback onTap;
@@ -1829,8 +1952,9 @@ class _GroupDeleteButton extends StatelessWidget {
     final borderColor = isDark
         ? Colors.white.withValues(alpha: 0.1)
         : const Color(0xFFE2E8F0);
-    final iconColor =
-        isDark ? Colors.white.withValues(alpha: 0.55) : const Color(0xFF64748B);
+    final iconColor = isDark
+        ? Colors.white.withValues(alpha: 0.55)
+        : const Color(0xFF64748B);
 
     return Material(
       color: Colors.transparent,
@@ -1849,11 +1973,7 @@ class _GroupDeleteButton extends StatelessWidget {
           ),
           child: Tooltip(
             message: 'dashboard_delete_group'.tr(),
-            child: Icon(
-              Symbols.delete_outline,
-              size: 18.w,
-              color: iconColor,
-            ),
+            child: Icon(Symbols.delete_outline, size: 18.w, color: iconColor),
           ),
         ),
       ),
@@ -1925,8 +2045,9 @@ class _DeleteGroupSheet extends StatelessWidget {
     context.locale;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPrimary = isDark ? Colors.white : AppColors.textDark;
-    final textMuted =
-        isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final textMuted = isDark
+        ? AppColors.textMutedLight
+        : AppColors.textMutedDark;
     final sheetRadius = BorderRadius.circular(28.r);
 
     return Padding(
@@ -1956,8 +2077,9 @@ class _DeleteGroupSheet extends StatelessWidget {
                   width: 56.w,
                   height: 56.w,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFDC2626)
-                        .withValues(alpha: isDark ? 0.2 : 0.1),
+                    color: const Color(
+                      0xFFDC2626,
+                    ).withValues(alpha: isDark ? 0.2 : 0.1),
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: const Color(0xFFDC2626).withValues(alpha: 0.28),
@@ -2059,8 +2181,7 @@ class _ModBottomNav extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark =
-        AppTheme.isDarkEffective(ref.watch(themeProvider), context);
+    final isDark = AppTheme.isDarkEffective(ref.watch(themeProvider), context);
 
     final items = [
       AppBottomBarItem(

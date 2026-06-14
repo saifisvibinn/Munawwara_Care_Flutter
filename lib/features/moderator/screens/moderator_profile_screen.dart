@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/widgets/custom_dialog.dart';
 
 import '../../../core/providers/theme_provider.dart';
@@ -48,6 +49,12 @@ class _ModeratorProfileScreenState
       confirmText: 'settings_sign_out',
       cancelText: 'settings_cancel',
       isDestructive: true,
+      icon: Icon(
+        Symbols.logout_rounded,
+        size: 28.w,
+        color: const Color(0xFFDC2626),
+        fill: 1,
+      ),
     );
     if (confirmed == true && mounted) {
       await ref.read(authProvider.notifier).logout();
@@ -73,147 +80,174 @@ class _ModeratorProfileScreenState
     final dividerColor = isDark
         ? const Color(0xFF383018)
         : const Color(0xFFE2E2F0);
+    final safeAreaTop = MediaQuery.viewPaddingOf(context).top;
+    final fadeBg = AppGlassTheme.dashboardBackgroundColor(isDark);
 
-    return AppDashboardBackground(
-      isDark: isDark,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            _Header(isDark: isDark, textPrimary: textPrimary),
-            Expanded(
-              child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    20.w,
-                    0,
-                    20.w,
-                    AppGlassTheme.dashboardScrollBottomPadding(context),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(height: 24.h),
-                      _ProfileCard(
-                        initials: initials,
-                        fullName: fullName,
-                        isDark: isDark,
-                        cardBg: cardBg,
-                        textPrimary: textPrimary,
-                        textMuted: textMuted,
-                        imageUrl: authState.profilePicture,
-                        onEditTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ModeratorProfileEditScreen(),
-                          ),
-                        ),
-                      ),
-
-                    SizedBox(height: 28.h),
-
-                    // ── EL WAKEL SERVICE section ─────────────────────────────
-                    _SectionLabel(
-                      labelKey: 'settings_wakel_service',
-                      textMuted: textMuted,
-                    ),
-                    SizedBox(height: 8.h),
-                    _WakelCard(wakelInfo: authState.wakelInfo, isDark: isDark),
-
-                    SizedBox(height: 28.h),
-
-                    // ── APP SETTINGS ─────────────────────────────────────────
-                    AppSettingsExpansion(
+    return Stack(
+      children: [
+        AppDashboardBackground(
+          isDark: isDark,
+          child: Scaffold(
+            extendBody: true,
+            resizeToAvoidBottomInset: false,
+            backgroundColor: Colors.transparent,
+            body: AppScrollFadeOverlay(
+              showBottom: false,
+              topExtent: AppGlassTheme.scrollFadeTopExtent(context),
+              backgroundColor: fadeBg,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                slivers: [
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _ModeratorProfileHeaderDelegate(
                       isDark: isDark,
-                      cardBg: cardBg,
                       textPrimary: textPrimary,
-                      textMuted: textMuted,
-                      dividerColor: dividerColor,
+                      safeAreaTop: safeAreaTop,
+                      backgroundColor: fadeBg,
                     ),
-
-                    SizedBox(height: 28.h),
-
-                    // ── SUPPORT & INFO section ──────────────────────────────
-                    _SectionLabel(
-                      labelKey: 'settings_support_info',
-                      textMuted: textMuted,
+                  ),
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      20.w,
+                      16.h,
+                      20.w,
+                      AppGlassTheme.dashboardScrollBottomPadding(context),
                     ),
-                    SizedBox(height: 8.h),
-                    AppGlassCard(
-                      isDark: isDark,
-                      padding: EdgeInsets.zero,
+                    sliver: SliverToBoxAdapter(
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _SupportRow(
-                            icon: Icons.shield_outlined,
-                            labelKey: 'legal_privacy_policy',
+                          _ProfileCard(
+                            initials: initials,
+                            fullName: fullName,
+                            isDark: isDark,
+                            cardBg: cardBg,
                             textPrimary: textPrimary,
                             textMuted: textMuted,
-                            onTap: () => context.push('/privacy-policy'),
-                            isLast: false,
-                            dividerColor: dividerColor,
-                          ),
-                          _SupportRow(
-                            icon: Icons.info_outline_rounded,
-                            labelKey: 'about_title',
-                            textPrimary: textPrimary,
-                            textMuted: textMuted,
-                            onTap: () => context.push(
-                              '/about',
-                              extra: true,
+                            imageUrl: authState.profilePicture,
+                            onEditTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const ModeratorProfileEditScreen(),
+                              ),
                             ),
-                            isLast: true,
+                          ),
+
+                          SizedBox(height: 28.h),
+
+                          // ── EL WAKEL SERVICE section ─────────────────────────────
+                          _SectionLabel(
+                            labelKey: 'settings_wakel_service',
+                            textMuted: textMuted,
+                          ),
+                          SizedBox(height: 8.h),
+                          _WakelCard(
+                            wakelInfo: authState.wakelInfo,
+                            isDark: isDark,
+                          ),
+
+                          SizedBox(height: 28.h),
+
+                          // ── APP SETTINGS ─────────────────────────────────────────
+                          AppSettingsExpansion(
+                            isDark: isDark,
+                            cardBg: cardBg,
+                            textPrimary: textPrimary,
+                            textMuted: textMuted,
                             dividerColor: dividerColor,
                           ),
+
+                          SizedBox(height: 28.h),
+
+                          // ── SUPPORT & INFO section ──────────────────────────────
+                          _SectionLabel(
+                            labelKey: 'settings_support_info',
+                            textMuted: textMuted,
+                          ),
+                          SizedBox(height: 8.h),
+                          AppGlassCard(
+                            isDark: isDark,
+                            padding: EdgeInsets.zero,
+                            child: Column(
+                              children: [
+                                _SupportRow(
+                                  icon: Icons.shield_outlined,
+                                  labelKey: 'legal_privacy_policy',
+                                  textPrimary: textPrimary,
+                                  textMuted: textMuted,
+                                  onTap: () => context.push('/privacy-policy'),
+                                  isLast: false,
+                                  dividerColor: dividerColor,
+                                ),
+                                _SupportRow(
+                                  icon: Icons.info_outline_rounded,
+                                  labelKey: 'about_title',
+                                  textPrimary: textPrimary,
+                                  textMuted: textMuted,
+                                  onTap: () => context.push(
+                                    '/about',
+                                    extra: true,
+                                  ),
+                                  isLast: true,
+                                  dividerColor: dividerColor,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          SizedBox(height: 32.h),
+
+                          // ── Sign Out button ───────────────────────────────────────
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52.h,
+                            child: TextButton.icon(
+                              onPressed: _signOut,
+                              icon: Icon(
+                                Icons.logout_rounded,
+                                size: 18.sp,
+                                color: const Color(0xFFE11D48),
+                              ),
+                              label: Text(
+                                'settings_sign_out'.tr(),
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16.sp,
+                                  color: const Color(0xFFE11D48),
+                                ),
+                              ),
+                              style: TextButton.styleFrom(
+                                backgroundColor: isDark
+                                    ? const Color(0xFF4C1D24)
+                                    : const Color(0xFFFFF1F2),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16.r),
+                                  side: BorderSide(
+                                    color: isDark
+                                        ? const Color(0xFF881337)
+                                        : const Color(0xFFFECDD3),
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          SizedBox(height: 32.h),
                         ],
                       ),
                     ),
-
-                    SizedBox(height: 32.h),
-
-                    // ── Sign Out button ───────────────────────────────────────
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52.h,
-                      child: TextButton.icon(
-                        onPressed: _signOut,
-                        icon: Icon(
-                          Icons.logout_rounded,
-                          size: 18.sp,
-                          color: const Color(0xFFE11D48),
-                        ),
-                        label: Text(
-                          'settings_sign_out'.tr(),
-                          style: TextStyle(
-                            fontFamily: 'Lexend',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16.sp,
-                            color: const Color(0xFFE11D48),
-                          ),
-                        ),
-                        style: TextButton.styleFrom(
-                          backgroundColor: isDark
-                              ? const Color(0xFF4C1D24)
-                              : const Color(0xFFFFF1F2),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16.r),
-                            side: BorderSide(
-                              color: isDark
-                                  ? const Color(0xFF881337)
-                                  : const Color(0xFFFECDD3),
-                              width: 1.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: 32.h),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -227,36 +261,85 @@ class _ModeratorProfileScreenState
 
 // ─── Sub-widgets ──────────────────────────────────────────────────────────────
 
-class _Header extends StatelessWidget {
-  const _Header({required this.isDark, required this.textPrimary});
+class _ModeratorProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _ModeratorProfileHeaderDelegate({
+    required this.isDark,
+    required this.textPrimary,
+    required this.safeAreaTop,
+    required this.backgroundColor,
+  });
+
   final bool isDark;
   final Color textPrimary;
+  final double safeAreaTop;
+  final Color backgroundColor;
+
+  static const double _topPadding = 8;
+  static const double _headerHeight = 28;
 
   @override
-  Widget build(BuildContext context) {
+  double get maxExtent => safeAreaTop + _topPadding.h + _headerHeight.h + 12.h;
+
+  @override
+  double get minExtent => maxExtent;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     context.locale;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 0),
-      child: Center(
-        child: RichText(
-          text: TextSpan(
-            style: TextStyle(
-              fontFamily: 'Lexend',
-              fontWeight: FontWeight.w700,
-              fontSize: 20.sp,
-              color: textPrimary,
-            ),
-            children: [
-              TextSpan(text: 'splash_title_prefix'.tr()),
-              TextSpan(
-                text: 'splash_title_accent'.tr(),
-                style: const TextStyle(color: AppColors.primary),
+    final showScrollFade = overlapsContent || shrinkOffset > 0;
+
+    return DecoratedBox(
+      decoration: showScrollFade
+          ? BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: const [0.0, 0.42, 0.72, 1.0],
+                colors: [
+                  backgroundColor,
+                  backgroundColor,
+                  backgroundColor.withValues(alpha: 0.72),
+                  backgroundColor.withValues(alpha: 0),
+                ],
               ),
-            ],
+            )
+          : const BoxDecoration(color: Colors.transparent),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(12.w, safeAreaTop + _topPadding.h, 12.w, 0),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: RichText(
+            text: TextSpan(
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontWeight: FontWeight.w700,
+                fontSize: 20.sp,
+                color: textPrimary,
+              ),
+              children: [
+                TextSpan(text: 'splash_title_prefix'.tr()),
+                TextSpan(
+                  text: 'splash_title_accent'.tr(),
+                  style: const TextStyle(color: AppColors.primary),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  @override
+  bool shouldRebuild(covariant _ModeratorProfileHeaderDelegate oldDelegate) {
+    return oldDelegate.isDark != isDark ||
+        oldDelegate.textPrimary != textPrimary ||
+        oldDelegate.safeAreaTop != safeAreaTop ||
+        oldDelegate.backgroundColor != backgroundColor;
   }
 }
 
