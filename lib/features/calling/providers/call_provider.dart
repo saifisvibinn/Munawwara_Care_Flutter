@@ -5,6 +5,7 @@
 // • [CallKitService] — native incoming UI + prefs for UUID / dismiss.
 // • [CallNotifier] (this file) — Riverpod state + Agora join/leave lifecycle.
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
@@ -145,6 +146,7 @@ class CallNotifier extends Notifier<CallState> {
   Timer? _ringPollTimer; // polls backend while outgoing call is ringing
   Timer? _sessionWatchdogTimer;
   Timer? _connectingTimeoutTimer;
+  Timer? _iosNativeAcceptPollTimer;
   DateTime? _outgoingCallStartedAt;
 
   static const int _sessionWatchdogSeconds = 40;
@@ -210,11 +212,7 @@ class CallNotifier extends Notifier<CallState> {
   void _registerSocketListeners() {
     AppLogger.d('[CallProvider] Registering socket listeners');
     SocketService.onWithAck('call-offer', (data, ack) {
-      try {
-        ack?.call();
-      } catch (e) {
-        AppLogger.w('[CallProvider] call-offer ack failed: $e');
-      }
+      // ACK is sent in SocketService via onAny before this handler runs.
       _onIncomingOffer(data);
     });
     SocketService.on('call-answer', _onAnswer);
@@ -459,6 +457,7 @@ class CallNotifier extends Notifier<CallState> {
   void _cleanup() {
     _callTimer?.cancel();
     _callTimer = null;
+    _stopIosNativeAcceptPoll();
     _syncPreConnectRingback(CallStatus.ended);
     unawaited(AgoraRtcService.instance.leaveChannel());
     _pendingChannelName = null;
@@ -672,10 +671,19 @@ class CallNotifier extends Notifier<CallState> {
 
     if (fromId != null && fromId.isNotEmpty) {
       CallSignaling.emitWhenConnected('call-answer', {'to': fromId});
-      CallSignaling.notifyAnswerHttp(fromId, SocketService.connectedUserId);
+      try {
+        await CallSignaling.notifyAnswerHttp(
+          fromId,
+          SocketService.connectedUserId,
+        );
+      } catch (e) {
+        AppLogger.w(
+          '[CallProvider] HTTP call-answer failed (socket may still deliver): $e',
+        );
+      }
       NativeCallCoordinator.clearPendingAcceptFileAfterAnswer();
       AppLogger.i(
-        '[CallProvider] call-answer emitted synchronously before permission request',
+        '[CallProvider] call-answer signaled before permission request',
       );
     } else {
       AppLogger.e(
@@ -1161,6 +1169,59 @@ class CallNotifier extends Notifier<CallState> {
       remotePeerProfilePicture: isPilgrim ? null : callerProfilePicture,
     );
     _startSessionWatchdog();
+    if (Platform.isIOS) {
+      _startIosNativeAcceptPoll();
+    }
+  }
+
+  /// iOS CallKit sometimes shows the system in-call UI without delivering
+  /// [Event.actionCallAccept] to Dart (implicit engine / event-channel race).
+  void _startIosNativeAcceptPoll() {
+    _iosNativeAcceptPollTimer?.cancel();
+    var ticks = 0;
+    _iosNativeAcceptPollTimer = Timer.periodic(
+      const Duration(milliseconds: 400),
+      (timer) async {
+        if (state.status != CallStatus.ringing) {
+          timer.cancel();
+          _iosNativeAcceptPollTimer = null;
+          return;
+        }
+        ticks++;
+        if (ticks > 120) {
+          timer.cancel();
+          _iosNativeAcceptPollTimer = null;
+          return;
+        }
+        try {
+          final raw = await FlutterCallkitIncoming.activeCalls();
+          if (raw is! List || raw.isEmpty) return;
+          for (final item in raw) {
+            if (item is! Map) continue;
+            final accepted =
+                item['isAccepted'] == true || item['accepted'] == true;
+            if (!accepted) continue;
+            timer.cancel();
+            _iosNativeAcceptPollTimer = null;
+            AppLogger.i(
+              '[CallProvider] iOS native accept detected (activeCalls poll)',
+            );
+            await acceptCall();
+            if (!VoiceCallScreen.isActive && !isNavigatingToCall) {
+              openVoiceCallScreen(bypassNavigatingGuard: true);
+            }
+            return;
+          }
+        } catch (e) {
+          AppLogger.w('[CallProvider] iOS accept poll failed: $e');
+        }
+      },
+    );
+  }
+
+  void _stopIosNativeAcceptPoll() {
+    _iosNativeAcceptPollTimer?.cancel();
+    _iosNativeAcceptPollTimer = null;
   }
 
   void _onAnswer(dynamic data) {
@@ -1500,6 +1561,29 @@ class CallNotifier extends Notifier<CallState> {
         } else {
           return;
         }
+      }
+
+      // CallKit may show an accepted in-call UI while Dart never got actionCallAccept.
+      try {
+        final raw = await FlutterCallkitIncoming.activeCalls();
+        if (raw is List) {
+          for (final item in raw) {
+            if (item is Map &&
+                (item['isAccepted'] == true || item['accepted'] == true)) {
+              AppLogger.i(
+                '[CallProvider] Reconcile: native CallKit accepted — joining',
+              );
+              if (state.status == CallStatus.ringing) {
+                await acceptCall();
+              } else {
+                await checkPendingAcceptedCall();
+              }
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        AppLogger.w('[CallProvider] Reconcile native accept check failed: $e');
       }
 
       AppLogger.w(

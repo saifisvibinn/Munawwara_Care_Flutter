@@ -1,90 +1,100 @@
 # Munawwara Care — iOS App Store: rejection risks
 
-**Purpose:** Issues that may cause App Store rejection or a failed review, based on an audit against [App Store Review Guidelines](https://developer.apple.com/app-store/review/guidelines/) and [Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/).  
+**Purpose:** Issues that may cause App Store rejection or a failed review.  
 **App:** Munawwara Care (Flutter iOS) — bundle ID `com.munawwaracare.ios`, branch `IOS`  
-**Last updated:** June 13, 2026
+**Last updated:** June 14, 2026
 
-Nothing here is fixed unless marked **Done**. Code paths and plist values were re-checked against the repo at audit time.
+Items marked **Done** were implemented on branch `IOS`. Re-verify before submission.
 
 ---
 
 ## Critical — fix before submission
 
-| # | Issue | Why Apple may reject | Current state | What to do |
-|---|--------|----------------------|---------------|------------|
-| 1 | **Push / VoIP entitlements empty** | App advertises calls, SOS, and chat alerts but killed-state push/CallKit will not work in production. Reviewers may treat this as incomplete or broken. **Guideline 2.1 — App Completeness** | `ios/Runner/Runner.entitlements` is an empty `<dict>` (push was removed for free Personal Team testing) | On a **paid Apple Developer** account: Xcode → Runner → Signing & Capabilities → add **Push Notifications** + **Background Modes** (Voice over IP, Remote notifications). Restore `aps-environment` in entitlements. Test incoming calls with app killed. |
-| 2 | **Missing `voip` and `remote-notification` background modes** | CallKit / PushKit / FCM need these in addition to `audio`. Without them, VoIP and remote notifications are unreliable. | `ios/Runner/Info.plist` → `UIBackgroundModes` only lists `location` and `audio` | Add `voip` and `remote-notification` to `UIBackgroundModes` when push is enabled. Include reviewer notes: VoIP is for group safety voice calls (Agora), not promotional push. |
-| 3 | **Account deletion is request-only** | Apps that create accounts must offer **in-app account deletion** that actually removes the account. Email/support requests alone are not enough. **Guideline 5.1.1(v)** | Pilgrims: Profile → About → **Request account deletion** → `POST /support/request` with `type: account_deletion` (`lib/features/legal/data/support_api.dart`). No `DELETE /auth/account` (or equivalent) in client or docs. | Backend: add authenticated account-deletion endpoint. App: confirmation flow → API call → sign out → “Account deleted.” Keep support email as fallback only. |
-| 4 | **Release build can crash without `API_BASE_URL`** | Reviewer cold-launches a broken white screen = instant rejection. **Guideline 2.1** | `lib/core/env/env_check.dart` throws if `API_BASE_URL` is missing. `.env` is bundled in `pubspec.yaml` assets — risky for store builds. | Always archive with production URL, e.g. `flutter build ipa --release --dart-define=API_BASE_URL=https://<prod-api>/api`. Cold-launch test before upload. Prefer dart-define over bundled `.env` for release. |
+| # | Issue | Status | Notes |
+|---|--------|--------|-------|
+| 1 | **Push / VoIP entitlements empty** | **Blocked — paid Apple account** | `Runner.entitlements` is empty `<dict>` (free Personal Team). Enroll → Xcode Push + Background Modes → restore `aps-environment`. Test killed-state CallKit. |
+| 2 | **Background modes `voip` + `remote-notification`** | **Done** | Added to `Info.plist` `UIBackgroundModes`. |
+| 3 | **In-app account deletion** | **Done** | `DELETE /api/auth/account` + About → confirm → delete → sign out. Moderators see admin note only. |
+| 4 | **Release `API_BASE_URL`** | **Done** | `.env` removed from assets; use `--dart-define=API_BASE_URL=...`. See `docs/env-and-release-builds.md`. |
 
 ---
 
-## High — strong rejection risk or broken on iOS
+## High — strong rejection risk
 
-| # | Issue | Why it matters | Current state | What to do |
-|---|--------|----------------|---------------|------------|
-| 5 | **Photo library usage strings inaccurate** | Strings must match real behavior. Mismatch → rejection under permission guidelines. **Guideline 5.1.1(i)** | `Info.plist`: both `NSPhotoLibraryUsageDescription` and `NSPhotoLibraryAddUsageDescription` say “save QR codes” only. App also **picks** photos for profile (`pilgrim_profile_screen.dart`) and provisioning (`create_pilgrim_card.dart`). | Update both keys to mention selecting/uploading profile photos **and** saving QR codes to the library. |
-| 6 | **“Rate app” opens Google Play on iOS** | Broken or irrelevant store link on iPhone looks unfinished. | `lib/core/widgets/support_dialogs.dart` uses `market://` and `play.google.com` URLs after rating. | On iOS: `SKStoreReviewController.requestReview()` (via `in_app_review` or platform channel) and/or App Store review URL. Keep Play Store flow on Android only. |
-| 7 | **Microphone permission macro missing in Podfile** | `permission_handler` on iOS only shows system dialogs for permissions enabled at compile time. Without the macro, mic requests can return denied with **no prompt**. | `ios/Podfile` post_install only sets `PERMISSION_LOCATION=1` and `PERMISSION_NOTIFICATIONS=1`. Voice calls and translation call `Permission.microphone.request()`. | Add `PERMISSION_MICROPHONE=1` (and `PERMISSION_CAMERA=1` if camera QR flow is tested on iOS). Run `pod install` and verify mic prompt on device. |
-| 8 | **Background location — extra scrutiny** | Continuous background location is heavily reviewed. Incomplete disclosure or unclear purpose → rejection or follow-up questions. | Always location + `UIBackgroundModes: location` + in-app disclosure dialogs and toggle — good direction, but still sensitive. | App Store Connect: declare precise + background location accurately. Reviewer notes + demo pilgrim/moderator accounts. Optional short demo video for safety use case. |
-| 9 | **Privacy policy URL must be live and accurate** | In-app link and App Privacy labels must match published policy. | In-app WebView loads `https://saifisvibinn.github.io/munawwara-privacy/` (`lib/core/config/legal_config.dart`). Repo draft: `docs/privacy-policy.md` (may be out of sync with live site). | Publish synced policy before submit. Open privacy screen on a **release** build and verify it loads. Align App Privacy questionnaire in Connect. |
-| 10 | **No Runner privacy manifest** | Apple requires privacy manifests for apps/SDKs using certain “required reason” APIs. | No `ios/Runner/PrivacyInfo.xcprivacy`. Native code (e.g. `LocationChannelHandler.swift`) uses UserDefaults. | Add `PrivacyInfo.xcprivacy` for APIs used directly in Runner. Run Xcode **Privacy Report** before upload. |
-
----
-
-## Medium — HIG polish / quality (may not reject alone)
-
-| # | Issue | Detail | Location |
-|---|--------|--------|----------|
-| 11 | **Launch screen placeholders** | `LaunchImage.png` / `@2x` / `@3x` are ~68 bytes each (blank placeholders). HIG expects branded launch, not white flash. | `ios/Runner/Assets.xcassets/LaunchImage.imageset/` |
-| 12 | **SOS copy typo** | User-visible English error: *"you're request was resolved... munawwara care care"* | `assets/translations/en.json` → `sos_status_resolved_friendly` |
-| 13 | **Report categories hardcoded in English** | Incident report dropdown ignores app language. | `lib/core/widgets/support_dialogs.dart` → `_categories` in `ReportIssueDialog` |
-| 14 | **Moderator deletion UX** | `legal_moderator_deletion_note` exists in translations but moderators may still see pilgrim self-delete flow. | About / legal screens |
-| 15 | **Export compliance key missing** | Connect asks about encryption; missing plist key adds manual steps each upload. | Add `ITSAppUsesNonExemptEncryption` = `false` to `Info.plist` if you only use standard HTTPS (no custom crypto). |
-| 16 | **Reminders tab / API** | If reviewers open System Reminders and backend returns 404, tab may look broken. | `lib/features/moderator/providers/reminder_provider.dart` logs 404 for `GET /reminders` |
-| 17 | **`.env` in release assets** | Dev/staging URLs could ship in store builds if someone forgets dart-define. | `pubspec.yaml` → `assets: - .env` |
+| # | Issue | Status | Notes |
+|---|--------|--------|-------|
+| 5 | Photo library usage strings | **Done** | Pick + save QR codes in `Info.plist`. |
+| 6 | Rate app opens Play Store on iOS | **Done** | `in_app_review` on iOS; Play Store on Android. |
+| 7 | Mic/camera Podfile macros | **Done** | `PERMISSION_MICROPHONE=1`, `PERMISSION_CAMERA=1`. |
+| 8 | Background location scrutiny | **Connect + review** | In-app disclosure exists. **Paid account:** App Store Connect privacy labels + reviewer notes + demo accounts. |
+| 9 | Privacy policy live | **Open** | Sync `docs/privacy-policy.md` with live URL before submit. |
+| 10 | Runner privacy manifest | **Done** | `ios/Runner/PrivacyInfo.xcprivacy`. |
 
 ---
 
-## Already in good shape
+## Medium — polish
 
-| Area | Status |
+| # | Issue | Status |
+|---|--------|--------|
+| 11 | Launch screen placeholders | **Done** — branded from `app_icon.png` |
+| 12 | SOS English typo | **Done** |
+| 13 | Report categories hardcoded | **Done** — localized `report_cat_*` keys |
+| 14 | Moderator deletion UX | **Done** |
+| 15 | Export compliance plist key | **Done** — `ITSAppUsesNonExemptEncryption=false` |
+| 16 | Reminders tab 404 | **Open** — backend `GET /reminders` if reviewers use tab |
+| 17 | `.env` in release assets | **Done** |
+
+---
+
+## Requires paid Apple Developer Program ($99/yr)
+
+Do these **after** enrollment at [developer.apple.com/programs](https://developer.apple.com/programs/):
+
+| Step | Action |
 |------|--------|
-| **App Settings UI** | Grouped card, appearance toggles, language disclosure + endonym picker — aligns with iOS Settings patterns |
-| **Privacy policy in-app** | Profile → Privacy Policy WebView |
-| **Deletion discoverability** | Entry point exists for pilgrims (needs real deletion API — see #3) |
-| **Location permission flow** | When-in-use → disclosure → Always; iOS setup wizard |
-| **Core permission strings** | Location, camera, mic, speech — generally clear and purpose-specific (photo library needs fix — see #5) |
-| **No IAP / subscriptions** | No StoreKit compliance needed |
-| **No third-party sign-in** | No “Sign in with Apple” requirement for current QR/device-bound auth |
-| **SOS disclaimer** | Not positioned as 911 / medical device |
-| **App icons** | Full `AppIcon.appiconset` including 1024×1024 |
-| **Portrait / full screen** | Consistent travel-app pattern |
-| **Debug banner** | Disabled in `main.dart` |
-| **In-app support** | Forms via API, not mailto-only |
+| 1 | Create/confirm App ID `com.munawwaracare.ios` with **Push Notifications** + **Background Modes** (VoIP, Remote notifications, Location, Audio) |
+| 2 | Xcode → Runner → Signing & Capabilities → paid **Team** |
+| 3 | Restore `aps-environment` in `ios/Runner/Runner.entitlements` |
+| 4 | Apple Developer → Keys → APNs Auth Key (`.p8`) → Firebase Console (`munawwaracare-5353a`) → Cloud Messaging → upload for iOS app |
+| 5 | Rebuild; verify `PUT /api/auth/fcm-token` after login |
+| 6 | Test push: SOS, chat; CallKit: foreground → background → **killed** |
+| 7 | **Optional:** backend `voip_token` field for reliable killed-state VoIP |
+| 8 | Xcode → Archive → **TestFlight** internal test |
+| 9 | **App Store Connect:** app record, screenshots, age rating, **App Privacy** labels, support URL |
+| 10 | Submit with reviewer notes (template below) |
+
+**Still works on free Personal Team (USB):** login, map, chat, foreground Agora calls, location, session restore. App expires ~7 days; no push/killed CallKit/TestFlight.
 
 ---
 
 ## Pre-submission checklist
 
-- [ ] Paid Apple Developer Program enrolled; Push + VoIP capabilities enabled in Xcode
-- [ ] `Runner.entitlements` includes `aps-environment`; `Info.plist` includes `voip` + `remote-notification`
-- [ ] APNs key configured in Firebase Console for `com.munawwaracare.ios`
-- [ ] Release IPA built with production `API_BASE_URL`; cold-launch tested on device
-- [ ] Real in-app account deletion implemented and tested
-- [ ] Photo library strings updated; Podfile mic (and camera) macros added; `pod install`
-- [ ] iOS rate-app uses App Store / `SKStoreReviewController`, not Play Store URLs
-- [ ] Privacy policy published and matches in-app URL + App Privacy labels
-- [ ] `PrivacyInfo.xcprivacy` added; Xcode privacy report clean
-- [ ] Branded launch screen replaces placeholder PNGs
-- [ ] Reviewer notes prepared: demo accounts, background location rationale, VoIP for safety calls
-- [ ] English typos fixed; support report categories localized
+### Done (no paid account)
+
+- [x] Info.plist: voip, remote-notification, photo strings, encryption export key
+- [x] Podfile mic/camera macros; `PrivacyInfo.xcprivacy`; branded launch screen
+- [x] In-app account deletion; iOS rate app; env via dart-define (`docs/env-and-release-builds.md`)
+- [x] SOS typo, localized report categories, moderator deletion note
+
+### Requires paid Apple Developer
+
+- [ ] Enroll; Push + VoIP capabilities in Xcode
+- [ ] `Runner.entitlements` includes `aps-environment`
+- [ ] APNs `.p8` in Firebase for `com.munawwaracare.ios`
+- [ ] Push + killed-state CallKit tested on physical device
+- [ ] TestFlight upload + smoke test
+- [ ] App Store Connect: metadata, screenshots, privacy labels, reviewer notes
+- [ ] Privacy policy published and matches in-app URL
+
+### Before submit (any account)
+
+- [ ] Release IPA with production `API_BASE_URL`, `AGORA_APP_ID`, `UMMAH_API_KEY` dart-defines
+- [ ] Cold-launch test on device
+- [ ] Demo moderator + fresh pilgrim QR for reviewers
 
 ---
 
 ## Reviewer notes template (App Store Connect)
-
-Use or adapt when submitting:
 
 > **Test accounts**  
 > Moderator: [email] / [password]  
@@ -97,12 +107,13 @@ Use or adapt when submitting:
 > Voice calls use Agora with CallKit for group safety. Push is used for SOS, chat, and incoming call alerts — not marketing.  
 >
 > **Account deletion**  
-> Profile → About → Request account deletion. [Update this line after #3 is implemented: “Profile → Delete account” performs immediate deletion after confirmation.”]
+> Profile → About → Delete account → confirm → account removed immediately.
 
 ---
 
 ## Related docs
 
-- `docs/google-play-policy-review.md` — Android / Play Console counterpart
-- `docs/privacy-policy.md` — policy draft to publish at live URL
-- `docs/support-requests.md` — current support / deletion request API
+- `docs/env-and-release-builds.md` — API URL, Agora, Ummah keys (Android + iOS)
+- `docs/google-play-policy-review.md` — Android counterpart
+- `docs/privacy-policy.md` — policy draft for live site
+- `docs/support-requests.md` — support API (fallback contact)

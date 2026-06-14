@@ -1,9 +1,7 @@
-/// Compile-time backend URL when [.env] is unavailable (native killed-state
-/// HTTP, cold start before prefs are cached).
+/// Compile-time config via `--dart-define=KEY=value` or
+/// `flutter run --dart-define-from-file=.env`.
 ///
-/// Set via `--dart-define=API_BASE_URL=...` (mirrored in Android
-/// [BuildConfig.API_BASE_URL]). For local dev without bundling `.env` in assets,
-/// use `flutter run --dart-define-from-file=.env`.
+/// See `docs/env-and-release-builds.md`.
 const String kDefaultProductionApiBaseUrl =
     String.fromEnvironment('API_BASE_URL');
 

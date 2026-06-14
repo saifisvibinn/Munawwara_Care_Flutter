@@ -37,6 +37,7 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
   bool _loading = true;
   String? _error;
   bool _hadUnreadMissedHighlight = false;
+  MissedCallsUnreadNotifier? _missedUnreadNotifier;
   Map<String, String> _cachedPeerPictures = {};
   Map<String, String> _cachedPeerGenders = {};
 
@@ -57,7 +58,7 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
   Future<void> _markUnreadMissedSeen() async {
     try {
       await CallHistoryApi.markMissedCallsRead();
-      await ref.read(missedCallsUnreadProvider.notifier).refresh();
+      await _missedUnreadNotifier?.refresh();
     } catch (e) {
       AppLogger.w('[CallHistoryListView] mark-read on dispose: $e');
     }
@@ -119,6 +120,9 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
         _cachedPeerPictures = peerPictures;
         _cachedPeerGenders = peerGenders;
       });
+      if (hasUnreadHighlight) {
+        _missedUnreadNotifier = ref.read(missedCallsUnreadProvider.notifier);
+      }
       final shouldMarkUnreadSeen = hasUnreadHighlight ||
           (widget.missedOnly &&
               rows.isNotEmpty &&

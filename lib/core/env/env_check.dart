@@ -1,3 +1,4 @@
+import '../env/app_env.dart';
 import '../env/dotenv_safe.dart';
 import '../services/api_service.dart';
 import '../utils/app_logger.dart';
@@ -6,26 +7,24 @@ import '../utils/app_logger.dart';
 /// print warnings or throw for missing required keys.
 Future<void> verifyEnv() async {
   final requiredKeys = <String>['API_BASE_URL'];
-  final optionalKeys = <String>[
-    'AGORA_APP_ID',
-    'GOOGLE_MAPS_API_KEY',
-    'UMMAH_API_KEY',
-  ];
 
   final missingRequired = requiredKeys.where((k) {
     if (k == 'API_BASE_URL') {
-      return ApiService.baseUrl.isEmpty;
+      return resolvedApiBaseUrl.isEmpty;
     }
-    return (dotenvOptional(k) ?? '').isEmpty;
+    return envValue(k, '').isEmpty;
   }).toList();
-  final missingOptional = optionalKeys
-      .where((k) => (dotenvOptional(k) ?? '').isEmpty)
-      .toList();
+  final missingOptional = <String>[
+    if (agoraAppId.isEmpty) 'AGORA_APP_ID',
+    if (googleMapsApiKey.isEmpty) 'GOOGLE_MAPS_API_KEY',
+    if (ummahApiKey.isEmpty) 'UMMAH_API_KEY',
+  ];
 
   if (missingRequired.isNotEmpty) {
     final msg =
         'Missing API_BASE_URL: set it in .env or pass '
-        '--dart-define=API_BASE_URL=https://your-api.example.com/api';
+        '--dart-define=API_BASE_URL=https://your-api.example.com/api '
+        '(or --dart-define-from-file=.env)';
     // Fail-fast so developers notice immediately when a critical value is missing.
     throw Exception(msg);
   }
@@ -43,7 +42,7 @@ Future<void> verifyEnv() async {
     );
   }
 
-  _warnIfPrivateNetworkBackend(ApiService.baseUrl, label: 'API_BASE_URL');
+  _warnIfPrivateNetworkBackend(resolvedApiBaseUrl, label: 'API_BASE_URL');
   if (socketExplicit != null && socketExplicit.isNotEmpty) {
     _warnIfPrivateNetworkBackend(socketExplicit, label: 'SOCKET_BASE_URL');
   }

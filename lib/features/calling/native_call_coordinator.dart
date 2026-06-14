@@ -9,6 +9,7 @@ import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/backend_config.dart';
+import '../../core/services/agora_rtc_service.dart';
 import '../../core/services/callkit_service.dart';
 import 'call_navigation.dart';
 import '../../core/services/secure_session_store.dart';
@@ -214,6 +215,24 @@ abstract final class NativeCallCoordinator {
           }
           break;
 
+        case Event.actionCallToggleAudioSession:
+          final body = event.body;
+          final isActivate = body is Map && body['isActivate'] == true;
+          if (isActivate) {
+            unawaited(AgoraRtcService.instance.onCallKitAudioSessionActivated());
+            final c = CallingScope.riverpod;
+            if (c != null &&
+                c.read(callProvider).status == CallStatus.ringing) {
+              AppLogger.i(
+                '📞 CallKit audio session active while ringing — accepting',
+              );
+              unawaited(c.read(callProvider.notifier).acceptCall());
+              _navigatingToCall = true;
+              _navigateToVoiceCallScreen();
+            }
+          }
+          break;
+
         case Event.actionCallEnded:
           AppLogger.i('📵 Call ENDED from native call screen');
           final endedCallerId = await _resolveCallerIdFromEvent(event);
@@ -221,6 +240,18 @@ abstract final class NativeCallCoordinator {
           if (c != null) {
             final notifier = c.read(callProvider.notifier);
             final currentState = c.read(callProvider);
+            // iOS dismisses the incoming CallKit UI with actionCallEnded right
+            // after accept — must not decline/end the session we just started.
+            if (isNavigatingToCall ||
+                _pendingAcceptedCall != null ||
+                currentState.status == CallStatus.connecting ||
+                currentState.status == CallStatus.connected) {
+              AppLogger.i(
+                '📵 Ignoring CallKit ended during accept/active call '
+                '(status=${currentState.status})',
+              );
+              break;
+            }
             switch (currentState.status) {
               case CallStatus.ringing:
                 notifier.declineCall();

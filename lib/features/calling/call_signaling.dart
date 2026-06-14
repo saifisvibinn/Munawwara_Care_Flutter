@@ -68,18 +68,20 @@ class CallSignaling {
   }
 
   /// HTTP fallback when socket is not up (cold start / background).
-  static void notifyAnswerHttp(String callerId, String? answererId) {
-    ApiService.dio
-        .post(
-          '/call-history/answer',
-          data: {'callerId': callerId, 'answererId': answererId ?? ''},
-        )
-        .then(
-          (_) => AppLogger.i('[CallSignaling] HTTP call-answer → $callerId'),
-        )
-        .catchError(
-          (e) => AppLogger.e('[CallSignaling] HTTP call-answer failed: $e'),
-        );
+  static Future<void> notifyAnswerHttp(
+    String callerId,
+    String? answererId,
+  ) async {
+    try {
+      await ApiService.dio.post(
+        '/call-history/answer',
+        data: {'callerId': callerId, 'answererId': answererId ?? ''},
+      );
+      AppLogger.i('[CallSignaling] HTTP call-answer → $callerId');
+    } catch (e) {
+      AppLogger.e('[CallSignaling] HTTP call-answer failed: $e');
+      rethrow;
+    }
   }
 
   static void notifyDeclineHttp(

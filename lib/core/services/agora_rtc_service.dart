@@ -1,7 +1,8 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../env/app_env.dart';
 import '../utils/app_logger.dart';
 import 'api_service.dart';
 import 'secure_session_store.dart';
@@ -26,7 +27,7 @@ class AgoraRtcService {
   void Function(String message)? onMediaJoinFailed;
   void Function()? onConnectionFailed;
 
-  String get _appId => dotenv.env['AGORA_APP_ID'] ?? '';
+  String get _appId => agoraAppId;
 
   bool get isInChannel =>
       _joinedChannelName != null && _joinedChannelName!.isNotEmpty;
@@ -127,6 +128,20 @@ class AgoraRtcService {
     await _engine?.setEnableSpeakerphone(on);
   }
 
+  /// CallKit activated AVAudioSession — let Agora use the system session (iOS).
+  Future<void> onCallKitAudioSessionActivated() async {
+    if (!Platform.isIOS || _engine == null) return;
+    try {
+      await _engine!.setAudioSessionOperationRestriction(
+        AudioSessionOperationRestriction.audioSessionOperationRestrictionNone,
+      );
+      await _engine!.enableAudio();
+      AppLogger.i('[AgoraRtc] Resumed audio after CallKit session activation');
+    } catch (e) {
+      AppLogger.w('[AgoraRtc] CallKit audio handoff failed: $e');
+    }
+  }
+
   Future<void> applyPostJoinAudioSettings({
     required bool isMuted,
     required bool isSpeakerOn,
@@ -169,6 +184,11 @@ class AgoraRtcService {
       ),
     );
     await engine.enableAudio();
+    if (Platform.isIOS) {
+      await engine.setAudioSessionOperationRestriction(
+        AudioSessionOperationRestriction.audioSessionOperationRestrictionAll,
+      );
+    }
     await engine.setAudioProfile(
       profile: AudioProfileType.audioProfileDefault,
       scenario: AudioScenarioType.audioScenarioChatroom,

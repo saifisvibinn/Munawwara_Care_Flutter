@@ -1,7 +1,6 @@
 import 'dart:io' show Platform, SocketException;
 
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/backend_config.dart';
@@ -66,6 +65,12 @@ class ApiService {
       if (uri.scheme != 'http' && uri.scheme != 'https') return o;
       if (uri.host.isEmpty) return o;
       final port = uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80);
+      final isDefaultPort =
+          (uri.scheme == 'https' && port == 443) ||
+          (uri.scheme == 'http' && port == 80);
+      if (isDefaultPort) {
+        return '${uri.scheme}://${uri.host}';
+      }
       return '${uri.scheme}://${uri.host}:$port';
     } catch (_) {
       return o;

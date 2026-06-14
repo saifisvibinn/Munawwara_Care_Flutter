@@ -32,6 +32,8 @@ import 'core/services/tameny_location_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
+  final container = ProviderContainer();
+  CallingScope.riverpod = container;
   NativeCallCoordinator.registerEarlyListeners();
 
   await Future.wait<void>([
@@ -47,9 +49,6 @@ void main() async {
   } catch (e, st) {
     AppLogger.w('[Startup] FCM background handler skipped: $e\n$st');
   }
-
-  final container = ProviderContainer();
-  CallingScope.riverpod = container;
 
   ApiService.setUnauthorizedCallback(() async {
     AppLogger.w('🛑 Unauthorized (401) detected — forcing logout');

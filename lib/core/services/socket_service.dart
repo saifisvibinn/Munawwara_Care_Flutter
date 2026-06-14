@@ -13,6 +13,8 @@ import 'package:flutter_munawwara/core/utils/app_logger.dart';
 //  • Reserved engine events (connect, disconnect, reconnect, error, etc.)
 //    are handled internally.  External code should use onConnected() instead
 //    of on('connect', ...) to avoid clobbering the register-user handshake.
+//  • ACK-bearing events (call-offer) are dispatched via onAny so the ack
+//    callback is always extracted from the payload list socket.io passes.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Handler for server events that require an acknowledgement (e.g. call-offer).
@@ -24,6 +26,10 @@ typedef SocketAckHandler = void Function(
 class SocketService {
   static io.Socket? _socket;
   static String? _connectedUserId;
+  static String? _lastServerUrl;
+  static String? _lastRole;
+  static bool _onAnyDispatcherInstalled = false;
+  static bool _reconnectScheduled = false;
 
   /// Custom-event listeners (NOT for reserved socket.io events).
   static final Map<String, void Function(dynamic)> _pendingListeners = {};
@@ -61,12 +67,14 @@ class SocketService {
 
     _socket?.dispose();
     _socket = null;
+    _onAnyDispatcherInstalled = false;
     _connectedUserId = userId;
-
-    // Clean URL: remove trailing slashes if present
-    final cleanUrl = serverUrl.endsWith('/') 
-        ? serverUrl.substring(0, serverUrl.length - 1) 
+    _lastServerUrl = serverUrl.endsWith('/')
+        ? serverUrl.substring(0, serverUrl.length - 1)
         : serverUrl;
+    _lastRole = role;
+
+    final cleanUrl = _lastServerUrl!;
 
     AppLogger.w(
       '[SocketService] Connecting to $cleanUrl as $userId ($role)',
@@ -75,7 +83,6 @@ class SocketService {
     _socket = io.io(
       cleanUrl,
       io.OptionBuilder()
-          // Try websocket first; polling helps some proxies / Cloud setups.
           .setTransports(['websocket', 'polling'])
           .setReconnectionDelay(2000)
           .setReconnectionAttempts(20)
@@ -83,17 +90,13 @@ class SocketService {
           .build(),
     );
 
-    // ── Internal lifecycle handlers (set AFTER creating, BEFORE applying
-    //    pending listeners so that off() in _apply never removes these). ──
-
     _socket!.onConnect((_) {
+      _reconnectScheduled = false;
       AppLogger.w(
         '[SocketService] Connected socketId=${_socket?.id} url=$cleanUrl '
         'userId=$userId role=$role',
       );
       _socket!.emit('register-user', {'userId': userId, 'role': role});
-      // Fire external connect callbacks (iterate a copy so callbacks can
-      // safely remove themselves via offConnected() without crashing)
       for (final cb in List.of(_onConnectCallbacks)) {
         try {
           cb();
@@ -103,8 +106,9 @@ class SocketService {
       }
     });
 
-    _socket!.onDisconnect((_) {
-      AppLogger.d('[SocketService] Disconnected');
+    _socket!.onDisconnect((reason) {
+      AppLogger.d('[SocketService] Disconnected: $reason');
+      _scheduleReconnectAfterServerEviction(reason?.toString());
     });
 
     _socket!.onConnectError((err) {
@@ -115,8 +119,28 @@ class SocketService {
       AppLogger.w('[SocketService] Socket error ($cleanUrl): $err');
     });
 
-    // Apply custom-event listeners that were registered before connect().
     _applyPendingListeners();
+  }
+
+  /// Server ACK-timeout eviction uses `namespace disconnect`, which disables
+  /// socket.io auto-reconnect. Open a fresh socket so the next call can ring.
+  static void _scheduleReconnectAfterServerEviction(String? reason) {
+    if (reason != 'io server disconnect') return;
+    final userId = _connectedUserId;
+    final url = _lastServerUrl;
+    final role = _lastRole;
+    if (userId == null || url == null || role == null) return;
+    if (_reconnectScheduled) return;
+    _reconnectScheduled = true;
+    AppLogger.w(
+      '[SocketService] Server evicted socket — scheduling reconnect for $userId',
+    );
+    Future<void>.delayed(const Duration(milliseconds: 400), () {
+      _reconnectScheduled = false;
+      if (_connectedUserId != userId) return;
+      if (_socket?.connected == true) return;
+      connect(serverUrl: url, userId: userId, role: role);
+    });
   }
 
   // ── Emit ──────────────────────────────────────────────────────────────────
@@ -125,13 +149,12 @@ class SocketService {
   }
 
   // ── Custom-event listen / unlisten ────────────────────────────────────────
-  /// Register a handler for a **custom** event (not connect/disconnect/etc.).
   static void on(String event, void Function(dynamic) handler) {
     if (_reserved.contains(event)) {
       AppLogger.d(
         '[SocketService] ⚠ "$event" is reserved – use onConnected() instead',
       );
-      return; // silently ignore to avoid breaking the internal handshake
+      return;
     }
     _pendingAckListeners.remove(event);
     _pendingListeners[event] = handler;
@@ -153,7 +176,7 @@ class SocketService {
     _pendingAckListeners[event] = handler;
     if (_socket != null) {
       _socket!.off(event);
-      _socket!.on(event, _wrapAckHandler(handler));
+      _ensureOnAnyDispatcher();
     }
   }
 
@@ -164,32 +187,29 @@ class SocketService {
     _socket?.off(event);
   }
 
-  // ── Connect / reconnect callbacks ─────────────────────────────────────────
-  /// Register a callback that fires every time the socket (re-)connects,
-  /// **after** the register-user handshake has been sent.
   static void onConnected(void Function() callback) {
     if (!_onConnectCallbacks.contains(callback)) {
       _onConnectCallbacks.add(callback);
     }
   }
 
-  /// Remove a previously registered connect callback.
   static void offConnected(void Function() callback) {
     _onConnectCallbacks.remove(callback);
   }
 
-  // ── State ─────────────────────────────────────────────────────────────────
   static bool get isConnected => _socket?.connected ?? false;
   static String? get connectedUserId => _connectedUserId;
 
-  // ── Disconnect ────────────────────────────────────────────────────────────
   static void disconnect() {
     _socket?.dispose();
     _socket = null;
     _connectedUserId = null;
+    _lastServerUrl = null;
+    _lastRole = null;
+    _onAnyDispatcherInstalled = false;
+    _reconnectScheduled = false;
   }
 
-  // ── Internal ──────────────────────────────────────────────────────────────
   static void _applyPendingListeners() {
     if (_socket == null) return;
     final ackEvents = _pendingAckListeners.keys.toSet();
@@ -198,28 +218,74 @@ class SocketService {
       _socket!.off(entry.key);
       _socket!.on(entry.key, entry.value);
     }
-    for (final entry in _pendingAckListeners.entries) {
-      _socket!.off(entry.key);
-      _socket!.on(entry.key, _wrapAckHandler(entry.value));
+    for (final event in ackEvents) {
+      _socket!.off(event);
     }
+    _ensureOnAnyDispatcher();
   }
 
-  static void Function(dynamic, [dynamic]) _wrapAckHandler(
-    SocketAckHandler handler,
-  ) {
-    return (dynamic arg1, [dynamic arg2]) {
-      dynamic data = arg1;
-      void Function([dynamic])? ack;
+  /// ACK events are routed through [onAny] — socket.io passes `[payload, ackFn]`
+  /// as the data argument, which is more reliable than per-event `.on` wrappers.
+  static void _ensureOnAnyDispatcher() {
+    if (_socket == null || _onAnyDispatcherInstalled) return;
+    _onAnyDispatcherInstalled = true;
+    _socket!.onAny((String event, dynamic data) {
+      final handler = _pendingAckListeners[event];
+      if (handler == null) return;
 
-      if (arg2 is Function) {
-        ack = arg2 as void Function([dynamic]);
-      } else if (arg1 is List && arg1.isNotEmpty && arg1.last is Function) {
-        final list = List<dynamic>.from(arg1);
-        ack = list.removeLast() as void Function([dynamic]);
-        data = list.length == 1 ? list.first : list;
+      final parsed = _splitPayloadAndAck(data);
+      if (parsed.ack != null) {
+        _invokeAck(parsed.ack!);
+        AppLogger.i('[SocketService] ACK sent for "$event"');
+      } else {
+        AppLogger.e(
+          '[SocketService] "$event" missing ack callback (data=$data)',
+        );
       }
 
-      handler(data, ack);
-    };
+      handler(
+        parsed.payload,
+        parsed.ack == null
+            ? null
+            : ([response]) => _invokeAck(parsed.ack!, response),
+      );
+    });
+  }
+
+  static ({dynamic payload, Function? ack}) _splitPayloadAndAck(dynamic incoming) {
+    dynamic payload = incoming;
+    Function? ack;
+
+    if (incoming is List && incoming.isNotEmpty) {
+      final list = List<dynamic>.from(incoming);
+      if (list.last is Function) {
+        ack = list.removeLast();
+      }
+      if (list.length == 1) {
+        payload = list.first;
+      } else if (list.isEmpty) {
+        payload = null;
+      } else if (list.length == 2 &&
+          list.first is String &&
+          list[1] is Map) {
+        payload = list[1];
+      } else {
+        payload = list.length == 1 ? list.first : list;
+      }
+    }
+
+    return (payload: payload, ack: ack);
+  }
+
+  static void _invokeAck(Function ack, [dynamic response]) {
+    try {
+      ack(response);
+    } catch (_) {
+      try {
+        ack();
+      } catch (e) {
+        AppLogger.w('[SocketService] ack invoke failed: $e');
+      }
+    }
   }
 }
