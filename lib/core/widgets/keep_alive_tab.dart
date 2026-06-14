@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// Default duration for dashboard tab page transitions.
@@ -24,6 +25,8 @@ class _KeepAliveTabState extends State<KeepAliveTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    // Rebuild keep-alive tabs when the app language changes.
+    context.locale;
     return widget.child;
   }
 }

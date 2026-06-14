@@ -9,6 +9,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../core/config/app_locales.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/theme/app_dropdown_theme.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../../core/widgets/custom_dialog.dart';
@@ -240,7 +241,12 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
         centerTitle: false,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: AppScrollFadeOverlay(
+          showTop: false,
+          backgroundColor: isDark
+              ? AppColors.backgroundDark
+              : const Color(0xFFFFF7ED),
+          child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 16.h),
           child: Column(
@@ -875,6 +881,7 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
               SizedBox(height: 18.h),
             ],
           ),
+        ),
         ),
       ),
     );

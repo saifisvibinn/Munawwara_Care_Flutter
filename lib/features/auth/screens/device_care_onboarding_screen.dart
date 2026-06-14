@@ -9,6 +9,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/services/oem_settings_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/device_care_settings_guide_sheet.dart';
 
@@ -143,7 +144,12 @@ class _DeviceCareOnboardingScreenState
                 ),
                 SizedBox(height: 20.h),
                 Expanded(
-                  child: _steps.isEmpty
+                  child: AppScrollFadeOverlay(
+                    showTop: false,
+                    backgroundColor: isDark
+                        ? AppColors.backgroundDark
+                        : AppColors.backgroundLight,
+                    child: _steps.isEmpty
                       ? Center(
                           child: CircularProgressIndicator(
                             color: AppColors.primary,
@@ -162,6 +168,7 @@ class _DeviceCareOnboardingScreenState
                             );
                           },
                         ),
+                  ),
                 ),
                 SizedBox(
                   width: double.infinity,

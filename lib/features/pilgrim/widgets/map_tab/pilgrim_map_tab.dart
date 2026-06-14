@@ -315,6 +315,15 @@ class PilgrimMapTab extends StatelessWidget {
           ],
         ),
 
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AppScrollFadeOverlay(
+              useDashboardBottomExtent: true,
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ),
+
         if (group != null)
           SafeArea(
             bottom: false,

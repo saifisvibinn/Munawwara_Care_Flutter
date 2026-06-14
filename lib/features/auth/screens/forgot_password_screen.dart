@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../providers/auth_provider.dart';
 
 /// Multi-step forgot-password screen for moderators.
@@ -215,7 +216,12 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 ),
 
                 Expanded(
-                  child: LayoutBuilder(
+                  child: AppScrollFadeOverlay(
+                    showTop: false,
+                    backgroundColor: isDark
+                        ? AppColors.backgroundDark
+                        : AppColors.backgroundLight,
+                    child: LayoutBuilder(
                     builder: (context, constraints) {
                       return SingleChildScrollView(
                         padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
@@ -312,6 +318,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                         ),
                       );
                     },
+                  ),
                   ),
                 ),
               ],

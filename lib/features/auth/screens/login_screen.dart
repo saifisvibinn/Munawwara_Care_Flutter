@@ -13,6 +13,7 @@ import '../../../core/services/callkit_service.dart';
 import '../../../core/services/locale_prefs.dart';
 import '../../../core/services/oem_settings_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/widgets/app_version_label.dart';
 import '../../../core/widgets/app_popup_menu.dart';
 import '../../../core/utils/qr_barcode_utils.dart';
@@ -220,7 +221,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
 
                 Expanded(
-                  child: SingleChildScrollView(
+                  child: AppScrollFadeOverlay(
+                    showTop: false,
+                    backgroundColor: isDark
+                        ? AppColors.backgroundDark
+                        : AppColors.backgroundLight,
+                    child: SingleChildScrollView(
                     padding: EdgeInsets.symmetric(
                       horizontal: 24.w,
                       vertical: 16.h,
@@ -360,6 +366,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         SizedBox(height: 16.h),
                       ],
                     ),
+                  ),
                   ),
                 ),
               ],

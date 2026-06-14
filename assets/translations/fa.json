@@ -460,6 +460,8 @@
   "dashboard_search_groups": "جستجو در گروه ها...",
   "dashboard_retry": "دوباره امتحان کنید",
   "dashboard_sos_active": "فعال SOS هشدار",
+  "dashboard_group_sos_banner": "{count} SOS فعال",
+  "dashboard_delete_group": "حذف گروه",
   "dashboard_sos_banner_subtitle": "{name} در {group} به کمک نیاز دارد.",
   "dashboard_sos_swipe_hint": "هشدار {current} از {total} — برای اطلاعات بیشتر، انگشت خود را به طرفین بکشید",
   "dashboard_view": "مشاهده کنید",

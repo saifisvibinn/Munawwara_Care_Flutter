@@ -460,6 +460,8 @@
   "dashboard_search_groups": "گروپ تلاش کریں...",
   "dashboard_retry": "دوبارہ کوشش کریں",
   "dashboard_sos_active": "فعال SOS الرٹ",
+  "dashboard_group_sos_banner": "{count} فعال SOS",
+  "dashboard_delete_group": "گروپ حذف کریں",
   "dashboard_sos_banner_subtitle": "{name} کو {group} میں مدد درکار ہے۔",
   "dashboard_sos_swipe_hint": "الرٹ {current} از {total} — مزید کے لیے سوائپ کریں",
   "dashboard_view": "دیکھیں",

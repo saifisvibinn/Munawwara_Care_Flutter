@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shared/widgets/moderator_avatar.dart';
 
@@ -316,7 +317,10 @@ class _ModeratorProfileEditScreenState
 
             // ── Body ──────────────────────────────────────────────────────────
             Expanded(
-              child: SingleChildScrollView(
+              child: AppScrollFadeOverlay(
+                showTop: false,
+                backgroundColor: bg,
+                child: SingleChildScrollView(
                 padding: EdgeInsets.symmetric(horizontal: 20.w),
                 child: Form(
                   key: _formKey,
@@ -601,6 +605,7 @@ class _ModeratorProfileEditScreenState
                     ],
                   ),
                 ),
+              ),
               ),
             ),
           ],

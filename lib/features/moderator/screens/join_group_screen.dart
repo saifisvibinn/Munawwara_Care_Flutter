@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/utils/qr_barcode_utils.dart';
 import '../../../core/widgets/qr_scanner_view.dart';
 import '../../../core/widgets/standard_snackbar.dart';
@@ -159,7 +160,11 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
   }
 
   Widget _buildManualBody(bool isDark) {
-    return SingleChildScrollView(
+    final bg = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+    return AppScrollFadeOverlay(
+      showTop: false,
+      backgroundColor: bg,
+      child: SingleChildScrollView(
       padding: EdgeInsets.all(24.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -242,6 +247,7 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }

@@ -1694,6 +1694,14 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
             ],
           ),
 
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AppScrollFadeOverlay(
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+
           // ── Top overlay bar ───────────────────────────────────────────────
           Positioned(
             top: 0,

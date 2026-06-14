@@ -9,6 +9,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/caller_gender_cache.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../moderator/providers/moderator_provider.dart';
@@ -357,7 +358,9 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
       );
     }
 
-    return RefreshIndicator(
+    return AppScrollFadeOverlay(
+      showTop: false,
+      child: RefreshIndicator(
       onRefresh: _load,
       color: AppColors.primary,
       child: ListView.separated(
@@ -435,6 +438,7 @@ class _CallHistoryListViewState extends ConsumerState<CallHistoryListView> {
           );
         },
       ),
+    ),
     );
   }
 }

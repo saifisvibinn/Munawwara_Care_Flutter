@@ -10,6 +10,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/services/location_permission_service.dart';
 import '../../../core/services/oem_settings_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../providers/auth_provider.dart';
 
 /// iPhone-first setup wizard: location, notifications, Background App Refresh.
@@ -227,7 +228,11 @@ class _IosDeviceSetupScreenState extends ConsumerState<IosDeviceSetupScreen>
                 ),
                 SizedBox(height: 24.h),
                 Expanded(
-                  child: SingleChildScrollView(
+                  child: AppScrollFadeOverlay(
+                    showTop: false,
+                    backgroundColor:
+                        isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+                    child: SingleChildScrollView(
                     child: Container(
                       width: double.infinity,
                       padding: EdgeInsets.all(20.w),
@@ -341,6 +346,7 @@ class _IosDeviceSetupScreenState extends ConsumerState<IosDeviceSetupScreen>
                         ],
                       ),
                     ),
+                  ),
                   ),
                 ),
                 SizedBox(height: 16.h),

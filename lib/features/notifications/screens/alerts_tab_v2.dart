@@ -2,10 +2,13 @@ import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../calling/data/call_history_api.dart';
 import '../../calling/widgets/call_history_list_view.dart';
@@ -13,6 +16,7 @@ import '../../moderator/providers/moderator_provider.dart';
 import '../../moderator/providers/moderator_resolved_sos_provider.dart';
 import '../../moderator/providers/moderator_sos_engagement_provider.dart';
 import '../../moderator/widgets/moderator_active_sos_panel.dart';
+import '../../moderator/widgets/moderator_map_widgets.dart';
 import '../../moderator/widgets/moderator_resolved_sos_list.dart';
 import '../../../core/services/notification_service.dart';
 import '../providers/notification_provider.dart';
@@ -108,28 +112,28 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
     setState(() => _callHistoryReloadSeed++);
   }
 
-  Widget _header({required bool isDark, required bool isModerator}) {
+  Widget _headerTitleRow({
+    required bool isDark,
+    required bool isModerator,
+  }) {
+    context.locale;
     final showClearResolved = isModerator && _moderatorTabIndex == 1;
     final showClearCalls = !isModerator || _moderatorTabIndex == 2;
+    final textPrimary = isDark ? Colors.white : AppColors.textDark;
+    final textMuted =
+        isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final hasBack = widget.onBack != null;
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        widget.onBack != null ? 4.w : 20.w,
-        16.h,
-        20.w,
+        hasBack ? 62.w : 20.w,
+        6.h,
+        16.w,
         0,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (widget.onBack != null)
-            IconButton(
-              icon: Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: isDark ? Colors.white : AppColors.textDark,
-                size: 20.sp,
-              ),
-              onPressed: widget.onBack,
-            ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,17 +141,16 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
                 Text(
                   'alerts_title'.tr(),
                   style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 24.sp,
-                    color: isDark ? Colors.white : AppColors.textDark,
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
                   ),
                 ),
-                SizedBox(height: 2.h),
                 Text(
                   'alerts_subtitle'.tr(),
                   style: TextStyle(
-                    fontSize: 13.sp,
-                    color: AppColors.textMutedLight,
+                    fontSize: 11.sp,
+                    color: textMuted,
                   ),
                 ),
               ],
@@ -182,6 +185,68 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
     );
   }
 
+  Widget _alertsChrome({
+    required bool isDark,
+    required bool isModerator,
+    TabController? tabController,
+  }) {
+    final headerBg = isDark ? AppColors.surfaceDark : Colors.white;
+    final topInset = MediaQuery.paddingOf(context).top;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(color: headerBg),
+      child: Padding(
+        padding: EdgeInsets.only(top: topInset),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _headerTitleRow(isDark: isDark, isModerator: isModerator),
+            if (tabController != null)
+              TabBar(
+                controller: tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                dividerColor: Colors.transparent,
+                dividerHeight: 0,
+                labelColor: AppColors.primary,
+                unselectedLabelColor: isDark
+                    ? AppColors.textMutedLight
+                    : AppColors.textMutedDark,
+                indicatorColor: AppColors.primary,
+                indicatorWeight: 2.5,
+                labelStyle: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13.sp,
+                ),
+                unselectedLabelStyle: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13.sp,
+                ),
+                tabs: [
+                  Tab(text: 'moderator_alerts_tab_active_sos'.tr()),
+                  Tab(text: 'moderator_alerts_tab_resolved'.tr()),
+                  Tab(text: 'call_history_title'.tr()),
+                  Tab(text: 'alerts_tab_updates'.tr()),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _floatingBackButton() {
+    if (widget.onBack == null) return const SizedBox.shrink();
+    return PositionedDirectional(
+      start: 14.w,
+      top: MediaQuery.paddingOf(context).top + 10.h,
+      child: CircleButton(
+        icon: Symbols.arrow_back,
+        onTap: widget.onBack!,
+      ),
+    );
+  }
+
   Widget _moderatorActiveSosTab({
     required List<ModeratorGroup> groups,
   }) {
@@ -212,7 +277,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
-        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
+        padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
         children: [
           ModeratorActiveSosPanel(
             groups: groups,
@@ -245,75 +310,88 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isModerator = ref.watch(authProvider).role == 'moderator';
     final groups =
         isModerator ? ref.watch(moderatorProvider).groups : <ModeratorGroup>[];
+    final headerBg = isDark ? AppColors.surfaceDark : Colors.white;
+    final contentBg = AppGlassTheme.dashboardBackgroundColor(isDark);
 
     if (isModerator) _ensureModeratorTabController();
 
     if (isModerator && _moderatorTabController != null) {
       final tc = _moderatorTabController!;
-      return SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle(
+          statusBarColor: headerBg,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            _header(isDark: isDark, isModerator: true),
-            SizedBox(height: 8.h),
-            TabBar(
-              controller: tc,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              labelColor: AppColors.primary,
-              unselectedLabelColor: AppColors.textMutedLight,
-              indicatorColor: AppColors.primary,
-              labelStyle: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 12.sp,
-              ),
-              unselectedLabelStyle: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 12.sp,
-              ),
-              tabs: [
-                Tab(text: 'moderator_alerts_tab_active_sos'.tr()),
-                Tab(text: 'moderator_alerts_tab_resolved'.tr()),
-                Tab(text: 'call_history_title'.tr()),
-                Tab(text: 'alerts_tab_updates'.tr()),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _alertsChrome(
+                  isDark: isDark,
+                  isModerator: true,
+                  tabController: tc,
+                ),
+                Expanded(
+                  child: AppScrollFadeOverlay(
+                    showTop: false,
+                    backgroundColor: contentBg,
+                    child: TabBarView(
+                      controller: tc,
+                      children: [
+                        _moderatorActiveSosTab(groups: groups),
+                        _moderatorResolvedSosTab(isDark: isDark),
+                        _callHistoryTab(missedOnly: false, isModerator: true),
+                        RefreshIndicator(
+                          color: AppColors.primary,
+                          onRefresh: _refresh,
+                          child: const ModeratorUpdatesTab(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
-            Expanded(
-              child: TabBarView(
-                controller: tc,
-                children: [
-                  _moderatorActiveSosTab(groups: groups),
-                  _moderatorResolvedSosTab(isDark: isDark),
-                  _callHistoryTab(missedOnly: false, isModerator: true),
-                  RefreshIndicator(
-                    color: AppColors.primary,
-                    onRefresh: _refresh,
-                    child: const ModeratorUpdatesTab(),
-                  ),
-                ],
-              ),
-            ),
+            _floatingBackButton(),
           ],
         ),
       );
     }
 
-    return SafeArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: headerBg,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          _header(isDark: isDark, isModerator: false),
-          SizedBox(height: 12.h),
-          Expanded(
-            child: _callHistoryTab(
-              missedOnly: widget.pilgrimMissedCallsOnly,
-              isModerator: false,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _alertsChrome(isDark: isDark, isModerator: false),
+              Expanded(
+                child: AppScrollFadeOverlay(
+                  showTop: false,
+                  backgroundColor: contentBg,
+                  child: _callHistoryTab(
+                    missedOnly: widget.pilgrimMissedCallsOnly,
+                    isModerator: false,
+                  ),
+                ),
+              ),
+            ],
           ),
+          _floatingBackButton(),
         ],
       ),
     );

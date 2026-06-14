@@ -212,7 +212,7 @@ class ModeratorActiveSosPanel extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < rows.length; i++) ...[
-          if (i > 0) SizedBox(height: 14.h),
+          if (i > 0) SizedBox(height: 12.h),
           ModeratorSosBannerCard(
             row: rows[i],
             onSosResolved: onSosResolved,
@@ -416,174 +416,195 @@ class ModeratorSosBannerCard extends ConsumerWidget {
     final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
     final textMuted = isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
     final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
+    final borderColor =
+        isDark ? const Color(0xFF25303A) : const Color(0xFFE2E8F0);
     final timestamp = _formatSosAlertTimestamp(context, row.sortMs);
     final pilgrim = row.pilgrim;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(18.w, 18.h, 18.w, 16.h),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(20.r),
-        border: Border.all(
-          color: isDark ? AppColors.dividerDark : const Color(0xFFF1F5F9),
-        ),
+        border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.08),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SosCardAvatar(
-                gender: pilgrim?.gender ?? row.record?.pilgrimGender,
-                imageUrl: pilgrim?.profilePicture,
-                size: 52.w,
-              ),
-              SizedBox(width: 14.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20.r),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+              color: isDark
+                  ? const Color(0xFF3D1515)
+                  : const Color(0xFFFFF1F2),
+              child: Row(
+                children: [
+                  Icon(
+                    Symbols.emergency,
+                    size: 16.w,
+                    color: const Color(0xFFDC2626),
+                    fill: 1,
+                  ),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
                       'sos_active_alert_title'.tr(),
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 17.sp,
-                        color: textPrimary,
+                        fontSize: 13.sp,
+                        color: const Color(0xFFDC2626),
                       ),
                     ),
-                    if (timestamp.isNotEmpty) ...[
-                      SizedBox(height: 4.h),
-                      Text(
-                        timestamp,
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
-                          color: textMuted,
+                  ),
+                  if (timestamp.isNotEmpty)
+                    Text(
+                      timestamp,
+                      style: TextStyle(
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w500,
+                        color: textMuted,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(16.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _SosCardAvatar(
+                        gender: pilgrim?.gender ?? row.record?.pilgrimGender,
+                        imageUrl: pilgrim?.profilePicture,
+                        size: 52.w,
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: Text(
+                          'dashboard_sos_banner_subtitle'.tr(
+                            namedArgs: {
+                              'name': row.displayName,
+                              'group': row.groupLabel.isEmpty
+                                  ? '—'
+                                  : row.groupLabel,
+                            },
+                          ),
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                            color: textPrimary,
+                            height: 1.45,
+                          ),
                         ),
                       ),
                     ],
+                  ),
+                  if (canShowClaimed) ...[
+                    SizedBox(height: 12.h),
+                    Row(
+                      children: [
+                        Icon(
+                          row.record?.handledStatus == 'in_call'
+                              ? Symbols.call
+                              : Symbols.person,
+                          size: 18.sp,
+                          color: textMuted,
+                        ),
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          child: Text(
+                            row.claimedStatusLabel,
+                            style: TextStyle(
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w600,
+                              color: textMuted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 14.h),
-          Text(
-            'dashboard_sos_banner_subtitle'.tr(
-              namedArgs: {
-                'name': row.displayName,
-                'group': row.groupLabel.isEmpty ? '—' : row.groupLabel,
-              },
-            ),
-            style: TextStyle(
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
-              color: textMuted,
-              height: 1.45,
-            ),
-          ),
-          if (canShowClaimed) ...[
-            SizedBox(height: 12.h),
-            Row(
-              children: [
-                Icon(
-                  row.record?.handledStatus == 'in_call'
-                      ? Symbols.call
-                      : Symbols.person,
-                  size: 18.sp,
-                  color: textMuted,
-                ),
-                SizedBox(width: 8.w),
-                Expanded(
-                  child: Text(
-                    row.claimedStatusLabel,
-                    style: TextStyle(
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w600,
-                      color: textMuted,
+                  SizedBox(height: 16.h),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: resolveSos,
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF2563EB)),
+                            foregroundColor: const Color(0xFF2563EB),
+                            padding: EdgeInsets.symmetric(vertical: 12.h),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                          ),
+                          icon: Icon(Symbols.check_circle, size: 18.sp, fill: 1),
+                          label: Text(
+                            'sos_moderator_resolve'.tr(),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 10.w),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: hasNav ? navigateToSos : null,
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.accentGold),
+                            foregroundColor: AppColors.accentGold,
+                            padding: EdgeInsets.symmetric(vertical: 12.h),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                          ),
+                          icon: Icon(Symbols.navigation, size: 18.sp, fill: 1),
+                          label: Text(
+                            'explore_navigate'.tr(),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 10.h),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48.h,
+                    child: FilledButton(
+                      onPressed: viewDetails,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFDC2626),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14.r),
+                        ),
+                      ),
+                      child: Text(
+                        'sos_view_details'.tr(),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15.sp,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
-          SizedBox(height: 16.h),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: resolveSos,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF2563EB)),
-                    foregroundColor: const Color(0xFF2563EB),
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14.r),
-                    ),
-                  ),
-                  icon: Icon(Symbols.check_circle, size: 18.sp, fill: 1),
-                  label: Text(
-                    'sos_moderator_resolve'.tr(),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: 10.w),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: hasNav ? navigateToSos : null,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.accentGold),
-                    foregroundColor: AppColors.accentGold,
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14.r),
-                    ),
-                  ),
-                  icon: Icon(Symbols.navigation, size: 18.sp, fill: 1),
-                  label: Text(
-                    'explore_navigate'.tr(),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 12.h),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: viewDetails,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFDC2626),
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(vertical: 14.h),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28.r),
-                ),
-              ),
-              child: Text(
-                'sos_view_details'.tr(),
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15.sp,
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

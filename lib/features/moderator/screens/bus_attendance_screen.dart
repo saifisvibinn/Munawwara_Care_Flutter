@@ -18,6 +18,7 @@ import 'package:gal/gal.dart';
 
 import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
@@ -486,7 +487,11 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
       backgroundColor:
           isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
       appBar: _buildAppBar(st),
-      body: widget.pastSessionId != null
+      body: AppScrollFadeOverlay(
+        showTop: false,
+        backgroundColor:
+            isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+        child: widget.pastSessionId != null
           ? (st.isLoading && st.session == null
               ? _buildLoading()
               : _buildActiveSession(st))
@@ -495,6 +500,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
               : (!st.hasAnySession
                   ? _buildNoSession(st)
                   : _buildActiveSession(st))),
+      ),
     );
   }
 

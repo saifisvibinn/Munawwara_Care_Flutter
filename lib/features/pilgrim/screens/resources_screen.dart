@@ -1,12 +1,15 @@
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../moderator/widgets/moderator_map_widgets.dart';
 
 import '../models/resource_models.dart';
 import '../../moderator/screens/document_viewer_screen.dart';
@@ -132,6 +135,17 @@ class _ResourcesScreenState extends ConsumerState<ResourcesScreen>
     super.dispose();
   }
 
+  Widget _floatingBackButton() {
+    return PositionedDirectional(
+      start: 14.w,
+      top: MediaQuery.paddingOf(context).top + 10.h,
+      child: CircleButton(
+        icon: Symbols.arrow_back,
+        onTap: () => Navigator.of(context).pop(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(_resourcesProvider);
@@ -141,152 +155,173 @@ class _ResourcesScreenState extends ConsumerState<ResourcesScreen>
     final bgColor =
         isDark ? AppColors.backgroundDark : const Color(0xFFF7F9FB);
     final headerBg = isDark ? AppColors.surfaceDark : Colors.white;
+    final topInset = MediaQuery.paddingOf(context).top;
+    final statusBarStyle = SystemUiOverlayStyle(
+      statusBarColor: headerBg,
+      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+    );
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      floatingActionButton: null,
-      body: SafeArea(
-        child: Column(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: statusBarStyle,
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: Stack(
+          clipBehavior: Clip.none,
           children: [
-            // ── Custom AppBar ───────────────────────────────────────────────
-            Container(
-              color: headerBg,
-              padding: EdgeInsets.fromLTRB(8.w, 6.h, 16.w, 0),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          Symbols.arrow_back,
-                          color: isDark ? Colors.white : AppColors.textDark,
-                          size: 22.w,
-                        ),
-                        onPressed: () => Navigator.of(context).pop(),
+            Column(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: headerBg,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : const Color(0xFFE2E8F0),
                       ),
-                      SizedBox(width: 4.w),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'resources_title'.tr(),
-                              style: TextStyle(
-                                fontSize: 18.sp,
-                                fontWeight: FontWeight.w800,
-                                color:
-                                    isDark ? Colors.white : AppColors.textDark,
-                              ),
-                            ),
-                            Text(
-                              'resources_subtitle'.tr(),
-                              style: TextStyle(
-                                fontSize: 11.sp,
-                                color: isDark
-                                    ? AppColors.textMutedLight
-                                    : AppColors.textMutedDark,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (state.isLoading)
-                        SizedBox(
-                          width: 18.w,
-                          height: 18.w,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.primary,
-                          ),
-                        )
-                      else
-                        IconButton(
-                          tooltip: 'Refresh',
-                          icon: Icon(
-                            Symbols.refresh,
-                            color: AppColors.primary,
-                            size: 22.w,
-                          ),
-                          onPressed: () =>
-                              ref.read(_resourcesProvider.notifier).load(),
-                        ),
-                    ],
-                  ),
-                  SizedBox(height: 4.h),
-                  // ── Tab Bar ──────────────────────────────────────────────
-                  TabBar(
-                    controller: _tabController,
-                    labelColor: AppColors.primary,
-                    unselectedLabelColor: isDark
-                        ? AppColors.textMutedLight
-                        : AppColors.textMutedDark,
-                    indicatorColor: AppColors.primary,
-                    indicatorWeight: 2.5,
-                    labelStyle: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13.sp,
                     ),
-                    unselectedLabelStyle: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 13.sp,
-                    ),
-                    tabs: [
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Symbols.apartment, size: 16.w),
-                            SizedBox(width: 6.w),
-                            Text('resources_hotels'.tr()),
-                          ],
-                        ),
-                      ),
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Symbols.health_and_safety, size: 16.w),
-                            SizedBox(width: 6.w),
-                            Text('resources_insurances'.tr()),
-                          ],
-                        ),
-                      ),
-                    ],
                   ),
-                ],
-              ),
-            ),
-
-            // ── Body ───────────────────────────────────────────────────────
-            Expanded(
-              child: state.isLoading && state.hotels.isEmpty
-                  ? Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
-                    )
-                  : state.error != null && state.hotels.isEmpty
-                      ? _ErrorRetry(
-                          isDark: isDark,
-                          onRetry: () =>
-                              ref.read(_resourcesProvider.notifier).load(),
-                        )
-                      : TabBarView(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: topInset),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(62.w, 6.h, 16.w, 0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'resources_title'.tr(),
+                                      style: TextStyle(
+                                        fontSize: 18.sp,
+                                        fontWeight: FontWeight.w800,
+                                        color: isDark
+                                            ? Colors.white
+                                            : AppColors.textDark,
+                                      ),
+                                    ),
+                                    Text(
+                                      'resources_subtitle'.tr(),
+                                      style: TextStyle(
+                                        fontSize: 11.sp,
+                                        color: isDark
+                                            ? AppColors.textMutedLight
+                                            : AppColors.textMutedDark,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (state.isLoading)
+                                SizedBox(
+                                  width: 18.w,
+                                  height: 18.w,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.primary,
+                                  ),
+                                )
+                              else
+                                IconButton(
+                                  tooltip: 'Refresh',
+                                  icon: Icon(
+                                    Symbols.refresh,
+                                    color: AppColors.primary,
+                                    size: 22.w,
+                                  ),
+                                  onPressed: () => ref
+                                      .read(_resourcesProvider.notifier)
+                                      .load(),
+                                ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        TabBar(
                           controller: _tabController,
-                          children: [
-                            _HotelsTab(
-                              hotels: state.hotels,
-                              isDark: isDark,
-                              isModerator: isModerator,
+                          dividerColor: Colors.transparent,
+                          dividerHeight: 0,
+                          labelColor: AppColors.primary,
+                          unselectedLabelColor: isDark
+                              ? AppColors.textMutedLight
+                              : AppColors.textMutedDark,
+                          indicatorColor: AppColors.primary,
+                          indicatorWeight: 2.5,
+                          labelStyle: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13.sp,
+                          ),
+                          unselectedLabelStyle: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 13.sp,
+                          ),
+                          tabs: [
+                            Tab(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Symbols.apartment, size: 16.w),
+                                  SizedBox(width: 6.w),
+                                  Text('resources_hotels'.tr()),
+                                ],
+                              ),
                             ),
-                            _InsurancesTab(
-                              insurances: state.insurances,
-                              isDark: isDark,
-                              isModerator: isModerator,
+                            Tab(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Symbols.health_and_safety, size: 16.w),
+                                  SizedBox(width: 6.w),
+                                  Text('resources_insurances'.tr()),
+                                ],
+                              ),
                             ),
                           ],
                         ),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: AppScrollFadeOverlay(
+                    showTop: false,
+                    backgroundColor: bgColor,
+                    child: state.isLoading && state.hotels.isEmpty
+                      ? Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : state.error != null && state.hotels.isEmpty
+                          ? _ErrorRetry(
+                              isDark: isDark,
+                              onRetry: () =>
+                                  ref.read(_resourcesProvider.notifier).load(),
+                            )
+                          : TabBarView(
+                              controller: _tabController,
+                              children: [
+                                _HotelsTab(
+                                  hotels: state.hotels,
+                                  isDark: isDark,
+                                  isModerator: isModerator,
+                                ),
+                                _InsurancesTab(
+                                  insurances: state.insurances,
+                                  isDark: isDark,
+                                  isModerator: isModerator,
+                                ),
+                              ],
+                            ),
+                  ),
+                ),
+              ],
             ),
+            _floatingBackButton(),
           ],
         ),
       ),
@@ -311,7 +346,8 @@ class _HotelsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayHotels = isModerator ? hotels : hotels.where((h) => h.active).toList();
+    final displayHotels =
+        isModerator ? hotels : hotels.where((h) => h.active).toList();
 
     if (displayHotels.isEmpty) {
       return _EmptyState(
@@ -381,7 +417,6 @@ class _HotelCardState extends State<_HotelCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header
             Material(
               color: Colors.transparent,
               child: InkWell(
@@ -453,7 +488,10 @@ class _HotelCardState extends State<_HotelCard> {
                                 if (widget.isModerator && !widget.hotel.active) ...[
                                   SizedBox(width: 8.w),
                                   Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 6.w,
+                                      vertical: 2.h,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.red.shade100,
                                       borderRadius: BorderRadius.circular(4.r),
@@ -488,7 +526,6 @@ class _HotelCardState extends State<_HotelCard> {
                 ),
               ),
             ),
-            // Rooms List
             AnimatedCrossFade(
               firstChild: const SizedBox.shrink(),
               secondChild: _RoomsList(
@@ -622,7 +659,9 @@ class _InsurancesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayInsurances = isModerator ? insurances : insurances.where((i) => i.active).toList();
+    final displayInsurances = isModerator
+        ? insurances
+        : insurances.where((i) => i.active).toList();
 
     if (displayInsurances.isEmpty) {
       return _EmptyState(
@@ -636,11 +675,27 @@ class _InsurancesTab extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
       itemCount: displayInsurances.length,
       separatorBuilder: (_, _) => SizedBox(height: 12.h),
-      itemBuilder: (context, index) => _InsuranceCard(
-        insurance: displayInsurances[index],
-        isDark: isDark,
-        isModerator: isModerator,
-      ),
+      itemBuilder: (context, index) {
+        final insurance = displayInsurances[index];
+        final hasPolicy = isModerator &&
+            insurance.policyDocumentUrl != null &&
+            insurance.policyDocumentUrl!.isNotEmpty;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _InsuranceCard(
+              insurance: insurance,
+              isDark: isDark,
+              isModerator: isModerator,
+            ),
+            if (hasPolicy) ...[
+              SizedBox(height: 8.h),
+              _PolicyCard(insurance: insurance, isDark: isDark),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -693,7 +748,6 @@ class _InsuranceCardState extends State<_InsuranceCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header
             Material(
               color: Colors.transparent,
               child: InkWell(
@@ -744,59 +798,13 @@ class _InsuranceCardState extends State<_InsuranceCard> {
                                   isDark: isDark,
                                   color: const Color(0xFF16A34A),
                                 ),
-                                if (widget.isModerator &&
-                                    widget.insurance.policyDocumentUrl != null &&
-                                    widget.insurance.policyDocumentUrl!.isNotEmpty) ...[
-                                  SizedBox(width: 8.w),
-                                  InkWell(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => DocumentViewerScreen(
-                                            url: widget.insurance.policyDocumentProxyUrl!,
-                                            title: widget.insurance.policyDocumentName ?? 'Insurance Policy',
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    borderRadius: BorderRadius.circular(6.r),
-                                    child: Container(
-                                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                                      decoration: BoxDecoration(
-                                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
-                                        borderRadius: BorderRadius.circular(6.r),
-                                        border: Border.all(
-                                          color: isDark ? Colors.white10 : const Color(0xFFBFDBFE),
-                                          width: 0.5,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Symbols.picture_as_pdf,
-                                            size: 12.w,
-                                            color: const Color(0xFF2563EB),
-                                          ),
-                                          SizedBox(width: 4.w),
-                                          Text(
-                                            'view_policy'.tr().toUpperCase(),
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 9.sp,
-                                              color: const Color(0xFF2563EB),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
                                 if (widget.isModerator && !widget.insurance.active) ...[
                                   SizedBox(width: 8.w),
                                   Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 6.w,
+                                      vertical: 2.h,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.red.shade100,
                                       borderRadius: BorderRadius.circular(4.r),
@@ -831,7 +839,6 @@ class _InsuranceCardState extends State<_InsuranceCard> {
                 ),
               ),
             ),
-            // Hospitals List
             AnimatedCrossFade(
               firstChild: const SizedBox.shrink(),
               secondChild: _HospitalsList(
@@ -844,6 +851,115 @@ class _InsuranceCardState extends State<_InsuranceCard> {
               duration: const Duration(milliseconds: 250),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PolicyCard extends StatelessWidget {
+  final _Insurance insurance;
+  final bool isDark;
+
+  const _PolicyCard({
+    required this.insurance,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
+    final borderColor =
+        isDark ? const Color(0xFF25303A) : const Color(0xFFE2E8F0);
+    final textPrimary = isDark ? Colors.white : AppColors.textDark;
+    final textMuted =
+        isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20.r),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DocumentViewerScreen(
+                url: insurance.policyDocumentProxyUrl!,
+                title: insurance.name.isNotEmpty
+                    ? '${insurance.name} · ${'view_policy'.tr()}'
+                    : 'view_policy'.tr(),
+              ),
+            ),
+          );
+        },
+        child: Ink(
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(color: borderColor),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(16.w),
+            child: Row(
+              children: [
+                Container(
+                  width: 44.w,
+                  height: 44.w,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF1E293B)
+                        : const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Icon(
+                    Symbols.picture_as_pdf,
+                    color: isDark
+                        ? const Color(0xFF60A5FA)
+                        : const Color(0xFF2563EB),
+                    size: 22.sp,
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'view_policy'.tr(),
+                        style: TextStyle(
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.w800,
+                          color: textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        'active_policy'.tr(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11.sp,
+                          color: textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: textMuted,
+                  size: 22.w,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

@@ -13,6 +13,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/services/speech_service.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import '../../../core/widgets/standard_snackbar.dart';
@@ -491,13 +492,19 @@ class _IndividualMessagesScreenState
           children: [
             _buildHeader(isDark),
             Expanded(
-              child: threadMsgs.isEmpty && msgState.isLoading
+              child: AppScrollFadeOverlay(
+                showTop: false,
+                backgroundColor: isDark
+                    ? AppColors.backgroundDark
+                    : const Color(0xFFF1F5F9),
+                child: threadMsgs.isEmpty && msgState.isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
                         color: AppColors.primary,
                       ),
                     )
                   : _buildMessageList(threadMsgs, isDark),
+              ),
             ),
             _buildComposer(isDark, msgState.isSending),
           ],

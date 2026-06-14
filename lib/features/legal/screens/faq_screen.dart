@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 
 class FaqItem {
   final String categoryKey;
@@ -237,7 +238,11 @@ class _FaqScreenState extends State<FaqScreen> {
 
           // FAQ List
           Expanded(
-            child: filteredItems.isEmpty
+            child: AppScrollFadeOverlay(
+              showTop: false,
+              backgroundColor:
+                  isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+              child: filteredItems.isEmpty
                 ? _buildEmptyState(textMuted)
                 : ListView.builder(
                     padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
@@ -252,6 +257,7 @@ class _FaqScreenState extends State<FaqScreen> {
                       );
                     },
                   ),
+            ),
           ),
         ],
       ),

@@ -1,3 +1,4 @@
+export '../app_scroll_fade_overlay.dart';
 export 'app_dashboard_background.dart';
 export 'app_glass_card.dart';
 export 'app_glass_icon_button.dart';

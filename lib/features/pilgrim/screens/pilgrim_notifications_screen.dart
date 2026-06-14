@@ -23,12 +23,10 @@ class PilgrimNotificationsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: isDark
           ? AppColors.backgroundDark
-          : const Color(0xfff1f5f3),
-      body: SafeArea(
-        child: AlertsTab(
-          onBack: () => Navigator.of(context).pop(),
-          pilgrimMissedCallsOnly: missedCallsOnly,
-        ),
+          : const Color(0xFFF7F9FB),
+      body: AlertsTab(
+        onBack: () => Navigator.of(context).pop(),
+        pilgrimMissedCallsOnly: missedCallsOnly,
       ),
     );
   }

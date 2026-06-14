@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../core/widgets/glass/app_glass.dart';
 import '../constants/muslim_colors.dart';
 import '../utils/muslim_localization.dart';
 
@@ -175,7 +176,13 @@ class MuslimScreenScaffold extends StatelessWidget {
                 ],
               ),
             ),
-            Expanded(child: content),
+            Expanded(
+              child: AppScrollFadeOverlay(
+                showTop: false,
+                backgroundColor: bg,
+                child: content,
+              ),
+            ),
           ],
         ),
       ),

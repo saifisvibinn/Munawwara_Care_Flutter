@@ -173,6 +173,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     final themeMode = ref.watch(themeProvider);
     final isDark = AppTheme.isDarkEffective(themeMode, context);
 
@@ -369,7 +370,7 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
 
                     // ── LOCATION SHARING section ─────────────────────────
                     _SectionLabel(
-                      label: 'settings_location_sharing'.tr(),
+                      labelKey: 'settings_location_sharing',
                       textMuted: textMuted,
                     ),
                     SizedBox(height: 8.h),
@@ -717,16 +718,17 @@ class _InfoTile extends StatelessWidget {
 // ─── Sub-widgets ──────────────────────────────────────────────────────────────
 
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label, required this.textMuted});
-  final String label;
+  const _SectionLabel({required this.labelKey, required this.textMuted});
+  final String labelKey;
   final Color textMuted;
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     return Padding(
       padding: EdgeInsets.only(left: 4.w),
       child: Text(
-        label,
+        labelKey.tr(),
         style: TextStyle(
           fontFamily: 'Lexend',
           fontWeight: FontWeight.w600,
@@ -747,6 +749,7 @@ class _SettingsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     return Padding(
       padding: EdgeInsets.fromLTRB(8.w, 8.h, 20.w, 0),
       child: Row(

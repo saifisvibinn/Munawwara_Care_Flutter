@@ -8,6 +8,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../helpers/moderator_navigation.dart';
 import '../providers/pilgrim_provider.dart';
 import '../widgets/moderator_navigate_button.dart';
@@ -85,7 +86,12 @@ void showGroupDetailsBottomSheet(
                     top: Radius.circular(28.r),
                   ),
                 ),
-                child: ListView(
+                child: AppScrollFadeOverlay(
+                  showTop: false,
+                  backgroundColor: isDark
+                      ? AppColors.backgroundDark
+                      : const Color(0xFFFFF7ED),
+                  child: ListView(
                   controller: scrollController,
                   padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 20.h),
                   children: [
@@ -152,6 +158,7 @@ void showGroupDetailsBottomSheet(
                     SizedBox(height: MediaQuery.paddingOf(ctx).bottom + 8.h),
                   ],
                 ),
+              ),
               );
             },
           );

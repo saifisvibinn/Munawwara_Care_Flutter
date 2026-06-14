@@ -381,6 +381,14 @@ class _ModeratorGroupMapScreenState
             ],
           ),
 
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AppScrollFadeOverlay(
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+
           // ── Top AppBar overlay ──
           Positioned(
             top: 0,

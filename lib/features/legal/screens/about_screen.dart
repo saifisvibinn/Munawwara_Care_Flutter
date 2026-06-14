@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/config/legal_config.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/widgets/app_version_label.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import '../../../core/widgets/support_dialogs.dart';
@@ -50,7 +51,10 @@ class AboutScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: SingleChildScrollView(
+      body: AppScrollFadeOverlay(
+        showTop: false,
+        backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+        child: SingleChildScrollView(
         padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
         child: Column(
           children: [
@@ -176,6 +180,7 @@ class AboutScreen extends StatelessWidget {
             SizedBox(height: 32.h),
           ],
         ),
+      ),
       ),
     );
   }

@@ -1192,13 +1192,11 @@ class NotificationService {
           return Scaffold(
             backgroundColor: isDark
                 ? AppColors.backgroundDark
-                : const Color(0xfff1f5f3),
-            body: SafeArea(
-              child: AlertsTab(
+                : const Color(0xFFF7F9FB),
+            body: AlertsTab(
                 onBack: () => Navigator.of(ctx).pop(),
                 initialModeratorTabIndex: 3,
               ),
-            ),
           );
         },
       ),
@@ -1324,10 +1322,8 @@ class NotificationService {
           return Scaffold(
             backgroundColor: isDark
                 ? AppColors.backgroundDark
-                : const Color(0xfff1f5f3),
-            body: SafeArea(
-              child: AlertsTab(onBack: () => Navigator.of(ctx).pop()),
-            ),
+                : const Color(0xFFF7F9FB),
+            body: AlertsTab(onBack: () => Navigator.of(ctx).pop()),
           );
         },
       ),

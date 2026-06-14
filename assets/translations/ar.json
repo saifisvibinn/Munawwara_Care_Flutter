@@ -451,6 +451,8 @@
   "dashboard_search_groups": "البحث في المجموعات...",
   "dashboard_retry": "إعادة المحاولة",
   "dashboard_sos_active": "تنبيه SOS نشط",
+  "dashboard_group_sos_banner": "{count} SOS نشط",
+  "dashboard_delete_group": "حذف المجموعة",
   "dashboard_sos_banner_subtitle": "{name} يحتاج مساعدة في {group}.",
   "dashboard_sos_swipe_hint": "تنبيه {current} من {total} — اسحب جانبياً للمزيد",
   "dashboard_view": "عرض",

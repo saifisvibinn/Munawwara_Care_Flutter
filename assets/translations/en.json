@@ -460,6 +460,8 @@
   "dashboard_search_groups": "Search groups...",
   "dashboard_retry": "Retry",
   "dashboard_sos_active": "Active SOS Alert",
+  "dashboard_group_sos_banner": "{count} active SOS",
+  "dashboard_delete_group": "Delete group",
   "dashboard_sos_banner_subtitle": "{name} needs help in {group}.",
   "dashboard_sos_swipe_hint": "Alert {current} of {total} — swipe sideways for more",
   "dashboard_view": "View",

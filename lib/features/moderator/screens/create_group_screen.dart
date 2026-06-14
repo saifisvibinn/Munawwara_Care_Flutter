@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../providers/moderator_provider.dart';
 
@@ -154,12 +155,18 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
             ),
 
             Expanded(
-              child: SingleChildScrollView(
+              child: AppScrollFadeOverlay(
+                showTop: false,
+                backgroundColor: isDark
+                    ? AppColors.backgroundDark
+                    : AppColors.backgroundLight,
+                child: SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(24.w, 8.h, 24.w, 32.h),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
                   child: _created ? _buildSuccess(isDark) : _buildForm(isDark),
                 ),
+              ),
               ),
             ),
           ],

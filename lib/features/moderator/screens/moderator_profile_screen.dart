@@ -57,6 +57,7 @@ class _ModeratorProfileScreenState
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     final themeMode = ref.watch(themeProvider);
     final isDark = AppTheme.isDarkEffective(themeMode, context);
 
@@ -111,7 +112,7 @@ class _ModeratorProfileScreenState
 
                     // ── EL WAKEL SERVICE section ─────────────────────────────
                     _SectionLabel(
-                      label: 'settings_wakel_service'.tr(),
+                      labelKey: 'settings_wakel_service',
                       textMuted: textMuted,
                     ),
                     SizedBox(height: 8.h),
@@ -132,7 +133,7 @@ class _ModeratorProfileScreenState
 
                     // ── SUPPORT & INFO section ──────────────────────────────
                     _SectionLabel(
-                      label: 'settings_support_info'.tr(),
+                      labelKey: 'settings_support_info',
                       textMuted: textMuted,
                     ),
                     SizedBox(height: 8.h),
@@ -143,7 +144,7 @@ class _ModeratorProfileScreenState
                         children: [
                           _SupportRow(
                             icon: Icons.shield_outlined,
-                            label: 'legal_privacy_policy'.tr(),
+                            labelKey: 'legal_privacy_policy',
                             textPrimary: textPrimary,
                             textMuted: textMuted,
                             onTap: () => context.push('/privacy-policy'),
@@ -152,7 +153,7 @@ class _ModeratorProfileScreenState
                           ),
                           _SupportRow(
                             icon: Icons.info_outline_rounded,
-                            label: 'about_title'.tr(),
+                            labelKey: 'about_title',
                             textPrimary: textPrimary,
                             textMuted: textMuted,
                             onTap: () => context.push(
@@ -233,16 +234,25 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     return Padding(
       padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 0),
       child: Center(
-        child: Text(
-          'Munawwara Care',
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontWeight: FontWeight.w700,
-            fontSize: 20.sp,
-            color: textPrimary,
+        child: RichText(
+          text: TextSpan(
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontWeight: FontWeight.w700,
+              fontSize: 20.sp,
+              color: textPrimary,
+            ),
+            children: [
+              TextSpan(text: 'splash_title_prefix'.tr()),
+              TextSpan(
+                text: 'splash_title_accent'.tr(),
+                style: const TextStyle(color: AppColors.primary),
+              ),
+            ],
           ),
         ),
       ),
@@ -273,6 +283,7 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     return SizedBox(
       width: double.infinity,
       child: AppGlassCard(
@@ -483,16 +494,17 @@ class _WakelCard extends StatelessWidget {
 }
 
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label, required this.textMuted});
-  final String label;
+  const _SectionLabel({required this.labelKey, required this.textMuted});
+  final String labelKey;
   final Color textMuted;
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     return Padding(
       padding: EdgeInsets.only(left: 4.w),
       child: Text(
-        label,
+        labelKey.tr(),
         style: TextStyle(
           fontFamily: 'Lexend',
           fontWeight: FontWeight.w600,
@@ -508,7 +520,7 @@ class _SectionLabel extends StatelessWidget {
 class _SupportRow extends StatelessWidget {
   const _SupportRow({
     required this.icon,
-    required this.label,
+    required this.labelKey,
     required this.textPrimary,
     required this.textMuted,
     required this.onTap,
@@ -517,7 +529,7 @@ class _SupportRow extends StatelessWidget {
   });
 
   final IconData icon;
-  final String label;
+  final String labelKey;
   final Color textPrimary;
   final Color textMuted;
   final VoidCallback onTap;
@@ -526,6 +538,7 @@ class _SupportRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     return Column(
       children: [
         InkWell(
@@ -546,7 +559,7 @@ class _SupportRow extends StatelessWidget {
                 SizedBox(width: 14.w),
                 Expanded(
                   child: Text(
-                    label,
+                    labelKey.tr(),
                     style: TextStyle(
                       fontFamily: 'Lexend',
                       fontWeight: FontWeight.w700,

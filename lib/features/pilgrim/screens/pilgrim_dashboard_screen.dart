@@ -1890,7 +1890,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                     ),
                   ),
                 Expanded(
-                  child: MediaQuery.removePadding(
+                  child: AppScrollFadeOverlay(
+                    useDashboardBottomExtent: true,
+                    child: MediaQuery.removePadding(
                     context: context,
                     removeBottom: true,
                     child: DashboardTabPageView(
@@ -1903,6 +1905,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                       onPageChanged: _handlePageChanged,
                       children: tabs,
                     ),
+                  ),
                   ),
                 ),
               ],

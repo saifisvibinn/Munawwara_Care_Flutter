@@ -640,7 +640,9 @@ class _ModeratorDashboardScreenState
                     ),
                   ),
                 Expanded(
-                  child: MediaQuery.removePadding(
+                  child: AppScrollFadeOverlay(
+                    useDashboardBottomExtent: true,
+                    child: MediaQuery.removePadding(
                     context: context,
                     removeBottom: true,
                     child: DashboardTabPageView(
@@ -662,6 +664,7 @@ class _ModeratorDashboardScreenState
                       ),
                       const ModeratorProfileScreen(),
                     ],
+                  ),
                   ),
                   ),
                 ),
@@ -1377,6 +1380,8 @@ class _GroupCard extends ConsumerWidget {
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
       builder: (_) => _DeleteGroupSheet(groupName: group.groupName),
     );
     if (confirmed != true) return;
@@ -1410,6 +1415,10 @@ class _GroupCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+              if (group.sosCount > 0) ...[
+                _GroupSosBanner(count: group.sosCount),
+                SizedBox(height: 12.h),
+              ],
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1450,34 +1459,9 @@ class _GroupCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  if (group.sosCount > 0) ...[
-                    _SosBadge(count: group.sosCount),
-                    SizedBox(width: 6.w),
-                  ],
-                  GestureDetector(
+                  _GroupDeleteButton(
+                    isDark: isDark,
                     onTap: () => _confirmDelete(context, ref),
-                    child: Container(
-                      width: 32.w,
-                      height: 32.w,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF3D1515)
-                            : const Color(0xFFFEE2E2),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xFFEF4444).withValues(
-                            alpha: 0.35,
-                          ),
-                          width: 1,
-                        ),
-                      ),
-                      child: Icon(
-                        Symbols.delete,
-                        size: 18.w,
-                        color: const Color(0xFFDC2626),
-                        fill: 1,
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -1751,38 +1735,127 @@ class _CountBadge extends StatelessWidget {
   }
 }
 
-class _SosBadge extends StatelessWidget {
+class _GroupSosBanner extends StatelessWidget {
+  const _GroupSosBanner({required this.count});
+
   final int count;
-  const _SosBadge({required this.count});
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 9.h),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF1F2),
-        border: Border.all(color: const Color(0xFFFFE4E6)),
-        borderRadius: BorderRadius.circular(100.r),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFDC2626).withValues(alpha: 0.22),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Symbols.warning,
-            size: 13.w,
-            color: const Color(0xFFDC2626),
-            fill: 1,
+          Container(
+            width: 28.w,
+            height: 28.w,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Symbols.emergency,
+              size: 16.w,
+              color: Colors.white,
+              fill: 1,
+            ),
           ),
-          SizedBox(width: 4.w),
-          Text(
-            '$count SOS',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 11.sp,
-              color: const Color(0xFFDC2626),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Text(
+              'dashboard_group_sos_banner'.tr(
+                namedArgs: {'count': '$count'},
+              ),
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 12.sp,
+                color: Colors.white,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ),
+          Container(
+            constraints: BoxConstraints(minWidth: 26.w),
+            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(100.r),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              count > 99 ? '99+' : '$count',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 11.sp,
+                color: const Color(0xFFDC2626),
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GroupDeleteButton extends StatelessWidget {
+  const _GroupDeleteButton({
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    context.locale;
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.1)
+        : const Color(0xFFE2E8F0);
+    final iconColor =
+        isDark ? Colors.white.withValues(alpha: 0.55) : const Color(0xFF64748B);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10.r),
+        child: Ink(
+          width: 36.w,
+          height: 36.w,
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10.r),
+            border: Border.all(color: borderColor),
+          ),
+          child: Tooltip(
+            message: 'dashboard_delete_group'.tr(),
+            child: Icon(
+              Symbols.delete_outline,
+              size: 18.w,
+              color: iconColor,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1849,103 +1922,122 @@ class _DeleteGroupSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      margin: EdgeInsets.fromLTRB(12.w, 0, 12.w, 24.h),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF272210) : Colors.white,
-        borderRadius: BorderRadius.circular(28.r),
-      ),
-      padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 12.h),
+    final textPrimary = isDark ? Colors.white : AppColors.textDark;
+    final textMuted =
+        isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final sheetRadius = BorderRadius.circular(28.r);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 8.h),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
-          Container(
-            width: 36.w,
-            height: 4.h,
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF383018) : const Color(0xFFE2E8F0),
-              borderRadius: BorderRadius.circular(2.r),
-            ),
-          ),
-          SizedBox(height: 20.h),
-          // Warning icon
-          Container(
-            width: 56.w,
-            height: 56.w,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF1F2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Symbols.delete_forever,
-              size: 28.w,
-              color: const Color(0xFFDC2626),
-              fill: 1,
-            ),
-          ),
-          SizedBox(height: 16.h),
-          Text(
-            'dashboard_delete_title'.tr(),
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 18.sp,
-              color: isDark ? Colors.white : AppColors.textDark,
+          AppGlassSurface(
+            isDark: isDark,
+            borderRadius: sheetRadius,
+            padding: EdgeInsets.fromLTRB(24.w, 12.h, 24.w, 20.h),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36.w,
+                  height: 4.h,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.22)
+                        : Colors.black.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                ),
+                SizedBox(height: 20.h),
+                Container(
+                  width: 56.w,
+                  height: 56.w,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDC2626)
+                        .withValues(alpha: isDark ? 0.2 : 0.1),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFFDC2626).withValues(alpha: 0.28),
+                    ),
+                  ),
+                  child: Icon(
+                    Symbols.delete_forever,
+                    size: 28.w,
+                    color: const Color(0xFFDC2626),
+                    fill: 1,
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                Text(
+                  'dashboard_delete_title'.tr(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18.sp,
+                    color: textPrimary,
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  'dashboard_delete_body'.tr(namedArgs: {'name': groupName}),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 13.sp,
+                    color: textMuted,
+                    height: 1.5,
+                  ),
+                ),
+                SizedBox(height: 22.h),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50.h,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFDC2626),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14.r),
+                      ),
+                    ),
+                    child: Text(
+                      'dashboard_delete_confirm'.tr(),
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15.sp,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           SizedBox(height: 8.h),
-          Text(
-            'dashboard_delete_body'.tr(namedArgs: {'name': groupName}),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13.sp,
-              color: AppColors.textMutedLight,
-              height: 1.5,
-            ),
-          ),
-          SizedBox(height: 24.h),
-          // Delete button
-          SizedBox(
-            width: double.infinity,
-            height: 50.h,
-            child: ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFDC2626),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14.r),
-                ),
-              ),
-              child: Text(
-                'dashboard_delete_confirm'.tr(),
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14.sp,
-                ),
-              ),
-            ),
-          ),
-          SizedBox(height: 10.h),
-          // Cancel button
-          SizedBox(
-            width: double.infinity,
-            height: 50.h,
-            child: TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              style: TextButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14.r),
-                ),
-              ),
-              child: Text(
-                'dashboard_delete_cancel'.tr(),
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14.sp,
-                  color: AppColors.textMutedLight,
+          AppGlassSurface(
+            isDark: isDark,
+            borderRadius: sheetRadius,
+            onTap: () => Navigator.of(context).pop(false),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52.h,
+              child: Center(
+                child: Text(
+                  'dashboard_delete_cancel'.tr(),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16.sp,
+                    color: isDark
+                        ? const Color(0xFF60A5FA)
+                        : const Color(0xFF2563EB),
+                  ),
                 ),
               ),
             ),

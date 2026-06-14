@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/config/legal_config.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/widgets/phone_number_text.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/support_api.dart';
@@ -118,7 +119,11 @@ class _ContactSupportScreenState extends ConsumerState<ContactSupportScreen> {
                 textMuted: textMuted,
                 onDone: () => Navigator.of(context).maybePop(),
               )
-            : SingleChildScrollView(
+            : AppScrollFadeOverlay(
+                showTop: false,
+                backgroundColor:
+                    isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+                child: SingleChildScrollView(
                 padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 24.h),
                 child: Form(
                   key: _formKey,
@@ -239,6 +244,7 @@ class _ContactSupportScreenState extends ConsumerState<ContactSupportScreen> {
                     ],
                   ),
                 ),
+              ),
               ),
       ),
     );

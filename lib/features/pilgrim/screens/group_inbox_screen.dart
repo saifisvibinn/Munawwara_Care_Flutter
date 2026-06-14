@@ -472,13 +472,17 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
               ),
             ),
             Expanded(
-              child: showLoading
+              child: AppScrollFadeOverlay(
+                showTop: false,
+                useDashboardBottomExtent: !widget.showBackButton,
+                child: showLoading
                   ? const Center(
                       child: CircularProgressIndicator(
                         color: AppColors.primary,
                       ),
                     )
                   : _buildMessageList(filtered),
+              ),
             ),
           ],
         ),

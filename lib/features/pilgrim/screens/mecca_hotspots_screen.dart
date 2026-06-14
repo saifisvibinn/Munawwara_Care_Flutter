@@ -10,6 +10,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/services/explore_geo.dart';
 import '../../../core/services/explore_places_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/utils/open_maps_navigation.dart';
 import '../models/explore_place.dart';
 
@@ -419,7 +420,12 @@ class _MeccaHotspotsScreenState extends State<MeccaHotspotsScreen> {
               ),
               SizedBox(height: 14.h),
               Expanded(
-                child: _loading
+                child: AppScrollFadeOverlay(
+                  showTop: false,
+                  backgroundColor: isDark
+                      ? AppColors.backgroundDark
+                      : const Color(0xFFF1F5F3),
+                  child: _loading
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -492,6 +498,7 @@ class _MeccaHotspotsScreenState extends State<MeccaHotspotsScreen> {
                                   );
                                 },
                               ),
+                ),
               ),
             ],
           ),

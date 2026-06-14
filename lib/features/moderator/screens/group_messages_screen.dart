@@ -13,6 +13,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/utils/open_maps_navigation.dart';
 import '../../../core/services/speech_service.dart';
 import '../../../core/widgets/custom_dialog.dart';
@@ -537,13 +538,17 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
               showBrandAvatar: true,
             ),
             Expanded(
-              child: showLoading
+              child: AppScrollFadeOverlay(
+                showTop: false,
+                backgroundColor: GroupChatTheme.scaffoldBackground(isDark),
+                child: showLoading
                   ? const Center(
                       child: CircularProgressIndicator(
                         color: AppColors.primary,
                       ),
                     )
                   : _buildMessageList(msgState.messages, isDark),
+              ),
             ),
             _buildComposer(isDark, msgState.isSending),
           ],

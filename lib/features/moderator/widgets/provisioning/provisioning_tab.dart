@@ -882,21 +882,26 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab>
             backgroundColor: Colors.transparent,
             body: Stack(
               children: [
-                TabBarView(
-                  controller: _provisionTabController,
-                  children: [
-                    _buildProvisionTabBody(
-                      context,
-                      groups: groups,
-                      isLoadingGroups: isLoadingGroups,
-                    ),
-                    _buildTrackerTabBody(
-                      context,
-                      groups: groups,
-                      isLoadingGroups: isLoadingGroups,
-                    ),
-                    const ManagePilgrimsScreen(),
-                  ],
+                AppScrollFadeOverlay(
+                  showBottom: false,
+                  topExtent:
+                      AppGlassTheme.scrollFadeProvisioningTopExtent(context),
+                  child: TabBarView(
+                    controller: _provisionTabController,
+                    children: [
+                      _buildProvisionTabBody(
+                        context,
+                        groups: groups,
+                        isLoadingGroups: isLoadingGroups,
+                      ),
+                      _buildTrackerTabBody(
+                        context,
+                        groups: groups,
+                        isLoadingGroups: isLoadingGroups,
+                      ),
+                      const ManagePilgrimsScreen(),
+                    ],
+                  ),
                 ),
                 if (!AppGlassTheme.isKeyboardVisible(context))
                   Positioned(

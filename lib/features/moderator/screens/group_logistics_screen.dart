@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/services/api_service.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/glass/app_glass.dart';
 import 'document_viewer_screen.dart';
 
 // ── Models for Logistics ─────────────────────────────────────────────────────
@@ -297,7 +298,11 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                     ),
                   ),
                 )
-              : RefreshIndicator(
+              : AppScrollFadeOverlay(
+                  showTop: false,
+                  backgroundColor:
+                      AppGlassTheme.dashboardBackgroundColor(isDark),
+                  child: RefreshIndicator(
                   color: AppColors.primary,
                   onRefresh: _loadLogistics,
                   child: ListView(
@@ -326,6 +331,7 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                       _buildInsuranceSection(isDark),
                     ],
                   ),
+                ),
                 ),
     );
   }

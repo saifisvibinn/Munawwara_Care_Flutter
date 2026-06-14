@@ -101,4 +101,20 @@ class AppGlassTheme {
     }
     return provisionSubNavTopOffset(context) + provisionSubNavPillHeight + 8.h;
   }
+
+  /// Height of the top scroll-edge fade band (status bar + soft falloff).
+  static double scrollFadeTopExtent(BuildContext context) =>
+      MediaQuery.viewPaddingOf(context).top + 20.h;
+
+  /// Bottom fade for dashboard tabs that sit above the floating glass nav bar.
+  static double scrollFadeBottomExtentDashboard(BuildContext context) =>
+      bottomNavScrollPadding(context);
+
+  /// Bottom fade for standalone pushed screens (no floating tab bar).
+  static double scrollFadeBottomExtentStandalone(BuildContext context) =>
+      MediaQuery.viewPaddingOf(context).bottom + 20.h;
+
+  /// Top fade for provisioning — covers status bar + floating sub-nav pill.
+  static double scrollFadeProvisioningTopExtent(BuildContext context) =>
+      provisionSubNavScrollPadding(context) + 12.h;
 }

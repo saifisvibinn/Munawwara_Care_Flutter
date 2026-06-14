@@ -8,6 +8,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/services/caller_gender_cache.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass/app_glass.dart';
 import '../../shared/widgets/pilgrim_gender_avatar.dart';
 import '../providers/moderator_provider.dart';
 import '../providers/moderator_resolved_sos_provider.dart';
@@ -63,7 +64,9 @@ class ModeratorResolvedSosList extends ConsumerWidget {
       );
     }
 
-    return ListView.separated(
+    return AppScrollFadeOverlay(
+      showTop: false,
+      child: ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(
         parent: BouncingScrollPhysics(),
       ),
@@ -73,6 +76,7 @@ class ModeratorResolvedSosList extends ConsumerWidget {
       itemBuilder: (ctx, i) {
         return _ResolvedSosTile(record: list[i], isDark: isDark);
       },
+    ),
     );
   }
 }

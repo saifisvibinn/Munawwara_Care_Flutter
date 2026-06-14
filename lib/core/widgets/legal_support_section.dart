@@ -27,10 +27,11 @@ class LegalSupportSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    context.locale;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionLabel(label: 'legal_section_title'.tr(), textMuted: textMuted),
+        _SectionLabel(labelKey: 'legal_section_title', textMuted: textMuted),
         SizedBox(height: 8.h),
         Container(
           decoration: BoxDecoration(
@@ -48,7 +49,7 @@ class LegalSupportSection extends ConsumerWidget {
             children: [
               _LegalRow(
                 icon: Icons.privacy_tip_outlined,
-                label: 'legal_privacy_policy'.tr(),
+                labelKey: 'legal_privacy_policy',
                 textPrimary: textPrimary,
                 textMuted: textMuted,
                 onTap: () => context.push('/privacy-policy'),
@@ -56,7 +57,7 @@ class LegalSupportSection extends ConsumerWidget {
               _DividerLine(color: dividerColor),
               _LegalRow(
                 icon: Icons.info_outline_rounded,
-                label: 'about_title'.tr(),
+                labelKey: 'about_title',
                 textPrimary: textPrimary,
                 textMuted: textMuted,
                 onTap: () => context.push(
@@ -73,17 +74,18 @@ class LegalSupportSection extends ConsumerWidget {
 }
 
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label, required this.textMuted});
+  const _SectionLabel({required this.labelKey, required this.textMuted});
 
-  final String label;
+  final String labelKey;
   final Color textMuted;
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     return Padding(
       padding: EdgeInsets.only(left: 4.w),
       child: Text(
-        label,
+        labelKey.tr(),
         style: TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 11.sp,
@@ -98,20 +100,21 @@ class _SectionLabel extends StatelessWidget {
 class _LegalRow extends StatelessWidget {
   const _LegalRow({
     required this.icon,
-    required this.label,
+    required this.labelKey,
     required this.textPrimary,
     required this.textMuted,
     required this.onTap,
   });
 
   final IconData icon;
-  final String label;
+  final String labelKey;
   final Color textPrimary;
   final Color textMuted;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     final color = AppColors.primary;
     return InkWell(
       onTap: onTap,
@@ -132,7 +135,7 @@ class _LegalRow extends StatelessWidget {
             SizedBox(width: 12.w),
             Expanded(
               child: Text(
-                label,
+                labelKey.tr(),
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 14.sp,
