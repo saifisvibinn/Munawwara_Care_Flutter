@@ -13,6 +13,7 @@ Future<void> showAppLanguagePickerSheet({
   required String selectedCode,
   required bool isDark,
 }) {
+  final hostContext = context;
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -82,12 +83,12 @@ Future<void> showAppLanguagePickerSheet({
                               return;
                             }
                             HapticFeedback.selectionClick();
-                            await AppLanguageService.apply(
-                              sheetContext,
-                              lang.code,
-                            );
-                            if (sheetContext.mounted) {
-                              Navigator.pop(sheetContext);
+                            Navigator.pop(sheetContext);
+                            if (hostContext.mounted) {
+                              await AppLanguageService.apply(
+                                hostContext,
+                                lang.code,
+                              );
                             }
                           },
                           child: Padding(

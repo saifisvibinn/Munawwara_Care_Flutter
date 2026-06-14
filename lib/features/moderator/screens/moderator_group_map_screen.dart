@@ -393,7 +393,6 @@ class _ModeratorGroupMapScreenState
                   children: [
                     CircleButton(
                       icon: Symbols.arrow_back,
-                      matchTextDirection: true,
                       onTap: () => Navigator.of(context).pop(),
                     ),
                     SizedBox(width: 10.w),

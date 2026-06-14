@@ -606,6 +606,8 @@
   "missed_calls_title": "مكالمات فائتة",
   "missed_calls_empty": "لا مكالمات فائتة",
   "missed_calls_see_all": "كل المكالمات",
+  "splash_title_prefix": "منورة ",
+  "splash_title_accent": "كير",
   "splash_tagline": "نخدم ضيوف الرحمن بتميز ويسر.",
   "splash_version": "الإصدار 1.0.0",
   "pilgrim_id_prefix": "رقم الحاج:",

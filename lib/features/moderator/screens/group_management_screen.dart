@@ -1709,7 +1709,6 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
                       alignment: AlignmentDirectional.centerStart,
                       child: CircleButton(
                         icon: Symbols.arrow_back,
-                        matchTextDirection: true,
                         onTap: () => Navigator.of(context).pop(),
                       ),
                     ),

@@ -247,11 +247,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                       letterSpacing: -0.5,
                       color: isDark ? Colors.white : AppColors.textDark,
                     ),
-                    children: const [
-                      TextSpan(text: 'Munawwara '),
+                    children: [
+                      TextSpan(text: 'splash_title_prefix'.tr()),
                       TextSpan(
-                        text: 'Care',
-                        style: TextStyle(color: AppColors.primary),
+                        text: 'splash_title_accent'.tr(),
+                        style: const TextStyle(color: AppColors.primary),
                       ),
                     ],
                   ),

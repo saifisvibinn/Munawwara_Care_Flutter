@@ -615,6 +615,8 @@
   "missed_calls_title": "چھوٹی ہوئی کالیں",
   "missed_calls_empty": "کوئی چھوٹی کال نہیں",
   "missed_calls_see_all": "تمام کالیں",
+  "splash_title_prefix": "منورة ",
+  "splash_title_accent": "كير",
   "splash_tagline": "ضیوف الرحمن کی خدمت باخوبی سے۔",
   "splash_version": "ورژن 1.0.0",
   "pilgrim_id_prefix": "حاج نمبر:",
