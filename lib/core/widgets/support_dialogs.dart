@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../router/app_router.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
+import 'app_selection_field.dart';
 import 'standard_snackbar.dart';
 
 class SupportDialogs {
@@ -785,30 +786,31 @@ class _ReportIssueDialogState extends State<ReportIssueDialog> {
               SizedBox(height: 16.h),
 
               // Category dropdown
-              DropdownButtonFormField<String>(
+              AppSelectionFormField<String>(
                 initialValue: _selectedCategory,
-                dropdownColor: cardBg,
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  color: textPrimary,
-                ),
+                isDark: Theme.of(context).brightness == Brightness.dark,
+                label: 'report_category'.tr(),
+                sheetTitle: 'report_category'.tr(),
                 decoration: InputDecoration(
                   labelText: 'report_category'.tr(),
-                  labelStyle: TextStyle( color: textMuted, fontSize: 13.sp),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r)),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                  labelStyle: TextStyle(color: textMuted, fontSize: 13.sp),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                 ),
-                items: _categories.map((cat) {
-                  return DropdownMenuItem(
-                    value: cat['value'],
-                    child: Text(cat['label']!),
-                  );
-                }).toList(),
+                options: _categories
+                    .map(
+                      (cat) => AppSelectionOption(
+                        value: cat['value']!,
+                        label: cat['label']!,
+                      ),
+                    )
+                    .toList(),
                 onChanged: (val) {
                   if (val != null) {
-                    setState(() {
-                      _selectedCategory = val;
-                    });
+                    setState(() => _selectedCategory = val);
                   }
                 },
               ),

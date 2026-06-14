@@ -9,6 +9,7 @@ import 'package:easy_localization/easy_localization.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dropdown_theme.dart';
+import '../../../core/widgets/app_selection_field.dart';
 import '../providers/manage_pilgrims_provider.dart';
 import '../providers/moderator_provider.dart';
 import '../../../core/widgets/glass/app_glass.dart';
@@ -1571,36 +1572,21 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-                  DropdownButtonFormField<String?>(
+                  AppSelectionFormField<String?>(
                     initialValue: _selectedHotelId,
-                    isExpanded: true,
-                    decoration: AppDropdownTheme.formFieldDecoration(
-                      isDark: isDark,
-                      labelText: 'group_hotel_name'.tr(),
-                      prefixIcon: Icon(Symbols.apartment),
-                    ),
-                    icon: AppDropdownTheme.menuTrailingIcon(),
-                    dropdownColor: AppDropdownTheme.menuBackground(isDark),
-                    borderRadius: AppDropdownTheme.menuBorderRadius(),
-                    elevation: AppDropdownTheme.menuElevation(),
-                    menuMaxHeight: AppDropdownTheme.menuMaxHeight(),
-                    style: AppDropdownTheme.valueStyle(isDark),
-                    items: [
-                      DropdownMenuItem(
+                    isDark: isDark,
+                    label: 'group_hotel_name'.tr(),
+                    sheetTitle: 'group_hotel_name'.tr(),
+                    prefixIcon: Icon(Symbols.apartment),
+                    options: [
+                      AppSelectionOption<String?>(
                         value: null,
-                        child: Text(
-                          'group_no_hotel'.tr(),
-                          style: AppDropdownTheme.menuItemStyle(isDark),
-                        ),
+                        label: 'group_no_hotel'.tr(),
                       ),
                       ..._hotels.map(
-                        (h) => DropdownMenuItem(
+                        (h) => AppSelectionOption<String?>(
                           value: h.id,
-                          child: Text(
-                            h.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppDropdownTheme.menuItemStyle(isDark),
-                          ),
+                          label: h.name,
                         ),
                       ),
                     ],
@@ -1610,47 +1596,31 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
                     }),
                   ),
                   SizedBox(height: 12.h),
-                  DropdownButtonFormField<String?>(
+                  AppSelectionFormField<String?>(
                     initialValue: _selectedRoomId,
-                    isExpanded: true,
-                    disabledHint: Text('manage_select_hotel_first'.tr()),
-                    decoration: AppDropdownTheme.formFieldDecoration(
-                      isDark: isDark,
-                      labelText: 'group_room_number'.tr(),
-                      prefixIcon: Icon(Symbols.meeting_room),
-                    ),
-                    icon: AppDropdownTheme.menuTrailingIcon(),
-                    dropdownColor: AppDropdownTheme.menuBackground(isDark),
-                    borderRadius: AppDropdownTheme.menuBorderRadius(),
-                    elevation: AppDropdownTheme.menuElevation(),
-                    menuMaxHeight: AppDropdownTheme.menuMaxHeight(),
-                    style: AppDropdownTheme.valueStyle(isDark),
-                    items: [
-                      DropdownMenuItem(
+                    enabled: _selectedHotelId != null,
+                    isDark: isDark,
+                    label: 'group_room_number'.tr(),
+                    sheetTitle: 'group_room_number'.tr(),
+                    hint: 'manage_select_hotel_first'.tr(),
+                    prefixIcon: Icon(Symbols.meeting_room),
+                    options: [
+                      AppSelectionOption<String?>(
                         value: null,
-                        child: Text(
-                          'group_no_room'.tr(),
-                          style: AppDropdownTheme.menuItemStyle(isDark),
-                        ),
+                        label: 'group_no_room'.tr(),
                       ),
                       ...rooms.map((r) {
                         final current = r.currentOccupancy;
                         final isFull = current >= r.capacity;
-                        final base = AppDropdownTheme.menuItemStyle(isDark);
-                        return DropdownMenuItem(
+                        return AppSelectionOption<String?>(
                           value: r.id,
-                          child: Text(
-                            '${r.roomNumber}${r.floor != null ? ' (F${r.floor})' : ''} - $current/${r.capacity}${isFull ? ' (${ 'manage_full'.tr() })' : ''}',
-                            style: isFull
-                                ? base.copyWith(color: Colors.green.shade400)
-                                : base,
-                          ),
+                          label:
+                              '${r.roomNumber}${r.floor != null ? ' (F${r.floor})' : ''} - $current/${r.capacity}${isFull ? ' (${'manage_full'.tr()})' : ''}',
+                          textColor: isFull ? Colors.green.shade400 : null,
                         );
                       }),
                     ],
-                    onChanged: _selectedHotelId == null
-                        ? null
-                        : (v) => setState(() => _selectedRoomId = v),
+                    onChanged: (v) => setState(() => _selectedRoomId = v),
                   ),
                   SizedBox(height: 12.h),
 
@@ -1752,39 +1722,26 @@ class _EditLogisticsContentState extends ConsumerState<_EditLogisticsContent> {
                     ),
                   ),
                   SizedBox(height: 12.h),
-                  DropdownButtonFormField<String?>(
+                  AppSelectionFormField<String?>(
                     initialValue: _selectedInsuranceCompanyId,
-                    isExpanded: true,
-                    decoration: AppDropdownTheme.formFieldDecoration(
-                      isDark: isDark,
-                      labelText: 'Insurance Company',
-                      prefixIcon: Icon(Symbols.health_and_safety),
-                    ),
-                    icon: AppDropdownTheme.menuTrailingIcon(),
-                    dropdownColor: AppDropdownTheme.menuBackground(isDark),
-                    borderRadius: AppDropdownTheme.menuBorderRadius(),
-                    elevation: AppDropdownTheme.menuElevation(),
-                    menuMaxHeight: AppDropdownTheme.menuMaxHeight(),
-                    style: AppDropdownTheme.valueStyle(isDark, fontSize: 13),
-                    items: [
-                      DropdownMenuItem<String?>(
+                    isDark: isDark,
+                    label: 'Insurance Company',
+                    sheetTitle: 'Insurance Company',
+                    prefixIcon: Icon(Symbols.health_and_safety),
+                    options: [
+                      AppSelectionOption<String?>(
                         value: null,
-                        child: Text(
-                          'No Insurance',
-                          style: AppDropdownTheme.menuItemStyle(isDark, fontSize: 13),
-                        ),
+                        label: 'No Insurance',
                       ),
                       ..._insurances.map(
-                        (i) => DropdownMenuItem<String?>(
+                        (i) => AppSelectionOption<String?>(
                           value: i.id,
-                          child: Text(
-                            i.name,
-                            style: AppDropdownTheme.menuItemStyle(isDark, fontSize: 13),
-                          ),
+                          label: i.name,
                         ),
                       ),
                     ],
-                    onChanged: (v) => setState(() => _selectedInsuranceCompanyId = v),
+                    onChanged: (v) =>
+                        setState(() => _selectedInsuranceCompanyId = v),
                   ),
                   SizedBox(height: 24.h),
                   Row(

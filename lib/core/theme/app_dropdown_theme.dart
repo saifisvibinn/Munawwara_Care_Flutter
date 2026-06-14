@@ -4,66 +4,81 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import 'app_colors.dart';
 
-/// App-wide [DropdownButtonFormField] / [DropdownButton] styling.
-/// Tweak radius, fills, and borders here to refresh every dropdown at once.
-/// Pairs visually with [AppPopupMenu] (same menu corner radius and surfaces).
+/// App-wide selection field styling (Apple HIG form controls).
+/// Selection menus use [AppSelectionField] + [showAppSelectionSheet].
+/// Contextual action menus use [AppPopupMenu].
 class AppDropdownTheme {
   AppDropdownTheme._();
 
   static const String fontFamily = 'Lexend';
 
-  // --- Global tokens (edit these to restyle all dropdowns) ---
-  static double fieldCornerRadius() => 16.r;
-  static double menuCornerRadius() => 16.r;
-  static int menuElevation() => 8;
-  static double menuMaxHeight() => 320.h;
+  // Apple HIG: grouped form corners ~10–12pt; menus ~10–14pt.
+  static double fieldCornerRadius() => 12.r;
+  static double menuCornerRadius() => 12.r;
+  static int menuElevation() => 4;
+  static double menuMaxHeight() => 360.h;
 
   static Color menuBackground(bool isDark) =>
       isDark ? AppColors.surfaceDark : Colors.white;
 
-  /// Field background when not inside another tinted surface.
   static Color fieldFill(bool isDark) =>
       isDark ? AppColors.surfaceDark : Colors.white;
 
-  /// Slightly recessed fill for dropdowns inside cards / panels.
   static Color fieldFillNested(bool isDark) =>
-      isDark ? const Color(0xFF1A2230) : const Color(0xFFF3F4F6);
+      isDark ? const Color(0xFF1A2230) : const Color(0xFFF2F2F7);
 
   static Color fieldBorder(bool isDark) =>
-      isDark ? AppColors.dividerDark : AppColors.dividerLight;
+      isDark ? AppColors.dividerDark : const Color(0xFFE5E5EA);
 
-  static TextStyle valueStyle(bool isDark, {double fontSize = 15}) => TextStyle(
+  static TextStyle valueStyle(bool isDark, {double fontSize = 16}) => TextStyle(
         fontFamily: fontFamily,
         fontSize: fontSize.sp,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w500,
+        letterSpacing: -0.2,
         color: isDark ? Colors.white : AppColors.textDark,
       );
 
   static TextStyle labelStyle(bool isDark) => TextStyle(
         fontFamily: fontFamily,
-        fontSize: 14.sp,
+        fontSize: 13.sp,
+        fontWeight: FontWeight.w500,
         color: isDark ? AppColors.textMutedLight : AppColors.textMutedDark,
       );
 
-  static TextStyle menuItemStyle(bool isDark, {double fontSize = 14}) =>
+  static TextStyle menuItemStyle(bool isDark, {double fontSize = 16}) =>
       TextStyle(
         fontFamily: fontFamily,
         fontSize: fontSize.sp,
+        fontWeight: FontWeight.w500,
+        letterSpacing: -0.2,
         color: isDark ? Colors.white : AppColors.textDark,
       );
 
   static BorderRadius menuBorderRadius() =>
       BorderRadius.circular(menuCornerRadius());
 
-  /// Trailing icon for form and inline dropdowns.
+  /// Settings-style disclosure chevron (44×44 min touch target per HIG).
+  static Widget disclosureIcon(bool isDark, {double? size}) {
+    return SizedBox(
+      width: 44.w,
+      height: 44.h,
+      child: Icon(
+        Symbols.chevron_right,
+        size: size ?? 20.sp,
+        color: isDark ? AppColors.textMutedLight : const Color(0xFFC7C7CC),
+      ),
+    );
+  }
+
+  @Deprecated('Use disclosureIcon for Apple-style pickers')
   static Widget menuTrailingIcon({
-    IconData icon = Symbols.expand_more,
+    IconData icon = Symbols.unfold_more,
     double? size,
   }) {
     return Icon(
       icon,
       color: AppColors.primary,
-      size: size ?? 22.sp,
+      size: size ?? 20.sp,
     );
   }
 
@@ -78,11 +93,11 @@ class AppDropdownTheme {
   }) {
     final fill = nested ? fieldFillNested(isDark) : fieldFill(isDark);
     final borderClr = fieldBorder(isDark);
-    final radius = minimal ? 14.r : fieldCornerRadius();
+    final radius = minimal ? 10.r : fieldCornerRadius();
     final pad = contentPadding ??
         (minimal
-            ? EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 14.h)
-            : EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h));
+            ? EdgeInsets.fromLTRB(14.w, 8.h, 8.w, 10.h)
+            : EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h));
 
     if (minimal) {
       return InputDecoration(
@@ -159,7 +174,6 @@ class AppDropdownTheme {
     );
   }
 
-  /// Wrapper decoration for inline [DropdownButton] (no label), e.g. group picker.
   static BoxDecoration inlineContainerDecoration(bool isDark) {
     return BoxDecoration(
       color: fieldFill(isDark),

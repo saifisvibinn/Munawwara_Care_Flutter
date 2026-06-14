@@ -17,7 +17,7 @@ import 'dart:io';
 
 import '../../../../core/services/api_service.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dropdown_theme.dart';
+import '../../../../core/widgets/app_selection_field.dart';
 import '../../../../core/widgets/glass/app_glass.dart';
 import '../../../../core/widgets/custom_dialog.dart';
 import '../../../../core/widgets/standard_snackbar.dart';
@@ -1043,66 +1043,34 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab>
     required List<GroupOption> groups,
     required bool isLoadingGroups,
   }) {
-    final outline = isDark ? AppColors.dividerDark : AppColors.dividerLight;
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: outline.withValues(alpha: isDark ? 0.9 : 0.65),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedGroupId,
-          isExpanded: true,
-          hint: Text(
-            'group_select'.tr(),
-            style: AppDropdownTheme.menuItemStyle(isDark),
-          ),
-          items: groups
-              .map(
-                (g) => DropdownMenuItem(
-                  value: g.id,
-                  child: Text(
-                    g.name,
-                    style: AppDropdownTheme.menuItemStyle(isDark),
-                  ),
-                ),
-              )
-              .toList(),
-          onChanged: isLoadingGroups
-              ? null
-              : (v) async {
-                  setState(() {
-                    _selectedGroupId = v;
-                  });
-                  await Future.wait([
-                    _loadResourceOptions(),
-                    _loadProvisioningStatus(),
-                  ]);
-                },
-          style: AppDropdownTheme.valueStyle(isDark, fontSize: 16),
-          dropdownColor: AppDropdownTheme.menuBackground(isDark),
-          borderRadius: AppDropdownTheme.menuBorderRadius(),
-          elevation: AppDropdownTheme.menuElevation(),
-          icon: isLoadingGroups
-              ? SizedBox(
-                  width: 16.w,
-                  height: 16.w,
-                  child: const CircularProgressIndicator(strokeWidth: 2),
-                )
-              : AppDropdownTheme.menuTrailingIcon(),
-        ),
-      ),
+    return AppSelectionField<String?>(
+      value: _selectedGroupId,
+      isDark: isDark,
+      style: AppSelectionStyle.compact,
+      hint: 'group_select'.tr(),
+      sheetTitle: 'group_select'.tr(),
+      enabled: !isLoadingGroups,
+      trailingIcon: isLoadingGroups
+          ? SizedBox(
+              width: 16.w,
+              height: 16.w,
+              child: const CircularProgressIndicator(strokeWidth: 2),
+            )
+          : null,
+      options: groups
+          .map((g) => AppSelectionOption<String?>(value: g.id, label: g.name))
+          .toList(),
+      onChanged: isLoadingGroups
+          ? (_) {}
+          : (v) async {
+              setState(() {
+                _selectedGroupId = v;
+              });
+              await Future.wait([
+                _loadResourceOptions(),
+                _loadProvisioningStatus(),
+              ]);
+            },
     );
   }
 }

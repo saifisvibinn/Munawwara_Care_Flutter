@@ -10,7 +10,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../../../core/config/app_locales.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass/app_glass.dart';
-import '../../../core/theme/app_dropdown_theme.dart';
+import '../../../core/widgets/app_selection_field.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import '../providers/live_translate_provider.dart';
@@ -270,37 +270,27 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                 child: Row(
                   children: [
                     Expanded(
-                      child: InputDecorator(
-                        decoration: AppDropdownTheme.formFieldDecoration(
-                          isDark: isDark,
-                          labelText: 'translate_from'.tr(),
-                          minimal: true,
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: state.fromLang,
-                            isExpanded: true,
-                            dropdownColor: AppDropdownTheme.menuBackground(isDark),
-                            borderRadius: AppDropdownTheme.menuBorderRadius(),
-                            icon: AppDropdownTheme.menuTrailingIcon(),
-                            style: AppDropdownTheme.valueStyle(isDark),
-                            isDense: true,
-                            items: AppLocales.liveTranslateLanguageCodes.map((code) {
-                              return DropdownMenuItem<String>(
+                      child: AppSelectionField<String>(
+                        value: state.fromLang,
+                        isDark: isDark,
+                        style: AppSelectionStyle.minimal,
+                        label: 'translate_from'.tr(),
+                        sheetTitle: 'translate_from'.tr(),
+                        options: AppLocales.liveTranslateLanguageCodes
+                            .map(
+                              (code) => AppSelectionOption(
                                 value: code,
-                                child: Text(
-                                  'lang_${_getName(code)}'.tr(),
-                                  style: AppDropdownTheme.menuItemStyle(isDark),
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                ref.read(liveTranslateProvider.notifier).setSourceLanguage(val);
-                              }
-                            },
-                          ),
-                        ),
+                                label: 'lang_${_getName(code)}'.tr(),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            ref
+                                .read(liveTranslateProvider.notifier)
+                                .setSourceLanguage(val);
+                          }
+                        },
                       ),
                     ),
                     SizedBox(width: 8.w),
@@ -326,37 +316,27 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                     ),
                     SizedBox(width: 8.w),
                     Expanded(
-                      child: InputDecorator(
-                        decoration: AppDropdownTheme.formFieldDecoration(
-                          isDark: isDark,
-                          labelText: 'translate_to'.tr(),
-                          minimal: true,
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: state.toLang,
-                            isExpanded: true,
-                            dropdownColor: AppDropdownTheme.menuBackground(isDark),
-                            borderRadius: AppDropdownTheme.menuBorderRadius(),
-                            icon: AppDropdownTheme.menuTrailingIcon(),
-                            style: AppDropdownTheme.valueStyle(isDark),
-                            isDense: true,
-                            items: AppLocales.liveTranslateLanguageCodes.map((code) {
-                              return DropdownMenuItem<String>(
+                      child: AppSelectionField<String>(
+                        value: state.toLang,
+                        isDark: isDark,
+                        style: AppSelectionStyle.minimal,
+                        label: 'translate_to'.tr(),
+                        sheetTitle: 'translate_to'.tr(),
+                        options: AppLocales.liveTranslateLanguageCodes
+                            .map(
+                              (code) => AppSelectionOption(
                                 value: code,
-                                child: Text(
-                                  'lang_${_getName(code)}'.tr(),
-                                  style: AppDropdownTheme.menuItemStyle(isDark),
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                ref.read(liveTranslateProvider.notifier).setTargetLanguage(val);
-                              }
-                            },
-                          ),
-                        ),
+                                label: 'lang_${_getName(code)}'.tr(),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            ref
+                                .read(liveTranslateProvider.notifier)
+                                .setTargetLanguage(val);
+                          }
+                        },
                       ),
                     ),
                   ],

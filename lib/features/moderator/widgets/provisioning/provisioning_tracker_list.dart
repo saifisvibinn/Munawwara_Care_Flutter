@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dropdown_theme.dart';
 import '../../../../core/widgets/app_popup_menu.dart';
+import '../../../../core/widgets/app_selection_field.dart';
 import '../../../../core/widgets/phone_number_text.dart';
 import '../../models/provisioning_models.dart';
 import '../../../shared/widgets/pilgrim_gender_avatar.dart';
@@ -246,52 +246,33 @@ class ProvisioningTrackerList extends StatelessWidget {
   }
 
   Widget _buildFilterDropdown() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 4.h),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A2230) : const Color(0xFFF5F5F7),
-        borderRadius: BorderRadius.circular(20.r),
+    return AppSelectionField<String>(
+      value: filterStatus,
+      isDark: isDark,
+      style: AppSelectionStyle.compact,
+      sheetTitle: 'group_status_all'.tr(),
+      trailingIcon: Icon(
+        Symbols.filter_list,
+        size: 18.sp,
+        color: AppColors.primary,
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: filterStatus,
-          isExpanded: true,
-          items: [
-            DropdownMenuItem(
-              value: 'all',
-              child: Text(
-                'group_status_all'.tr(),
-                style: AppDropdownTheme.menuItemStyle(isDark, fontSize: 13),
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'pending',
-              child: Text(
-                'group_status_pending_only'.tr(),
-                style: AppDropdownTheme.menuItemStyle(isDark, fontSize: 13),
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'activated',
-              child: Text(
-                'group_status_activated'.tr(),
-                style: AppDropdownTheme.menuItemStyle(isDark, fontSize: 13),
-              ),
-            ),
-          ],
-          onChanged: (val) {
-            if (val != null) onFilterChanged(val);
-          },
-          style: AppDropdownTheme.valueStyle(isDark, fontSize: 13),
-          dropdownColor: AppDropdownTheme.menuBackground(isDark),
-          borderRadius: AppDropdownTheme.menuBorderRadius(),
-          elevation: AppDropdownTheme.menuElevation(),
-          icon: AppDropdownTheme.menuTrailingIcon(
-            icon: Symbols.filter_list,
-            size: 18.w,
-          ),
+      options: [
+        AppSelectionOption(
+          value: 'all',
+          label: 'group_status_all'.tr(),
         ),
-      ),
+        AppSelectionOption(
+          value: 'pending',
+          label: 'group_status_pending_only'.tr(),
+        ),
+        AppSelectionOption(
+          value: 'activated',
+          label: 'group_status_activated'.tr(),
+        ),
+      ],
+      onChanged: (val) {
+        if (val != null) onFilterChanged(val);
+      },
     );
   }
 

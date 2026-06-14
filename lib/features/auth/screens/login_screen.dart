@@ -9,13 +9,11 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/config/app_locales.dart';
-import '../../../core/services/callkit_service.dart';
-import '../../../core/services/locale_prefs.dart';
 import '../../../core/services/oem_settings_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/widgets/app_version_label.dart';
-import '../../../core/widgets/app_popup_menu.dart';
+import '../../../core/widgets/app_language_picker_sheet.dart';
 import '../../../core/utils/qr_barcode_utils.dart';
 import '../../../core/widgets/qr_scanner_view.dart';
 import '../providers/auth_provider.dart';
@@ -593,50 +591,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildLanguageDropdown(bool isDark) {
-    final supportedLanguages = AppLocales.loginMenuLocales;
+    final currentCode = context.locale.languageCode;
+    final currentLangName = AppLocales.profileLanguages
+        .where((lang) => lang.code == currentCode)
+        .map((lang) => lang.nativeName)
+        .firstOrNull ?? 'English';
 
-    final currentLocale = context.locale;
-    String currentLangName = supportedLanguages.entries
-        .firstWhere(
-          (entry) => entry.value == currentLocale,
-          orElse: () => const MapEntry('English', Locale('en')),
-        )
-        .key;
-
-    return PopupMenuButton<String>(
-      offset: AppPopupMenu.offsetBelowChip,
-      shape: AppPopupMenu.panelShape(),
-      constraints: AppPopupMenu.panelConstraints(),
-      color: AppPopupMenu.panelColor(isDark) ?? Colors.white,
-      onSelected: (langName) {
-        final newLocale = supportedLanguages[langName];
-        if (newLocale != null) {
-          context.setLocale(newLocale);
-          unawaited(
-            LocalePrefs.saveLanguageCode(newLocale.languageCode),
-          );
-          unawaited(
-            CallKitService.refreshCachedSupportDisplayName(
-              languageCode: newLocale.languageCode,
-            ),
-          );
-        }
-      },
-      itemBuilder: (context) {
-        return supportedLanguages.keys.map((langName) {
-          final isSelected = langName == currentLangName;
-          return PopupMenuItem<String>(
-            value: langName,
-            child: AppPopupMenu.selectionRow(
-              label: langName,
-              isSelected: isSelected,
-              isDark: isDark,
-            ),
-          );
-        }).toList();
-      },
+    return InkWell(
+      onTap: () => showAppLanguagePickerSheet(
+        context: context,
+        selectedCode: currentCode,
+        isDark: isDark,
+      ),
+      borderRadius: BorderRadius.circular(100.r),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
         decoration: BoxDecoration(
           color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(100.r),
@@ -647,7 +616,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Symbols.language, size: 18.w, color: isDark ? AppColors.textMutedLight : const Color(0xff475569)),
+            Icon(
+              Symbols.language,
+              size: 18.w,
+              color: isDark
+                  ? AppColors.textMutedLight
+                  : const Color(0xff475569),
+            ),
             SizedBox(width: 8.w),
             Text(
               currentLangName,
@@ -655,11 +630,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 fontFamily: 'Lexend',
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w500,
-                color: isDark ? AppColors.textMutedLight : const Color(0xff475569),
+                color: isDark
+                    ? AppColors.textMutedLight
+                    : const Color(0xff475569),
               ),
             ),
-            SizedBox(width: 8.w),
-            Icon(Symbols.expand_more, size: 16.w, color: isDark ? AppColors.textMutedLight : const Color(0xff475569)),
+            SizedBox(width: 6.w),
+            Icon(
+              Symbols.chevron_right,
+              size: 16.w,
+              color: isDark
+                  ? AppColors.textMutedLight
+                  : const Color(0xff475569),
+            ),
           ],
         ),
       ),

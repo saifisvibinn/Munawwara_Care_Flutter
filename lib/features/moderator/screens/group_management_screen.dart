@@ -3658,49 +3658,59 @@ class _PilgrimManageTile extends StatelessWidget {
                   if (onViewProfile != null)
                     PopupMenuItem(
                       value: 'profile',
-                      child: AppPopupMenu.actionRow(
-                        icon: Symbols.person,
-                        label: 'manage_view_full_profile'.tr(),
-                        isDark: isDark,
-                        iconColor: AppColors.primary,
+                      child: AppPopupMenu.menuItemChild(
+                        AppPopupMenu.actionRow(
+                          icon: Symbols.person,
+                          label: 'manage_view_full_profile'.tr(),
+                          isDark: isDark,
+                          iconColor: AppColors.primary,
+                        ),
                       ),
                     ),
                   PopupMenuItem(
                     value: 'navigate',
-                    child: AppPopupMenu.actionRow(
-                      icon: Symbols.near_me,
-                      label: 'area_navigate'.tr(),
-                      isDark: isDark,
-                      iconColor: AppColors.primary,
+                    child: AppPopupMenu.menuItemChild(
+                      AppPopupMenu.actionRow(
+                        icon: Symbols.near_me,
+                        label: 'area_navigate'.tr(),
+                        isDark: isDark,
+                        iconColor: AppColors.primary,
+                      ),
                     ),
                   ),
                   PopupMenuItem(
                     value: 'chat',
-                    child: AppPopupMenu.actionRow(
-                      icon: Symbols.chat,
-                      label: 'tab_chat'.tr(),
-                      isDark: isDark,
-                      iconColor: AppColors.primary,
+                    child: AppPopupMenu.menuItemChild(
+                      AppPopupMenu.actionRow(
+                        icon: Symbols.chat,
+                        label: 'tab_chat'.tr(),
+                        isDark: isDark,
+                        iconColor: AppColors.primary,
+                      ),
                     ),
                   ),
                   if (onCall != null)
                     PopupMenuItem(
                       value: 'call',
-                      child: AppPopupMenu.actionRow(
-                        icon: Symbols.call,
-                        label: 'group_call_prefix'.tr(),
-                        isDark: isDark,
-                        iconColor: const Color(0xFF16A34A),
+                      child: AppPopupMenu.menuItemChild(
+                        AppPopupMenu.actionRow(
+                          icon: Symbols.call,
+                          label: 'group_call_prefix'.tr(),
+                          isDark: isDark,
+                          iconColor: const Color(0xFF16A34A),
+                        ),
                       ),
                     ),
                   if (onRemove != null)
                     PopupMenuItem(
                       value: 'remove',
-                      child: AppPopupMenu.actionRow(
-                        icon: Symbols.person_remove,
-                        label: 'group_remove_confirm'.tr(),
-                        isDark: isDark,
-                        destructive: true,
+                      child: AppPopupMenu.menuItemChild(
+                        AppPopupMenu.actionRow(
+                          icon: Symbols.person_remove,
+                          label: 'group_remove_confirm'.tr(),
+                          isDark: isDark,
+                          destructive: true,
+                        ),
                       ),
                     ),
                 ],

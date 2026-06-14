@@ -10,7 +10,7 @@ import '../../../core/widgets/custom_dialog.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_dropdown_theme.dart';
+import '../../../core/widgets/app_selection_field.dart';
 import '../../../core/widgets/glass/app_glass.dart';
 import '../providers/moderator_provider.dart';
 import '../providers/reminder_provider.dart';
@@ -473,46 +473,30 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                         ),
                       ),
                       SizedBox(height: 10.h),
-                      DropdownButtonFormField<String>(
+                      AppSelectionField<String>(
                         key: const ValueKey('system_reminder_specific_group'),
-                        initialValue:
-                            _selectedGroupIdForPilgrim != null &&
+                        value: _selectedGroupIdForPilgrim != null &&
                                 allGroups.any(
                                   (g) => g.id == _selectedGroupIdForPilgrim,
                                 )
                             ? _selectedGroupIdForPilgrim
                             : null,
-                        decoration: AppDropdownTheme.formFieldDecoration(
-                          isDark: isDark,
-                          labelText: 'reminder_select_group_dropdown'.tr(),
-                          nested: true,
-                        ),
-                        icon: AppDropdownTheme.menuTrailingIcon(),
-                        dropdownColor: AppDropdownTheme.menuBackground(isDark),
-                        borderRadius: AppDropdownTheme.menuBorderRadius(),
-                        elevation: AppDropdownTheme.menuElevation(),
-                        menuMaxHeight: AppDropdownTheme.menuMaxHeight(),
-                        isExpanded: true,
-                        style: AppDropdownTheme.valueStyle(
-                          isDark,
-                          fontSize: 14,
-                        ),
-                        items: allGroups
+                        isDark: isDark,
+                        nested: true,
+                        hint: 'reminder_select_group_dropdown'.tr(),
+                        sheetTitle: 'reminder_select_group_dropdown'.tr(),
+                        options: allGroups
                             .map(
-                              (g) => DropdownMenuItem(
+                              (g) => AppSelectionOption(
                                 value: g.id,
-                                child: Text(
-                                  g.groupName,
-                                  style: AppDropdownTheme.menuItemStyle(isDark),
-                                ),
+                                label: g.groupName,
                               ),
                             )
                             .toList(),
                         onChanged: (val) {
                           setState(() {
                             _selectedGroupIdForPilgrim = val;
-                            _selectedPilgrimId =
-                                null; // reset pilgrim when group changes
+                            _selectedPilgrimId = null;
                           });
                         },
                       ),
@@ -553,38 +537,20 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                                     )
                                 ? _selectedPilgrimId
                                 : null;
-                            return DropdownButtonFormField<String>(
+                            return AppSelectionField<String>(
                               key: ValueKey(
                                 'system_reminder_specific_pilgrim_$_selectedGroupIdForPilgrim',
                               ),
-                              initialValue: validPilgrimId,
-                              decoration: AppDropdownTheme.formFieldDecoration(
-                                isDark: isDark,
-                                labelText: 'reminder_select_pilgrim'.tr(),
-                                nested: true,
-                              ),
-                              icon: AppDropdownTheme.menuTrailingIcon(),
-                              dropdownColor: AppDropdownTheme.menuBackground(
-                                isDark,
-                              ),
-                              borderRadius: AppDropdownTheme.menuBorderRadius(),
-                              elevation: AppDropdownTheme.menuElevation(),
-                              menuMaxHeight: AppDropdownTheme.menuMaxHeight(),
-                              isExpanded: true,
-                              style: AppDropdownTheme.valueStyle(
-                                isDark,
-                                fontSize: 14,
-                              ),
-                              items: pilgrims
+                              value: validPilgrimId,
+                              isDark: isDark,
+                              nested: true,
+                              hint: 'reminder_select_pilgrim'.tr(),
+                              sheetTitle: 'reminder_select_pilgrim'.tr(),
+                              options: pilgrims
                                   .map(
-                                    (p) => DropdownMenuItem(
+                                    (p) => AppSelectionOption(
                                       value: p.id,
-                                      child: Text(
-                                        p.fullName,
-                                        style: AppDropdownTheme.menuItemStyle(
-                                          isDark,
-                                        ),
-                                      ),
+                                      label: p.fullName,
                                     ),
                                   )
                                   .toList(),

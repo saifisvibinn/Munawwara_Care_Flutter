@@ -4,32 +4,31 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../theme/app_colors.dart';
 
-/// Shared panel + row styling for [PopupMenuButton] (group ⋮, list row ⋮, toolbar menus, etc.).
-/// Dropdown *fields* use `AppDropdownTheme` in `lib/core/theme/app_dropdown_theme.dart`.
+/// Shared panel + row styling for contextual menus (UIMenu-style).
+/// Selection pickers use [AppSelectionField] / [showAppSelectionSheet].
 abstract final class AppPopupMenu {
   AppPopupMenu._();
 
+  /// Apple HIG: compact menu corner radius ~10–14pt.
   static ShapeBorder panelShape() => RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(12.r),
       );
 
   static Color? panelColor(bool isDark) =>
-      isDark ? AppColors.surfaceDark : null;
+      isDark ? AppColors.surfaceDark : Colors.white;
 
   static BoxConstraints panelConstraints({double? minWidth, double? maxWidth}) =>
       BoxConstraints(
-        minWidth: (minWidth ?? 200).w,
-        maxWidth: (maxWidth ?? 280).w,
+        minWidth: (minWidth ?? 220).w,
+        maxWidth: (maxWidth ?? 300).w,
       );
 
-  /// Below the group map top-right circular control (40×40).
   static const Offset offsetBelowCircular40 = Offset(0, 48);
+  static const Offset offsetBelowChip = Offset(0, 44);
+  static const Offset offsetRowTrailingMore = Offset(-12, 40);
 
-  /// Below compact triggers (e.g. language chip on login).
-  static const Offset offsetBelowChip = Offset(0, 40);
-
-  /// For ⋮ at the trailing edge of a dense row (pilgrim list).
-  static const Offset offsetRowTrailingMore = Offset(-20, 36);
+  /// Minimum 44pt row height per Apple HIG.
+  static double get rowMinHeight => 44.h;
 
   static Widget actionRow({
     required IconData icon,
@@ -42,61 +41,78 @@ abstract final class AppPopupMenu {
     final Color resolvedIcon;
     final Color? resolvedText;
     if (destructive) {
-      resolvedIcon = Colors.red;
-      resolvedText = Colors.red;
+      resolvedIcon = const Color(0xFFFF3B30);
+      resolvedText = const Color(0xFFFF3B30);
     } else {
       resolvedIcon = iconColor ??
-          (isDark ? Colors.white70 : AppColors.textDark);
-      resolvedText = textColor ?? (isDark ? Colors.white : null);
+          (isDark ? Colors.white : AppColors.textDark);
+      resolvedText = textColor ?? (isDark ? Colors.white : AppColors.textDark);
     }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 18.w, color: resolvedIcon),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14.sp,
-              color: resolvedText,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: rowMinHeight),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 28.w,
+            child: Icon(icon, size: 20.sp, color: resolvedIcon),
           ),
-        ),
-      ],
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w400,
+                letterSpacing: -0.2,
+                color: resolvedText,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  /// Single-choice list rows (e.g. language picker) with trailing check.
   static Widget selectionRow({
     required String label,
     required bool isSelected,
     required bool isDark,
   }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14.sp,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              color: isSelected
-                  ? AppColors.primary
-                  : (isDark ? Colors.white : AppColors.textDark),
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: rowMinHeight),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 16.sp,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                letterSpacing: -0.2,
+                color: isDark ? Colors.white : AppColors.textDark,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
-        ),
-        if (isSelected) ...[
-          SizedBox(width: 8.w),
-          Icon(Symbols.check, size: 18.w, color: AppColors.primary),
+          if (isSelected) ...[
+            SizedBox(width: 8.w),
+            Icon(Symbols.check, size: 20.sp, color: AppColors.primary),
+          ],
         ],
-      ],
+      ),
+    );
+  }
+
+  /// Wraps [PopupMenuItem] child with standard padding + min height.
+  static Widget menuItemChild(Widget child) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
+      child: child,
     );
   }
 }
