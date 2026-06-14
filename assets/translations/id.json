@@ -1193,7 +1193,7 @@
   "area_reminder_none": "Tidak ada",
   "area_reminder_mins": "{} menit sebelum",
   "msg_meetpoint_at": "Bertemu pukul {} pada {}",
-  "area_name_desc_header": "Name & Description",
+  "area_name_desc_header": "Nama & Deskripsi",
   "area_date_label": "Date",
   "area_time_label": "Time",
   "area_deleted_success": "Lokasi berhasil dihapus",

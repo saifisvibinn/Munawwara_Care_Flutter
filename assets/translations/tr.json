@@ -1193,7 +1193,7 @@
   "area_reminder_none": "Yok",
   "area_reminder_mins": "{} dakika önce",
   "msg_meetpoint_at": "{} saatinde {} tarihinde buluşalım",
-  "area_name_desc_header": "Name & Description",
+  "area_name_desc_header": "Ad ve Açıklama",
   "area_date_label": "Date",
   "area_time_label": "Time",
   "area_deleted_success": "Konum başarıyla silindi",

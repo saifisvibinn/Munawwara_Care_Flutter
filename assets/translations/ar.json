@@ -1189,7 +1189,7 @@
   "area_reminder_none": "بدون",
   "area_reminder_mins": "{} دقائق قبل",
   "msg_meetpoint_at": "الالتقاء في {} يوم {}",
-  "area_name_desc_header": "Name & Description",
+  "area_name_desc_header": "الاسم والوصف",
   "area_date_label": "Date",
   "area_time_label": "Time",
   "area_deleted_success": "تم حذف الموقع بنجاح",

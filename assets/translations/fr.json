@@ -1193,7 +1193,7 @@
   "area_reminder_none": "Aucun",
   "area_reminder_mins": "{} minutes avant",
   "msg_meetpoint_at": "Rendez-vous à {} le {}",
-  "area_name_desc_header": "Name & Description",
+  "area_name_desc_header": "Nom et description",
   "area_date_label": "Date",
   "area_time_label": "Time",
   "area_deleted_success": "Lieu supprimé avec succès",
