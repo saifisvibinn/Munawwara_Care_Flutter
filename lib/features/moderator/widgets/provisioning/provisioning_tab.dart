@@ -1046,7 +1046,13 @@ class _ProvisioningTabState extends ConsumerState<ProvisioningTab>
     return AppSelectionField<String?>(
       value: _selectedGroupId,
       isDark: isDark,
-      style: AppSelectionStyle.compact,
+      style: AppSelectionStyle.form,
+      label: 'group_select'.tr(),
+      prefixIcon: Icon(
+        Symbols.groups,
+        size: 22.sp,
+        color: AppColors.primary,
+      ),
       hint: 'group_select'.tr(),
       sheetTitle: 'group_select'.tr(),
       enabled: !isLoadingGroups,

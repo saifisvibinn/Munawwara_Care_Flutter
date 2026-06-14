@@ -95,8 +95,10 @@ class _AppLiquidGlassBottomBarState extends State<AppLiquidGlassBottomBar>
   }
 
   int _indexFromLocalDx(double dx, double contentWidth) {
-    final slot =
-        (dx / (contentWidth / widget.items.length)).floor().clamp(0, _maxIndex);
+    final slot = (dx / (contentWidth / widget.items.length)).floor().clamp(
+      0,
+      _maxIndex,
+    );
     if (Directionality.of(context) == TextDirection.rtl) {
       return _maxIndex - slot;
     }
@@ -147,7 +149,8 @@ class _AppLiquidGlassBottomBarState extends State<AppLiquidGlassBottomBar>
     final tabWidth = contentWidth / widget.items.length;
     final delta = _directionalDelta(details.delta.dx, tabWidth);
 
-    final now = details.sourceTimeStamp?.inMicroseconds ??
+    final now =
+        details.sourceTimeStamp?.inMicroseconds ??
         DateTime.now().microsecondsSinceEpoch;
     if (details.delta.dx.abs() >= 0.4) {
       _velocitySamples.add(_VelocitySample(now, delta));
@@ -158,8 +161,10 @@ class _AppLiquidGlassBottomBarState extends State<AppLiquidGlassBottomBar>
       }
     }
 
-    _position.value =
-        (_position.value + delta).clamp(0.0, _maxIndex.toDouble());
+    _position.value = (_position.value + delta).clamp(
+      0.0,
+      _maxIndex.toDouble(),
+    );
 
     if (_velocitySamples.length >= 2) {
       final spanUs =
@@ -240,8 +245,7 @@ class _AppLiquidGlassBottomBarState extends State<AppLiquidGlassBottomBar>
                 child: GestureDetector(
                   onTapUp: (d) => _onTapUp(d, contentWidth),
                   onHorizontalDragStart: _onDragStart,
-                  onHorizontalDragUpdate: (d) =>
-                      _onDragUpdate(d, contentWidth),
+                  onHorizontalDragUpdate: (d) => _onDragUpdate(d, contentWidth),
                   onHorizontalDragEnd: (d) => _onDragEnd(d, contentWidth),
                   onHorizontalDragCancel: _onDragCancel,
                   behavior: HitTestBehavior.opaque,
@@ -332,9 +336,7 @@ class _SelectorPainter extends CustomPainter {
     canvas.drawRRect(
       rrect,
       Paint()
-        ..color = AppColors.primary.withValues(
-          alpha: isDark ? 0.18 : 0.10,
-        ),
+        ..color = AppColors.primary.withValues(alpha: isDark ? 0.18 : 0.10),
     );
   }
 
@@ -367,12 +369,14 @@ class _TabSlot extends StatelessWidget {
     return ListenableBuilder(
       listenable: position,
       builder: (context, _) {
-        final proximity =
-            (1.0 - (position.value - index).abs()).clamp(0.0, 1.0);
-        final color =
-            Color.lerp(inactiveColor, AppColors.primary, proximity)!;
-        final iconData =
-            proximity > 0.5 ? (item.activeIcon ?? item.icon) : item.icon;
+        final proximity = (1.0 - (position.value - index).abs()).clamp(
+          0.0,
+          1.0,
+        );
+        final color = Color.lerp(inactiveColor, AppColors.primary, proximity)!;
+        final iconData = proximity > 0.5
+            ? (item.activeIcon ?? item.icon)
+            : item.icon;
         final fontWeight = FontWeight.lerp(
           FontWeight.w500,
           FontWeight.w700,

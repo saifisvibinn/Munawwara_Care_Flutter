@@ -7,6 +7,8 @@ import 'package:dio/dio.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/glass/app_glass.dart';
+import '../../shared/widgets/area_ui_widgets.dart';
+import '../../shared/widgets/group_chat_theme.dart';
 import 'document_viewer_screen.dart';
 
 // ── Models for Logistics ─────────────────────────────────────────────────────
@@ -237,102 +239,162 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
 
   // ── Build Method ───────────────────────────────────────────────────────────
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  static double _navOverlayHeight(BuildContext context) =>
+      MediaQuery.viewPaddingOf(context).top + 10.h + 42.w + 6.h;
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
-      appBar: AppBar(
-        title: Text(
-          'logistics_title'.tr(),
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 16.sp,
-          ),
-        ),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: isDark ? Colors.white : AppColors.textDark,
-        leading: IconButton(
-          icon: const Icon(Symbols.arrow_back),
-          onPressed: () => Navigator.pop(context),
+  Widget _buildFloatingNav(bool isDark) {
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final textMuted = isDark
+        ? AppColors.textMutedLight
+        : AppColors.textMutedDark;
+    final backdrop = AppGlassTheme.groupBroadcastNavBackdropColor(isDark);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [backdrop, backdrop.withValues(alpha: 0)],
+          stops: const [0.55, 1.0],
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            )
-          : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24.w),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Symbols.error, size: 48.w, color: AppColors.error),
-                        SizedBox(height: 12.h),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14.sp,
-                            color: isDark ? Colors.white70 : AppColors.textMutedDark,
-                          ),
-                        ),
-                        SizedBox(height: 16.h),
-                        ElevatedButton.icon(
-                          onPressed: _loadLogistics,
-                          icon: const Icon(Symbols.refresh),
-                          label: Text('alerts_retry'.tr()),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12.r),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : AppScrollFadeOverlay(
-                  showTop: false,
-                  backgroundColor:
-                      AppGlassTheme.dashboardBackgroundColor(isDark),
-                  child: RefreshIndicator(
-                  color: AppColors.primary,
-                  onRefresh: _loadLogistics,
-                  child: ListView(
-                    padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 40.h),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 6.h),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: AppGlassIconButton(
+                  isDark: isDark,
+                  icon: Symbols.arrow_back,
+                  onTap: () => Navigator.pop(context),
+                  size: 42.w,
+                ),
+              ),
+              AppGlassSurface(
+                isDark: isDark,
+                borderRadius: BorderRadius.circular(14.r),
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                glassTheme: AppGlassTheme.groupBroadcastNavPillOf(isDark),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: 220.w),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Group Name Header
                       Text(
-                        widget.groupName,
+                        'logistics_title'.tr(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
+                          fontFamily: 'Lexend',
                           fontWeight: FontWeight.w700,
-                          fontSize: 20.sp,
-                          color: isDark ? Colors.white : AppColors.textDark,
+                          fontSize: 13.sp,
+                          color: textPrimary,
                         ),
                       ),
-                      SizedBox(height: 16.h),
-
-                      // Stats Grid (Horizontal scrollable view)
-                      _buildStatsRow(isDark),
-                      SizedBox(height: 24.h),
-
-                      // Hotel Lodging Allocations
-                      _buildHotelsSection(isDark),
-                      SizedBox(height: 24.h),
-
-                      // Insurance Coverage
-                      _buildInsuranceSection(isDark),
+                      Text(
+                        widget.groupName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          fontSize: 11.sp,
+                          color: textMuted,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                ),
+              ),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: SizedBox(width: 42.w, height: 42.w),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = GroupChatTheme.scaffoldBackground(isDark);
+    final topPad = _navOverlayHeight(context) + 8.h;
+
+    return Scaffold(
+      backgroundColor: bg,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: _isLoading
+                ? Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  )
+                : _error != null
+                    ? Padding(
+                        padding:
+                            EdgeInsets.fromLTRB(24.w, topPad, 24.w, 24.h),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Symbols.error,
+                                  size: 48.w, color: AppColors.error),
+                              SizedBox(height: 12.h),
+                              Text(
+                                _error!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'Lexend',
+                                  fontSize: 14.sp,
+                                  color: AreaUiTheme.sectionLabel(isDark),
+                                ),
+                              ),
+                              SizedBox(height: 16.h),
+                              AreaPrimaryButton(
+                                label: 'alerts_retry'.tr(),
+                                accentColor: AppColors.primary,
+                                icon: Symbols.refresh,
+                                onPressed: _loadLogistics,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : AppScrollFadeOverlay(
+                        showTop: false,
+                        backgroundColor: bg,
+                        topExtent: topPad,
+                        child: RefreshIndicator(
+                          color: AppColors.primary,
+                          onRefresh: _loadLogistics,
+                          child: ListView(
+                            padding: EdgeInsets.fromLTRB(
+                                16.w, topPad, 16.w, 40.h),
+                            children: [
+                              _buildStatsRow(isDark),
+                              SizedBox(height: 20.h),
+                              _buildHotelsSection(isDark),
+                              SizedBox(height: 20.h),
+                              _buildInsuranceSection(isDark),
+                            ],
+                          ),
+                        ),
+                      ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _buildFloatingNav(isDark),
+          ),
+        ],
+      ),
     );
   }
 
@@ -346,8 +408,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
           _buildStatCard(
             isDark: isDark,
             icon: Symbols.domain,
-            iconColor: const Color(0xFF534AB7),
-            iconBg: const Color(0xFFEEEDFE),
             label: 'logistics_hotels_whitelisted'.tr(),
             value: '$_hotelsCount',
           ),
@@ -355,8 +415,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
           _buildStatCard(
             isDark: isDark,
             icon: Symbols.door_open,
-            iconColor: const Color(0xFF0F6E56),
-            iconBg: const Color(0xFFE1F5EE),
             label: 'logistics_active_room_units'.tr(),
             value: '$_activeRoomsCount',
           ),
@@ -364,8 +422,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
           _buildStatCard(
             isDark: isDark,
             icon: Symbols.bed,
-            iconColor: const Color(0xFF185FA5),
-            iconBg: const Color(0xFFE6F1FB),
             label: 'logistics_total_bed_pool'.tr(),
             value: '$_totalBedsPool',
           ),
@@ -373,8 +429,6 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
           _buildStatCard(
             isDark: isDark,
             icon: Symbols.shield,
-            iconColor: const Color(0xFF993356),
-            iconBg: const Color(0xFFFBEAF0),
             label: 'logistics_insurance_providers'.tr(),
             value: '$_insurancesCount',
           ),
@@ -386,54 +440,52 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
   Widget _buildStatCard({
     required bool isDark,
     required IconData icon,
-    required Color iconColor,
-    required Color iconBg,
     required String label,
     required String value,
   }) {
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+
     return Container(
-      width: 120.w,
-      height: 105.h,
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+      width: 112.w,
+      padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
-          width: 0.5,
-        ),
+        color: AreaUiTheme.groupedBg(isDark),
+        borderRadius: BorderRadius.circular(10.r),
+        border: Border.all(color: AreaUiTheme.divider(isDark), width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 28.w,
-            height: 28.w,
+            width: 32.w,
+            height: 32.w,
             decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(6.r),
+              color: AreaUiTheme.typeTint(isDark, AppColors.primary),
+              borderRadius: BorderRadius.circular(8.r),
             ),
-            child: Icon(icon, size: 16.w, color: iconColor),
+            child: Icon(icon, size: 18.w, color: AppColors.primary),
           ),
-          const Spacer(),
+          SizedBox(height: 10.h),
           Text(
-            label.toUpperCase(),
-            maxLines: 1,
+            label,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 8.sp,
-              color: isDark ? Colors.white38 : AppColors.textMutedDark,
-              letterSpacing: 0.4,
+              fontFamily: 'Lexend',
+              fontWeight: FontWeight.w500,
+              fontSize: 11.sp,
+              height: 1.2,
+              color: AreaUiTheme.sectionLabel(isDark),
             ),
           ),
-          SizedBox(height: 2.h),
+          SizedBox(height: 4.h),
           Text(
             value,
             style: TextStyle(
+              fontFamily: 'Lexend',
               fontWeight: FontWeight.w700,
-              fontSize: 16.sp,
-              color: isDark ? Colors.white : AppColors.textDark,
+              fontSize: 18.sp,
+              color: textPrimary,
             ),
           ),
         ],
@@ -447,21 +499,10 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Icon(Symbols.domain, color: Color(0xFF534AB7)),
-            SizedBox(width: 8.w),
-            Text(
-              'logistics_hotel_lodging_allocations'.tr(),
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14.sp,
-                color: isDark ? Colors.white : AppColors.textDark,
-              ),
-            ),
-          ],
+        AreaSectionLabel(
+          isDark: isDark,
+          label: 'logistics_hotel_lodging_allocations'.tr(),
         ),
-        SizedBox(height: 12.h),
         if (_hotels.isEmpty)
           _buildEmptyCard(
             isDark: isDark,
@@ -470,185 +511,144 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
             description: 'logistics_no_lodgings_desc'.tr(),
           )
         else
-          ..._hotels.map((hotel) => _buildHotelCard(hotel, isDark)),
+          ..._hotels.map((hotel) => Padding(
+                padding: EdgeInsets.only(bottom: 10.h),
+                child: _buildHotelCard(hotel, isDark),
+              )),
       ],
     );
   }
 
   Widget _buildHotelCard(LogisticsHotel hotel, bool isDark) {
     final activeRooms = hotel.rooms.where((r) => r.active).length;
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final muted = AreaUiTheme.sectionLabel(isDark);
 
-    return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(
-          color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
-          width: 0.5,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: EdgeInsets.all(12.w),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        hotel.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13.sp,
-                          color: isDark ? Colors.white : AppColors.textDark,
-                        ),
+    return AreaInsetGroup(
+      isDark: isDark,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 10.h),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Symbols.domain, size: 20.w, color: AppColors.primary),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hotel.name,
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15.sp,
+                        color: textPrimary,
                       ),
-                      SizedBox(height: 2.h),
-                      Row(
-                        children: [
-                          Icon(Symbols.pin_drop, size: 12.w, color: const Color(0xFF534AB7)),
-                          SizedBox(width: 4.w),
-                          Text(
+                    ),
+                    SizedBox(height: 2.h),
+                    Row(
+                      children: [
+                        Icon(Symbols.pin_drop, size: 14.w, color: muted),
+                        SizedBox(width: 4.w),
+                        Expanded(
+                          child: Text(
                             hotel.city ?? 'logistics_no_city'.tr(),
                             style: TextStyle(
-                              fontSize: 11.sp,
-                              color: isDark ? Colors.white54 : AppColors.textMutedDark,
+                              fontFamily: 'Lexend',
+                              fontSize: 12.sp,
+                              color: muted,
                             ),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE1F5EE),
-                    borderRadius: BorderRadius.circular(20.r),
-                  ),
-                  child: Text(
-                    'logistics_active_rooms_badge'.tr(args: ['$activeRooms']),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 10.sp,
-                      color: const Color(0xFF0F6E56),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            child: Divider(
-              color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
-              height: 1,
-            ),
-          ),
-
-          // Rooms Wrap
-          Padding(
-            padding: EdgeInsets.all(12.w),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'logistics_room_capacities'.tr().toUpperCase(),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 8.sp,
-                    color: isDark ? Colors.white38 : AppColors.textMutedDark,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                SizedBox(height: 8.h),
-                if (hotel.rooms.isEmpty)
-                  Text(
-                    'logistics_no_rooms'.tr(),
-                    style: TextStyle(
-                      fontSize: 11.sp,
-                      fontStyle: FontStyle.italic,
-                      color: isDark ? Colors.white38 : AppColors.textMutedDark,
-                    ),
-                  )
-                else
-                  Wrap(
-                    spacing: 8.w,
-                    runSpacing: 8.h,
-                    children: hotel.rooms.map((room) => _buildRoomBox(room, isDark)).toList(),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRoomBox(LogisticsRoom room, bool isDark) {
-    return Container(
-      width: 100.w,
-      padding: EdgeInsets.all(8.w),
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.03)
-            : const Color(0xFFF7F8FC),
-        borderRadius: BorderRadius.circular(8.r),
-        border: Border.all(
-          color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
-          width: 0.5,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'logistics_room_label'.tr(args: [room.roomNumber]),
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10.sp,
-                  color: isDark ? Colors.white : AppColors.textDark,
+                  ],
                 ),
               ),
               Container(
-                width: 5.w,
-                height: 5.w,
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: room.active ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                  color: AreaUiTheme.typeTint(isDark, AppColors.primary),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Text(
+                  'logistics_active_rooms_badge'.tr(args: ['$activeRooms']),
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11.sp,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
             ],
           ),
-          SizedBox(height: 4.h),
-          Row(
-            children: [
-              Icon(Symbols.bed, size: 10.w, color: isDark ? Colors.white38 : AppColors.textMutedDark),
-              SizedBox(width: 4.w),
-              Text(
-                '${room.capacity} ${'logistics_beds'.tr()}',
-                style: TextStyle(
-                  fontSize: 9.sp,
-                  color: isDark ? Colors.white60 : AppColors.textMutedDark,
-                ),
+        ),
+        if (hotel.rooms.isEmpty)
+          Padding(
+            padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 12.h),
+            child: Text(
+              'logistics_no_rooms'.tr(),
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 13.sp,
+                fontStyle: FontStyle.italic,
+                color: muted,
               ),
-            ],
+            ),
+          )
+        else
+          ...hotel.rooms.map((room) => _buildRoomRow(room, isDark)),
+      ],
+    );
+  }
+
+  Widget _buildRoomRow(LogisticsRoom room, bool isDark) {
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final muted = AreaUiTheme.sectionLabel(isDark);
+    final statusColor =
+        room.active ? AppColors.success : AppColors.warning;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+      child: Row(
+        children: [
+          Icon(Symbols.bed, size: 18.w, color: AppColors.primary),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Text(
+              'logistics_room_label'.tr(args: [room.roomNumber]),
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontWeight: FontWeight.w500,
+                fontSize: 14.sp,
+                color: textPrimary,
+              ),
+            ),
+          ),
+          Container(
+            width: 7.w,
+            height: 7.w,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: statusColor,
+            ),
+          ),
+          SizedBox(width: 8.w),
+          Text(
+            '${room.capacity} ${'logistics_beds'.tr()}',
+            style: TextStyle(
+              fontFamily: 'Lexend',
+              fontSize: 12.sp,
+              color: muted,
+            ),
           ),
         ],
       ),
     );
   }
-
 
   // ── Insurance Section ──────────────────────────────────────────────────────
 
@@ -656,21 +656,10 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Icon(Symbols.shield, color: Color(0xFF993356)),
-            SizedBox(width: 8.w),
-            Text(
-              'logistics_insurance_coverage'.tr(),
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14.sp,
-                color: isDark ? Colors.white : AppColors.textDark,
-              ),
-            ),
-          ],
+        AreaSectionLabel(
+          isDark: isDark,
+          label: 'logistics_insurance_coverage'.tr(),
         ),
-        SizedBox(height: 12.h),
         if (_insurances.isEmpty)
           _buildEmptyCard(
             isDark: isDark,
@@ -679,194 +668,132 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
             description: 'logistics_no_insurances_desc'.tr(),
           )
         else
-          ..._insurances.map((ins) => _buildInsuranceCard(ins, isDark)),
+          ..._insurances.map((ins) => Padding(
+                padding: EdgeInsets.only(bottom: 10.h),
+                child: _buildInsuranceCard(ins, isDark),
+              )),
       ],
     );
   }
 
   Widget _buildInsuranceCard(LogisticsInsurance ins, bool isDark) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(
-          color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
-          width: 0.5,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: EdgeInsets.all(12.w),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        ins.name,
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final muted = AreaUiTheme.sectionLabel(isDark);
+    final hasPolicy =
+        ins.policyDocumentUrl != null && ins.policyDocumentUrl!.isNotEmpty;
+
+    return AreaInsetGroup(
+      isDark: isDark,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 10.h),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Symbols.shield, size: 20.w, color: AppColors.primary),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ins.name,
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15.sp,
+                        color: textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    Container(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                      decoration: BoxDecoration(
+                        color: AreaUiTheme.typeTint(isDark, AppColors.primary),
+                        borderRadius: BorderRadius.circular(6.r),
+                      ),
+                      child: Text(
+                        'active_policy'.tr(),
                         style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13.sp,
-                          color: isDark ? Colors.white : AppColors.textDark,
+                          fontFamily: 'Lexend',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11.sp,
+                          color: AppColors.primary,
                         ),
                       ),
-                      SizedBox(height: 2.h),
-                      Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFDE8E8),
-                              borderRadius: BorderRadius.circular(4.r),
-                            ),
-                            child: Text(
-                              'active_policy'.tr().toUpperCase(),
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 7.sp,
-                                color: const Color(0xFF993356),
-                              ),
-                            ),
-                          ),
-                          if (ins.policyDocumentUrl != null && ins.policyDocumentUrl!.isNotEmpty) ...[
-                            SizedBox(width: 6.w),
-                            InkWell(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => DocumentViewerScreen(
-                                      url: ins.policyDocumentProxyUrl!,
-                                      title: ins.policyDocumentName ?? 'Insurance Policy',
-                                    ),
-                                  ),
-                                );
-                              },
-                              borderRadius: BorderRadius.circular(4.r),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                                decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
-                                  borderRadius: BorderRadius.circular(4.r),
-                                  border: Border.all(
-                                    color: isDark ? Colors.white10 : const Color(0xFFBFDBFE),
-                                    width: 0.5,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Symbols.picture_as_pdf,
-                                      size: 10.w,
-                                      color: const Color(0xFF2563EB),
-                                    ),
-                                    SizedBox(width: 3.w),
-                                    Text(
-                                      'view_policy'.tr().toUpperCase(),
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 7.sp,
-                                        color: const Color(0xFF2563EB),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFBEAF0),
-                    borderRadius: BorderRadius.circular(20.r),
-                  ),
-                  child: Text(
-                    'logistics_hospitals_count'.tr(args: ['${ins.hospitals.length}']),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 10.sp,
-                      color: const Color(0xFF993356),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            child: Divider(
-              color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
-              height: 1,
-            ),
-          ),
-
-          // Hospitals List
-          Padding(
-            padding: EdgeInsets.all(12.w),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'logistics_covered_hospitals'.tr().toUpperCase(),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                decoration: BoxDecoration(
+                  color: AreaUiTheme.typeTint(isDark, AppColors.primary),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Text(
+                  'logistics_hospitals_count'
+                      .tr(args: ['${ins.hospitals.length}']),
                   style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 8.sp,
-                    color: isDark ? Colors.white38 : AppColors.textMutedDark,
-                    letterSpacing: 0.5,
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11.sp,
+                    color: AppColors.primary,
                   ),
                 ),
-                SizedBox(height: 8.h),
-                if (ins.hospitals.isEmpty)
-                  Text(
-                    'logistics_no_hospitals'.tr(),
-                    style: TextStyle(
-                      fontSize: 11.sp,
-                      fontStyle: FontStyle.italic,
-                      color: isDark ? Colors.white38 : AppColors.textMutedDark,
-                    ),
-                  )
-                else
-                  ...ins.hospitals.map((hosp) => _buildHospitalTile(hosp, isDark)),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        if (hasPolicy)
+          AreaInsetValueRow(
+            isDark: isDark,
+            icon: Symbols.picture_as_pdf,
+            iconColor: AppColors.primary,
+            label: 'view_policy'.tr(),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DocumentViewerScreen(
+                    url: ins.policyDocumentProxyUrl!,
+                    title: ins.name,
+                  ),
+                ),
+              );
+            },
+          ),
+        if (ins.hospitals.isEmpty)
+          Padding(
+            padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 12.h),
+            child: Text(
+              'logistics_no_hospitals'.tr(),
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 13.sp,
+                fontStyle: FontStyle.italic,
+                color: muted,
+              ),
+            ),
+          )
+        else
+          ...ins.hospitals.map((hosp) => _buildHospitalRow(hosp, isDark)),
+      ],
     );
   }
 
-  Widget _buildHospitalTile(LogisticsInsuranceHospital hosp, bool isDark) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 8.h),
-      padding: EdgeInsets.all(10.w),
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.02)
-            : const Color(0xFFF7F8FC),
-        borderRadius: BorderRadius.circular(8.r),
-        border: Border.all(
-          color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
-          width: 0.5,
-        ),
-      ),
+  Widget _buildHospitalRow(LogisticsInsuranceHospital hosp, bool isDark) {
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+    final muted = AreaUiTheme.sectionLabel(isDark);
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Symbols.local_hospital, size: 16.w, color: const Color(0xFF993356)),
-          SizedBox(width: 8.w),
+          Icon(Symbols.local_hospital, size: 18.w, color: AppColors.primary),
+          SizedBox(width: 10.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -874,9 +801,10 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                 Text(
                   hosp.name,
                   style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11.sp,
-                    color: isDark ? Colors.white : AppColors.textDark,
+                    fontFamily: 'Lexend',
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14.sp,
+                    color: textPrimary,
                   ),
                 ),
                 if (hosp.address != null && hosp.address!.isNotEmpty) ...[
@@ -884,8 +812,9 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
                   Text(
                     hosp.address!,
                     style: TextStyle(
-                      fontSize: 9.sp,
-                      color: isDark ? Colors.white54 : AppColors.textMutedDark,
+                      fontFamily: 'Lexend',
+                      fontSize: 12.sp,
+                      color: muted,
                     ),
                   ),
                 ],
@@ -905,42 +834,43 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
     required String title,
     required String description,
   }) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(24.w),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
-          style: BorderStyle.solid,
-          width: 0.5,
+    final muted = AreaUiTheme.sectionLabel(isDark);
+    final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
+
+    return AreaInsetGroup(
+      isDark: isDark,
+      children: [
+        Padding(
+          padding: EdgeInsets.all(24.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 32.w, color: muted),
+              SizedBox(height: 10.h),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15.sp,
+                  color: textPrimary,
+                ),
+              ),
+              SizedBox(height: 4.h),
+              Text(
+                description,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Lexend',
+                  fontSize: 13.sp,
+                  color: muted,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 32.w, color: isDark ? Colors.white24 : AppColors.textMutedLight),
-          SizedBox(height: 8.h),
-          Text(
-            title,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13.sp,
-              color: isDark ? Colors.white70 : AppColors.textDark,
-            ),
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            description,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 11.sp,
-              color: isDark ? Colors.white38 : AppColors.textMutedDark,
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }

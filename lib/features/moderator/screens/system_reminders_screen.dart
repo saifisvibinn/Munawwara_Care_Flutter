@@ -1023,8 +1023,9 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                             return r.targetType == 'group' ||
                                 r.targetType == 'all_groups';
                           }
-                          if (_historyFilterIndex == 2)
+                          if (_historyFilterIndex == 2) {
                             return r.targetType == 'pilgrim';
+                          }
                           return true;
                         }).toList();
 

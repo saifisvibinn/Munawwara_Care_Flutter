@@ -56,6 +56,8 @@ class DocumentViewerScreen extends ConsumerWidget {
         ),
         title: Text(
           title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 18.sp,

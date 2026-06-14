@@ -83,14 +83,21 @@ abstract final class GroupChatTheme {
     return isDark ? AppColors.surfaceDark : Colors.white;
   }
 
-  static Color cardBorderColor(bool isDark, {required bool urgent, required bool highlightNew}) {
+  static Color cardBorderColor(
+    bool isDark, {
+    required bool urgent,
+    required bool highlightNew,
+  }) {
     if (isDark) {
       return Colors.white.withValues(alpha: 0.08);
     }
     return const Color(0xFFE5E5EA);
   }
 
-  static double cardBorderWidth({required bool urgent, required bool highlightNew}) => 0.5;
+  static double cardBorderWidth({
+    required bool urgent,
+    required bool highlightNew,
+  }) => 0.5;
 
   static Color listGapColor(bool isDark) =>
       isDark ? AppColors.backgroundDark : const Color(0xFFF2F2F7);
@@ -148,10 +155,7 @@ class GroupBroadcastMessageCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (isUrgent)
-                Container(
-                  width: 3.w,
-                  color: GroupChatTheme.urgentAccentBar,
-                ),
+                Container(width: 3.w, color: GroupChatTheme.urgentAccentBar),
               Expanded(
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(
@@ -260,11 +264,7 @@ class GroupBroadcastMetaRow extends StatelessWidget {
         SizedBox(width: 8.w),
         Text(
           timestamp,
-          style: TextStyle(
-            fontFamily: 'Lexend',
-            fontSize: 12.sp,
-            color: muted,
-          ),
+          style: TextStyle(fontFamily: 'Lexend', fontSize: 12.sp, color: muted),
         ),
       ],
     );
@@ -334,8 +334,8 @@ class TtsPlayAloudButton extends StatelessWidget {
     final bg = isSpeaking
         ? AppColors.info
         : (isDark
-            ? AppColors.info.withValues(alpha: 0.12)
-            : AppColors.info.withValues(alpha: 0.08));
+              ? AppColors.info.withValues(alpha: 0.12)
+              : AppColors.info.withValues(alpha: 0.08));
     final borderColor = isSpeaking
         ? AppColors.info
         : AppColors.info.withValues(alpha: isDark ? 0.35 : 0.45);
@@ -495,10 +495,7 @@ class GroupBroadcastNavBar extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            backdrop,
-            backdrop.withValues(alpha: 0),
-          ],
+          colors: [backdrop, backdrop.withValues(alpha: 0)],
           stops: const [0.55, 1.0],
         ),
       ),
@@ -523,7 +520,10 @@ class GroupBroadcastNavBar extends StatelessWidget {
                 AppGlassSurface(
                   isDark: isDark,
                   borderRadius: BorderRadius.circular(14.r),
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12.w,
+                    vertical: 8.h,
+                  ),
                   glassTheme: AppGlassTheme.groupBroadcastNavPillOf(isDark),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,

@@ -510,7 +510,7 @@ class AreaInsetValueRow extends StatelessWidget {
                   ),
                 ),
               ),
-              if (trailing != null) trailing!,
+              ?trailing,
               if (showChevron)
                 Icon(Symbols.chevron_right, size: 20.w, color: muted),
             ],
@@ -596,7 +596,7 @@ class AreaListRow extends StatelessWidget {
                   ],
                 ),
               ),
-              if (trailing != null) trailing!,
+              ?trailing,
             ],
           ),
         ),

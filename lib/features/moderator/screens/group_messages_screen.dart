@@ -136,8 +136,14 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
   void didChangeMetrics() {
     super.didChangeMetrics();
     if (!mounted) return;
-    final keyboardOpen = WidgetsBinding
-            .instance.platformDispatcher.views.first.viewInsets.bottom >
+    final keyboardOpen =
+        WidgetsBinding
+            .instance
+            .platformDispatcher
+            .views
+            .first
+            .viewInsets
+            .bottom >
         0;
     if (keyboardOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -151,10 +157,9 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
   }
 
   Future<void> _refreshMessages() async {
-    await ref.read(messageProvider.notifier).loadMessages(
-          widget.groupId,
-          force: true,
-        );
+    await ref
+        .read(messageProvider.notifier)
+        .loadMessages(widget.groupId, force: true);
   }
 
   void _scrollToBottom({bool jump = false}) {
@@ -215,15 +220,14 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
       final code = p.language.trim().isNotEmpty ? p.language : 'en';
       counts[code] = (counts[code] ?? 0) + 1;
     }
-    return counts.entries
-        .reduce((a, b) => a.value >= b.value ? a : b)
-        .key;
+    return counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
   }
 
   Future<void> _toggleTts(GroupMessage msg) async {
     final text = msg.originalText ?? msg.content ?? '';
-    final isCurrentlySpeaking = _ttsPlayingId == msg.id && (_ttsSpeaking || _ttsLoading);
-    
+    final isCurrentlySpeaking =
+        _ttsPlayingId == msg.id && (_ttsSpeaking || _ttsLoading);
+
     if (isCurrentlySpeaking) {
       await SpeechService.stop();
       if (mounted) {
@@ -235,7 +239,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
       }
       return;
     }
-    
+
     if (_playingId != null) {
       await _player.stop();
       if (mounted) {
@@ -245,7 +249,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
         });
       }
     }
-    
+
     await SpeechService.stop();
     if (mounted) {
       setState(() {
@@ -255,8 +259,9 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
     }
 
     try {
-      final audioUrl =
-          ref.read(messageProvider.notifier).resolveMediaUrl(msg.audioUrl);
+      final audioUrl = ref
+          .read(messageProvider.notifier)
+          .resolveMediaUrl(msg.audioUrl);
       await SpeechService.playRobust(
         audioUrl: audioUrl,
         backupText: text,
@@ -386,10 +391,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
           children: [
             ListTile(
               leading: Icon(Symbols.content_copy, size: 22.w),
-              title: Text(
-                'msg_copy'.tr(),
-                style: const TextStyle(),
-              ),
+              title: Text('msg_copy'.tr(), style: const TextStyle()),
               onTap: () {
                 final plain = messagePlainTextForCopy(msg);
                 Navigator.pop(ctx);
@@ -403,10 +405,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
             ),
             ListTile(
               leading: Icon(Symbols.reply, size: 22.w),
-              title: Text(
-                'msg_reply'.tr(),
-                style: const TextStyle(),
-              ),
+              title: Text('msg_reply'.tr(), style: const TextStyle()),
               onTap: () {
                 Navigator.pop(ctx);
                 setState(() => _replyTarget = msg);
@@ -420,9 +419,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
               ),
               title: Text(
                 'msg_delete_confirm'.tr(),
-                style: TextStyle(
-                  color: Colors.red.shade400,
-                ),
+                style: TextStyle(color: Colors.red.shade400),
               ),
               onTap: () {
                 Navigator.pop(ctx);
@@ -529,13 +526,12 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
   Widget build(BuildContext context) {
     final msgState = ref.watch(messageProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final showLoading = msgState.messages.isEmpty &&
-        (msgState.isLoading || !_initialLoadDone);
+    final showLoading =
+        msgState.messages.isEmpty && (msgState.isLoading || !_initialLoadDone);
 
     // Scroll to bottom when new socket messages arrive
     ref.listen(messageProvider, (prev, next) {
-      final loadFinished =
-          (prev?.isLoading ?? false) && !next.isLoading;
+      final loadFinished = (prev?.isLoading ?? false) && !next.isLoading;
       if (loadFinished && mounted) {
         setState(() => _initialLoadDone = true);
       }
@@ -571,8 +567,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
                   isSending: msgState.isSending,
                   onSendTts: _sendTtsMessage,
                   onMicTap: _startRecording,
-                  showVoiceInput:
-                      _isRecording || _recordedPath != null,
+                  showVoiceInput: _isRecording || _recordedPath != null,
                   replyStrip: _replyTarget != null
                       ? MessageReplyComposerStrip(
                           snapshot: _snapshotForReplyDraft(_replyTarget!),
@@ -627,9 +622,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            SliverPadding(
-              padding: EdgeInsets.only(top: topPad),
-            ),
+            SliverPadding(padding: EdgeInsets.only(top: topPad)),
             SliverFillRemaining(
               hasScrollBody: false,
               child: Center(
@@ -733,10 +726,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
               child: const UrgentBadge(),
             ),
           if (msg.replySnapshot != null)
-            MessageReplyQuote(
-              snapshot: msg.replySnapshot!,
-              isDark: isDark,
-            ),
+            MessageReplyQuote(snapshot: msg.replySnapshot!, isDark: isDark),
           if (msg.type == 'text') _buildTextBody(msg, isDark),
           if (msg.type == 'voice') _buildVoiceBody(msg, isDark),
           if (msg.type == 'tts') _buildTtsBody(msg, isDark),
@@ -753,7 +743,9 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
   }
 
   Widget _buildTextBody(GroupMessage msg, bool isDark) {
-    final bodyColor = isDark ? Colors.white.withValues(alpha: 0.88) : AppColors.textDark;
+    final bodyColor = isDark
+        ? Colors.white.withValues(alpha: 0.88)
+        : AppColors.textDark;
     return Text(
       msg.content ?? '',
       style: TextStyle(
@@ -790,7 +782,9 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
     final isSpeaking = _ttsPlayingId == msg.id && _ttsSpeaking;
     final isLoading = _ttsPlayingId == msg.id && _ttsLoading;
     final text = msg.originalText ?? msg.content ?? '';
-    final bodyColor = isDark ? Colors.white.withValues(alpha: 0.88) : AppColors.textDark;
+    final bodyColor = isDark
+        ? Colors.white.withValues(alpha: 0.88)
+        : AppColors.textDark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -827,8 +821,9 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
     final lat = (mp?['latitude'] as num?)?.toDouble();
     final lng = (mp?['longitude'] as num?)?.toDouble();
     final timeStr = mp?['meetpoint_time']?.toString();
-    final DateTime? meetTimeUtc =
-        timeStr != null ? DateTime.tryParse(timeStr) : null;
+    final DateTime? meetTimeUtc = timeStr != null
+        ? DateTime.tryParse(timeStr)
+        : null;
     final DateTime? meetTime = meetTimeUtc?.toLocal();
 
     return Container(
@@ -857,8 +852,11 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
                     ),
                   ],
                 ),
-                child:
-                    Icon(Symbols.crisis_alert, color: Colors.white, size: 22.w),
+                child: Icon(
+                  Symbols.crisis_alert,
+                  color: Colors.white,
+                  size: 22.w,
+                ),
               ),
               SizedBox(width: 12.w),
               Expanded(
@@ -905,10 +903,12 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
                   SizedBox(width: 8.w),
                   Expanded(
                     child: Text(
-                      'msg_meetpoint_at'.tr(args: [
-                        DateFormat('hh:mm a').format(meetTime),
-                        DateFormat('MMM dd').format(meetTime),
-                      ]),
+                      'msg_meetpoint_at'.tr(
+                        args: [
+                          DateFormat('hh:mm a').format(meetTime),
+                          DateFormat('MMM dd').format(meetTime),
+                        ],
+                      ),
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13.sp,
@@ -940,10 +940,7 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen>
                 OpenMapsNavigation.launch(context, lat, lng);
               },
               icon: Icon(Symbols.navigation, size: 18.w, color: Colors.white),
-              label: Text(
-                'area_navigate'.tr(),
-                style: const TextStyle(),
-              ),
+              label: Text('area_navigate'.tr(), style: const TextStyle()),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFE11D48),
                 foregroundColor: Colors.white,

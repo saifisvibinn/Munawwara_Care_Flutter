@@ -668,7 +668,7 @@ class _GroupDetailsBody extends StatelessWidget {
                                 MaterialPageRoute(
                                   builder: (_) => DocumentViewerScreen(
                                     url: insuranceCompany!.policyDocumentProxyUrl!,
-                                    title: insuranceCompany!.policyDocumentName ?? 'Insurance Policy',
+                                    title: insuranceCompany!.name,
                                   ),
                                 ),
                               );
