@@ -15,6 +15,10 @@ enum SupportRequestType {
 class SupportApi {
   SupportApi._();
 
+  static Future<void> deleteOwnAccount() async {
+    await ApiService.dio.delete('/auth/account');
+  }
+
   static Future<void> submitRequest({
     required SupportRequestType type,
     String? message,

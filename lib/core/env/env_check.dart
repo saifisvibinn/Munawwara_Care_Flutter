@@ -1,5 +1,4 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
+import '../env/dotenv_safe.dart';
 import '../services/api_service.dart';
 import '../utils/app_logger.dart';
 
@@ -17,10 +16,10 @@ Future<void> verifyEnv() async {
     if (k == 'API_BASE_URL') {
       return ApiService.baseUrl.isEmpty;
     }
-    return (dotenv.env[k] ?? '').trim().isEmpty;
+    return (dotenvOptional(k) ?? '').isEmpty;
   }).toList();
   final missingOptional = optionalKeys
-      .where((k) => (dotenv.env[k] ?? '').trim().isEmpty)
+      .where((k) => (dotenvOptional(k) ?? '').isEmpty)
       .toList();
 
   if (missingRequired.isNotEmpty) {
@@ -36,7 +35,7 @@ Future<void> verifyEnv() async {
     AppLogger.w('Missing optional .env keys: ${missingOptional.join(', ')}');
   }
 
-  final socketExplicit = dotenv.env['SOCKET_BASE_URL']?.trim();
+  final socketExplicit = dotenvOptional('SOCKET_BASE_URL');
   if (socketExplicit == null || socketExplicit.isEmpty) {
     AppLogger.w(
       '[Env] SOCKET_BASE_URL unset — using socketOrigin=${ApiService.socketOrigin} '

@@ -2,7 +2,8 @@
 /// HTTP, cold start before prefs are cached).
 ///
 /// Set via `--dart-define=API_BASE_URL=...` (mirrored in Android
-/// [BuildConfig.API_BASE_URL]). Keep in sync with `.env` at dev time.
+/// [BuildConfig.API_BASE_URL]). For local dev without bundling `.env` in assets,
+/// use `flutter run --dart-define-from-file=.env`.
 const String kDefaultProductionApiBaseUrl =
     String.fromEnvironment('API_BASE_URL');
 

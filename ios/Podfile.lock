@@ -160,6 +160,8 @@ PODS:
   - GTMSessionFetcher/Core (3.5.0)
   - image_picker_ios (0.0.1):
     - Flutter
+  - in_app_review (2.0.0):
+    - Flutter
   - iris_method_channel (0.0.1):
     - Flutter
   - just_audio (0.0.1):
@@ -255,6 +257,7 @@ DEPENDENCIES:
   - google_mlkit_language_id (from `.symlinks/plugins/google_mlkit_language_id/ios`)
   - google_mlkit_translation (from `.symlinks/plugins/google_mlkit_translation/ios`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
+  - in_app_review (from `.symlinks/plugins/in_app_review/ios`)
   - iris_method_channel (from `.symlinks/plugins/iris_method_channel/ios`)
   - just_audio (from `.symlinks/plugins/just_audio/darwin`)
   - mobile_scanner (from `.symlinks/plugins/mobile_scanner/darwin`)
@@ -345,6 +348,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/google_mlkit_translation/ios"
   image_picker_ios:
     :path: ".symlinks/plugins/image_picker_ios/ios"
+  in_app_review:
+    :path: ".symlinks/plugins/in_app_review/ios"
   iris_method_channel:
     :path: ".symlinks/plugins/iris_method_channel/ios"
   just_audio:
@@ -415,6 +420,7 @@ SPEC CHECKSUMS:
   GoogleUtilities: 4f2618a4a1e762a1ee134a1e2323bba9843e06da
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
   image_picker_ios: 4f2f91b01abdb52842a8e277617df877e40f905b
+  in_app_review: 436034b18594851a7328d7f1c2ed5ec235b79cfc
   iris_method_channel: 4e3fe7fe6b2db1b84feae956e98ce1479402627a
   just_audio: a42c63806f16995daf5b219ae1d679deb76e6a79
   MLImage: 0de5c6c2bf9e93b80ef752e2797f0836f03b58c0
@@ -442,6 +448,6 @@ SPEC CHECKSUMS:
   webview_flutter_wkwebview: 29eb20d43355b48fe7d07113835b9128f84e3af4
   workmanager_apple: 7bac258335c310689a641e2d66e88d4845d372e9
 
-PODFILE CHECKSUM: e6a4b0b89862c32f57ac001967cf8d63bd1528ab
+PODFILE CHECKSUM: cb1eb955cbdf19223d10d30a0ce55adb29230eb1
 
 COCOAPODS: 1.15.2

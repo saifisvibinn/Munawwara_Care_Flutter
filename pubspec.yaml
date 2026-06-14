@@ -78,6 +78,7 @@ dependencies:
   webview_flutter: ^4.13.1
   package_info_plus: ^9.0.1
   in_app_update: ^4.2.3
+  in_app_review: ^2.0.11
   # On-device translation, language ID, speech-to-text, and connectivity dependencies
   google_mlkit_translation: ^0.13.1
   google_mlkit_language_id: ^0.13.1
@@ -151,7 +152,6 @@ flutter:
     - assets/audio/sos/tr.mp3
     - assets/audio/sos/fa.mp3
     - assets/audio/sos/ms.mp3
-    - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

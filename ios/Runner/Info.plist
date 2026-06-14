@@ -75,9 +75,11 @@
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Speech recognition is required to translate your spoken words in real time.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Munawwara Care needs permission to save QR codes to your photo library.</string>
+	<string>Munawwara Care needs permission to save QR codes and other images to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Munawwara Care needs permission to save QR codes to your photo library.</string>
+	<string>Munawwara Care needs permission to select profile photos and save QR codes to your photo library.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>dev.flutter.background.refresh</string>
@@ -89,6 +91,8 @@
 		<string>fetch</string>
 		<string>location</string>
 		<string>audio</string>
+		<string>voip</string>
+		<string>remote-notification</string>
 	</array>
 </dict>
 </plist>

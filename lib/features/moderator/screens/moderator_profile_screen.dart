@@ -187,10 +187,7 @@ class _ModeratorProfileScreenState
                                   labelKey: 'about_title',
                                   textPrimary: textPrimary,
                                   textMuted: textMuted,
-                                  onTap: () => context.push(
-                                    '/about',
-                                    extra: true,
-                                  ),
+                                  onTap: () => context.push('/about'),
                                   isLast: true,
                                   dividerColor: dividerColor,
                                 ),

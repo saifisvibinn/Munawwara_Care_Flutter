@@ -5,22 +5,29 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/backend_config.dart';
+import '../env/dotenv_safe.dart';
 import 'app_data_cache.dart';
 import 'secure_session_store.dart';
 
 class ApiService {
-  static const _prodBaseUrl = kDefaultProductionApiBaseUrl;
-
   // ─── Backend URL ─────────────────────────────────────────────────────────────
-  // `API_BASE_URL` in .env, else `--dart-define=API_BASE_URL=...`.
+  // `--dart-define=API_BASE_URL=...` takes precedence over `.env` when loaded.
   // Optional: `API_ANDROID_HOST=10.0.2.2` replaces the hostname on Android only
   // (emulator → host machine); port and path stay the same.
   static String get baseUrl {
-    final fromEnv = dotenv.env['API_BASE_URL']?.trim();
-    String url = (fromEnv != null && fromEnv.isNotEmpty) ? fromEnv : _prodBaseUrl;
+    final fromDefine = kDefaultProductionApiBaseUrl.trim();
+    final fromEnv = dotenvOptional('API_BASE_URL');
+    String url;
+    if (fromDefine.isNotEmpty) {
+      url = fromDefine;
+    } else if (fromEnv != null && fromEnv.isNotEmpty) {
+      url = fromEnv;
+    } else {
+      url = '';
+    }
 
     if (Platform.isAndroid) {
-      final hostOverride = dotenv.env['API_ANDROID_HOST']?.trim();
+      final hostOverride = dotenvOptional('API_ANDROID_HOST');
       if (hostOverride != null && hostOverride.isNotEmpty) {
         try {
           final uri = Uri.parse(url);
@@ -42,7 +49,7 @@ class ApiService {
   /// Set `SOCKET_BASE_URL` when realtime runs on a different host than REST
   /// (e.g. Cloud Run REST only — use your Node URL that mounts socket.io).
   static String get socketOrigin {
-    final explicit = dotenv.env['SOCKET_BASE_URL']?.trim();
+    final explicit = dotenvOptional('SOCKET_BASE_URL');
     if (explicit != null && explicit.isNotEmpty) {
       return _normalizeHttpOrigin(explicit);
     }

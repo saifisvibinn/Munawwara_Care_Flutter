@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:in_app_review/in_app_review.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -214,18 +216,19 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
   }
 
   /// Records that the user opened the store listing — suppress future prompts.
-  Future<void> _openPlayStoreListing() async {
+  Future<void> _openStoreListing() async {
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
 
     await SupportDialogs.markHasRated();
     await SupportDialogs.markRatingSubmitted();
 
+    final storeLabel = Platform.isIOS ? 'App Store' : 'Play Store';
     unawaited(() async {
       try {
         await ApiService.dio.post('/support/feedback', data: {
           'rating': _selectedRating,
-          'comments': 'User opened Play Store listing.',
+          'comments': 'User opened $storeLabel listing.',
           'source': widget.source,
         });
       } catch (_) {}
@@ -235,15 +238,22 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
     Navigator.pop(context);
 
     try {
-      final packageName = (await PackageInfo.fromPlatform()).packageName;
-      final marketUri = Uri.parse('market://details?id=$packageName');
-      final webUri = Uri.parse(
-        'https://play.google.com/store/apps/details?id=$packageName',
-      );
-      if (await canLaunchUrl(marketUri)) {
-        await launchUrl(marketUri);
+      if (Platform.isIOS) {
+        final inAppReview = InAppReview.instance;
+        if (await inAppReview.isAvailable()) {
+          await inAppReview.requestReview();
+        }
       } else {
-        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+        final packageName = (await PackageInfo.fromPlatform()).packageName;
+        final marketUri = Uri.parse('market://details?id=$packageName');
+        final webUri = Uri.parse(
+          'https://play.google.com/store/apps/details?id=$packageName',
+        );
+        if (await canLaunchUrl(marketUri)) {
+          await launchUrl(marketUri);
+        } else {
+          await launchUrl(webUri, mode: LaunchMode.externalApplication);
+        }
       }
     } catch (_) {
       // Store opened or not — user already marked as rated.
@@ -463,7 +473,7 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
                     SizedBox(width: 10.w),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _isSubmitting ? null : _openPlayStoreListing,
+                        onPressed: _isSubmitting ? null : _openStoreListing,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           shape: RoundedRectangleBorder(
@@ -687,13 +697,13 @@ class _ReportIssueDialogState extends State<ReportIssueDialog> {
   String _selectedCategory = 'medical';
   bool _isSubmitting = false;
 
-  final _categories = [
-    {'value': 'medical', 'label': 'Medical Needs'},
-    {'value': 'security', 'label': 'Safety & Security'},
-    {'value': 'transportation', 'label': 'Bus & Transport'},
-    {'value': 'hotel', 'label': 'Hotel & Accommodation'},
-    {'value': 'technical', 'label': 'App / Tech Issues'},
-    {'value': 'other', 'label': 'Other Incidents'},
+  final _categories = const [
+    {'value': 'medical', 'labelKey': 'report_cat_medical'},
+    {'value': 'security', 'labelKey': 'report_cat_security'},
+    {'value': 'transportation', 'labelKey': 'report_cat_transportation'},
+    {'value': 'hotel', 'labelKey': 'report_cat_hotel'},
+    {'value': 'technical', 'labelKey': 'report_cat_technical'},
+    {'value': 'other', 'labelKey': 'report_cat_other'},
   ];
 
   @override
@@ -804,7 +814,7 @@ class _ReportIssueDialogState extends State<ReportIssueDialog> {
                     .map(
                       (cat) => AppSelectionOption(
                         value: cat['value']!,
-                        label: cat['label']!,
+                        label: cat['labelKey']!.tr(),
                       ),
                     )
                     .toList(),

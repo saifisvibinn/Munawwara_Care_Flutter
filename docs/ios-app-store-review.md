@@ -103,7 +103,6 @@ Use or adapt when submitting:
 
 ## Related docs
 
-- `docs/ios-handoff.md` — native iOS setup, signing, Firebase, CallKit
 - `docs/google-play-policy-review.md` — Android / Play Console counterpart
 - `docs/privacy-policy.md` — policy draft to publish at live URL
 - `docs/support-requests.md` — current support / deletion request API
