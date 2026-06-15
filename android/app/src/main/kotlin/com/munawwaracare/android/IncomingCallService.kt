@@ -299,10 +299,12 @@ class IncomingCallService : Service() {
                     removeForegroundNotification()
                     if (sessionDeclined) {
                         Log.i(TAG, "📞 Declined during addCall — disconnecting immediately")
-                        try {
-                            disconnect(DisconnectCause(DisconnectCause.REJECTED))
-                        } catch (e: Exception) {
-                            Log.w(TAG, "📞 Immediate disconnect failed: ${e.message}")
+                        launch {
+                            try {
+                                disconnect(DisconnectCause(DisconnectCause.REJECTED))
+                            } catch (e: Exception) {
+                                Log.w(TAG, "📞 Immediate disconnect failed: ${e.message}")
+                            }
                         }
                     }
                 }

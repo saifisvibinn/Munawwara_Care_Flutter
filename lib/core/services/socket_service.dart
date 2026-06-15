@@ -30,6 +30,7 @@ class SocketService {
   static String? _lastRole;
   static bool _onAnyDispatcherInstalled = false;
   static bool _reconnectScheduled = false;
+  static DateTime? _lastConnectAt;
 
   /// Custom-event listeners (NOT for reserved socket.io events).
   static final Map<String, void Function(dynamic)> _pendingListeners = {};
@@ -92,6 +93,7 @@ class SocketService {
 
     _socket!.onConnect((_) {
       _reconnectScheduled = false;
+      _lastConnectAt = DateTime.now();
       AppLogger.w(
         '[SocketService] Connected socketId=${_socket?.id} url=$cleanUrl '
         'userId=$userId role=$role',
@@ -135,7 +137,15 @@ class SocketService {
     AppLogger.w(
       '[SocketService] Server evicted socket — scheduling reconnect for $userId',
     );
-    Future<void>.delayed(const Duration(milliseconds: 400), () {
+    // Back off if we connected very recently (eviction/reconnect churn).
+    final last = _lastConnectAt;
+    final sinceConnect = last == null
+        ? const Duration(seconds: 10)
+        : DateTime.now().difference(last);
+    final delay = sinceConnect < const Duration(seconds: 3)
+        ? const Duration(seconds: 3)
+        : const Duration(milliseconds: 1200);
+    Future<void>.delayed(delay, () {
       _reconnectScheduled = false;
       if (_connectedUserId != userId) return;
       if (_socket?.connected == true) return;
