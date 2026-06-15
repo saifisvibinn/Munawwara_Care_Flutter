@@ -38,6 +38,7 @@ class CallRingbackService {
       try {
         await _player.stop();
       } catch (_) {}
+      await _deactivateAudioSession();
       return;
     }
 
@@ -46,6 +47,16 @@ class CallRingbackService {
       await _player.stop();
     } catch (e) {
       AppLogger.w('[CallRingback] stop failed: $e');
+    }
+    await _deactivateAudioSession();
+  }
+
+  static Future<void> _deactivateAudioSession() async {
+    try {
+      final session = await AudioSession.instance;
+      await session.setActive(false);
+    } catch (e) {
+      AppLogger.w('[CallRingback] AudioSession deactivate failed: $e');
     }
   }
 

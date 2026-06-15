@@ -149,6 +149,8 @@ class IncomingCallService : Service() {
     private var suppressDeclineHttpOnDisconnect = false
     private var isTearingDown = false
     private var lingerJob: Job? = null
+    @Volatile
+    private var sessionDeclined = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -179,6 +181,7 @@ class IncomingCallService : Service() {
         // Cancel pending linger so the service stays alive for the new call
         lingerJob?.cancel()
         lingerJob = null
+        sessionDeclined = false
         // Tear down any previous Core-Telecom session before starting a new one.
         tearDownCoreTelecomSession(cancelScopeAfterDisconnect = true)
         callWasAnswered = false
@@ -210,6 +213,11 @@ class IncomingCallService : Service() {
         startActiveCallPolling(currentCallerId!!, freshScope)
 
         callJob = freshScope.launch {
+            if (sessionDeclined) {
+                Log.i(TAG, "📞 callJob aborted — session already declined")
+                finishCallSession()
+                return@launch
+            }
             val callerId = currentCallerId!!
             var stillActive = isCallerStillActiveOnServer(
                 this@IncomingCallService,
@@ -229,6 +237,12 @@ class IncomingCallService : Service() {
                 )
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
+                return@launch
+            }
+
+            if (sessionDeclined) {
+                Log.i(TAG, "📞 Skipping Core-Telecom — declined during check-active poll")
+                finishCallSession()
                 return@launch
             }
 
@@ -281,6 +295,16 @@ class IncomingCallService : Service() {
                 ) {
                     callControlScope = this
                     Log.i(TAG, "📞 Core-Telecom call registered successfully")
+                    // Plugin already shows the visible incoming UI — drop duplicate FGS tray.
+                    removeForegroundNotification()
+                    if (sessionDeclined) {
+                        Log.i(TAG, "📞 Declined during addCall — disconnecting immediately")
+                        try {
+                            disconnect(DisconnectCause(DisconnectCause.REJECTED))
+                        } catch (e: Exception) {
+                            Log.w(TAG, "📞 Immediate disconnect failed: ${e.message}")
+                        }
+                    }
                 }
 
                 // addCall returned — call is over
@@ -295,6 +319,9 @@ class IncomingCallService : Service() {
 
     private fun handleDecline(intent: Intent?, noAnswer: Boolean = false) {
         Log.i(TAG, "📞 handleDecline called noAnswer=$noAnswer")
+        sessionDeclined = true
+        callJob?.cancel()
+        callJob = null
         suppressDeclineHttpOnDisconnect = true
         var cid = currentCallerId
         if (cid.isNullOrBlank()) {
@@ -325,6 +352,7 @@ class IncomingCallService : Service() {
             }
         }
         scheduleLingerStop()
+        CallAudioCleanup.fullTeardown(this)
     }
 
     private fun handleAccept() {
@@ -352,6 +380,9 @@ class IncomingCallService : Service() {
             return
         }
         isTearingDown = true
+        sessionDeclined = true
+        callJob?.cancel()
+        callJob = null
         Log.i(TAG, "📞 handleRemoteCancel called")
         suppressDeclineHttpOnDisconnect = true
         activePollJob?.cancel()
@@ -362,6 +393,7 @@ class IncomingCallService : Service() {
             disconnectCause = DisconnectCause(DisconnectCause.REMOTE),
             onFinished = {
                 isTearingDown = false
+                CallAudioCleanup.fullTeardown(this@IncomingCallService)
                 scheduleLingerStop()
             },
         )
@@ -505,6 +537,7 @@ class IncomingCallService : Service() {
     private fun finishCallSession() {
         resetCallState()
         cancelCallCoroutines()
+        CallAudioCleanup.resetAudioMode(this)
     }
 
     private fun sendDeclineHttp(callerId: String, noAnswer: Boolean = false) {
@@ -580,14 +613,15 @@ class IncomingCallService : Service() {
     }
 
     private fun buildForegroundNotification(callerName: String): Notification {
-        // Short-lived: dismissed on accept/connected/end. CallKit shows the real call UI.
+        // Minimal silent FGS — plugin shows the visible incoming call UI.
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(callerName.ifBlank { "Call" })
-            .setContentText("Connecting…")
+            .setContentTitle("Munawwara Care")
+            .setContentText("Incoming call")
             .setSmallIcon(android.R.drawable.ic_menu_call)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setSilent(true)
             .setOngoing(true)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .build()
     }
 

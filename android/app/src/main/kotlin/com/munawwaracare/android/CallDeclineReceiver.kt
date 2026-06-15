@@ -90,6 +90,7 @@ class CallDeclineReceiver : BroadcastReceiver() {
                     noAnswer,
                 )
             } finally {
+                CallAudioCleanup.fullTeardown(context.applicationContext)
                 pendingResult.finish()
             }
         }

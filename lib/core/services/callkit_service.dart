@@ -53,6 +53,9 @@ class CallKitService {
   static const _pendingCallUuidKey = 'pending_call_uuid';
   static const _pendingCallRecordIdKey = kPendingCallRecordIdKey;
   static const _pendingOutgoingStopReasonKey = 'pending_outgoing_stop_reason';
+  /// Cross-isolate dedup for socket+FCM parallel delivery (see sos_alert_audio).
+  static const _incomingRingClaimKey = 'last_incoming_call_ring_claim';
+  static const Duration _incomingRingDedupeWindow = Duration(seconds: 45);
 
   /// FCM may send call control under [type] or [notification_type].
   static String? fcmCallControlType(Map<String, dynamic> data) {
@@ -177,6 +180,18 @@ class CallKitService {
       return;
     }
 
+    // ── Guard 3b: SharedPreferences cross-isolate dedup (socket + FCM) ──
+    if (!await _tryClaimIncomingRing(
+      recordKey: recordKey,
+      channelName: channelName,
+    )) {
+      AppLogger.w(
+        '📞 [CallKit] duplicate incoming ring — ignoring (prefs) '
+        'record=$recordKey channel=$channelName',
+      );
+      return;
+    }
+
     // ── Guard 4: Server must still be ringing this caller ───────────────
     // Skipped when called from FCM background handler — ApiService.dio is not
     // initialised in the background isolate and the FCM is itself proof the
@@ -215,6 +230,8 @@ class CallKitService {
     _lastShownChannelName = channelName.isEmpty ? null : channelName;
 
     final prefs = await SharedPreferences.getInstance();
+    // Persist UUID before native show so background isolate can dismiss on cancel.
+    await prefs.setString(_pendingCallUuidKey, _currentCallId!);
     final role = (await SecureSessionStore.getRole()) ?? '';
     final useSupportBranding = role == 'pilgrim';
     final nativeCallerLine = useSupportBranding
@@ -495,6 +512,19 @@ class CallKitService {
     _lastShownCallRecordId = null;
     _lastShownChannelName = null;
     await clearPendingIncomingCall();
+    await resetCallAudio();
+  }
+
+  /// Reset Android audio mode after call teardown (ghost in-call volume fix).
+  static Future<void> resetCallAudio() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+    try {
+      await _nativeIncomingChannel.invokeMethod<void>('resetCallAudio');
+    } catch (e) {
+      AppLogger.w('📞 [CallKit] resetCallAudio failed: $e');
+    }
   }
 
   /// End all calls (cleanup).
@@ -521,6 +551,7 @@ class CallKitService {
     _lastShownCallRecordId = null;
     _lastShownChannelName = null;
     await clearPendingIncomingCall();
+    await resetCallAudio();
   }
 
   /// Clear Dart-side call tracking without touching native call UI.
@@ -721,6 +752,48 @@ class CallKitService {
     await prefs.remove(_pendingCallRecordIdKey);
     await prefs.remove(_pendingCallerGenderKey);
     await prefs.remove(_pendingCallerProfilePictureKey);
+    await _clearIncomingRingClaim();
+  }
+
+  /// Claim this ring attempt in SharedPreferences (works across isolates).
+  static Future<bool> _tryClaimIncomingRing({
+    required String recordKey,
+    required String channelName,
+  }) async {
+    final claimId = recordKey.isNotEmpty
+        ? 'r:$recordKey'
+        : (channelName.isNotEmpty ? 'c:$channelName' : '');
+    if (claimId.isEmpty) return true;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final raw = prefs.getString(_incomingRingClaimKey) ?? '';
+      if (raw.isNotEmpty) {
+        final parts = raw.split('|');
+        if (parts.length >= 2) {
+          final existing = parts[0];
+          final ms = int.tryParse(parts[1]) ?? 0;
+          if (existing == claimId &&
+              nowMs - ms <= _incomingRingDedupeWindow.inMilliseconds) {
+            return false;
+          }
+        }
+      }
+      await prefs.setString(_incomingRingClaimKey, '$claimId|$nowMs');
+      return true;
+    } catch (e) {
+      AppLogger.w('📞 [CallKit] incoming ring claim failed: $e');
+      return true;
+    }
+  }
+
+  static Future<void> _clearIncomingRingClaim() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_incomingRingClaimKey);
+    } catch (_) {}
   }
 
   static Future<bool> _isCancelForCurrentIncoming(String cancelRecordId) async {

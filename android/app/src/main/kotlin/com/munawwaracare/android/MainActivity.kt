@@ -43,6 +43,10 @@ class MainActivity : FlutterActivity() {
                     )
                     result.success(true)
                 }
+                "resetCallAudio" -> {
+                    CallAudioCleanup.resetAudioMode(this)
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }

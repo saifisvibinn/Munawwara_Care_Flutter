@@ -55,6 +55,7 @@ object CallDismissHelper {
             FlutterCallkitIncomingPlugin.dismissPluginIncomingUi(context)
             IncomingCallService.requestTeardown(context)
             IncomingCallService.cancelStaleForegroundTray(context)
+            CallAudioCleanup.resetAudioMode(context)
         } catch (e: Exception) {
             Log.w(TAG, "dismissIncomingCall failed: ${e.message}")
         } finally {

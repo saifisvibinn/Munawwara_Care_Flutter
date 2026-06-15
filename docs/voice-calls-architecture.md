@@ -204,6 +204,13 @@ Order on callee accept:
 
 Server: plain emit in `call_offer_service.js`. Client: `SocketService.on('call-offer', …)` — not `onWithAck`.
 
+### Guard 12: Android cross-isolate incoming dedup + audio reset
+
+* **Dedup**: `CallKitService.showIncomingCall` claims `last_incoming_call_ring_claim` in SharedPreferences (45s window) so parallel socket + FCM in different isolates cannot surface two rings for the same `callRecordId` / `channelName`.
+* **UUID**: Persist `pending_call_uuid` **before** `showCallkitIncoming` so background `call_cancel` can dismiss the correct tray.
+* **Teardown**: On decline/end, `forceIdleCallSession(awaitTeardown: true)` awaits Agora leave + `endAllCalls` + `CallAudioCleanup.resetAudioMode` (Kotlin). `CallRingbackService.stop()` must call `AudioSession.setActive(false)`.
+* **IncomingCallService**: Set `sessionDeclined` and cancel `callJob` on decline; drop duplicate FGS tray right after Core-Telecom registers.
+
 ---
 
 ## 5. Golden Rules

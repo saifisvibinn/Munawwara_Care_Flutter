@@ -460,7 +460,6 @@ class CallNotifier extends Notifier<CallState> {
     _callTimer = null;
     _stopIosCallKitRingPoll();
     _syncPreConnectRingback(CallStatus.ended);
-    unawaited(AgoraRtcService.instance.leaveChannel());
     _pendingChannelName = null;
     _pendingFromId = null;
     _outgoingChannelName = null;
@@ -475,6 +474,19 @@ class CallNotifier extends Notifier<CallState> {
     );
   }
 
+  Future<void> _leaveMediaAndNativeTeardown({required bool awaitCompletion}) async {
+    final leaveFuture = AgoraRtcService.instance.leaveChannel();
+    final teardownFuture = _tearDownCallKitInBackground();
+    if (awaitCompletion) {
+      await leaveFuture;
+      await teardownFuture;
+      await CallKitService.resetCallAudio();
+    } else {
+      unawaited(leaveFuture);
+      unawaited(teardownFuture);
+    }
+  }
+
   /// Idempotent teardown — use for cancel, decline, timeout, and watchdog.
   ///
   /// Updates Riverpod to [CallStatus.ended] immediately so the in-app UI
@@ -483,6 +495,7 @@ class CallNotifier extends Notifier<CallState> {
     required String endReason,
     bool goIdleImmediately = false,
     int scheduleResetDelaySeconds = 3,
+    bool awaitTeardown = false,
   }) async {
     _stopRingPoll();
     _stopSessionWatchdog();
@@ -503,7 +516,7 @@ class CallNotifier extends Notifier<CallState> {
       _scheduleReset(delaySeconds: scheduleResetDelaySeconds);
     }
 
-    unawaited(_tearDownCallKitInBackground());
+    await _leaveMediaAndNativeTeardown(awaitCompletion: awaitTeardown);
   }
 
   Future<void> _tearDownCallKitInBackground() async {
@@ -757,7 +770,10 @@ class CallNotifier extends Notifier<CallState> {
         callRecordId: recordId,
         noAnswer: noAnswer,
       );
-      await forceIdleCallSession(endReason: noAnswer ? 'missed' : 'declined');
+      await forceIdleCallSession(
+        endReason: noAnswer ? 'missed' : 'declined',
+        awaitTeardown: true,
+      );
     } finally {
       _declineSignalingInFlight = false;
     }
@@ -821,7 +837,10 @@ class CallNotifier extends Notifier<CallState> {
           AppLogger.e('[CallProvider] HTTP call-decline (callerId) failed: $e');
         }
       }
-      await forceIdleCallSession(endReason: noAnswer ? 'missed' : 'declined');
+      await forceIdleCallSession(
+        endReason: noAnswer ? 'missed' : 'declined',
+        awaitTeardown: true,
+      );
     } finally {
       _declineSignalingInFlight = false;
     }
@@ -839,7 +858,7 @@ class CallNotifier extends Notifier<CallState> {
     final wasActive =
         state.status == CallStatus.connected ||
         state.status == CallStatus.connecting;
-    await forceIdleCallSession(endReason: 'ended');
+    await forceIdleCallSession(endReason: 'ended', awaitTeardown: true);
     unawaited(
       _emitCallEndSignaling(
         remoteId: remoteId,
