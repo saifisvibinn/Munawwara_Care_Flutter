@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'glass/app_glass_theme.dart';
+import 'glass/app_scroll_glass_edge.dart';
 
-/// Soft gradient bands at the top and bottom of scrollable regions so content
-/// fades under the status bar and floating nav chrome instead of clipping hard.
+/// Soft glass bands at the top and bottom of scrollable regions so content
+/// blurs under the status bar and floating nav chrome instead of clipping hard.
 ///
 /// Place above scroll content and below interactive chrome (nav bars, FABs,
 /// floating back buttons) in a [Stack].
@@ -18,6 +19,8 @@ class AppScrollFadeOverlay extends StatelessWidget {
     this.backgroundColor,
     this.useDashboardBottomExtent = false,
     this.fadeOpacity = 1,
+    this.enableGlass = true,
+    this.overPlatformView = false,
   });
 
   final Widget child;
@@ -32,6 +35,12 @@ class AppScrollFadeOverlay extends StatelessWidget {
   /// tabs with floating nav). When false, uses safe-area bottom only.
   final bool useDashboardBottomExtent;
 
+  /// When false, falls back to the legacy solid gradient (reduced-transparency QA).
+  final bool enableGlass;
+
+  /// When true, skips [BackdropFilter] (required over iOS MapKit / [UiKitView]).
+  final bool overPlatformView;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -45,7 +54,28 @@ class AppScrollFadeOverlay extends StatelessWidget {
         (useDashboardBottomExtent
             ? AppGlassTheme.scrollFadeBottomExtentDashboard(context)
             : AppGlassTheme.scrollFadeBottomExtentStandalone(context));
-    final solidFade = bg.withValues(alpha: fadeOpacity.clamp(0.0, 1.0));
+
+    Widget edgeBand({
+      required double height,
+      required AppScrollGlassEdgeSide edge,
+    }) {
+      if (enableGlass) {
+        return AppScrollGlassEdge(
+          height: height,
+          edge: edge,
+          isDark: isDark,
+          tintColor: backgroundColor,
+          fadeOpacity: fadeOpacity,
+          useBackdropBlur: !overPlatformView,
+        );
+      }
+      return AppScrollSolidEdge(
+        height: height,
+        edge: edge,
+        backgroundColor: bg,
+        fadeOpacity: fadeOpacity,
+      );
+    }
 
     return Stack(
       fit: StackFit.expand,
@@ -58,17 +88,7 @@ class AppScrollFadeOverlay extends StatelessWidget {
             left: 0,
             right: 0,
             height: resolvedTop,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [solidFade, bg.withValues(alpha: 0)],
-                  ),
-                ),
-              ),
-            ),
+            child: edgeBand(height: resolvedTop, edge: AppScrollGlassEdgeSide.top),
           ),
         if (showBottom && !keyboardOpen && resolvedBottom > 0)
           Positioned(
@@ -76,16 +96,9 @@ class AppScrollFadeOverlay extends StatelessWidget {
             left: 0,
             right: 0,
             height: resolvedBottom,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [solidFade, bg.withValues(alpha: 0)],
-                  ),
-                ),
-              ),
+            child: edgeBand(
+              height: resolvedBottom,
+              edge: AppScrollGlassEdgeSide.bottom,
             ),
           ),
       ],

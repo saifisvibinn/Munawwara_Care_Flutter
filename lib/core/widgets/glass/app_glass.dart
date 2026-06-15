@@ -6,3 +6,4 @@ export 'app_glass_popup_menu.dart';
 export 'app_glass_search_field.dart';
 export 'app_glass_surface.dart';
 export 'app_glass_theme.dart';
+export 'app_scroll_glass_edge.dart';

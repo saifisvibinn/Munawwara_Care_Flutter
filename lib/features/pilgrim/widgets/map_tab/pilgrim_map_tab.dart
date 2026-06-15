@@ -150,6 +150,8 @@ class PilgrimMapTab extends StatelessWidget {
           isDark: isDark,
           markers: markerData,
           showsUserLocation: true,
+          iosNativeScrollEdges: AppGlassTheme.isIos,
+          iosDashboardBottomEdge: AppGlassTheme.isIos,
           onMarkerTap: (AppMapMarkerData m) => _onMarkerTap(context, m),
           flutterLayers: (ctx) => [
             AppMapMarkerCluster.layer(
@@ -315,14 +317,16 @@ class PilgrimMapTab extends StatelessWidget {
           ],
         ),
 
-        Positioned.fill(
-          child: IgnorePointer(
-            child: AppScrollFadeOverlay(
-              useDashboardBottomExtent: true,
-              child: const SizedBox.expand(),
+        if (!AppGlassTheme.isIos)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AppScrollFadeOverlay(
+                useDashboardBottomExtent: true,
+                overPlatformView: true,
+                child: const SizedBox.expand(),
+              ),
             ),
           ),
-        ),
 
         if (group != null)
           SafeArea(

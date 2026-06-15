@@ -339,12 +339,15 @@ class _ModeratorGroupMapScreenState
       body: Stack(
         children: [
           AppPlatformMap(
+            key: _mapController.mapViewKey,
             controller: _mapController,
             initialCenter: _myLocation ?? AppMapTiles.fallbackMapCenter,
             initialZoom: AppMapTiles.clampMapZoom(14),
             isDark: isDark,
             markers: mapMarkers,
             showsUserLocation: true,
+            iosNativeScrollEdges: AppGlassTheme.isIos,
+            iosDashboardBottomEdge: false,
             onMarkerTap: (marker) {
               final p = marker.payload;
               if (p is PilgrimInGroup) {
@@ -381,13 +384,15 @@ class _ModeratorGroupMapScreenState
             ],
           ),
 
-          Positioned.fill(
-            child: IgnorePointer(
-              child: AppScrollFadeOverlay(
-                child: const SizedBox.expand(),
+          if (!AppGlassTheme.isIos)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AppScrollFadeOverlay(
+                  overPlatformView: true,
+                  child: const SizedBox.expand(),
+                ),
               ),
             ),
-          ),
 
           // ── Top AppBar overlay ──
           Positioned(

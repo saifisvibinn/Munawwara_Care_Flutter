@@ -761,79 +761,85 @@ class AreaPickerFloatingNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
-    final backdrop = AppGlassTheme.groupBroadcastNavBackdropColor(isDark);
+    final navHeight = overlayHeight(context);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [backdrop, backdrop.withValues(alpha: 0)],
-          stops: const [0.55, 1.0],
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 6.h),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: AppGlassIconButton(
-                  isDark: isDark,
-                  icon: Symbols.arrow_back,
-                  onTap: onBack,
-                  size: 42.w,
-                ),
-              ),
-              AppGlassSurface(
-                isDark: isDark,
-                borderRadius: BorderRadius.circular(14.r),
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                glassTheme: AppGlassTheme.groupBroadcastNavPillOf(isDark),
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'Lexend',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13.sp,
-                    color: textPrimary,
-                    decoration: TextDecoration.none,
-                  ),
-                ),
-              ),
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: isLocating
-                    ? SizedBox(
-                        width: 42.w,
-                        height: 42.w,
-                        child: Center(
-                          child: SizedBox(
-                            width: 20.w,
-                            height: 20.w,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
-                      )
-                    : AppGlassIconButton(
-                        isDark: isDark,
-                        icon: Symbols.my_location,
-                        onTap: onLocate,
-                        size: 42.w,
-                      ),
-              ),
-            ],
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: navHeight,
+          child: AppScrollGlassEdge(
+            height: navHeight,
+            edge: AppScrollGlassEdgeSide.top,
+            isDark: isDark,
           ),
         ),
-      ),
+        SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 6.h),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: AppGlassIconButton(
+                    isDark: isDark,
+                    icon: Symbols.arrow_back,
+                    onTap: onBack,
+                    size: 42.w,
+                  ),
+                ),
+                AppGlassSurface(
+                  isDark: isDark,
+                  borderRadius: BorderRadius.circular(14.r),
+                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                  glassTheme: AppGlassTheme.groupBroadcastNavPillOf(isDark),
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Lexend',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.sp,
+                      color: textPrimary,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: isLocating
+                      ? SizedBox(
+                          width: 42.w,
+                          height: 42.w,
+                          child: Center(
+                            child: SizedBox(
+                              width: 20.w,
+                              height: 20.w,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        )
+                      : AppGlassIconButton(
+                          isDark: isDark,
+                          icon: Symbols.my_location,
+                          onTap: onLocate,
+                          size: 42.w,
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

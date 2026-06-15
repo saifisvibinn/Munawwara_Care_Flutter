@@ -35,13 +35,92 @@ final class MunawwaraMapAnnotation: NSObject, MKAnnotation {
   }
 }
 
+// MARK: - Native scroll-edge glass (UIVisualEffectView)
+
+/// Fades a system blur band at the top or bottom of the map — true iOS liquid glass.
+private final class MunawwaraScrollEdgeBlurOverlay: UIView {
+  private let effectView: UIVisualEffectView
+  private let maskLayer = CAGradientLayer()
+  private let fadesFromTop: Bool
+
+  init(fadesFromTop: Bool, isDark: Bool) {
+    self.fadesFromTop = fadesFromTop
+    effectView = UIVisualEffectView(effect: Self.blurEffect(isDark: isDark))
+    super.init(frame: .zero)
+    isUserInteractionEnabled = false
+    backgroundColor = .clear
+    clipsToBounds = true
+
+    effectView.translatesAutoresizingMaskIntoConstraints = false
+    addSubview(effectView)
+    NSLayoutConstraint.activate([
+      effectView.topAnchor.constraint(equalTo: topAnchor),
+      effectView.bottomAnchor.constraint(equalTo: bottomAnchor),
+      effectView.leadingAnchor.constraint(equalTo: leadingAnchor),
+      effectView.trailingAnchor.constraint(equalTo: trailingAnchor),
+    ])
+
+    maskLayer.startPoint = CGPoint(x: 0.5, y: 0)
+    maskLayer.endPoint = CGPoint(x: 0.5, y: 1)
+    updateMask()
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  private static func blurEffect(isDark: Bool) -> UIBlurEffect {
+    let style: UIBlurEffect.Style =
+      isDark ? .systemThinMaterialDark : .systemUltraThinMaterialLight
+    return UIBlurEffect(style: style)
+  }
+
+  func setDarkMode(_ isDark: Bool) {
+    effectView.effect = Self.blurEffect(isDark: isDark)
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    maskLayer.frame = bounds
+  }
+
+  private func updateMask() {
+    if fadesFromTop {
+      maskLayer.colors = [
+        UIColor.white.cgColor,
+        UIColor.white.withAlphaComponent(0.55).cgColor,
+        UIColor.clear.cgColor,
+      ]
+      maskLayer.locations = [0.0, 0.35, 1.0]
+    } else {
+      maskLayer.colors = [
+        UIColor.clear.cgColor,
+        UIColor.white.withAlphaComponent(0.55).cgColor,
+        UIColor.white.cgColor,
+      ]
+      maskLayer.locations = [0.0, 0.65, 1.0]
+    }
+    layer.mask = maskLayer
+  }
+}
+
 // MARK: - Platform view (MKMapView + native clustering)
 
 final class MunawwaraMapPlatformView: NSObject, FlutterPlatformView, MKMapViewDelegate {
+  private let container = UIView()
   private let mapView = MKMapView()
+  private let topEdgeBlur: MunawwaraScrollEdgeBlurOverlay
+  private let bottomEdgeBlur: MunawwaraScrollEdgeBlurOverlay
   private let channel: FlutterMethodChannel
   private var annotationsById: [String: MunawwaraMapAnnotation] = [:]
   private var suppressRegionEvents = false
+
+  private var topEdgeHeight: CGFloat = 0
+  private var bottomEdgeHeight: CGFloat = 0
+  private var edgeBlurEnabled = true
+  private var topHeightConstraint: NSLayoutConstraint?
+  private var bottomHeightConstraint: NSLayoutConstraint?
 
   init(
     frame: CGRect,
@@ -49,11 +128,48 @@ final class MunawwaraMapPlatformView: NSObject, FlutterPlatformView, MKMapViewDe
     args: [String: Any]?,
     messenger: FlutterBinaryMessenger,
   ) {
+    let isDark = args?["isDark"] as? Bool ?? false
+    topEdgeBlur = MunawwaraScrollEdgeBlurOverlay(fadesFromTop: true, isDark: isDark)
+    bottomEdgeBlur = MunawwaraScrollEdgeBlurOverlay(fadesFromTop: false, isDark: isDark)
+
     channel = FlutterMethodChannel(
       name: "com.munawwaracare/mapkit_\(viewId)",
       binaryMessenger: messenger,
     )
     super.init()
+
+    container.backgroundColor = .clear
+    container.clipsToBounds = true
+
+    mapView.translatesAutoresizingMaskIntoConstraints = false
+    container.addSubview(mapView)
+
+    topEdgeBlur.translatesAutoresizingMaskIntoConstraints = false
+    bottomEdgeBlur.translatesAutoresizingMaskIntoConstraints = false
+    container.addSubview(topEdgeBlur)
+    container.addSubview(bottomEdgeBlur)
+
+    let topHeight = topEdgeBlur.heightAnchor.constraint(equalToConstant: 0)
+    let bottomHeight = bottomEdgeBlur.heightAnchor.constraint(equalToConstant: 0)
+    topHeightConstraint = topHeight
+    bottomHeightConstraint = bottomHeight
+
+    NSLayoutConstraint.activate([
+      mapView.topAnchor.constraint(equalTo: container.topAnchor),
+      mapView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+      mapView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+      mapView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+
+      topEdgeBlur.topAnchor.constraint(equalTo: container.topAnchor),
+      topEdgeBlur.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+      topEdgeBlur.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+      topHeight,
+
+      bottomEdgeBlur.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+      bottomEdgeBlur.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+      bottomEdgeBlur.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+      bottomHeight,
+    ])
 
     mapView.delegate = self
     mapView.isScrollEnabled = true
@@ -68,7 +184,7 @@ final class MunawwaraMapPlatformView: NSObject, FlutterPlatformView, MKMapViewDe
     if let showsUser = args?["showsUserLocation"] as? Bool {
       mapView.showsUserLocation = showsUser
     }
-    if let isDark = args?["isDark"] as? Bool, isDark {
+    if isDark {
       mapView.overrideUserInterfaceStyle = .dark
     }
 
@@ -80,6 +196,17 @@ final class MunawwaraMapPlatformView: NSObject, FlutterPlatformView, MKMapViewDe
       MKMarkerAnnotationView.self,
       forAnnotationViewWithReuseIdentifier: MKMapViewDefaultClusterAnnotationViewReuseIdentifier,
     )
+
+    if let top = args?["edgeBlurTopHeight"] as? Double {
+      topEdgeHeight = CGFloat(top)
+    }
+    if let bottom = args?["edgeBlurBottomHeight"] as? Double {
+      bottomEdgeHeight = CGFloat(bottom)
+    }
+    if let enabled = args?["edgeBlurEnabled"] as? Bool {
+      edgeBlurEnabled = enabled
+    }
+    applyEdgeLayout()
 
     let lat = args?["latitude"] as? Double ?? 21.3891
     let lng = args?["longitude"] as? Double ?? 39.8579
@@ -93,7 +220,14 @@ final class MunawwaraMapPlatformView: NSObject, FlutterPlatformView, MKMapViewDe
     }
   }
 
-  func view() -> UIView { mapView }
+  func view() -> UIView { container }
+
+  private func applyEdgeLayout() {
+    topHeightConstraint?.constant = topEdgeHeight
+    bottomHeightConstraint?.constant = bottomEdgeHeight
+    topEdgeBlur.isHidden = !edgeBlurEnabled || topEdgeHeight <= 0
+    bottomEdgeBlur.isHidden = !edgeBlurEnabled || bottomEdgeHeight <= 0
+  }
 
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
@@ -136,6 +270,33 @@ final class MunawwaraMapPlatformView: NSObject, FlutterPlatformView, MKMapViewDe
       result(true)
     case "restoreGestures":
       ensureMapInteractionEnabled()
+      result(true)
+    case "setScrollEdges":
+      guard let args = call.arguments as? [String: Any] else {
+        result(FlutterError(code: "bad_args", message: "setScrollEdges needs args", details: nil))
+        return
+      }
+      if let top = args["topHeight"] as? Double {
+        topEdgeHeight = CGFloat(max(0, top))
+      }
+      if let bottom = args["bottomHeight"] as? Double {
+        bottomEdgeHeight = CGFloat(max(0, bottom))
+      }
+      if let enabled = args["enabled"] as? Bool {
+        edgeBlurEnabled = enabled
+      }
+      applyEdgeLayout()
+      result(true)
+    case "setAppearance":
+      guard let args = call.arguments as? [String: Any],
+        let isDark = args["isDark"] as? Bool
+      else {
+        result(FlutterError(code: "bad_args", message: "setAppearance needs isDark", details: nil))
+        return
+      }
+      topEdgeBlur.setDarkMode(isDark)
+      bottomEdgeBlur.setDarkMode(isDark)
+      mapView.overrideUserInterfaceStyle = isDark ? .dark : .unspecified
       result(true)
     default:
       result(FlutterMethodNotImplemented)

@@ -1357,12 +1357,15 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
       body: Stack(
         children: [
           AppPlatformMap(
+            key: _mapController.mapViewKey,
             controller: _mapController,
             initialCenter: _myLocation ?? AppMapTiles.fallbackMapCenter,
             initialZoom: AppMapTiles.clampMapZoom(14),
             isDark: isDark,
             markers: mapMarkers,
             showsUserLocation: true,
+            iosNativeScrollEdges: AppGlassTheme.isIos,
+            iosDashboardBottomEdge: false,
             onMarkerTap: (marker) {
               final payload = marker.payload;
               if (payload is PilgrimInGroup) {
@@ -1416,13 +1419,15 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
             ],
           ),
 
-          Positioned.fill(
-            child: IgnorePointer(
-              child: AppScrollFadeOverlay(
-                child: const SizedBox.expand(),
+          if (!AppGlassTheme.isIos)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AppScrollFadeOverlay(
+                  overPlatformView: true,
+                  child: const SizedBox.expand(),
+                ),
               ),
             ),
-          ),
 
           // ── Top overlay bar ───────────────────────────────────────────────
           Positioned(

@@ -534,11 +534,15 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen>
     final areas = ref.watch(suggestedAreaProvider).areas;
     return Positioned.fill(
       child: AppPlatformMap(
+        key: _mapController.mapViewKey,
         controller: _mapController,
         initialCenter: center,
         initialZoom: AppMapTiles.clampMapZoom(15),
         isDark: isDark,
         markers: ModeratorMapMarkers.areas(areas),
+        iosNativeScrollEdges: AppGlassTheme.isIos && _isFullScreenMap,
+        iosScrollEdgeTopHeight: _isFullScreenMap ? 120.h : null,
+        iosScrollEdgeBottomHeight: _isFullScreenMap ? 200.h : null,
         onPositionChanged: (target, hasGesture) {
           if (_isFullScreenMap) {
             if (hasGesture) {
@@ -611,48 +615,39 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen>
   }
 
   Widget _buildFullScreenMapOverlays(bool isDark, Color accentColor) {
-    final backdrop = AppGlassTheme.groupBroadcastNavBackdropColor(isDark);
+    const topBandHeight = 120.0;
+    const bottomBandHeight = 200.0;
 
     return Stack(
       children: [
-        Positioned(
-          left: 0,
-          right: 0,
-          top: 0,
-          height: 120.h,
-          child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [backdrop, backdrop.withValues(alpha: 0)],
-                  stops: const [0.55, 1.0],
-                ),
-              ),
+        if (!AppGlassTheme.isIos) ...[
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: topBandHeight.h,
+            child: AppScrollGlassEdge(
+              height: topBandHeight.h,
+              edge: AppScrollGlassEdgeSide.top,
+              isDark: isDark,
+              useBackdropBlur: false,
             ),
           ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: 200.h,
-          child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: isDark ? 0.5 : 0.32),
-                  ],
-                ),
-              ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: bottomBandHeight.h,
+            child: AppScrollGlassEdge(
+              height: bottomBandHeight.h,
+              edge: AppScrollGlassEdgeSide.bottom,
+              isDark: isDark,
+              tintColor: AppGlassTheme.mapVignetteTintColor(isDark),
+              tintOpacity: isDark ? 0.5 : 0.32,
+              useBackdropBlur: false,
             ),
           ),
-        ),
+        ],
         Positioned(
           top: 0,
           left: 0,

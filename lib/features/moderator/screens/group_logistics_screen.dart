@@ -247,76 +247,82 @@ class _GroupLogisticsScreenState extends State<GroupLogisticsScreen> {
     final textMuted = isDark
         ? AppColors.textMutedLight
         : AppColors.textMutedDark;
-    final backdrop = AppGlassTheme.groupBroadcastNavBackdropColor(isDark);
+    final navHeight = _navOverlayHeight(context);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [backdrop, backdrop.withValues(alpha: 0)],
-          stops: const [0.55, 1.0],
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 6.h),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: AppGlassIconButton(
-                  isDark: isDark,
-                  icon: Symbols.arrow_back,
-                  onTap: () => Navigator.pop(context),
-                  size: 42.w,
-                ),
-              ),
-              AppGlassSurface(
-                isDark: isDark,
-                borderRadius: BorderRadius.circular(14.r),
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                glassTheme: AppGlassTheme.groupBroadcastNavPillOf(isDark),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: 220.w),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'logistics_title'.tr(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13.sp,
-                          color: textPrimary,
-                        ),
-                      ),
-                      Text(
-                        widget.groupName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'Lexend',
-                          fontSize: 11.sp,
-                          color: textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: SizedBox(width: 42.w, height: 42.w),
-              ),
-            ],
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: navHeight,
+          child: AppScrollGlassEdge(
+            height: navHeight,
+            edge: AppScrollGlassEdgeSide.top,
+            isDark: isDark,
           ),
         ),
-      ),
+        SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 6.h),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: AppGlassIconButton(
+                    isDark: isDark,
+                    icon: Symbols.arrow_back,
+                    onTap: () => Navigator.pop(context),
+                    size: 42.w,
+                  ),
+                ),
+                AppGlassSurface(
+                  isDark: isDark,
+                  borderRadius: BorderRadius.circular(14.r),
+                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                  glassTheme: AppGlassTheme.groupBroadcastNavPillOf(isDark),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 220.w),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'logistics_title'.tr(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13.sp,
+                            color: textPrimary,
+                          ),
+                        ),
+                        Text(
+                          widget.groupName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontSize: 11.sp,
+                            color: textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: SizedBox(width: 42.w, height: 42.w),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

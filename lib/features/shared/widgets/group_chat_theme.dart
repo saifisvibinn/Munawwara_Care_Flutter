@@ -488,95 +488,101 @@ class GroupBroadcastNavBar extends StatelessWidget {
     final textMuted = isDark
         ? AppColors.textMutedLight
         : AppColors.textMutedDark;
-    final backdrop = AppGlassTheme.groupBroadcastNavBackdropColor(isDark);
+    final navHeight = overlayHeight(context);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [backdrop, backdrop.withValues(alpha: 0)],
-          stops: const [0.55, 1.0],
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: navHeight,
+          child: AppScrollGlassEdge(
+            height: navHeight,
+            edge: AppScrollGlassEdgeSide.top,
+            isDark: isDark,
+          ),
         ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 6.h),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              if (onBack != null)
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: AppGlassIconButton(
+        SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 6.h),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (onBack != null)
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: AppGlassIconButton(
+                      isDark: isDark,
+                      icon: Symbols.arrow_back,
+                      onTap: onBack!,
+                      size: 42.w,
+                    ),
+                  ),
+                if (showBrandAvatar)
+                  AppGlassSurface(
                     isDark: isDark,
-                    icon: Symbols.arrow_back,
-                    onTap: onBack!,
-                    size: 42.w,
-                  ),
-                ),
-              if (showBrandAvatar)
-                AppGlassSurface(
-                  isDark: isDark,
-                  borderRadius: BorderRadius.circular(14.r),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 12.w,
-                    vertical: 8.h,
-                  ),
-                  glassTheme: AppGlassTheme.groupBroadcastNavPillOf(isDark),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SupportBrandAvatar(
-                        isDark: isDark,
-                        diameter: 28,
-                        iconPadding: 4,
-                        showShadow: false,
-                      ),
-                      SizedBox(width: 8.w),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: 180.w),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: 'Lexend',
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13.sp,
-                                color: textPrimary,
-                                decoration: TextDecoration.none,
-                                decorationColor: Colors.transparent,
-                              ),
-                            ),
-                            if (subtitle != null && subtitle!.isNotEmpty)
+                    borderRadius: BorderRadius.circular(14.r),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12.w,
+                      vertical: 8.h,
+                    ),
+                    glassTheme: AppGlassTheme.groupBroadcastNavPillOf(isDark),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SupportBrandAvatar(
+                          isDark: isDark,
+                          diameter: 28,
+                          iconPadding: 4,
+                          showShadow: false,
+                        ),
+                        SizedBox(width: 8.w),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: 180.w),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                               Text(
-                                subtitle!,
+                                title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontFamily: 'Lexend',
-                                  fontSize: 11.sp,
-                                  color: textMuted,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13.sp,
+                                  color: textPrimary,
                                   decoration: TextDecoration.none,
                                   decorationColor: Colors.transparent,
                                 ),
                               ),
-                          ],
+                              if (subtitle != null && subtitle!.isNotEmpty)
+                                Text(
+                                  subtitle!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: 'Lexend',
+                                    fontSize: 11.sp,
+                                    color: textMuted,
+                                    decoration: TextDecoration.none,
+                                    decorationColor: Colors.transparent,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

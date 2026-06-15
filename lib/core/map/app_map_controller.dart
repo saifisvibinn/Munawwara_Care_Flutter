@@ -74,6 +74,30 @@ class AppMapController {
     } catch (_) {}
   }
 
+  /// Native UIVisualEffectView bands at the top/bottom of the MapKit view (iOS).
+  Future<void> setIosScrollEdges({
+    double? topHeight,
+    double? bottomHeight,
+    bool? enabled,
+  }) async {
+    if (kIsWeb || !Platform.isIOS || _iosChannel == null) return;
+    try {
+      await _iosChannel!.invokeMethod('setScrollEdges', {
+        if (topHeight != null) 'topHeight': topHeight,
+        if (bottomHeight != null) 'bottomHeight': bottomHeight,
+        if (enabled != null) 'enabled': enabled,
+      });
+    } catch (_) {}
+  }
+
+  /// Updates MapKit dark mode and native edge blur material (iOS).
+  Future<void> setIosMapAppearance({required bool isDark}) async {
+    if (kIsWeb || !Platform.isIOS || _iosChannel == null) return;
+    try {
+      await _iosChannel!.invokeMethod('setAppearance', {'isDark': isDark});
+    } catch (_) {}
+  }
+
   void dispose() {
     _flutter?.dispose();
     _flutter = null;

@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../widgets/glass/app_glass_theme.dart';
 import '../app_map_controller.dart';
 import '../app_map_marker_data.dart';
 import '../app_map_tiles.dart';
@@ -35,6 +36,10 @@ class AppPlatformMap extends StatefulWidget {
     this.onPositionChanged,
     this.showsUserLocation = false,
     this.flutterLayers,
+    this.iosNativeScrollEdges = false,
+    this.iosDashboardBottomEdge = false,
+    this.iosScrollEdgeTopHeight,
+    this.iosScrollEdgeBottomHeight,
   });
 
   final AppMapController controller;
@@ -45,9 +50,18 @@ class AppPlatformMap extends StatefulWidget {
   final AppMapMarkerTap? onMarkerTap;
   final AppMapPositionChanged? onPositionChanged;
   final bool showsUserLocation;
-
-  /// Extra flutter_map layers (cluster markers etc.) used on Android/web.
   final AppFlutterMapLayerBuilder? flutterLayers;
+
+  /// When true on iOS, native [UIVisualEffectView] edge bands are drawn inside
+  /// MapKit (Flutter scroll overlays should be omitted on the map screen).
+  final bool iosNativeScrollEdges;
+
+  /// Uses [AppGlassTheme.mapScrollEdgeBottomExtent] for the bottom band.
+  final bool iosDashboardBottomEdge;
+
+  /// Optional fixed heights (logical px). When null, derived from [BuildContext].
+  final double? iosScrollEdgeTopHeight;
+  final double? iosScrollEdgeBottomHeight;
 
   @override
   State<AppPlatformMap> createState() => _AppPlatformMapState();
@@ -56,9 +70,11 @@ class AppPlatformMap extends StatefulWidget {
 class _AppPlatformMapState extends State<AppPlatformMap> {
   MethodChannel? _iosChannel;
   MapController? _flutterMapController;
-  Map<String, dynamic>? _iosCreationParams;
   Timer? _markerPushDebounce;
   int? _iosViewId;
+  bool _iosChannelReady = false;
+  double? _lastSyncedTop;
+  double? _lastSyncedBottom;
 
   bool get _useMapKit => !kIsWeb && Platform.isIOS;
 
@@ -66,17 +82,64 @@ class _AppPlatformMapState extends State<AppPlatformMap> {
   void initState() {
     super.initState();
     if (_useMapKit) {
-      _iosCreationParams = <String, dynamic>{
-        'latitude': widget.initialCenter.latitude,
-        'longitude': widget.initialCenter.longitude,
-        'zoom': AppMapTiles.clampMapZoom(widget.initialZoom),
-        'isDark': widget.isDark,
-        'showsUserLocation': widget.showsUserLocation,
-      };
+      // Heights synced after platform view is created.
     } else {
       _flutterMapController = MapController();
       widget.controller.attachFlutter(_flutterMapController!);
     }
+  }
+
+  Map<String, dynamic> _buildIosCreationParams({
+    required double top,
+    required double bottom,
+  }) {
+    return <String, dynamic>{
+      'latitude': widget.initialCenter.latitude,
+      'longitude': widget.initialCenter.longitude,
+      'zoom': AppMapTiles.clampMapZoom(widget.initialZoom),
+      'isDark': widget.isDark,
+      'showsUserLocation': widget.showsUserLocation,
+      'edgeBlurEnabled': widget.iosNativeScrollEdges,
+      'edgeBlurTopHeight': top,
+      'edgeBlurBottomHeight': bottom,
+    };
+  }
+
+  (double top, double bottom) _resolveScrollEdgeHeights(BuildContext context) {
+    if (!widget.iosNativeScrollEdges) return (0, 0);
+    final top = widget.iosScrollEdgeTopHeight ??
+        AppGlassTheme.scrollFadeTopExtent(context);
+    final bottom = widget.iosScrollEdgeBottomHeight ??
+        (widget.iosDashboardBottomEdge
+            ? AppGlassTheme.mapScrollEdgeBottomExtent(context)
+            : AppGlassTheme.scrollFadeBottomExtentStandalone(context));
+    return (top, bottom);
+  }
+
+  void _syncIosScrollEdges(BuildContext context) {
+    if (!_useMapKit || !_iosChannelReady) return;
+
+    if (!widget.iosNativeScrollEdges) {
+      if (_lastSyncedTop == -1 && _lastSyncedBottom == -1) return;
+      _lastSyncedTop = -1;
+      _lastSyncedBottom = -1;
+      unawaited(widget.controller.setIosScrollEdges(enabled: false));
+      return;
+    }
+
+    final (top, bottom) = _resolveScrollEdgeHeights(context);
+    if (top == _lastSyncedTop && bottom == _lastSyncedBottom) {
+      return;
+    }
+    _lastSyncedTop = top;
+    _lastSyncedBottom = bottom;
+    unawaited(
+      widget.controller.setIosScrollEdges(
+        topHeight: top,
+        bottomHeight: bottom,
+        enabled: true,
+      ),
+    );
   }
 
   @override
@@ -102,10 +165,23 @@ class _AppPlatformMapState extends State<AppPlatformMap> {
   @override
   void didUpdateWidget(covariant AppPlatformMap oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_useMapKit &&
-        _iosChannel != null &&
-        !_markersEqual(oldWidget.markers, widget.markers)) {
-      _scheduleMarkerPush();
+    if (_useMapKit) {
+      if (oldWidget.isDark != widget.isDark && _iosChannelReady) {
+        unawaited(widget.controller.setIosMapAppearance(isDark: widget.isDark));
+      }
+      if (_iosChannel != null &&
+          !_markersEqual(oldWidget.markers, widget.markers)) {
+        _scheduleMarkerPush();
+      }
+      if (oldWidget.iosNativeScrollEdges != widget.iosNativeScrollEdges ||
+          oldWidget.iosDashboardBottomEdge != widget.iosDashboardBottomEdge ||
+          oldWidget.iosScrollEdgeTopHeight != widget.iosScrollEdgeTopHeight ||
+          oldWidget.iosScrollEdgeBottomHeight !=
+              widget.iosScrollEdgeBottomHeight) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _syncIosScrollEdges(context);
+        });
+      }
     }
   }
 
@@ -131,6 +207,7 @@ class _AppPlatformMapState extends State<AppPlatformMap> {
 
   void _onIosCreated(int viewId) {
     _iosViewId = viewId;
+    _iosChannelReady = true;
     widget.controller.attachIosView(viewId);
     _iosChannel = MethodChannel('com.munawwaracare/mapkit_$viewId');
     _iosChannel!.setMethodCallHandler((call) async {
@@ -158,19 +235,27 @@ class _AppPlatformMapState extends State<AppPlatformMap> {
       return null;
     });
     _pushMarkers();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncIosScrollEdges(context);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     if (_useMapKit) {
-      return SizedBox.expand(
-        child: UiKitView(
-          viewType: 'MunawwaraMapKit',
-          layoutDirection: TextDirection.ltr,
-          gestureRecognizers: kIosMapGestureRecognizers,
-          creationParams: _iosCreationParams,
-          creationParamsCodec: const StandardMessageCodec(),
-          onPlatformViewCreated: _onIosCreated,
+      final (top, bottom) = _resolveScrollEdgeHeights(context);
+      final creationParams = _buildIosCreationParams(top: top, bottom: bottom);
+
+      return RepaintBoundary(
+        child: SizedBox.expand(
+          child: UiKitView(
+            viewType: 'MunawwaraMapKit',
+            layoutDirection: TextDirection.ltr,
+            gestureRecognizers: kIosMapGestureRecognizers,
+            creationParams: creationParams,
+            creationParamsCodec: const StandardMessageCodec(),
+            onPlatformViewCreated: _onIosCreated,
+          ),
         ),
       );
     }

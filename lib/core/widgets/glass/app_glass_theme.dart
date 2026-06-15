@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:cupertino_liquid_glass/cupertino_liquid_glass.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -23,6 +26,27 @@ class AppGlassTheme {
 
   /// Backdrop blur intensity. Reduce if profiling shows scroll jank.
   static const double blurSigma = 28;
+
+  /// Blur for scroll-edge bands — slightly lighter than card glass for map perf.
+  static const double scrollEdgeBlurSigma = 20;
+
+  /// iOS scroll edges — tuned to approximate [UIBlurEffect] thin material.
+  static const double scrollEdgeBlurSigmaIos = 26;
+
+  /// True on native iOS (not web).
+  static bool get isIos => !kIsWeb && Platform.isIOS;
+
+  /// Blur sigma for scroll-edge bands on the current platform.
+  static double scrollEdgeBlurForPlatform() =>
+      isIos ? scrollEdgeBlurSigmaIos : scrollEdgeBlurSigma;
+
+  /// Tint strength at the solid edge of a scroll glass band.
+  static double scrollEdgeTintOpacity(bool isDark) =>
+      isIos ? (isDark ? 0.22 : 0.18) : (isDark ? 0.55 : 0.65);
+
+  /// Map vignette tint for bottom glass edges over map tiles.
+  static Color mapVignetteTintColor(bool isDark) =>
+      isDark ? Colors.black : Colors.black;
 
   /// Concentric with floating tab bar (26pt system-style radius).
   static BorderRadius get borderRadius => BorderRadius.circular(26.r);
@@ -59,11 +83,9 @@ class AppGlassTheme {
     );
   }
 
-  /// Solid-ish backdrop tint behind the group broadcast floating nav row.
-  static Color groupBroadcastNavBackdropColor(bool isDark) {
-    final bg = dashboardBackgroundColor(isDark);
-    return bg.withValues(alpha: isDark ? 0.94 : 0.92);
-  }
+  /// Height of the top glass band behind group-broadcast floating nav rows.
+  static double groupBroadcastNavGlassHeight(BuildContext context) =>
+      MediaQuery.viewPaddingOf(context).top + 10.h + 44.w + 6.h;
 
   static LiquidGlassThemeData of(bool isDark) =>
       isDark ? LiquidGlassThemeData.dark() : LiquidGlassThemeData.light();
@@ -129,6 +151,10 @@ class AppGlassTheme {
   /// Bottom fade for dashboard tabs that sit above the floating glass nav bar.
   static double scrollFadeBottomExtentDashboard(BuildContext context) =>
       bottomNavScrollPadding(context);
+
+  /// Native map / visual glass band at bottom — covers tab bar, not full scroll pad.
+  static double mapScrollEdgeBottomExtent(BuildContext context) =>
+      floatingBottomBarHeight(context) + 28.h;
 
   /// Bottom fade for standalone pushed screens (no floating tab bar).
   static double scrollFadeBottomExtentStandalone(BuildContext context) =>
