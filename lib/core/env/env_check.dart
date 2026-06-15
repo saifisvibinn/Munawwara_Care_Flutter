@@ -1,5 +1,5 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
+import '../env/app_env.dart';
+import '../env/dotenv_safe.dart';
 import '../services/api_service.dart';
 import '../utils/app_logger.dart';
 
@@ -7,36 +7,32 @@ import '../utils/app_logger.dart';
 /// print warnings or throw for missing required keys.
 Future<void> verifyEnv() async {
   final requiredKeys = <String>['API_BASE_URL'];
-  final optionalKeys = <String>[
-    'AGORA_APP_ID',
-    'GOOGLE_MAPS_API_KEY',
-    'UMMAH_API_KEY',
-  ];
 
   final missingRequired = requiredKeys.where((k) {
     if (k == 'API_BASE_URL') {
-      return ApiService.baseUrl.isEmpty;
+      return resolvedApiBaseUrl.isEmpty;
     }
-    return (dotenv.env[k] ?? '').trim().isEmpty;
+    return envValue(k, '').isEmpty;
   }).toList();
-  final missingOptional = optionalKeys
-      .where((k) => (dotenv.env[k] ?? '').trim().isEmpty)
-      .toList();
+  final missingOptional = <String>[
+    if (agoraAppId.isEmpty) 'AGORA_APP_ID',
+    if (googleMapsApiKey.isEmpty) 'GOOGLE_MAPS_API_KEY',
+    if (ummahApiKey.isEmpty) 'UMMAH_API_KEY',
+  ];
 
   if (missingRequired.isNotEmpty) {
     final msg =
         'Missing API_BASE_URL: set it in .env or pass '
-        '--dart-define=API_BASE_URL=https://your-api.example.com/api';
-    // Fail-fast so developers notice immediately when a critical value is missing.
+        '--dart-define=API_BASE_URL=https://your-api.example.com/api '
+        '(or --dart-define-from-file=.env)';
     throw Exception(msg);
   }
 
   if (missingOptional.isNotEmpty) {
-    // Log a friendly warning to remind developers to fill optional integrations.
     AppLogger.w('Missing optional .env keys: ${missingOptional.join(', ')}');
   }
 
-  final socketExplicit = dotenv.env['SOCKET_BASE_URL']?.trim();
+  final socketExplicit = dotenvOptional('SOCKET_BASE_URL');
   if (socketExplicit == null || socketExplicit.isEmpty) {
     AppLogger.w(
       '[Env] SOCKET_BASE_URL unset — using socketOrigin=${ApiService.socketOrigin} '
@@ -44,7 +40,7 @@ Future<void> verifyEnv() async {
     );
   }
 
-  _warnIfPrivateNetworkBackend(ApiService.baseUrl, label: 'API_BASE_URL');
+  _warnIfPrivateNetworkBackend(resolvedApiBaseUrl, label: 'API_BASE_URL');
   if (socketExplicit != null && socketExplicit.isNotEmpty) {
     _warnIfPrivateNetworkBackend(socketExplicit, label: 'SOCKET_BASE_URL');
   }

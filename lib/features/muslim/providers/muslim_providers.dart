@@ -1,18 +1,18 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../data/dua_i18n_repository.dart';
 import '../models/muslim_models.dart';
 import '../services/ummah_api_service.dart';
+import '../../../core/env/app_env.dart';
 import '../../../core/services/app_data_cache.dart';
 import '../../../core/services/secure_session_store.dart';
 
 final ummahDioProvider = Provider<Dio>((ref) {
-  final apiKey = dotenv.env['UMMAH_API_KEY']?.trim() ?? '';
+  final apiKey = ummahApiKey;
   return Dio(
     BaseOptions(
       connectTimeout: const Duration(seconds: 15),

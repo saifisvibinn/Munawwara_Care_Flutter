@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../env/app_env.dart';
 import '../utils/app_logger.dart';
 import 'api_service.dart';
 import 'secure_session_store.dart';
@@ -26,7 +26,7 @@ class AgoraRtcService {
   void Function(String message)? onMediaJoinFailed;
   void Function()? onConnectionFailed;
 
-  String get _appId => dotenv.env['AGORA_APP_ID'] ?? '';
+  String get _appId => agoraAppId;
 
   bool get isInChannel =>
       _joinedChannelName != null && _joinedChannelName!.isNotEmpty;

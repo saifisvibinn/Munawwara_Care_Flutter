@@ -7,14 +7,24 @@ import '../services/api_service.dart';
 import '../services/secure_session_store.dart';
 import '../utils/app_logger.dart';
 
-/// Minimum work before [runApp]: Firebase, localization, env file load.
+/// Minimum work before [runApp]: Firebase, localization, optional .env load.
 Future<void> prepareCoreRuntime() async {
   await Future.wait<void>([
     Firebase.initializeApp(),
     EasyLocalization.ensureInitialized(),
-    dotenv.load(fileName: '.env'),
+    _loadDotenvIfPresent(),
   ]);
   await SecureSessionStore.migrateFromSharedPreferencesIfNeeded();
+}
+
+Future<void> _loadDotenvIfPresent() async {
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    AppLogger.w(
+      '[Startup] .env not loaded (use --dart-define-from-file=.env at build): $e',
+    );
+  }
 }
 
 /// Env validation + native prefs — deferred until after first frame.

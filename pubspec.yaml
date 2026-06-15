@@ -150,7 +150,6 @@ flutter:
     - assets/audio/sos/tr.mp3
     - assets/audio/sos/fa.mp3
     - assets/audio/sos/ms.mp3
-    - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

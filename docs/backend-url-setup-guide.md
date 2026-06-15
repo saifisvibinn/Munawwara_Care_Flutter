@@ -21,20 +21,22 @@ after the API URL security changes.
    ```env
    API_BASE_URL=https://your-backend-host.example.com/api
    AGORA_APP_ID=your-agora-app-id
+   UMMAH_API_KEY=your-ummah-api-key
    GOOGLE_MAPS_API_KEY=your-google-maps-key
    ```
    - Use your **real** production or staging URL (include `/api` at the end if
      your backend expects it).
    - `.env` is gitignored — it never gets committed.
+   - `.env` is **not** bundled in release builds (see `docs/env-and-release-builds.md`).
 
 4. Run the app:
    ```bash
    flutter pub get
-   flutter run
+   flutter run --dart-define-from-file=.env
    ```
 
 5. If the app crashes on startup with a message about missing `API_BASE_URL`,
-   your `.env` file is missing, empty, or `API_BASE_URL` is not set correctly.
+   pass `--dart-define-from-file=.env` or `--dart-define=API_BASE_URL=...`.
 
 ---
 
@@ -167,18 +169,19 @@ This sets both Dart (`String.fromEnvironment`) and Android native
 | Task | Command / file |
 |------|----------------|
 | First-time env | `cp .env.example .env` then edit |
-| Daily dev | `flutter run` (with `.env` configured) |
-| Release with define | `flutter build appbundle --release --dart-define=API_BASE_URL=...` |
+| Daily dev | `flutter run --dart-define-from-file=.env` |
+| Release with define | `flutter build appbundle --release --dart-define=API_BASE_URL=...` (see env doc) |
 | Env template | `.env.example` |
-| Technical details | `docs/backend-config.md` |
+| Technical details | `docs/env-and-release-builds.md` |
 
 ---
 
 ## Checklist before sharing a build with QA
 
-- [ ] `.env` or `--dart-define` has the correct `API_BASE_URL`
+- [ ] `--dart-define-from-file=.env` or `--dart-define` has correct `API_BASE_URL`
 - [ ] Backend is deployed and reachable from a test device
-- [ ] `AGORA_APP_ID` set if testing voice/video calls
+- [ ] `AGORA_APP_ID` set if testing voice calls
+- [ ] `UMMAH_API_KEY` set if testing Islamic Corner / UmmahAPI
 - [ ] `GOOGLE_MAPS_API_KEY` set if testing maps
 - [ ] Test login and one API call after install
 - [ ] If testing killed-state call decline: open app once, or build with `dart-define`

@@ -111,7 +111,7 @@ Draft covers:
 2. Pilgrim: fresh one-time code or QR (not bound to another device).  
 3. Grant **location (Always)** and **notifications**; complete device-care onboarding if shown.  
 4. Test VoIP call and SOS from pilgrim.  
-5. API: production `API_BASE_URL` (see `docs/backend-config.md`)
+5. API: production `API_BASE_URL` (see `docs/env-and-release-builds.md`)
 
 ---
 
