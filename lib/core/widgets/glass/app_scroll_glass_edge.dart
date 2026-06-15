@@ -42,8 +42,7 @@ class AppScrollGlassEdge extends StatelessWidget {
   Widget build(BuildContext context) {
     if (height <= 0) return const SizedBox.shrink();
 
-    final resolvedBlur =
-        blurSigma ?? AppGlassTheme.scrollEdgeBlurForPlatform();
+    final resolvedBlur = blurSigma ?? AppGlassTheme.scrollEdgeBlurForPlatform();
     final baseTint =
         tintColor ?? AppGlassTheme.dashboardBackgroundColor(isDark);
     final resolvedTintOpacity =
@@ -51,8 +50,8 @@ class AppScrollGlassEdge extends StatelessWidget {
         fadeOpacity.clamp(0.0, 1.0);
     final iosSpecular = AppGlassTheme.isIos
         ? (isDark
-            ? Colors.white.withValues(alpha: 0.05)
-            : Colors.white.withValues(alpha: 0.12))
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.white.withValues(alpha: 0.12))
         : null;
 
     final begin = edge == AppScrollGlassEdgeSide.top
@@ -108,7 +107,7 @@ class AppScrollGlassEdge extends StatelessWidget {
                     end: end,
                     colors: [
                       baseTint.withValues(alpha: resolvedTintOpacity),
-                      if (iosSpecular != null) iosSpecular,
+                      ?iosSpecular,
                       baseTint.withValues(alpha: 0),
                     ],
                     stops: iosSpecular != null
@@ -144,8 +143,9 @@ class AppScrollSolidEdge extends StatelessWidget {
   Widget build(BuildContext context) {
     if (height <= 0) return const SizedBox.shrink();
 
-    final solidFade =
-        backgroundColor.withValues(alpha: fadeOpacity.clamp(0.0, 1.0));
+    final solidFade = backgroundColor.withValues(
+      alpha: fadeOpacity.clamp(0.0, 1.0),
+    );
     final begin = edge == AppScrollGlassEdgeSide.top
         ? Alignment.topCenter
         : Alignment.bottomCenter;

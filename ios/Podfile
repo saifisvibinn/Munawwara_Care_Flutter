@@ -43,6 +43,14 @@ post_install do |installer|
       config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
       config.build_settings['SWIFT_SUPPRESS_WARNINGS'] = 'YES'
 
+      # Xcode "Update to recommended settings" for Pods — re-applied on each pod install.
+      # Disable signing on pod frameworks only; do not enable ENABLE_MODULE_VERIFIER globally
+      # (breaks several Flutter plugins, e.g. wakelock_plus).
+      config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+      config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+      config.build_settings['CODE_SIGN_IDENTITY'] = ''
+      config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = '-'
+
       # permission_handler: without these macros iOS location requests are no-ops
       # and the app incorrectly falls through to opening Settings.
       definitions = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']

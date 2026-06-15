@@ -83,9 +83,9 @@ class AppMapController {
     if (kIsWeb || !Platform.isIOS || _iosChannel == null) return;
     try {
       await _iosChannel!.invokeMethod('setScrollEdges', {
-        if (topHeight != null) 'topHeight': topHeight,
-        if (bottomHeight != null) 'bottomHeight': bottomHeight,
-        if (enabled != null) 'enabled': enabled,
+        'topHeight': ?topHeight,
+        'bottomHeight': ?bottomHeight,
+        'enabled': ?enabled,
       });
     } catch (_) {}
   }
