@@ -142,6 +142,19 @@ class AgoraRtcService {
     }
   }
 
+  /// CallKit released AVAudioSession — Agora must not fight the system session.
+  Future<void> onCallKitAudioSessionDeactivated() async {
+    if (!Platform.isIOS || _engine == null) return;
+    try {
+      await _engine!.setAudioSessionOperationRestriction(
+        AudioSessionOperationRestriction.audioSessionOperationRestrictionAll,
+      );
+      AppLogger.i('[AgoraRtc] Restored CallKit audio session restriction');
+    } catch (e) {
+      AppLogger.w('[AgoraRtc] CallKit audio release failed: $e');
+    }
+  }
+
   Future<void> applyPostJoinAudioSettings({
     required bool isMuted,
     required bool isSpeakerOn,

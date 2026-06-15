@@ -9,7 +9,7 @@ import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/backend_config.dart';
-import '../../core/services/agora_rtc_service.dart';
+import '../../core/services/callkit_audio_bridge.dart';
 import '../../core/services/callkit_service.dart';
 import 'call_navigation.dart';
 import '../../core/services/secure_session_store.dart';
@@ -133,6 +133,37 @@ void clearQueuedNativeDecline() {
 }
 
 abstract final class NativeCallCoordinator {
+  /// Native AppDelegate decline/timeout when the CallKit event channel drops events.
+  static void handleNativeCallDeclined(Map<String, dynamic> payload) {
+    final callerId = payload['callerId']?.toString() ?? '';
+    final noAnswer = payload['noAnswer'] == true;
+    AppLogger.w(
+      '[NativeCallCoordinator] Native decline callerId=$callerId '
+      'noAnswer=$noAnswer',
+    );
+    final c = CallingScope.riverpod;
+    if (c != null) {
+      final notifier = c.read(callProvider.notifier);
+      final status = c.read(callProvider).status;
+      if (status == CallStatus.ringing) {
+        if (noAnswer) {
+          notifier.declineCallAsNoAnswer();
+        } else {
+          notifier.declineCall();
+        }
+        return;
+      }
+      if (callerId.isNotEmpty) {
+        notifier.declineCallFromCallerId(callerId, noAnswer: noAnswer);
+      }
+      return;
+    }
+    if (callerId.isNotEmpty) {
+      _pendingDeclined = PendingDecline(callerId: callerId, noAnswer: noAnswer);
+      unawaited(_sendBackgroundDecline(callerId, noAnswer: noAnswer));
+    }
+  }
+
   /// Subscribe to CallKit **before** async Firebase init so cold-start accept
   /// events are not dropped.
   static void registerEarlyListeners() {
@@ -219,7 +250,7 @@ abstract final class NativeCallCoordinator {
           final body = event.body;
           final isActivate = body is Map && body['isActivate'] == true;
           if (isActivate) {
-            unawaited(AgoraRtcService.instance.onCallKitAudioSessionActivated());
+            unawaited(CallKitAudioBridge.onPluginAudioSessionActivated());
             final c = CallingScope.riverpod;
             if (c != null &&
                 c.read(callProvider).status == CallStatus.ringing) {
@@ -230,6 +261,8 @@ abstract final class NativeCallCoordinator {
               _navigatingToCall = true;
               _navigateToVoiceCallScreen();
             }
+          } else {
+            CallKitAudioBridge.onPluginAudioSessionDeactivated();
           }
           break;
 

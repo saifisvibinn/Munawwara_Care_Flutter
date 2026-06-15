@@ -84,26 +84,23 @@ class CallSignaling {
     }
   }
 
-  static void notifyDeclineHttp(
+  static Future<void> notifyDeclineHttp(
     String callerId,
     String? declinerId, {
+    String? callRecordId,
     bool noAnswer = false,
-  }) {
-    ApiService.dio
-        .post(
-          '/call-history/decline',
-          data: {
-            'callerId': callerId,
-            'declinerId': declinerId ?? '',
-            if (noAnswer) 'noAnswer': true,
-          },
-        )
-        .then(
-          (_) => AppLogger.i('[CallSignaling] HTTP call-decline → $callerId'),
-        )
-        .catchError(
-          (e) => AppLogger.e('[CallSignaling] HTTP call-decline failed: $e'),
-        );
+  }) async {
+    await ApiService.dio.post(
+      '/call-history/decline',
+      data: {
+        'callerId': callerId,
+        'declinerId': declinerId ?? '',
+        if (callRecordId != null && callRecordId.isNotEmpty)
+          'callRecordId': callRecordId,
+        if (noAnswer) 'noAnswer': true,
+      },
+    );
+    AppLogger.i('[CallSignaling] HTTP call-decline → $callerId');
   }
 
   static Future<void> notifyCancelHttp(

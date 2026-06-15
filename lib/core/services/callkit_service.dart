@@ -315,7 +315,9 @@ class CallKitService {
         supportsVideo: false,
         maximumCallsPerCallGroup: 1,
         audioSessionMode: 'voiceChat',
-        audioSessionActive: true,
+        // Let CallKit activate AVAudioSession on answer (Apple VoIP guidance).
+        audioSessionActive: false,
+        configureAudioSession: false,
         audioSessionPreferredSampleRate: 44100.0,
         audioSessionPreferredIOBufferDuration: 0.005,
         ringtonePath: 'system_ringtone_default',

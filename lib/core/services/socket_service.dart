@@ -237,10 +237,6 @@ class SocketService {
       if (parsed.ack != null) {
         _invokeAck(parsed.ack!);
         AppLogger.i('[SocketService] ACK sent for "$event"');
-      } else {
-        AppLogger.e(
-          '[SocketService] "$event" missing ack callback (data=$data)',
-        );
       }
 
       handler(

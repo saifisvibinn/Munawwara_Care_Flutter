@@ -51,6 +51,11 @@ import flutter_callkit_incoming
     ) {
       MapKitBridge.register(with: registrar)
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(
+      forPlugin: "CallKitAudioChannelHandler",
+    ) {
+      CallKitAudioChannelHandler.register(with: registrar)
+    }
   }
 
   private func setupVoipPushRegistryIfEntitled() {
@@ -169,6 +174,7 @@ import flutter_callkit_incoming
   }
 
   func onDecline(_ call: Call, _ action: CXEndCallAction) {
+    CallKitAudioChannelHandler.notifyCallDeclined(call: call, noAnswer: false)
     action.fulfill()
   }
 
@@ -176,11 +182,17 @@ import flutter_callkit_incoming
     action.fulfill()
   }
 
-  func onTimeOut(_ call: Call) {}
+  func onTimeOut(_ call: Call) {
+    CallKitAudioChannelHandler.notifyCallDeclined(call: call, noAnswer: true)
+  }
 
-  func didActivateAudioSession(_ audioSession: AVAudioSession) {}
+  func didActivateAudioSession(_ audioSession: AVAudioSession) {
+    CallKitAudioChannelHandler.notifyAudioSessionActivated()
+  }
 
-  func didDeactivateAudioSession(_ audioSession: AVAudioSession) {}
+  func didDeactivateAudioSession(_ audioSession: AVAudioSession) {
+    CallKitAudioChannelHandler.notifyAudioSessionDeactivated()
+  }
 }
 
 /// Maps Munawwara backend / FCM call fields to flutter_callkit_incoming.Data.
@@ -215,6 +227,9 @@ enum MunawwaraVoipPayloadMapper {
     data.supportsVideo = false
     data.iconName = "AppIcon"
     data.maximumCallsPerCallGroup = 1
+    data.configureAudioSession = false
+    data.audioSessionMode = "voiceChat"
+    data.audioSessionActive = false
     data.isShowMissedCallNotification = false
 
     var extra: [String: Any] = [

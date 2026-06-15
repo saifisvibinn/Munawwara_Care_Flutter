@@ -13,6 +13,7 @@ import 'core/bootstrap/app_startup.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/services/api_service.dart';
+import 'core/services/callkit_audio_bridge.dart';
 import 'core/services/callkit_service.dart';
 import 'core/services/locale_prefs.dart';
 import 'core/services/notification_service.dart';
@@ -35,6 +36,9 @@ void main() async {
   final container = ProviderContainer();
   CallingScope.riverpod = container;
   NativeCallCoordinator.registerEarlyListeners();
+  CallKitAudioBridge.registerEarly();
+  CallKitAudioBridge.onNativeCallDeclined =
+      NativeCallCoordinator.handleNativeCallDeclined;
 
   await Future.wait<void>([
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge),

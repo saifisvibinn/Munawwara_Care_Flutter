@@ -20,6 +20,7 @@ import '../../../core/services/agora_rtc_service.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/services/caller_gender_cache.dart';
+import '../../../core/services/callkit_audio_bridge.dart';
 import '../../../core/services/callkit_service.dart';
 import '../../../core/services/call_ringback_service.dart';
 import '../../../core/services/secure_session_store.dart';
@@ -146,7 +147,10 @@ class CallNotifier extends Notifier<CallState> {
   Timer? _ringPollTimer; // polls backend while outgoing call is ringing
   Timer? _sessionWatchdogTimer;
   Timer? _connectingTimeoutTimer;
-  Timer? _iosNativeAcceptPollTimer;
+  Timer? _iosCallKitRingPollTimer;
+  bool _iosSawCallKitRing = false;
+  int _iosEmptyActiveCallsStreak = 0;
+  bool _declineSignalingInFlight = false;
   DateTime? _outgoingCallStartedAt;
 
   static const int _sessionWatchdogSeconds = 40;
@@ -211,10 +215,7 @@ class CallNotifier extends Notifier<CallState> {
   // ── Register socket listeners ─────────────────────────────────────────────
   void _registerSocketListeners() {
     AppLogger.d('[CallProvider] Registering socket listeners');
-    SocketService.onWithAck('call-offer', (data, ack) {
-      // ACK is sent in SocketService via onAny before this handler runs.
-      _onIncomingOffer(data);
-    });
+    SocketService.on('call-offer', _onIncomingOffer);
     SocketService.on('call-answer', _onAnswer);
     SocketService.on('call-declined', _onRemoteDecline);
     SocketService.on('call-end', _onRemoteEnd);
@@ -457,7 +458,7 @@ class CallNotifier extends Notifier<CallState> {
   void _cleanup() {
     _callTimer?.cancel();
     _callTimer = null;
-    _stopIosNativeAcceptPoll();
+    _stopIosCallKitRingPoll();
     _syncPreConnectRingback(CallStatus.ended);
     unawaited(AgoraRtcService.instance.leaveChannel());
     _pendingChannelName = null;
@@ -466,6 +467,7 @@ class CallNotifier extends Notifier<CallState> {
     _outgoingCallStartedAt = null;
     _activeIncomingCallRecordId = null;
     CallSignaling.clearPendingOutgoingEmits();
+    CallKitAudioBridge.reset();
     unawaited(_clearOutgoingCallPersistence());
     // Deactivate proximity sensor so the screen behaves normally after the call.
     ProximityScreenLock.setActive(false).catchError(
@@ -702,6 +704,7 @@ class CallNotifier extends Notifier<CallState> {
 
     try {
       await [Permission.microphone].request();
+      await CallKitAudioBridge.ensureReadyBeforeMediaJoin();
       AppLogger.i('[CallProvider] Joining Agora on accept: $channelName');
       await _joinMediaChannel(channelName);
       _pendingChannelName = null;
@@ -744,48 +747,84 @@ class CallNotifier extends Notifier<CallState> {
   }
 
   Future<void> _declineCallInternal({required bool noAnswer}) async {
-    final remoteId = _peekRemotePeerId();
-    await forceIdleCallSession(endReason: noAnswer ? 'missed' : 'declined');
-    unawaited(_emitDeclineSignaling(remoteId: remoteId, noAnswer: noAnswer));
+    if (_declineSignalingInFlight) return;
+    _declineSignalingInFlight = true;
+    try {
+      final remoteId = _peekRemotePeerId();
+      final recordId = _activeIncomingCallRecordId;
+      await _emitDeclineSignaling(
+        remoteId: remoteId,
+        callRecordId: recordId,
+        noAnswer: noAnswer,
+      );
+      await forceIdleCallSession(endReason: noAnswer ? 'missed' : 'declined');
+    } finally {
+      _declineSignalingInFlight = false;
+    }
   }
 
   Future<void> _emitDeclineSignaling({
     required String? remoteId,
+    String? callRecordId,
     required bool noAnswer,
   }) async {
     var peerId = remoteId;
     if (peerId == null || peerId.isEmpty) {
       peerId = await _readPersistedOutgoingReceiverId();
     }
-    if (peerId == null || peerId.isEmpty) return;
+    if (peerId == null || peerId.isEmpty) {
+      AppLogger.e('[CallProvider] decline signaling skipped — no peer id');
+      return;
+    }
     CallSignaling.emitWhenConnected('call-declined', {
       'to': peerId,
       if (noAnswer) 'noAnswer': true,
     });
-    CallSignaling.notifyDeclineHttp(
-      peerId,
-      SocketService.connectedUserId,
-      noAnswer: noAnswer,
-    );
+    try {
+      await CallSignaling.notifyDeclineHttp(
+        peerId,
+        SocketService.connectedUserId,
+        callRecordId: callRecordId,
+        noAnswer: noAnswer,
+      );
+    } catch (e) {
+      AppLogger.e('[CallProvider] HTTP call-decline failed: $e');
+    }
   }
 
   /// Decline a call when we only have the caller id (killed-state fallback).
   /// [noAnswer] — native ring timeout / no pickup (counts as missed, not declined).
   void declineCallFromCallerId(String callerId, {bool noAnswer = false}) {
-    if (callerId.isNotEmpty) {
-      CallSignaling.emitWhenConnected('call-declined', {
-        'to': callerId,
-        if (noAnswer) 'noAnswer': true,
-      });
-      CallSignaling.notifyDeclineHttp(
-        callerId,
-        SocketService.connectedUserId,
-        noAnswer: noAnswer,
-      );
+    unawaited(_declineFromCallerId(callerId, noAnswer: noAnswer));
+  }
+
+  Future<void> _declineFromCallerId(
+    String callerId, {
+    bool noAnswer = false,
+  }) async {
+    if (_declineSignalingInFlight) return;
+    _declineSignalingInFlight = true;
+    try {
+      if (callerId.isNotEmpty) {
+        CallSignaling.emitWhenConnected('call-declined', {
+          'to': callerId,
+          if (noAnswer) 'noAnswer': true,
+        });
+        try {
+          await CallSignaling.notifyDeclineHttp(
+            callerId,
+            SocketService.connectedUserId,
+            callRecordId: _activeIncomingCallRecordId,
+            noAnswer: noAnswer,
+          );
+        } catch (e) {
+          AppLogger.e('[CallProvider] HTTP call-decline (callerId) failed: $e');
+        }
+      }
+      await forceIdleCallSession(endReason: noAnswer ? 'missed' : 'declined');
+    } finally {
+      _declineSignalingInFlight = false;
     }
-    unawaited(
-      forceIdleCallSession(endReason: noAnswer ? 'missed' : 'declined'),
-    );
   }
 
   /// End an in-progress call.
@@ -1170,39 +1209,63 @@ class CallNotifier extends Notifier<CallState> {
     );
     _startSessionWatchdog();
     if (Platform.isIOS) {
-      _startIosNativeAcceptPoll();
+      _startIosCallKitRingPoll();
     }
   }
 
-  /// iOS CallKit sometimes shows the system in-call UI without delivering
-  /// [Event.actionCallAccept] to Dart (implicit engine / event-channel race).
-  void _startIosNativeAcceptPoll() {
-    _iosNativeAcceptPollTimer?.cancel();
+  /// iOS CallKit sometimes misses [Event.actionCallAccept] / [Event.actionCallDecline]
+  /// on the Flutter event channel (implicit engine race).
+  void _startIosCallKitRingPoll() {
+    _iosCallKitRingPollTimer?.cancel();
+    _iosSawCallKitRing = false;
+    _iosEmptyActiveCallsStreak = 0;
     var ticks = 0;
-    _iosNativeAcceptPollTimer = Timer.periodic(
+    _iosCallKitRingPollTimer = Timer.periodic(
       const Duration(milliseconds: 400),
       (timer) async {
         if (state.status != CallStatus.ringing) {
           timer.cancel();
-          _iosNativeAcceptPollTimer = null;
+          _iosCallKitRingPollTimer = null;
           return;
         }
         ticks++;
         if (ticks > 120) {
           timer.cancel();
-          _iosNativeAcceptPollTimer = null;
+          _iosCallKitRingPollTimer = null;
           return;
         }
         try {
           final raw = await FlutterCallkitIncoming.activeCalls();
-          if (raw is! List || raw.isEmpty) return;
+          if (raw is! List) return;
+
+          if (raw.isEmpty) {
+            // Only treat as decline after CallKit had an active entry, then
+            // cleared it for several consecutive polls (avoids false decline
+            // while activeCalls is still populating right after showIncoming).
+            if (_iosSawCallKitRing) {
+              _iosEmptyActiveCallsStreak++;
+              if (_iosEmptyActiveCallsStreak >= 3) {
+                timer.cancel();
+                _iosCallKitRingPollTimer = null;
+                AppLogger.i(
+                  '[CallProvider] iOS native decline detected '
+                  '(activeCalls cleared)',
+                );
+                declineCall();
+              }
+            }
+            return;
+          }
+
+          _iosSawCallKitRing = true;
+          _iosEmptyActiveCallsStreak = 0;
           for (final item in raw) {
             if (item is! Map) continue;
             final accepted =
                 item['isAccepted'] == true || item['accepted'] == true;
             if (!accepted) continue;
             timer.cancel();
-            _iosNativeAcceptPollTimer = null;
+            _iosCallKitRingPollTimer = null;
             AppLogger.i(
               '[CallProvider] iOS native accept detected (activeCalls poll)',
             );
@@ -1213,15 +1276,17 @@ class CallNotifier extends Notifier<CallState> {
             return;
           }
         } catch (e) {
-          AppLogger.w('[CallProvider] iOS accept poll failed: $e');
+          AppLogger.w('[CallProvider] iOS CallKit ring poll failed: $e');
         }
       },
     );
   }
 
-  void _stopIosNativeAcceptPoll() {
-    _iosNativeAcceptPollTimer?.cancel();
-    _iosNativeAcceptPollTimer = null;
+  void _stopIosCallKitRingPoll() {
+    _iosCallKitRingPollTimer?.cancel();
+    _iosCallKitRingPollTimer = null;
+    _iosSawCallKitRing = false;
+    _iosEmptyActiveCallsStreak = 0;
   }
 
   void _onAnswer(dynamic data) {
