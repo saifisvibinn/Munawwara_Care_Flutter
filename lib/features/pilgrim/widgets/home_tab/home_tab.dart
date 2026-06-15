@@ -31,31 +31,6 @@ double _homeHeaderFadeTailHeight(BuildContext context) => 32.h;
 double _homeHeaderOverlayHeight(BuildContext context) =>
     _homeHeaderRowHeight(context) + _homeHeaderFadeTailHeight(context);
 
-Widget _homeStrongTopScrollFade({
-  required double height,
-  required Color backgroundColor,
-}) {
-  return SizedBox(
-    height: height,
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          stops: const [0.0, 0.58, 0.78, 0.92, 1.0],
-          colors: [
-            backgroundColor,
-            backgroundColor,
-            backgroundColor.withValues(alpha: 0.96),
-            backgroundColor.withValues(alpha: 0.55),
-            backgroundColor.withValues(alpha: 0),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
 class PilgrimHomeTab extends StatelessWidget {
   final PilgrimState pilgrimState;
   final bool isDark;
@@ -151,87 +126,75 @@ class PilgrimHomeTab extends StatelessWidget {
     );
   }
 
-  Widget _buildFixedHeader(BuildContext context, Color fadeBg) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ColoredBox(
-          color: fadeBg,
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 6.h),
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10.r),
-                    child: Image.asset(
-                      'assets/static/inapp_icon.png',
-                      width: 34.w,
-                      height: 34.w,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  SizedBox(width: 10.w),
-                  Text(
-                    'app_name'.tr(),
-                    style: TextStyle(
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const Spacer(),
-                  AppGlassIconButton(
-                    isDark: isDark,
-                    icon: Symbols.notifications,
-                    onTap: onMissedCallsTap,
-                    badge: missedCallUnreadCount > 0
-                        ? Positioned(
-                            right: -2,
-                            top: -2,
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 5.w,
-                                vertical: 2.h,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade600,
-                                borderRadius: BorderRadius.circular(10.r),
-                              ),
-                              constraints: BoxConstraints(minWidth: 16.w),
-                              child: Text(
-                                missedCallUnreadCount > 9
-                                    ? '9+'
-                                    : '$missedCallUnreadCount',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9.sp,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1,
-                                ),
-                              ),
-                            ),
-                          )
-                        : null,
-                  ),
-                  SizedBox(width: 8.w),
-                  AppGlassIconButton(
-                    isDark: isDark,
-                    icon: Symbols.settings,
-                    onTap: onSettingsTap,
-                  ),
-                ],
+  Widget _buildFixedHeader(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 6.h),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10.r),
+              child: Image.asset(
+                'assets/static/inapp_icon.png',
+                width: 34.w,
+                height: 34.w,
+                fit: BoxFit.contain,
               ),
             ),
-          ),
+            SizedBox(width: 10.w),
+            Text(
+              'app_name'.tr(),
+              style: TextStyle(
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
+            ),
+            const Spacer(),
+            AppGlassIconButton(
+              isDark: isDark,
+              icon: Symbols.notifications,
+              onTap: onMissedCallsTap,
+              badge: missedCallUnreadCount > 0
+                  ? Positioned(
+                      right: -2,
+                      top: -2,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 5.w,
+                          vertical: 2.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade600,
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        constraints: BoxConstraints(minWidth: 16.w),
+                        child: Text(
+                          missedCallUnreadCount > 9
+                              ? '9+'
+                              : '$missedCallUnreadCount',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9.sp,
+                            fontWeight: FontWeight.w800,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+            SizedBox(width: 8.w),
+            AppGlassIconButton(
+              isDark: isDark,
+              icon: Symbols.settings,
+              onTap: onSettingsTap,
+            ),
+          ],
         ),
-        _homeStrongTopScrollFade(
-          height: _homeHeaderFadeTailHeight(context),
-          backgroundColor: fadeBg,
-        ),
-      ],
+      ),
     );
   }
 
@@ -328,10 +291,13 @@ class PilgrimHomeTab extends StatelessWidget {
             top: 0,
             left: 0,
             right: 0,
+            height: headerExtent,
             child: IgnorePointer(
-              child: _homeStrongTopScrollFade(
+              child: AppScrollGlassEdge(
                 height: headerExtent,
-                backgroundColor: fadeBg,
+                edge: AppScrollGlassEdgeSide.top,
+                isDark: isDark,
+                tintColor: fadeBg,
               ),
             ),
           ),
@@ -339,7 +305,7 @@ class PilgrimHomeTab extends StatelessWidget {
             top: 0,
             left: 0,
             right: 0,
-            child: _buildFixedHeader(context, fadeBg),
+            child: _buildFixedHeader(context),
           ),
         ],
       ),

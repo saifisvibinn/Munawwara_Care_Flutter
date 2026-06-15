@@ -40,9 +40,9 @@ class AppGlassTheme {
   static double scrollEdgeBlurForPlatform() =>
       isIos ? scrollEdgeBlurSigmaIos : scrollEdgeBlurSigma;
 
-  /// Tint strength at the solid edge of a scroll glass band.
+  /// Tint strength at the solid edge of a scroll glass band (Android / fallback).
   static double scrollEdgeTintOpacity(bool isDark) =>
-      isIos ? (isDark ? 0.22 : 0.18) : (isDark ? 0.55 : 0.65);
+      isDark ? 0.55 : 0.65;
 
   /// Map vignette tint for bottom glass edges over map tiles.
   static Color mapVignetteTintColor(bool isDark) =>
@@ -110,6 +110,10 @@ class AppGlassTheme {
   /// Includes [bottomNavScrollPaddingExtra] so primary buttons are not clipped.
   static double get bottomNavScrollPaddingExtra => 32.h;
 
+  /// Fade band above the nav bar — taller than scroll padding so list content
+  /// scrolls under the glass edge and blur is visible.
+  static double get scrollEdgeBottomFadeBand => 40.h;
+
   static double bottomNavScrollPadding(BuildContext context) =>
       floatingBottomBarHeight(context) + bottomNavScrollPaddingExtra;
 
@@ -119,10 +123,12 @@ class AppGlassTheme {
 
   /// Bottom padding for dashboard tab scroll views.
   /// Uses keyboard inset when open; otherwise clears the floating tab bar.
+  /// Slightly less than [scrollFadeBottomExtentDashboard] so content scrolls
+  /// into the bottom glass band.
   static double dashboardScrollBottomPadding(BuildContext context) {
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     if (keyboard > 0) return keyboard + 16.h;
-    return bottomNavScrollPadding(context);
+    return floatingBottomBarHeight(context) + 16.h;
   }
 
   /// Bottom inset for map overlay controls (locate, suggestions, hospitals).
@@ -150,7 +156,7 @@ class AppGlassTheme {
 
   /// Bottom fade for dashboard tabs that sit above the floating glass nav bar.
   static double scrollFadeBottomExtentDashboard(BuildContext context) =>
-      bottomNavScrollPadding(context);
+      floatingBottomBarHeight(context) + scrollEdgeBottomFadeBand;
 
   /// Native map / visual glass band at bottom — covers tab bar, not full scroll pad.
   static double mapScrollEdgeBottomExtent(BuildContext context) =>

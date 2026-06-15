@@ -52,6 +52,11 @@ import flutter_callkit_incoming
       MapKitBridge.register(with: registrar)
     }
     if let registrar = engineBridge.pluginRegistry.registrar(
+      forPlugin: "ScrollEdgeBlurBridge",
+    ) {
+      ScrollEdgeBlurBridge.register(with: registrar)
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(
       forPlugin: "CallKitAudioChannelHandler",
     ) {
       CallKitAudioChannelHandler.register(with: registrar)

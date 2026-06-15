@@ -21,6 +21,7 @@
 		F1A2B3C51ED2DC5600515810 /* LocationChannelHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C41ED2DC5600515810 /* LocationChannelHandler.swift */; };
 		F2A3B4C71ED2DC5600515811 /* MapKitBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A3B4C61ED2DC5600515811 /* MapKitBridge.swift */; };
 		F3A4B5C91ED2DC5600515812 /* CallKitAudioChannelHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A4B5C81ED2DC5600515812 /* CallKitAudioChannelHandler.swift */; };
+		F4A5B6C71ED2DC5600515813 /* ScrollEdgeBlurBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A5B6C81ED2DC5600515813 /* ScrollEdgeBlurBridge.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -73,6 +74,7 @@
 		F1A2B3C61ED2DC5600515810 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		F2A3B4C61ED2DC5600515811 /* MapKitBridge.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MapKitBridge.swift; sourceTree = "<group>"; };
 		F3A4B5C81ED2DC5600515812 /* CallKitAudioChannelHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CallKitAudioChannelHandler.swift; sourceTree = "<group>"; };
+		F4A5B6C81ED2DC5600515813 /* ScrollEdgeBlurBridge.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ScrollEdgeBlurBridge.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -150,6 +152,7 @@
 				F1A2B3C41ED2DC5600515810 /* LocationChannelHandler.swift */,
 				F2A3B4C61ED2DC5600515811 /* MapKitBridge.swift */,
 				F3A4B5C81ED2DC5600515812 /* CallKitAudioChannelHandler.swift */,
+				F4A5B6C81ED2DC5600515813 /* ScrollEdgeBlurBridge.swift */,
 				F1A2B3C61ED2DC5600515810 /* Runner.entitlements */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
@@ -379,6 +382,7 @@
 				F1A2B3C51ED2DC5600515810 /* LocationChannelHandler.swift in Sources */,
 				F2A3B4C71ED2DC5600515811 /* MapKitBridge.swift in Sources */,
 				F3A4B5C91ED2DC5600515812 /* CallKitAudioChannelHandler.swift in Sources */,
+				F4A5B6C71ED2DC5600515813 /* ScrollEdgeBlurBridge.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 			);

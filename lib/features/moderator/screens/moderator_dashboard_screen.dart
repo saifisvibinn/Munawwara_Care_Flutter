@@ -641,6 +641,7 @@ class _ModeratorDashboardScreenState
                 Expanded(
                   child: AppScrollFadeOverlay(
                     useDashboardBottomExtent: true,
+                    showTop: _currentTab != 0,
                     child: MediaQuery.removePadding(
                       context: context,
                       removeBottom: true,
@@ -801,72 +802,70 @@ class _GroupsHomeHeaderDelegate extends SliverPersistentHeaderDelegate {
 
     return SizedBox(
       height: currentHeight,
-      child: DecoratedBox(
-        decoration: showScrollFade
-            ? BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.0, 0.42, 0.72, 1.0],
-                  colors: [
-                    backgroundColor,
-                    backgroundColor,
-                    backgroundColor.withValues(alpha: 0.72),
-                    backgroundColor.withValues(alpha: 0),
-                  ],
-                ),
-              )
-            : const BoxDecoration(color: Colors.transparent),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(20.w, topPadding, 20.w, 0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
-                    if (showExpanded && expandedOpacity > 0)
-                      Opacity(
-                        opacity: expandedOpacity,
-                        child: Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          heightFactor: 1,
+      child: Stack(
+        fit: StackFit.expand,
+        clipBehavior: Clip.none,
+        children: [
+          if (showScrollFade)
+            Positioned.fill(
+              child: AppScrollGlassEdge(
+                height: currentHeight,
+                edge: AppScrollGlassEdgeSide.top,
+                isDark: isDark,
+                tintColor: backgroundColor,
+              ),
+            ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(20.w, topPadding, 20.w, 0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      if (showExpanded && expandedOpacity > 0)
+                        Opacity(
+                          opacity: expandedOpacity,
+                          child: Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            heightFactor: 1,
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 22.sp,
+                                color: textPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (collapsedOpacity > 0)
+                        Opacity(
+                          opacity: collapsedOpacity,
                           child: Text(
                             title,
+                            textAlign: TextAlign.center,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontWeight: FontWeight.w800,
-                              fontSize: 22.sp,
+                              fontSize: titleFontSize,
                               color: textPrimary,
                             ),
                           ),
                         ),
-                      ),
-                    if (collapsedOpacity > 0)
-                      Opacity(
-                        opacity: collapsedOpacity,
-                        child: Text(
-                          title,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: titleFontSize,
-                            color: textPrimary,
-                          ),
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              _actionIcons(),
-            ],
+                _actionIcons(),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -15,7 +15,7 @@ All live under `lib/core/widgets/glass/` (barrel: `app_glass.dart`):
 | Widget | Role |
 |--------|------|
 | `AppGlassTheme` | Blur sigma, corner radii, nav scroll padding |
-| `AppScrollGlassEdge` | Blurred top/bottom scroll-edge bands (`BackdropFilter` + tint) |
+| `AppScrollGlassEdge` | Native `UIVisualEffectView` on iOS; `BackdropFilter` elsewhere |
 | `AppScrollFadeOverlay` | Wraps scroll/map content with top + bottom glass edges |
 | `AppGlassSurface` | Single glass shell (`enableGlass` fallback) |
 | `AppGlassCard` | Dashboard cards with optional watermark |
@@ -45,7 +45,7 @@ Both pilgrim and moderator dashboards set `Scaffold.extendBody: true` so the flo
 
 | Area | Treatment |
 |------|-----------|
-| **Map tab** | Map stays full-bleed; on iOS, native `UIVisualEffectView` edge bands inside MapKit (`iosNativeScrollEdges`). Other screens use iOS-tuned `BackdropFilter` in `AppScrollGlassEdge`. |
+| **Map tab** | Map stays full-bleed; on iOS, native `UIVisualEffectView` edge bands inside MapKit (`iosNativeScrollEdges`). Other dashboard screens use the same native material via `AppNativeScrollGlassEdge`. |
 | **Announcements / chat** | Glass on header and filter chrome; message bubbles remain solid |
 | **Deep sub-screens** | Out of scope unless they reuse shared glass components |
 

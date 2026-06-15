@@ -3,14 +3,15 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'app_glass_theme.dart';
+import 'app_native_scroll_glass_edge.dart';
 
 /// Which screen edge the glass band sits on.
 enum AppScrollGlassEdgeSide { top, bottom }
 
 /// Blurred scroll-edge band — liquid-glass treatment over live content.
 ///
-/// Uses [BackdropFilter] plus a tint gradient so status bar / nav chrome areas
-/// read as glass instead of a solid fog fade.
+/// On iOS uses native [UIVisualEffectView] (same as MapKit edges). On other
+/// platforms uses [BackdropFilter] with a light material tint.
 class AppScrollGlassEdge extends StatelessWidget {
   const AppScrollGlassEdge({
     super.key,
@@ -42,17 +43,29 @@ class AppScrollGlassEdge extends StatelessWidget {
   Widget build(BuildContext context) {
     if (height <= 0) return const SizedBox.shrink();
 
-    final resolvedBlur = blurSigma ?? AppGlassTheme.scrollEdgeBlurForPlatform();
+    if (!useBackdropBlur) {
+      return _tintOnlyEdge();
+    }
+
+    if (AppGlassTheme.isIos) {
+      return IgnorePointer(
+        child: AppNativeScrollGlassEdge(
+          height: height,
+          fadesFromTop: edge == AppScrollGlassEdgeSide.top,
+          isDark: isDark,
+        ),
+      );
+    }
+
+    return _flutterBlurEdge();
+  }
+
+  Widget _tintOnlyEdge() {
     final baseTint =
         tintColor ?? AppGlassTheme.dashboardBackgroundColor(isDark);
     final resolvedTintOpacity =
         (tintOpacity ?? AppGlassTheme.scrollEdgeTintOpacity(isDark)) *
         fadeOpacity.clamp(0.0, 1.0);
-    final iosSpecular = AppGlassTheme.isIos
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.05)
-              : Colors.white.withValues(alpha: 0.12))
-        : null;
 
     final begin = edge == AppScrollGlassEdgeSide.top
         ? Alignment.topCenter
@@ -61,27 +74,39 @@ class AppScrollGlassEdge extends StatelessWidget {
         ? Alignment.bottomCenter
         : Alignment.topCenter;
 
-    if (!useBackdropBlur) {
-      return IgnorePointer(
-        child: SizedBox(
-          height: height,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: begin,
-                end: end,
-                stops: const [0.0, 0.4, 1.0],
-                colors: [
-                  baseTint.withValues(alpha: resolvedTintOpacity * 0.5),
-                  baseTint.withValues(alpha: resolvedTintOpacity * 0.18),
-                  baseTint.withValues(alpha: 0),
-                ],
-              ),
+    return IgnorePointer(
+      child: SizedBox(
+        height: height,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: begin,
+              end: end,
+              stops: const [0.0, 0.4, 1.0],
+              colors: [
+                baseTint.withValues(alpha: resolvedTintOpacity * 0.5),
+                baseTint.withValues(alpha: resolvedTintOpacity * 0.18),
+                baseTint.withValues(alpha: 0),
+              ],
             ),
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
+
+  Widget _flutterBlurEdge() {
+    final resolvedBlur = blurSigma ?? AppGlassTheme.scrollEdgeBlurForPlatform();
+    final resolvedTintOpacity =
+        (tintOpacity ?? AppGlassTheme.scrollEdgeTintOpacity(isDark)) *
+        fadeOpacity.clamp(0.0, 1.0);
+
+    final begin = edge == AppScrollGlassEdgeSide.top
+        ? Alignment.topCenter
+        : Alignment.bottomCenter;
+    final end = edge == AppScrollGlassEdgeSide.top
+        ? Alignment.bottomCenter
+        : Alignment.topCenter;
 
     return IgnorePointer(
       child: SizedBox(
@@ -106,13 +131,9 @@ class AppScrollGlassEdge extends StatelessWidget {
                     begin: begin,
                     end: end,
                     colors: [
-                      baseTint.withValues(alpha: resolvedTintOpacity),
-                      ?iosSpecular,
-                      baseTint.withValues(alpha: 0),
+                      Colors.white.withValues(alpha: resolvedTintOpacity * 0.15),
+                      Colors.transparent,
                     ],
-                    stops: iosSpecular != null
-                        ? const [0.0, 0.35, 1.0]
-                        : const [0.0, 1.0],
                   ),
                 ),
               ),

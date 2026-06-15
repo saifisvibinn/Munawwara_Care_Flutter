@@ -17,22 +17,6 @@ import '../widgets/muslim_widgets.dart';
 double _islamicCornerHeaderOverlayHeight(BuildContext context) =>
     MediaQuery.viewPaddingOf(context).top + 8.h + 22.h + 8.h;
 
-BoxDecoration _islamicCornerHeaderFadeDecoration(Color backgroundColor) {
-  return BoxDecoration(
-    gradient: LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      stops: const [0.0, 0.42, 0.72, 1.0],
-      colors: [
-        backgroundColor,
-        backgroundColor,
-        backgroundColor.withValues(alpha: 0.72),
-        backgroundColor.withValues(alpha: 0),
-      ],
-    ),
-  );
-}
-
 class IslamicCornerHubScreen extends ConsumerWidget {
   const IslamicCornerHubScreen({super.key});
 
@@ -173,20 +157,17 @@ class IslamicCornerHubScreen extends ConsumerWidget {
             top: 0,
             left: 0,
             right: 0,
-            child: DecoratedBox(
-              decoration: _islamicCornerHeaderFadeDecoration(fadeBg),
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
-                  child: Text(
-                    'muslim_corner_title'.tr(),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.w600,
-                      color: context.mPrimary,
-                    ),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+                child: Text(
+                  'muslim_corner_title'.tr(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w600,
+                    color: context.mPrimary,
                   ),
                 ),
               ),

@@ -1892,7 +1892,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                 Expanded(
                   child: AppScrollFadeOverlay(
                     useDashboardBottomExtent: true,
-                    showTop: !(_currentTab == 1 && AppGlassTheme.isIos),
+                    showTop: _currentTab != 0 &&
+                        _currentTab != 2 &&
+                        !(_currentTab == 1 && AppGlassTheme.isIos),
                     showBottom: !(_currentTab == 1 && AppGlassTheme.isIos),
                     overPlatformView: _currentTab == 1 && !AppGlassTheme.isIos,
                     child: MediaQuery.removePadding(
