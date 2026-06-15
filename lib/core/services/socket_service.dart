@@ -172,6 +172,7 @@ class SocketService {
       _socket!.off(event);
       _socket!.on(event, handler);
     }
+    _ensureOnAnyDispatcher();
   }
 
   /// Register a handler that must ACK the server immediately on receipt.
@@ -195,6 +196,7 @@ class SocketService {
     _pendingListeners.remove(event);
     _pendingAckListeners.remove(event);
     _socket?.off(event);
+    _ensureOnAnyDispatcher();
   }
 
   static void onConnected(void Function() callback) {
@@ -236,14 +238,29 @@ class SocketService {
 
   /// ACK events are routed through [onAny] — socket.io passes `[payload, ackFn]`
   /// as the data argument, which is more reliable than per-event `.on` wrappers.
+  ///
+  /// Only installed while [_pendingAckListeners] is non-empty. Events with no
+  /// payload (e.g. `force_logout`) invoke onAny with a single argument — the
+  /// second parameter must be optional or Dart throws NoSuchMethodError.
   static void _ensureOnAnyDispatcher() {
-    if (_socket == null || _onAnyDispatcherInstalled) return;
+    if (_socket == null) return;
+
+    if (_pendingAckListeners.isEmpty) {
+      if (_onAnyDispatcherInstalled) {
+        _socket!.offAny();
+        _onAnyDispatcherInstalled = false;
+      }
+      return;
+    }
+
+    if (_onAnyDispatcherInstalled) return;
     _onAnyDispatcherInstalled = true;
-    _socket!.onAny((String event, dynamic data) {
+    _socket!.onAny((String event, [dynamic data]) {
       final handler = _pendingAckListeners[event];
       if (handler == null) return;
 
-      final parsed = _splitPayloadAndAck(data);
+      final incoming = data is List && data.length == 1 ? data.first : data;
+      final parsed = _splitPayloadAndAck(incoming);
       if (parsed.ack != null) {
         _invokeAck(parsed.ack!);
         AppLogger.i('[SocketService] ACK sent for "$event"');
