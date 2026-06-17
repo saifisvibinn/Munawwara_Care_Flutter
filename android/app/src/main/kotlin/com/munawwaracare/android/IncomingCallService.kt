@@ -176,6 +176,27 @@ class IncomingCallService : Service() {
     }
 
     private fun handleIncoming(intent: Intent) {
+        val resolvedCallerId = intent.getStringExtra(EXTRA_CALLER_ID) ?: ""
+        val callerName = intent.getStringExtra(EXTRA_CALLER_NAME) ?: "Unknown"
+        val incomingCallerId = resolvedCallerId.ifBlank {
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getString("flutter.pending_call_caller_id", null)
+                .orEmpty()
+        }
+
+        // Idempotency guard: socket + FCM can both ring, firing ACTION_INCOMING_CALL
+        // twice for the SAME caller. Re-entering would tear down the in-flight
+        // Core-Telecom addCall coroutine before it captures CallControlScope, leaving
+        // a system call registered with no handle to disconnect it → ghost "in a call"
+        // state that survives hang-up. Ignore the duplicate while still ringing.
+        if (incomingCallerId.isNotBlank() &&
+            incomingCallerId == currentCallerId &&
+            (callJob?.isActive == true || callControlScope != null)
+        ) {
+            Log.w(TAG, "📞 Duplicate incoming for $incomingCallerId — ignoring")
+            return
+        }
+
         // Cancel pending linger so the service stays alive for the new call
         lingerJob?.cancel()
         lingerJob = null
@@ -183,13 +204,9 @@ class IncomingCallService : Service() {
         tearDownCoreTelecomSession(cancelScopeAfterDisconnect = true)
         callWasAnswered = false
 
-        val resolvedCallerId = intent.getStringExtra(EXTRA_CALLER_ID) ?: ""
-        val callerName = intent.getStringExtra(EXTRA_CALLER_NAME) ?: "Unknown"
-
         if (resolvedCallerId.isBlank()) {
             Log.w(TAG, "📞 No callerId in intent, reading from SharedPreferences")
-            val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            currentCallerId = prefs.getString("flutter.pending_call_caller_id", null) ?: ""
+            currentCallerId = incomingCallerId
         } else {
             currentCallerId = resolvedCallerId
         }
@@ -327,17 +344,35 @@ class IncomingCallService : Service() {
         scheduleLingerStop()
     }
 
+    /**
+     * Call answered → release our self-managed Core-Telecom call. We do NOT keep a
+     * Telecom call alive for the duration of the conversation: the plugin's
+     * [CallkitNotificationService] owns the ongoing-call phoneCall FGS (which keeps
+     * the mic alive for Agora). Leaving this call registered while the FGS is demoted
+     * lets Android kill the service and orphan the Telecom call, leaving the device
+     * stuck "in a call" (volume hijacked, flight mode blocked) until force-close.
+     *
+     * [callWasAnswered] + [suppressDeclineHttpOnDisconnect] guarantee onDisconnect
+     * does not fire a spurious decline HTTP for a call the user actually accepted.
+     */
     private fun handleAccept() {
-        Log.i(TAG, "📞 handleAccept called")
+        Log.i(TAG, "📞 handleAccept — releasing Core-Telecom call after answer")
         callWasAnswered = true
-        val scope = callScope ?: return
-        scope.launch {
-            try {
-                callControlScope?.answer(CallAttributesCompat.CALL_TYPE_AUDIO_CALL)
-            } catch (e: Exception) {
-                Log.w(TAG, "📞 Core-Telecom answer failed: ${e.message}")
-            }
+        if (isTearingDown) {
+            removeForegroundNotification()
+            return
         }
+        isTearingDown = true
+        suppressDeclineHttpOnDisconnect = true
+        activePollJob?.cancel()
+        activePollJob = null
+        tearDownCoreTelecomSession(
+            disconnectCause = DisconnectCause(DisconnectCause.LOCAL),
+            onFinished = { isTearingDown = false },
+        )
+        // Independent of the (cancellable) call scope so a fast addCall completion
+        // can never strand the foreground service / tray.
+        scheduleLingerStop()
     }
 
     private fun handleEnd() {

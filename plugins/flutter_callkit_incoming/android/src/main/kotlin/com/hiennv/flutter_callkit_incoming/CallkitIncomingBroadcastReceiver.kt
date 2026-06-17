@@ -137,10 +137,13 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     )
                     sendEventFlutter(CallkitConstants.ACTION_CALL_ACCEPT, data)
                     addCall(context, Data.fromBundle(data), true)
-                    // App IncomingCallService FGS duplicates CallKit's tray UI — remove it on accept.
+                    // Release the self-managed Core-Telecom call now that the call is
+                    // answered (plugin's CallkitNotificationService owns the ongoing-call
+                    // phoneCall FGS). Leaving it ringing-but-demoted lets Android kill the
+                    // service and orphan the Telecom call → device stuck "in a call".
                     startCallService(
                         context,
-                        "${context.packageName}.ACTION_DISMISS_FG_NOTIFICATION",
+                        "com.munawwaracare.android.ACTION_ACCEPT_CALL",
                         data,
                     )
                 } catch (error: Exception) {
@@ -214,9 +217,11 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
 
             "${context.packageName}.${CallkitConstants.ACTION_CALL_CONNECTED}" -> {
                 try {
+                    // In-app accept (setCallConnected) skips ACTION_CALL_ACCEPT, so release
+                    // the self-managed Core-Telecom call here too (idempotent on the service).
                     startCallService(
                         context,
-                        "${context.packageName}.ACTION_DISMISS_FG_NOTIFICATION",
+                        "com.munawwaracare.android.ACTION_ACCEPT_CALL",
                         data,
                     )
                     // update notification on going connected
