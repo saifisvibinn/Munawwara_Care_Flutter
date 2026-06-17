@@ -487,22 +487,23 @@ class _IndividualMessagesScreenState
       backgroundColor: isDark
           ? AppColors.backgroundDark
           : const Color(0xFFF1F5F9),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(isDark),
-            Expanded(
-              child: threadMsgs.isEmpty && msgState.isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
-                    )
-                  : _buildMessageList(threadMsgs, isDark),
-            ),
-            _buildComposer(isDark, msgState.isSending),
-          ],
-        ),
+      body: Column(
+        children: [
+          _buildHeader(isDark),
+          Expanded(
+            child: threadMsgs.isEmpty && msgState.isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                    ),
+                  )
+                : _buildMessageList(threadMsgs, isDark),
+          ),
+          SafeArea(
+            top: false,
+            child: _buildComposer(isDark, msgState.isSending),
+          ),
+        ],
       ),
     );
   }
@@ -510,8 +511,9 @@ class _IndividualMessagesScreenState
   // ── Header ─────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(bool isDark) {
+    final topInset = MediaQuery.paddingOf(context).top;
     return Container(
-      padding: EdgeInsets.fromLTRB(8.w, 8.h, 16.w, 8.h),
+      padding: EdgeInsets.fromLTRB(8.w, 8.h + topInset, 16.w, 8.h),
       decoration: BoxDecoration(
         color: isDark ? AppColors.surfaceDark : Colors.white,
         boxShadow: [

@@ -191,9 +191,10 @@ class GroupChatHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final titleColor = isDark ? Colors.white : AppColors.textDark;
     final subtitleColor = isDark ? Colors.white60 : AppColors.textMutedLight;
+    final topInset = MediaQuery.paddingOf(context).top;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(4.w, 6.h, 12.w, 6.h),
+      padding: EdgeInsets.fromLTRB(4.w, 6.h + topInset, 12.w, 6.h),
       decoration: BoxDecoration(
         color: isDark ? AppColors.surfaceDark : Colors.white,
         boxShadow: [

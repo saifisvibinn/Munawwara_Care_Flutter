@@ -436,47 +436,60 @@ class _GroupInboxScreenState extends ConsumerState<GroupInboxScreen> {
 
     return Scaffold(
       backgroundColor: GroupChatTheme.scaffoldBackground(isDark),
-      body: SafeArea(
-        child: Column(
-          children: [
-            GroupChatHeader(
-              isDark: isDark,
-              title: 'call_support_display_name'.tr(),
-              subtitle: 'inbox_title'.tr(),
-              onRefresh: _refreshMessages,
-              onBack: () => Navigator.of(context).maybePop(),
-              showBrandAvatar: true,
-            ),
-            _buildFilterRow(isDark),
-            Expanded(
-              child: showLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
-                    )
-                  : filtered.isEmpty
-                  ? _buildEmpty()
-                  : RefreshIndicator(
-                      color: AppColors.primary,
-                      onRefresh: _refreshMessages,
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        reverse: true,
-                        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
-                        itemCount: filtered.length,
-                        itemBuilder: (_, i) {
-                          // reverse:true renders index 0 at the bottom;
-                          // map to the newest-first order so newest = bottom.
-                          final msg = filtered[filtered.length - 1 - i];
-                          return _buildCard(msg);
-                        },
-                      ),
-                    ),
-            ),
-          ],
+      body: _buildBody(isDark, showLoading, filtered),
+    );
+  }
+
+  Widget _buildBody(
+    bool isDark,
+    bool showLoading,
+    List<GroupMessage> filtered,
+  ) {
+    final bottomInset = widget.scrollNotifier == null
+        ? MediaQuery.paddingOf(context).bottom
+        : 0.0;
+
+    return Column(
+      children: [
+        GroupChatHeader(
+          isDark: isDark,
+          title: 'call_support_display_name'.tr(),
+          subtitle: 'inbox_title'.tr(),
+          onRefresh: _refreshMessages,
+          onBack: () => Navigator.of(context).maybePop(),
+          showBrandAvatar: true,
         ),
-      ),
+        _buildFilterRow(isDark),
+        Expanded(
+          child: showLoading
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.primary,
+                  ),
+                )
+              : filtered.isEmpty
+              ? _buildEmpty()
+              : RefreshIndicator(
+                  color: AppColors.primary,
+                  onRefresh: _refreshMessages,
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    padding: EdgeInsets.fromLTRB(
+                      16.w,
+                      8.h,
+                      16.w,
+                      24.h + bottomInset,
+                    ),
+                    itemCount: filtered.length,
+                    itemBuilder: (_, i) {
+                      final msg = filtered[filtered.length - 1 - i];
+                      return _buildCard(msg);
+                    },
+                  ),
+                ),
+        ),
+      ],
     );
   }
 

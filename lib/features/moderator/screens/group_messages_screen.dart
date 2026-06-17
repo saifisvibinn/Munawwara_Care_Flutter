@@ -526,29 +526,30 @@ class _GroupMessagesScreenState extends ConsumerState<GroupMessagesScreen> {
 
     return Scaffold(
       backgroundColor: GroupChatTheme.scaffoldBackground(isDark),
-      body: SafeArea(
-        child: Column(
-          children: [
-            GroupChatHeader(
-              isDark: isDark,
-              title: widget.groupName,
-              subtitle: 'msg_broadcasts'.tr(),
-              onRefresh: _refreshMessages,
-              onBack: () => Navigator.of(context).maybePop(),
-              showBrandAvatar: true,
-            ),
-            Expanded(
-              child: showLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
-                    )
-                  : _buildMessageList(msgState.messages, isDark),
-            ),
-            _buildComposer(isDark, msgState.isSending),
-          ],
-        ),
+      body: Column(
+        children: [
+          GroupChatHeader(
+            isDark: isDark,
+            title: widget.groupName,
+            subtitle: 'msg_broadcasts'.tr(),
+            onRefresh: _refreshMessages,
+            onBack: () => Navigator.of(context).maybePop(),
+            showBrandAvatar: true,
+          ),
+          Expanded(
+            child: showLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                    ),
+                  )
+                : _buildMessageList(msgState.messages, isDark),
+          ),
+          SafeArea(
+            top: false,
+            child: _buildComposer(isDark, msgState.isSending),
+          ),
+        ],
       ),
     );
   }
