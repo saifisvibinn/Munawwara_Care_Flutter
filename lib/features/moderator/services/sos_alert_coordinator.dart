@@ -380,12 +380,6 @@ class SosAlertCoordinator {
 
     final groupLabel = payload.groupName.isEmpty ? '—' : payload.groupName;
     final profilePicture = await _resolvePilgrimProfilePicture(payload);
-    if (!ctx.mounted) {
-      AppLogger.w(
-        '[SosAlertCoordinator] Navigator unmounted — skip SOS dialog',
-      );
-      return;
-    }
 
     final gid = payload.groupId?.trim() ?? '';
     final modName = _getModeratorName();
