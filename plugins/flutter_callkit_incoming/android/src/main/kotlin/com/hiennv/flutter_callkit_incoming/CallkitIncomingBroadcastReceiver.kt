@@ -20,6 +20,59 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
         private const val TAG = "CallkitIncomingReceiver"
         var silenceEvents = false
 
+        // ── Process-wide duplicate-ring guard (socket + FCM convergence) ──
+        // The server delivers the same incoming call via BOTH the socket
+        // `call-offer` (handled on the Flutter MAIN isolate) and the FCM
+        // `incoming_call` (handled on the Flutter FCM BACKGROUND isolate).
+        // Those are separate Dart isolates, so per-isolate Dart singletons
+        // (CallKitService) cannot dedup across them and BOTH call
+        // showCallkitIncoming → two visible rings. Both isolates live in the
+        // SAME Android process though, so this native static IS shared and can
+        // suppress the duplicate at the single broadcast chokepoint below.
+        private var lastIncomingKey: String? = null
+        private var lastIncomingAtMs: Long = 0L
+        private const val INCOMING_DEDUP_WINDOW_MS = 45_000L
+
+        /** @return true if this ring should proceed, false if it's a duplicate. */
+        @Synchronized
+        private fun claimIncomingRing(key: String): Boolean {
+            if (key.isEmpty()) return true
+            val now = System.currentTimeMillis()
+            if (key == lastIncomingKey &&
+                now - lastIncomingAtMs <= INCOMING_DEDUP_WINDOW_MS
+            ) {
+                return false
+            }
+            lastIncomingKey = key
+            lastIncomingAtMs = now
+            return true
+        }
+
+        @Synchronized
+        fun clearIncomingRingClaim() {
+            lastIncomingKey = null
+            lastIncomingAtMs = 0L
+        }
+
+        /** Stable key across socket + FCM (the plugin `id` is a fresh UUID per
+         *  path, so it cannot be used). Prefers the server callRecordId. */
+        @Suppress("DEPRECATION")
+        private fun incomingDedupKey(data: Bundle): String {
+            return try {
+                val extra = data.getSerializable(
+                    CallkitConstants.EXTRA_CALLKIT_EXTRA,
+                ) as? HashMap<*, *>
+                fun field(name: String): String? =
+                    extra?.get(name)?.toString()?.takeIf { it.isNotBlank() }
+                field("callRecordId")
+                    ?: field("channelName")
+                    ?: field("callerId")
+                    ?: ""
+            } catch (e: Exception) {
+                ""
+            }
+        }
+
         fun getIntent(context: Context, action: String, data: Bundle?) =
             Intent(context, CallkitIncomingBroadcastReceiver::class.java).apply {
                 this.action = "${context.packageName}.${action}"
@@ -100,6 +153,18 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
         when (action) {
             "${context.packageName}.${CallkitConstants.ACTION_CALL_INCOMING}" -> {
                 try {
+                    // Suppress the duplicate socket+FCM ring before any visible
+                    // UI is drawn (showIncomingNotification is the first side
+                    // effect). This is the only place both isolates converge in
+                    // a single shared (native) context.
+                    val dedupKey = incomingDedupKey(data)
+                    if (!claimIncomingRing(dedupKey)) {
+                        Log.w(
+                            TAG,
+                            "📞 Duplicate incoming ring (native) — ignoring key=$dedupKey",
+                        )
+                        return
+                    }
                     getCallkitNotificationManager()?.showIncomingNotification(data)
                     sendEventFlutter(CallkitConstants.ACTION_CALL_INCOMING, data)
                     addCall(context, Data.fromBundle(data))
@@ -151,6 +216,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
             "${context.packageName}.${CallkitConstants.ACTION_CALL_DECLINE}" -> {
                 try {
                     // Log.d(TAG, "[CALLKIT] 📱 ACTION_CALL_DECLINE")           
+                    clearIncomingRingClaim()
                     // Notify native decline callbacks
                     FlutterCallkitIncomingPlugin.notifyEventCallbacks(CallkitEventCallback.CallEvent.DECLINE, data)
                     // clear notification
@@ -174,6 +240,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
 
             "${context.packageName}.${CallkitConstants.ACTION_CALL_ENDED}" -> {
                 try {
+                    clearIncomingRingClaim()
                     // clear notification and stop service
                     getCallkitNotificationManager()?.clearIncomingNotification(data, false)
                     CallkitNotificationService.stopService(context)
@@ -192,6 +259,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
 
             "${context.packageName}.${CallkitConstants.ACTION_CALL_TIMEOUT}" -> {
                 try {
+                    clearIncomingRingClaim()
                     // clear notification and show miss notification
                     val notificationManager = getCallkitNotificationManager()
                     notificationManager?.clearIncomingNotification(data, false)

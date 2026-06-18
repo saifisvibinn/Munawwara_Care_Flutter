@@ -1,265 +1,215 @@
-# Munawwara Care — Voice Calls Architecture & Handoff Guide
+# Durrah Care — Voice Calls Architecture & Handoff Guide
 
 > [!CAUTION]
 > # CRITICAL DEVELOPER & AI AGENT WARNING
-> **THE VOICE-CALLING WORKFLOW IN THIS APPLICATION IS HIGHLY DELICATE AND COALESCES NATIVE DEVICE SYSTEMS, OS BACKGROUND ISOLATES, FIREBASE CLOUD MESSAGING (FCM), SOCKET.IO, CALLKIT, AND AGORA RTC MEDIA LAYERS.**
->
-> **Calls are working on Android and iOS (June 2026). DO NOT refactor, rewrite, or “simplify” calling files without reading this entire document.**
->
-> A single careless change in states, navigation guards, iOS audio session handling, or socket ACK logic can:
-> 1. Cause silent **routing deadlocks** (call screen never opens).
-> 2. Leave **stale records** in MongoDB, blocking subsequent calls.
-> 3. Leave **Agora active** in the background (mic open, battery drain).
-> 4. Cause devices to **ring indefinitely** or **auto-decline** incoming calls.
-> 5. Break **Android ↔ iOS** cross-platform calls while Android-only tests still pass.
+> **THE VOICE-CALLING WORKFLOW IN THIS APPLICATION IS HIGHLY DELICATE AND COALESCES NATIVE DEVICE SYSTEMS, OS BACKGROUND ISOLATES, FIREBASE CLOUD MESSAGING (FCM), SOCKET.IO, AND AGORA RTC MEDIA LAYERS.**
+> 
+> **DO NOT** modify, refactor, rewrite, or touch any calling-related files blindly. A single line change in states, navigation guards, or API endpoints can:
+> 1. Cause silent **routing deadlocks** (blocking the call screen from opening).
+> 2. Leave **stale records** in MongoDB, permanently blocking callers from making subsequent calls.
+> 3. Leave the **Agora media engine active** in the background, draining battery and keeping the microphone open indefinitely.
+> 4. Cause Callee devices to **ring indefinitely** or fail to connect audio.
+> 
+> *Read this architectural blueprint and understand every component before writing a single line of code!*
 
 ---
 
 ## 1. High-Level Blueprint
 
-Voice calling uses a **dual-layer model** shared by Android and iOS:
-
-1. **Signaling (Socket.IO + REST + FCM)**: Offers, rings, accepts, declines, cancellations, state sync. REST fallbacks recover when sockets are dead or “ghost” (client thinks connected, server evicted).
-2. **Media (Agora RTC)**: Low-latency voice. Both parties fetch a temporary token from `/call-history/agora-token` and join the same channel **after** signaling says the call is accepted.
-
-**Native ring UI**: Both platforms use `flutter_callkit_incoming` (CallKit on iOS, Telecom/ConnectionService on Android). Agora does **not** replace CallKit — it only carries audio once the call is accepted.
+Voice calling is built on a **dual-layer model**:
+1. **Signaling Layer (Socket.IO + REST Fallbacks + Firebase Cloud Messaging)**: Handles call offers, rings, accepts, declines, cancellations, and state synchronization. It uses REST fallbacks (HTTP APIs) extensively to recover when sockets are dead or in a "ghost" state (connected on client but evicted on server).
+2. **Media Layer (Agora RTC Cloud)**: Handles the low-latency voice transmission. Once signaling joins the parties, both sides retrieve a temporary RTC token from the backend and connect to an Agora channel.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Caller as Caller
+    actor Caller as Caller (App/Socket)
     participant Server as Node.js Backend
-    actor Callee as Callee (CallKit)
+    actor Callee as Callee (Background/CallKit)
 
-    Caller->>Server: POST /call-history/offer (preferred) or socket call-offer
-    Note over Server: CallHistory status = ringing
-    Server-->>Callee: socket call-offer + FCM incoming_call (parallel)
-    Note over Callee: CallKit incoming UI
-    Callee->>Server: socket call-answer + POST /call-history/answer
-    Note over Server: status = in-progress; FCM call_answered to caller
-    Note over Caller: Join Agora
-    Note over Callee: Wait CallKit audio session → Join Agora
-```
-
-### Platform summary
-
-| Concern | Android | iOS |
-|--------|---------|-----|
-| Incoming ring | FCM + socket → CallKit plugin | Same (+ PushKit VoIP when entitled) |
-| Accept / decline events | Usually reliable on event channel | **Often dropped** — needs polls + native bridge |
-| Audio before Agora | Agora owns session directly | **CallKit activates AVAudioSession first** (Apple requirement) |
-| Killed-state ring | FCM data | FCM when app running; **VoIP push** for production killed-state (paid Apple account) |
-
----
-
-## 2. Resolved Bugs (Do Not Reintroduce)
-
-### Bug 1: Pilgrim accepts but no VoiceCallScreen (double deadlock)
-
-* **Cause**: Dashboard listeners missed `ringing → connecting`; `openVoiceCallScreen()` blocked itself because `isNavigatingToCall` was already true.
-* **Fix**: Dashboards listen for `ringing → connecting` and `connecting → connected`. `NativeCallCoordinator._tryPushVoiceCall()` passes `bypassNavigatingGuard: true`.
-
-### Bug 2: Third call fails (stale MongoDB records)
-
-* **Cause**: Stuck `ringing` / `in-progress` rows made `check-active` return `active: true` forever.
-* **Fix**: Server auto-expires records older than 5 minutes in `check_call_active`. Client ring-poll filters by exact `callRecordId` from `/offer`.
-
-### Bug 3: Pilgrim calls back → moderator accepts → pilgrim keeps ringing
-
-* **Cause**: Background pilgrim missed socket `call-answer`.
-* **Fix**: Server sends FCM `call_answered`; client handles it in `mobile_messaging_bootstrap.dart` / `NativeCallCoordinator`.
-
-### Bug 4: iOS accept does nothing / moderator keeps ringing (event channel gap)
-
-* **Cause**: `Event.actionCallAccept` often never reaches Dart on iOS (Flutter implicit engine / CallKit event-channel race). Callee never emitted `call-answer`.
-* **Fix (DO NOT REMOVE)**:
-  * `_startIosCallKitRingPoll()` in `call_provider.dart` — polls `FlutterCallkitIncoming.activeCalls()` for `accepted == true`, then runs `acceptCall()`.
-  * `actionCallToggleAudioSession` with `isActivate: true` in `native_call_coordinator.dart` — fallback accept when ringing.
-  * `NativeCallCoordinator.registerEarlyListeners()` + `CallingScope.riverpod` set in `main.dart` **before** async Firebase init.
-
-### Bug 5: iOS decline → Android keeps ringing
-
-* **Cause**: Same event-channel gap for `actionCallDecline` / `actionCallEnded`.
-* **Fix (DO NOT REMOVE)**:
-  * `AppDelegate.onDecline` / `onTimeOut` → `CallKitAudioChannelHandler.notifyCallDeclined` → `CallKitAudioBridge` → `NativeCallCoordinator.handleNativeCallDeclined`.
-  * Ring poll: after `activeCalls()` **first shows** an entry, **3 consecutive empty polls** (~1.2s) → `declineCall()`. **Never** set “saw CallKit ring” at `showIncomingCall` time — that caused instant false declines.
-  * Decline emits socket + **awaits** HTTP `POST /call-history/decline` (with `callRecordId`) **before** `forceIdleCallSession`.
-
-### Bug 6: Socket ACK on `call-offer` evicted iOS sockets / blocked second call
-
-* **Cause**: Server waited for socket ACK; iOS rarely ACKed; server evicted pilgrim socket; next call had no live socket.
-* **Fix (backend — deployed)**: `call_offer_service.js` emits plain `io.to(user_${to}).emit('call-offer', offerPayload)` with **no ACK**. Client uses `SocketService.on('call-offer', …)` not `onWithAck`.
-
-### Bug 7: iOS `Session activation failed` / no audio on connect
-
-* **Cause**: Plugin + Agora both fought for `AVAudioSession` before CallKit elevated the session.
-* **Fix (DO NOT REMOVE)**:
-  * `IOSParams`: `configureAudioSession: false`, `audioSessionActive: false` in `callkit_service.dart` (and PushKit mapper in `AppDelegate.swift`).
-  * `CallKitAudioBridge` + `CallKitAudioChannelHandler.swift`: `didActivateAudioSession` → Dart → `AgoraRtcService.onCallKitAudioSessionActivated()`.
-  * `acceptCall()` on iOS: `await CallKitAudioBridge.ensureReadyBeforeMediaJoin()` before Agora join.
-  * Agora init on iOS: `setAudioSessionOperationRestrictionAll` until CallKit activates.
-
----
-
-## 3. Component Directory
-
-```
-Munawwara_Care_Flutter/
-├── lib/
-│   ├── features/calling/
-│   │   ├── providers/call_provider.dart      # State machine, Agora, ring poll, iOS CallKit poll
-│   │   ├── native_call_coordinator.dart      # CallKit events, FCM control, native decline bridge
-│   │   ├── call_signaling.dart               # Socket + HTTP /offer /answer /decline /cancel
-│   │   ├── call_navigation.dart              # openVoiceCallScreen(bypassNavigatingGuard)
-│   │   └── screens/voice_call_screen.dart    # In-call UI + PopScope
-│   ├── core/
-│   │   ├── services/
-│   │   │   ├── callkit_service.dart          # showIncomingCall, IOSParams, dismiss
-│   │   │   ├── callkit_audio_bridge.dart     # iOS didActivate + native decline MethodChannel
-│   │   │   ├── agora_rtc_service.dart        # Join/leave, CallKit audio handoff
-│   │   │   └── socket_service.dart           # Socket.IO; plain on() for call-offer
-│   │   └── bootstrap/mobile_messaging_bootstrap.dart
-│   └── main.dart                             # CallingScope + early CallKit/audio listeners
-├── ios/Runner/
-│   ├── AppDelegate.swift                     # PushKit (if entitled), onDecline → bridge
-│   └── CallKitAudioChannelHandler.swift      # Native → Dart audio + decline
-├── scripts/
-│   ├── pod                                   # CocoaPods wrapper (Ruby 2.6 Logger fix)
-│   └── flutter_ios.sh                        # flutter run with scripts/ on PATH
-└── docs/voice-calls-architecture.md          # This file
-
-mc_backend_app/
-├── services/call_offer_service.js            # Parallel socket emit + FCM; NO socket ACK
-├── services/call_decline_service.js          # FCM call_declined / call_answered to caller
-├── controllers/call_history_controller.js    # REST + stale expiry
-└── sockets/socket_manager.js                 # call-answer, call-declined, etc.
+    Caller->>Server: HTTP POST /call-history/offer (or socket call-offer)
+    Note over Server: Creates CallHistory (status: ringing)
+    Server-->>Callee: FCM high-priority data payload (type: call_offer)
+    Note over Callee: Wakes up background isolate & rings native CallKit UI
+    Callee->>Server: Native Accept → HTTP POST /call-history/answer (or socket call-answer)
+    Note over Server: Updates CallHistory (status: in-progress)
+    Server-->>Caller: FCM Data payload (type: call_answered)
+    Note over Caller: Joins Agora Media Channel
+    Note over Callee: Joins Agora Media Channel (Connected!)
 ```
 
 ---
 
-## 4. Structural Safeguards (Guards)
+## 2. The Three Critical Resolved Bugs (And How Not to Break Them)
 
-### Guard 1: Coordinator navigation lock (`bypassNavigatingGuard`)
+The entire calling subsystem was completely broken due to subtle deadlocks, background socket evictions, and stale database records. Below are the details of the three resolved bugs so you can avoid reintroducing them.
 
-`NativeCallCoordinator._tryPushVoiceCall()` **must** call:
+### Bug 1: Pilgrim Answers call but has No Caller ID / Screen (Double Deadlock)
+* **The Root Cause**: A double-deadlock occurred when a Pilgrim accepted a call:
+  1. **Dashboard Listeners Timing Gap**: The FCM notification transitioned the call state quickly: `ringing` $\rightarrow$ `connecting` $\rightarrow$ `connected`. The dashboards (`pilgrim_dashboard_screen.dart` and `moderator_dashboard_screen.dart`) only had a single listener looking for `ringing` $\rightarrow$ `connected` transitions, missing the intermediate `connecting` step entirely.
+  2. **Navigation Self-Block Guard**: When native CallKit is clicked, `NativeCallCoordinator` sets `_navigatingToCall = true` to guard dashboard listeners from double-pushing screens. However, `openVoiceCallScreen()` was checking `isNavigatingToCall` and blocking itself because it saw the guard was active.
+* **The Fix (DO NOT TOUCH)**:
+  * We updated both dashboards to monitor all adjacent states (`ringing -> connecting` and `connecting -> connected`).
+  * We introduced a `bypassNavigatingGuard` parameter inside `openVoiceCallScreen()` in [call_navigation.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/features/calling/call_navigation.dart) and passed `true` inside `NativeCallCoordinator._tryPushVoiceCall()` in [native_call_coordinator.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/features/calling/native_call_coordinator.dart). This allows the coordinator to bypass its own lock and successfully push the screen.
 
-```dart
-openVoiceCallScreen(bypassNavigatingGuard: true);
+### Bug 2: Calling a Pilgrim a 3rd Time Fails to Connect (Stale Call Records)
+* **The Root Cause**: If a call ended abruptly or socket connections dropped (battery saver, network changes), the MongoDB records remained stuck in `ringing` or `in-progress` states. When the client polled the server (`/call-history/check-active`) to verify if the caller was free, the backend would return `active: true` matching a stale, dead call session, permanently blocking any new calls from connecting.
+* **The Fix (DO NOT TOUCH)**:
+  * **Server-Side Auto-Expiry**: In [call_history_controller.js](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/mc_backend_app/controllers/call_history_controller.js), the `check_call_active` API now automatically sweeps and expires any record stuck in `ringing` or `in-progress` that is older than 5 minutes:
+    ```js
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    await CallHistory.updateMany(
+        { status: { $in: ['ringing', 'in-progress'] }, createdAt: { $lt: fiveMinutesAgo } },
+        { status: 'ended' }
+    );
+    ```
+  * **Strict Ring-Poll Filtering**: The client is now passed the specific database `callRecordId` inside [call_signaling.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/features/calling/call_signaling.dart) upon offering a call. The [call_provider.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/features/calling/providers/call_provider.dart) uses this exact `callRecordId` during periodic watchdog polling, preventing the client from matching and reacting to old, dead calling sessions.
+
+### Bug 4: Device Stuck "In a Call" After Hang-Up (Orphaned Core-Telecom Call)
+* **The Symptom**: After ending an incoming call, the device behaved as if a call was still active — volume buttons controlled the call stream, the OS blocked Airplane mode ("can't turn on flight mode while in a call"), and starting a real cellular call surfaced a ghost **"Munawwara Care" Answer/Decline** banner. The phantom call only cleared on a force-close of the app.
+* **The Root Cause**: Two compounding native (Android) defects around the self-managed **Core-Telecom** call registered by [IncomingCallService](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/android/app/src/main/kotlin/com/munawwaracare/android/IncomingCallService.kt):
+  1. **Duplicate incoming cancelled the registration.** Socket **and** FCM both ring, firing `ACTION_INCOMING_CALL` twice (~0.4s apart) for the same caller. The second `handleIncoming()` ran `tearDownCoreTelecomSession(cancelScopeAfterDisconnect = true)` first, **cancelling the first call's in-flight `CallsManager.addCall` coroutine before it captured `CallControlScope`** (`Core-Telecom error: x0 was cancelled`; `📞 Core-Telecom call registered successfully` never logged). The system call stayed registered with **no handle to disconnect it**.
+  2. **Accept never released the call.** The plugin's `CallkitIncomingBroadcastReceiver` sent only `ACTION_DISMISS_FG_NOTIFICATION` on accept/connected — demoting the foreground service while leaving the Telecom call stuck *ringing*. `IncomingCallService.handleAccept()` (which would release it) was dead code. With the FGS demoted, Android could kill the service process, permanently orphaning the call; the hang-up path then restarted the service in a fresh process where `callControlScope == null`, so teardown was a no-op.
+* **The Fix (DO NOT TOUCH)**:
+  * **Idempotent `handleIncoming()`**: a duplicate `ACTION_INCOMING_CALL` for the same `currentCallerId` is ignored while still ringing/registering (`callJob?.isActive == true || callControlScope != null`), so the in-flight `addCall` coroutine completes and captures `CallControlScope`.
+  * **Release on answer**: the plugin's `ACTION_CALL_ACCEPT` and `ACTION_CALL_CONNECTED` branches now send `ACTION_ACCEPT_CALL` to the service, and `handleAccept()` cleanly disconnects the Core-Telecom call (`DisconnectCause.LOCAL`) with `callWasAnswered`/`suppressDeclineHttpOnDisconnect` set so no spurious decline HTTP fires. The plugin's `CallkitNotificationService` (phoneCall-type FGS) keeps the mic alive for Agora for the rest of the call, so no parallel Telecom call is needed once answered.
+  * **Healthy log sequence**: `...ACTION_INCOMING_CALL sent` (once, or `Duplicate incoming … ignoring`) → `Core-Telecom call registered successfully` → `handleAccept — releasing Core-Telecom call after answer` → `Core-Telecom onDisconnect`.
+
+### Bug 3: Pilgrim Calls Back Moderator -> Rings but Accepting Does Nothing
+* **The Root Cause**: Pilgrim devices operate in deep-sleep / background power-saver modes. When a Pilgrim pressed "Call Back" (SOS callback) and the Moderator accepted it, the Moderator's socket signal `call-answer` failed to reach the backgrounded Pilgrim. The Pilgrim device stayed ringing and never received the trigger to join the Agora RTC channel.
+* **The Fix (DO NOT TOUCH)**:
+  * **FCM Backed answered Signal**: We introduced a backup FCM signaling channel. When a Moderator answers a call (either via Socket `call-answer` or REST `/answer`), the server sends a high-priority FCM notification of type `call_answered` via `call_decline_service.js`:
+    ```js
+    await notifyCallerCallAnswered(callerId, callHistoryRecordId);
+    ```
+  * **Client Listener**: Registered `call_answered` in the FCM foreground and background message handlers ([mobile_messaging_bootstrap.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/core/bootstrap/mobile_messaging_bootstrap.dart) and [callkit_service.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/core/services/callkit_service.dart)). This triggers the caller's client to connect to Agora immediately, completely bypassing unreliable socket connections.
+
+---
+
+## 3. Component Directory & File Roles
+
+The system spans the following specific components in the workspace:
+
+```
+c:\Users\drago\Desktop\projects\Durrah care mob app\
+├── Flutter_Munawwara\                         # Flutter Frontend Application
+│   ├── lib\
+│   │   ├── features\
+│   │   │   └── calling\                       # Core Calling Feature Area
+│   │   │       ├── providers\
+│   │   │       │   └── call_provider.dart     # Manages call states, Agora Media session, Ring watchdogs, & Cooldowns
+│   │   │       ├── screens\
+│   │   │       │   └── voice_call_screen.dart # Caller ID full-screen UI with PopScope & audio control buttons
+│   │   │       ├── call_navigation.dart       # Handles GoRouter overlay pushes & bypassNavigatingGuard logic
+│   │   │       ├── call_signaling.dart        # Socket emitters + HTTP REST fallback calls (/offer, /answer, /decline)
+│   │   │       └── native_call_coordinator.dart# Bridges native Android/iOS CallKit events to Riverpod state
+│   │   ├── core\
+│   │   │   ├── services\
+│   │   │   │   └── callkit_service.dart       # Launches native system OS incoming calls (FCM parser)
+│   │   │   └── bootstrap\
+│   │   │       └── mobile_messaging_bootstrap.dart # Intercepts and handles high-priority FCM calling signals
+│   │   └── features\
+│   │       ├── pilgrim\screens\pilgrim_dashboard_screen.dart    # Dashboard listening to adjacent calling states
+│   │       └── moderator\screens\moderator_dashboard_screen.dart# Dashboard listening to adjacent calling states
+│   └── docs\
+│       └── voice-calls-architecture.md        # This consolidated master architectural document
+│
+└── mc_backend_app\                            # Node.js Express Backend API & Sockets
+    ├── controllers\
+    │   └── call_history_controller.js         # REST endpoints. Handles state updates, check-active, and stale auto-expiry
+    ├── sockets\
+    │   └── socket_manager.js                  # Manages Socket.io signaling rooms and call triggers
+    └── services\
+        └── call_decline_service.js            # FCM messaging sender (pushes high-priority wakeups & answer confirmations)
 ```
 
-### Guard 2: Stale call record expiry (server)
-
-`check_call_active` expires `ringing` / `in-progress` older than 5 minutes before checking activity.
-
-### Guard 3: Ring-poll `callRecordId` filtering
-
-Outgoing ring poll must pass the `callRecordId` returned from `/offer` so it does not match a previous dead session.
-
-### Guard 4: PopScope on VoiceCallScreen
-
-`canPop` only when `ended` or `idle` — prevents swipe-back leaving Agora running.
-
-### Guard 5: Android IncomingCallService tray (Android only)
-
-Do not cancel FGS notification id `9999` during incoming ring; only on end/cancel/decline paths.
-
-### Guard 6: iOS CallKit ring poll — accept path
-
-While `CallStatus.ringing`, poll `activeCalls()` for accepted call → `acceptCall()` → `openVoiceCallScreen(bypassNavigatingGuard: true)`.
-
-**Do not remove** because iOS often skips `actionCallAccept`.
-
-### Guard 7: iOS CallKit ring poll — decline path
-
-Decline via poll **only when**:
-
-1. Poll has **seen** `activeCalls()` non-empty at least once (`_iosSawCallKitRing`), **and**
-2. `activeCalls()` is empty for **3 consecutive** polls (~1.2s).
-
-**Never** set `_iosSawCallKitRing = true` at `showIncomingCall` time — causes immediate false decline.
-
-Prefer native `AppDelegate.onDecline` → `handleNativeCallDeclined` for user-initiated decline.
-
-### Guard 8: iOS audio session before Agora
-
-Order on callee accept:
-
-1. User accepts (CallKit).
-2. System fires `didActivateAudioSession` → `CallKitAudioBridge`.
-3. `call-answer` signaling (socket + HTTP).
-4. `ensureReadyBeforeMediaJoin()` if CallKit session active.
-5. `AgoraRtcService.joinVoiceChannel()`.
-
-**Do not** set `audioSessionActive: true` or `configureAudioSession: true` on incoming `IOSParams` — causes `Session activation failed`.
-
-### Guard 9: Decline signaling before local teardown
-
-`_declineCallInternal` must **await** `_emitDeclineSignaling` (socket + HTTP with `callRecordId`) **before** `forceIdleCallSession`. Use `_declineSignalingInFlight` to dedupe native bridge + poll.
-
-### Guard 10: Ignore spurious `actionCallEnded` after iOS accept
-
-`native_call_coordinator.dart` ignores `actionCallEnded` when `connecting`, `connected`, `isNavigatingToCall`, or `_pendingAcceptedCall` — iOS fires ended right after accept.
-
-### Guard 11: No socket ACK on `call-offer` (server + client)
-
-Server: plain emit in `call_offer_service.js`. Client: `SocketService.on('call-offer', …)` — not `onWithAck`.
-
-### Guard 12: Android cross-isolate incoming dedup + audio reset
-
-* **Dedup**: `CallKitService.showIncomingCall` claims `last_incoming_call_ring_claim` in SharedPreferences (45s window) so parallel socket + FCM in different isolates cannot surface two rings for the same `callRecordId` / `channelName`.
-* **UUID**: Persist `pending_call_uuid` **before** `showCallkitIncoming` so background `call_cancel` can dismiss the correct tray.
-* **Teardown**: On decline/end, `forceIdleCallSession(awaitTeardown: true)` awaits Agora leave + `endAllCalls` + `CallAudioCleanup.resetAudioMode` (Kotlin). `CallRingbackService.stop()` must call `AudioSession.setActive(false)`.
-* **IncomingCallService**: Set `sessionDeclined` and cancel `callJob` on decline; drop duplicate FGS tray right after Core-Telecom registers.
+### Detailed Breakdown of File Roles:
+*   **[call_provider.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/features/calling/providers/call_provider.dart)** *(Core State)*:  
+    Owns the Riverpod state machine (`idle` $\rightarrow$ `calling` $\rightarrow$ `connecting` $\rightarrow$ `connected` $\rightarrow$ `ended` $\rightarrow$ `idle`). Manages local Media streams (Agora join/leave), toggles mute/speaker, runs the periodic **ring watchdog poll** to detect background declines, and enforces the mandatory **10-second post-call cooldown**. `forceIdleCallSession()` flips to `ended` **before** native CallKit teardown so the in-app hang-up UI is instant; socket `call-end` / decline emits run afterward in the background.
+*   **[native_call_coordinator.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/features/calling/native_call_coordinator.dart)** *(CallKit Bridge)*:  
+    Bridges the native CallKit system events (`actionCallAccept`, `actionCallDecline`, `actionCallTimeout`, `actionCallEnded`) to Riverpod call state transitions. Implements cold-start/background **call recovery** when the app is launched by clicking the CallKit "Accept" button.
+*   **[call_navigation.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/features/calling/call_navigation.dart)** *(Routing)*:  
+    Manages navigation. Holds `openVoiceCallScreen()`, pushing the in-call UI over any active route using the global `AppRouter.navigatorKey`.
+*   **[call_signaling.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/features/calling/call_signaling.dart)** *(Network Triggers)*:  
+    Encapsulates REST fallback API calls (`/offer`, `/answer`, `/decline`, `/cancel`) and manages standard socket emitters.
+*   **[voice_call_screen.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/features/calling/screens/voice_call_screen.dart)** *(Caller ID Screen)*:  
+    The primary full-screen UI. Displays the peer's name, avatar initials, call status, speaker/mute control panel, and the red end-call button.
+*   **[callkit_service.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/core/services/callkit_service.dart)**:  
+    Configures and spawns the native iOS/Android system calling screens. Parses raw FCM data to extract calling controls. For **pilgrim callers** (moderator receiving), CallKit `avatar` is the pilgrim’s `profile_picture` HTTPS URL when set, otherwise the gender default ihram asset; pilgrims receiving moderator calls keep the Munawwara support icon.
+*   **[mobile_messaging_bootstrap.dart](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/Flutter_Munawwara/lib/core/bootstrap/mobile_messaging_bootstrap.dart)**:  
+    The global messaging hub. Handshakes incoming foreground FCM notifications, filtering out general messages while routing high-priority call controls (`call_declined`, `call_cancel`, `call_ended`, `call_answered`) directly to `NativeCallCoordinator`.
+*   **[socket_manager.js](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/mc_backend_app/sockets/socket_manager.js)**:  
+    Establishes socket connection hooks. Integrates high-level signaling (`call-answer`, `call-offer`, `call-declined`, etc.) and broadcasts room-wide notifications.
+*   **[call_history_controller.js](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/mc_backend_app/controllers/call_history_controller.js)**:  
+    Owns the REST routing logic for `/offer`, `/answer`, `/decline`, `/cancel`, and `/check-active`. Auto-updates the MongoDB `CallHistory` model documents.
+*   **[call_decline_service.js](file:///c:/Users/drago/Desktop/projects/Durrah%20care%20mob%20app/mc_backend_app/services/call_decline_service.js)**:  
+    Composes and delivers high-priority background FCM data messages to wake up devices when socket streams are offline.
 
 ---
 
-## 5. Golden Rules
+## 4. Four Structural Safeguards (Avoid Regressions)
 
-1. **Outgoing offers**: Prefer `POST /call-history/offer` (especially pilgrim / background).
-2. **FCM call control** (`call_declined`, `call_cancel`, `call_ended`, `call_answered`): Silent data only — never show as chat notifications.
-3. **Dashboard listeners**: Watch `ringing → connecting` and `connecting → connected`.
-4. **Post-call cooldown**: Keep 10s `hasRecentCallCooldown` in `call_provider.dart`.
-5. **PopScope**: Never remove from `voice_call_screen.dart`.
-6. **Deploy backend** before testing signaling changes (`mc_backend_app/redeploy_cloudrun.sh`).
-7. **Do not “unify” iOS into Android-only paths** — iOS needs CallKit poll, audio bridge, and native decline. Same architecture, extra adapters.
-8. **Do not re-add socket ACK** on `call-offer` without fixing iOS ACK delivery and removing server socket eviction.
-9. **iOS dev**: Run via `./scripts/flutter_ios.sh run --dart-define-from-file=.env` (CocoaPods needs `scripts/pod` on PATH).
-10. **Run `flutter analyze`** before committing calling changes.
+If you modify the calling workflow, you **MUST** respect the following four critical safeguards that are active in the code:
+
+### Guard 1: The Coordinator Navigation Lock (`bypassNavigatingGuard`)
+*   **The Trap**: When Callee clicks "Accept" on CallKit, the app must transition to the `VoiceCallScreen`. To prevent the UI dashboard listeners from creating multiple duplicate screens, the `NativeCallCoordinator` sets a global navigation lock `_navigatingToCall = true`.
+*   **The Guard**: `openVoiceCallScreen()` normally blocks navigation if `isNavigatingToCall` is `true`. To resolve self-blocking, the coordinator **must** bypass this check by passing `bypassNavigatingGuard: true` when pushing:
+    ```dart
+    final pushed = openVoiceCallScreen(bypassNavigatingGuard: true);
+    ```
+*   *Do not modify or remove `bypassNavigatingGuard: true` inside `_tryPushVoiceCall()` under any circumstances.*
+
+### Guard 2: Stale Call Records Expiration
+*   **The Trap**: Sockets can drop unexpectedly (due to battery saving, cellular changes, or crashes) before emitting `call-end`. Stale `ringing` or `in-progress` rows lingering on the server would cause the subsequent checks to return `active: true`, permanently blocking the moderator from placing any future calls.
+*   **The Guard**: In `check_call_active` (`call_history_controller.js`), before checking activity, the server automatically expires any open call record older than 5 minutes:
+    ```js
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    await CallHistory.updateMany(
+        { status: { $in: ['ringing', 'in-progress'] }, createdAt: { $lt: fiveMinutesAgo } },
+        { status: 'ended' }
+    );
+    ```
+
+### Guard 3: Accurate Ring-Poll Filtering (`callRecordId`)
+*   **The Trap**: If a caller places a call immediately after a prior call, the regular polling on `/check-active` could match the prior stale call database record, triggering an immediate false "declined" state.
+*   **The Guard**: The `/offer` REST endpoint returns the precise MongoDB database `callRecordId`. The Flutter client stores this ID and passes it directly to `_startRingPoll(..., callRecordId: id)`, filtering the check-active API query strictly to the current active record.
+
+### Guard 4: Back-Gesture / Swipe-Back Prevention
+*   **The Trap**: Swiping back on iOS/Android or clicking the hardware back button popped the `VoiceCallScreen`, hiding the UI while leaving the active background Agora voice channel playing indefinitely in the background.
+*   **The Guard**: The root `Scaffold` in `voice_call_screen.dart` is wrapped in a `PopScope`. `canPop` is strictly tied to call status:
+    ```dart
+    final canPop = call.status == CallStatus.ended || call.status == CallStatus.idle;
+    ```
+*   *This locks the screen until the call is officially ended, forcing the user to tap the red end-call button to hang up and exit.*
+
+### Guard 5: IncomingCallService Tray Teardown (Android)
+*   **The Trap**: `IncomingCallService` posts a short-lived FGS notification (`"Connecting…"`, id `9999`) for Core-Telecom. If the process dies without `stopForeground`, or Dart teardown misses the native MethodChannel, the tray entry can outlive the call (common on MIUI).
+*   **The Guard**: Teardown must call `IncomingCallService.cancelStaleForegroundTray()` from **end/cancel/decline paths only** (`CallDismissHelper`, `removeForegroundNotification`, `onDestroy`). Never cancel id `9999` during `handleIncoming` while ringing. `CallKitService.endCurrentCall()` and `endAllCalls()` both invoke `dismissNativeIncoming()` so plugin UI and Core-Telecom tray stay in sync.
+
+### Guard 6: Core-Telecom Call Lifecycle (No Orphaned System Calls)
+*   **The Trap**: The self-managed Core-Telecom call (`CallsManager.addCall` in `IncomingCallService`) is only disconnectable via the `CallControlScope` captured **inside** the `addCall` coroutine. If that coroutine is cancelled before capturing the scope (duplicate incoming) or the call is never released on answer (FGS demoted, then process killed), the system call is **orphaned** — the device stays "in a call" until force-close (see Bug 4).
+*   **The Guard**:
+    1. `handleIncoming()` is **idempotent** — it ignores a duplicate `ACTION_INCOMING_CALL` for the same `currentCallerId` while ringing/registering. Do not remove this guard or the duplicate will cancel the registration.
+    2. On accept, the plugin (`CallkitIncomingBroadcastReceiver`) sends `ACTION_ACCEPT_CALL` (not `ACTION_DISMISS_FG_NOTIFICATION`) for both `ACTION_CALL_ACCEPT` and `ACTION_CALL_CONNECTED`, and `handleAccept()` disconnects the Telecom call immediately. Releasing on answer is intentional: the plugin's ongoing-call FGS keeps the mic alive for Agora.
+    3. Always confirm `📞 Core-Telecom call registered successfully` appears once per call and a real `📞 Core-Telecom onDisconnect` fires on teardown. "Resetting call state" **without** a preceding `onDisconnect` means `callControlScope` was `null` (orphaned) — a regression.
 
 ---
 
-## 6. Dev & Test Commands
+## 5. Golden Rules for Future Developers & Agents
 
-```bash
-# iOS device (CocoaPods wrapper on PATH)
-cd Munawwara_Care_Flutter
-./scripts/flutter_ios.sh run --dart-define-from-file=.env
+If you are a developer or an AI agent tasked with working on the calling module, you must strictly adhere to these rules:
 
-# Or add once to ~/.zshrc:
-# export PATH="/path/to/Munawwara_Care_Flutter/scripts:$PATH"
-
-# Backend redeploy (after mc_backend_app signaling changes)
-cd mc_backend_app && bash redeploy_cloudrun.sh
-```
-
-### Smoke test checklist (Android ↔ iOS)
-
-- [ ] Moderator → Pilgrim: rings on iOS CallKit
-- [ ] Accept: `call-answer` logged, Agora join both sides, audio heard
-- [ ] Decline: `call-declined` + HTTP decline, Android stops ringing within ~2s
-- [ ] Second call in same session without hot restart
-- [ ] Cancel outgoing while ringing
-
----
-
-## 7. Production iOS (paid Apple Developer — not required for foreground dev)
-
-* Enable Push Notifications + VoIP entitlement.
-* Server sends **APNs VoIP push** (not only FCM) for killed-state incoming calls.
-* `AppDelegate` PushKit handler already maps payload → `showCallkitIncoming(fromPushKit: true)`.
-
-Until then, iOS incoming calls work when the app is running or recently backgrounded (socket + FCM data).
-
----
-
-*Last verified working: June 2026 — Android ↔ iOS voice calls with Agora on Cloud Run backend `mc-backend-prod1`.*
+1. **Never Use Socket-Only Signaling for Outgoing Calls**:
+   * Pilgrim devices will fail to receive socket calls when backgrounded. Always launch call offers via the REST endpoint `/call-history/offer`.
+2. **Ensure FCM Controls Bypass Foreground Presentation**:
+   * FCM payloads such as `call_declined`, `call_cancel`, `call_ended`, and `call_answered` are functional control signals. They must **never** be presented as visible push notifications in the notification drawer. They must immediately run background processes silently.
+3. **Coalesce Signaling States**:
+   * Dashboard listeners *must* monitor both `ringing -> connecting` and `connecting -> connected` transitions to account for rapid FCM/REST state changes.
+4. **Always Enforce Cooldowns**:
+   * Keep the post-call 10-second cooldown in `call_provider.dart` (`hasRecentCallCooldown`) to allow local audio hardware and socket pipelines to clean up.
+5. **Always Keep the PopScope Guarded**:
+   * Ensure that the `PopScope` in `voice_call_screen.dart` is never removed. If it is removed, swipe-back gestures will trap the user in an un-nullable background call state.
+6. **Deploy Server-Side Changes Prior to Testing**:
+   * If you modify any call logic on the backend, you must deploy it to your staging servers (e.g. running the `.\redeploy_cloudrun.ps1` deployment script on Google Cloud Run) to ensure active sockets, DB expirations, and FCM fallbacks are live.
+7. **Always Run Analysis Prior to Commits**:
+   * Run `flutter analyze` inside `Flutter_Munawwara/` and verify that no lint errors exist. Ensure the project remains clean.
