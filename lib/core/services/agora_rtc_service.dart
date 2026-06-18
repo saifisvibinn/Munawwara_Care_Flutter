@@ -172,8 +172,8 @@ class AgoraRtcService {
     await _engine?.setEnableSpeakerphone(isSpeakerOn);
     await _engine?.muteLocalAudioStream(isMuted);
     await _engine?.muteAllRemoteAudioStreams(false);
-    await _engine?.adjustRecordingSignalVolume(400);
-    await _engine?.adjustPlaybackSignalVolume(400);
+    await _engine?.adjustRecordingSignalVolume(100);
+    await _engine?.adjustPlaybackSignalVolume(100);
   }
 
   Future<void> renewTokenIfNeeded(String channelName, String userId) async {
@@ -225,7 +225,11 @@ class AgoraRtcService {
     }
     await engine.setAudioProfile(
       profile: AudioProfileType.audioProfileDefault,
-      scenario: AudioScenarioType.audioScenarioChatroom,
+      scenario: AudioScenarioType.audioScenarioDefault,
+    );
+    await engine.setAINSMode(
+      enabled: true,
+      mode: AudioAinsMode.ainsModeBalanced,
     );
 
     engine.registerEventHandler(
