@@ -23,6 +23,25 @@ Future<bool> hasLocationAlwaysPermission() async {
   return whenInUse && always;
 }
 
+/// Foreground map / beacon-off moderator flows.
+Future<bool> hasLocationWhileInUseOrBetter() async {
+  if (kIsWeb) return false;
+  final geo = await Geolocator.checkPermission();
+  return geo == LocationPermission.whileInUse ||
+      geo == LocationPermission.always;
+}
+
+/// Pilgrims need Always; moderators/admins only need While In Use at onboarding.
+Future<bool> isLocationSatisfiedForOnboarding(String? role) async {
+  if (role?.toLowerCase() == 'pilgrim') {
+    return hasLocationAlwaysPermission();
+  }
+  return hasLocationWhileInUseOrBetter();
+}
+
+bool onboardingRequiresAlwaysLocation(String? role) =>
+    role?.toLowerCase() == 'pilgrim';
+
 /// iOS: while-in-use granted but Always still needed for setup step.
 Future<bool> hasLocationWhenInUseOnly() async {
   if (kIsWeb || !Platform.isIOS) return false;
@@ -55,7 +74,47 @@ Future<bool> requestLocationPermissionsFlow(
   BuildContext context, {
   VoidCallback? onOpenAppSettings,
 }) async {
+  return requestLocationPermissionsForOnboarding(
+    context,
+    role: 'pilgrim',
+    onOpenAppSettings: onOpenAppSettings,
+  );
+}
+
+/// Role-aware onboarding: pilgrims need Always; moderators only While In Use.
+Future<bool> requestLocationPermissionsForOnboarding(
+  BuildContext context, {
+  required String? role,
+  VoidCallback? onOpenAppSettings,
+}) async {
   if (kIsWeb) return false;
+
+  if (!await _ensureWhenInUseLocation(onOpenAppSettings: onOpenAppSettings)) {
+    return false;
+  }
+
+  if (!onboardingRequiresAlwaysLocation(role)) {
+    return hasLocationWhileInUseOrBetter();
+  }
+
+  if (!context.mounted) return false;
+  if (!await _ensureAlwaysLocation(
+    context,
+    onOpenAppSettings: onOpenAppSettings,
+  )) {
+    return false;
+  }
+
+  return hasLocationAlwaysPermission();
+}
+
+/// Moderator nav beacon: upgrade to Always when the toggle is turned on.
+Future<bool> requestLocationAlwaysForBeacon(
+  BuildContext context, {
+  VoidCallback? onOpenAppSettings,
+}) async {
+  if (kIsWeb) return false;
+  if (await hasLocationAlwaysPermission()) return true;
 
   if (!await _ensureWhenInUseLocation(onOpenAppSettings: onOpenAppSettings)) {
     return false;
@@ -69,7 +128,7 @@ Future<bool> requestLocationPermissionsFlow(
     return false;
   }
 
-  return await hasLocationAlwaysPermission();
+  return hasLocationAlwaysPermission();
 }
 
 /// Uses [Geolocator] first (reliable on MIUI), then [permission_handler].
@@ -226,6 +285,8 @@ Future<bool> _ensureAlwaysLocationIos(
   final openGuide = await showIosLocationAlwaysGuide(context);
   if (openGuide && context.mounted) {
     await openLocationPermissionSettings(onOpenAppSettings: onOpenAppSettings);
+    // User is in Settings — re-check on app resume, not immediately.
+    return false;
   }
-  return await hasLocationAlwaysPermission();
+  return hasLocationAlwaysPermission();
 }

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -13,7 +14,9 @@ import '../../../../core/map/app_map_marker_data.dart';
 import '../../../../core/map/app_map_marker_cluster.dart';
 import '../../../../core/map/app_map_tiles.dart';
 import '../../../../core/map/widgets/app_platform_map.dart';
+import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/glass/app_glass.dart';
 import '../../../../core/widgets/map_circle_fab.dart';
 import '../../../shared/models/suggested_area_model.dart';
@@ -29,7 +32,7 @@ import 'suggestions_cycle_button.dart';
 // Pilgrim Map Tab
 // ─────────────────────────────────────────────────────────────────────────────
 
-class PilgrimMapTab extends StatelessWidget {
+class PilgrimMapTab extends ConsumerWidget {
   final LatLng? myLocation;
   final LatLng? Function()? resolveMyLocation;
   final AppMapController mapController;
@@ -120,8 +123,8 @@ class PilgrimMapTab extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = AppTheme.isDarkEffective(ref.watch(themeProvider), context);
     final group = pilgrimState.groupInfo;
     final beacons = pilgrimState.navBeacons.values.toList();
     const mapFabSize = 48.0;

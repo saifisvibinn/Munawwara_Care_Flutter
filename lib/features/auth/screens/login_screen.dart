@@ -84,14 +84,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _goAfterAuth() async {
+    final role = ref.read(authProvider).role;
     final showOnboarding =
-        await OemSettingsService.shouldShowOnboardingOnResume();
+        await OemSettingsService.shouldShowOnboardingOnResume(role: role);
     if (!mounted) return;
     if (showOnboarding) {
       context.go('/device-care-onboarding');
       return;
     }
-    final role = ref.read(authProvider).role;
     context.go(
       role == 'moderator' ? '/moderator-dashboard' : '/pilgrim-dashboard',
     );

@@ -154,7 +154,7 @@ class _ModeratorGroupMapScreenState
       }
     }
 
-    final ok = await hasLocationAlwaysPermission();
+    final ok = await hasLocationWhileInUseOrBetter();
     if (!ok || !mounted) return;
 
     bool usableLast(Position p) {

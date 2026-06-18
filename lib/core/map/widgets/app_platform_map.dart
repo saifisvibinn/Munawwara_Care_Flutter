@@ -235,6 +235,9 @@ class _AppPlatformMapState extends State<AppPlatformMap> {
       return null;
     });
     _pushMarkers();
+    unawaited(
+      widget.controller.setIosMapAppearance(isDark: widget.isDark),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncIosScrollEdges(context);
     });

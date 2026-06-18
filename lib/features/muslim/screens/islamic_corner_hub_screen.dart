@@ -8,6 +8,7 @@ import '../constants/muslim_colors.dart';
 import '../models/muslim_models.dart';
 import '../providers/muslim_providers.dart';
 import '../../../core/widgets/glass/app_glass.dart';
+import '../../../core/widgets/scroll_adaptive_foreground.dart';
 import 'azkar_screen.dart';
 import 'asma_ul_husna_screen.dart';
 import 'duaa_screen.dart';
@@ -17,11 +18,63 @@ import '../widgets/muslim_widgets.dart';
 double _islamicCornerHeaderOverlayHeight(BuildContext context) =>
     MediaQuery.viewPaddingOf(context).top + 8.h + 22.h + 8.h;
 
-class IslamicCornerHubScreen extends ConsumerWidget {
+(double top, double bottom) _islamicCornerTitleBand(BuildContext context) {
+  final bandTop = MediaQuery.viewPaddingOf(context).top + 8.h;
+  return (bandTop, bandTop + 22.h);
+}
+
+class IslamicCornerHubScreen extends ConsumerStatefulWidget {
   const IslamicCornerHubScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<IslamicCornerHubScreen> createState() =>
+      _IslamicCornerHubScreenState();
+}
+
+class _IslamicCornerHubScreenState extends ConsumerState<IslamicCornerHubScreen> {
+  final _scrollController = ScrollController();
+  double _prayerCardHeight = 180;
+
+  @override
+  void initState() {
+    super.initState();
+    _prayerCardHeight = 180.h;
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onPrayerCardSizeChanged(Size size) {
+    if ((size.height - _prayerCardHeight).abs() < 0.5) return;
+    setState(() => _prayerCardHeight = size.height);
+  }
+
+  Color _resolveTitleBackground(double scrollOffset) {
+    final isDark = context.isDark;
+    final headerExtent = _islamicCornerHeaderOverlayHeight(context);
+    final (bandTop, bandBottom) = _islamicCornerTitleBand(context);
+    final fallbackBg = AppGlassTheme.dashboardBackgroundColor(isDark);
+
+    return estimateBackdropColor(
+      scrollOffset: scrollOffset,
+      listPaddingTop: headerExtent + 8.h,
+      bandTop: bandTop,
+      bandBottom: bandBottom,
+      fallbackColor: fallbackBg,
+      segments: [
+        ScrollBackdropSegment(
+          height: _prayerCardHeight,
+          color: context.mPrayerHeroFill,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final bundleAsync = ref.watch(prayerBundleProvider);
     final namesAsync = ref.watch(asmaUlHusnaProvider);
     final isDark = context.isDark;
@@ -41,6 +94,7 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                 await ref.read(prayerBundleProvider.future);
               },
               child: ListView(
+                controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: EdgeInsets.fromLTRB(
                   20.w,
@@ -49,19 +103,22 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                   AppGlassTheme.dashboardScrollBottomPadding(context),
                 ),
                 children: [
-                  bundleAsync.when(
-                    data: (bundle) => _PrayerFeaturedCard(
-                      bundle: bundle,
-                      countdownMinutes: ref.watch(prayerCountdownProvider),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const PrayerTimesScreen(),
+                  MeasureSize(
+                    onChange: _onPrayerCardSizeChanged,
+                    child: bundleAsync.when(
+                      data: (bundle) => _PrayerFeaturedCard(
+                        bundle: bundle,
+                        countdownMinutes: ref.watch(prayerCountdownProvider),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const PrayerTimesScreen(),
+                          ),
                         ),
                       ),
-                    ),
-                    loading: () => _PrayerFeaturedCard.loading(),
-                    error: (_, _) => _PrayerFeaturedCard.error(
-                      onRetry: () => ref.invalidate(prayerBundleProvider),
+                      loading: () => _PrayerFeaturedCard.loading(),
+                      error: (_, _) => _PrayerFeaturedCard.error(
+                        onRetry: () => ref.invalidate(prayerBundleProvider),
+                      ),
                     ),
                   ),
                   SizedBox(height: 16.h),
@@ -76,10 +133,10 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                             subtitle: 'muslim_azkar_sub'.tr(),
                             icon: Symbols.wb_twilight,
                             tint: isDark
-                                ? context.mPrimaryContainer
-                                    .withValues(alpha: 0.92)
-                                : context.mPrimaryFixed
-                                    .withValues(alpha: 0.35),
+                                ? context.mPrimaryContainer.withValues(
+                                    alpha: 0.92,
+                                  )
+                                : context.mPrimaryFixed.withValues(alpha: 0.35),
                             iconColor: context.mPrimary,
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
@@ -99,8 +156,9 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                             icon: Symbols.folded_hands,
                             tint: isDark
                                 ? const Color(0xFF3D2A18)
-                                : context.mSecondaryFixed
-                                    .withValues(alpha: 0.35),
+                                : context.mSecondaryFixed.withValues(
+                                    alpha: 0.35,
+                                  ),
                             iconColor: context.mSecondary,
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
@@ -118,10 +176,8 @@ class IslamicCornerHubScreen extends ConsumerWidget {
                     subtitle: 'muslim_99_names_sub'.tr(),
                     icon: Symbols.star,
                     tint: isDark
-                        ? context.mTertiaryContainer
-                            .withValues(alpha: 0.55)
-                        : context.mOnTertiaryContainer
-                            .withValues(alpha: 0.12),
+                        ? context.mTertiaryContainer.withValues(alpha: 0.55)
+                        : context.mOnTertiaryContainer.withValues(alpha: 0.12),
                     iconColor: context.mTertiary,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
@@ -161,14 +217,17 @@ class IslamicCornerHubScreen extends ConsumerWidget {
               bottom: false,
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
-                child: Text(
-                  'muslim_corner_title'.tr(),
+                child: ScrollAdaptiveText(
+                  controller: _scrollController,
+                  text: 'muslim_corner_title'.tr(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 18.sp,
                     fontWeight: FontWeight.w600,
-                    color: context.mPrimary,
                   ),
+                  preferredLight: context.mPrimary,
+                  preferredDark: Theme.of(context).colorScheme.onPrimary,
+                  resolveBackground: _resolveTitleBackground,
                 ),
               ),
             ),
@@ -179,24 +238,23 @@ class IslamicCornerHubScreen extends ConsumerWidget {
   }
 }
 
-
 class _PrayerFeaturedCard extends StatelessWidget {
   const _PrayerFeaturedCard({
     required this.bundle,
     required this.countdownMinutes,
     required this.onTap,
-  })  : onRetry = null;
+  }) : onRetry = null;
 
   const _PrayerFeaturedCard.loading()
-      : bundle = null,
-        countdownMinutes = null,
-        onTap = null,
-        onRetry = null;
+    : bundle = null,
+      countdownMinutes = null,
+      onTap = null,
+      onRetry = null;
 
   const _PrayerFeaturedCard.error({required this.onRetry})
-      : bundle = null,
-        countdownMinutes = null,
-        onTap = null;
+    : bundle = null,
+      countdownMinutes = null,
+      onTap = null;
 
   final PrayerBundle? bundle;
   final int? countdownMinutes;
@@ -219,10 +277,7 @@ class _PrayerFeaturedCard extends StatelessWidget {
             child: Center(
               child: Text(
                 'muslim_retry'.tr(),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14.sp,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 14.sp),
               ),
             ),
           ),
@@ -601,7 +656,9 @@ class _NameOfDayCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: context.mSurfaceContainerLow,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: context.mOutlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: context.mOutlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -26,6 +26,8 @@ import '../../../core/services/oem_settings_service.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/providers/theme_provider.dart';
 import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/keep_alive_tab.dart';
@@ -321,6 +323,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
 
     final showOnboarding = await OemSettingsService.shouldShowOnboardingOnResume(
       gate: gate,
+      role: ref.read(authProvider).role,
     );
     if (!mounted ||
         checkId != _permissionsCheckGate ||
@@ -335,7 +338,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
 
   Future<void> _promptPermissionsForLocationUse() async {
     final showOnboarding =
-        await OemSettingsService.shouldShowOnboardingForLocationUse();
+        await OemSettingsService.shouldShowOnboardingForLocationUse(
+      role: 'pilgrim',
+    );
     if (!mounted) return;
     if (showOnboarding) {
       context.go('/device-care-onboarding');
@@ -1554,7 +1559,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
 
   Future<void> _cancelSOS() async {
     if (!mounted) return;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = AppTheme.isDarkEffective(ref.watch(themeProvider), context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
@@ -1685,7 +1690,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   @override
   Widget build(BuildContext context) {
     final pilgrimState = ref.watch(pilgrimProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = AppTheme.isDarkEffective(ref.watch(themeProvider), context);
 
     if (_isInitializingDashboard) {
       return Scaffold(

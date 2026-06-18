@@ -93,7 +93,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final auth = ref.read(authProvider);
     if (auth.isAuthenticated) {
       final showPermissions =
-          await OemSettingsService.shouldShowOnboardingAtLaunch();
+          await OemSettingsService.shouldShowOnboardingAtLaunch(
+        role: auth.role,
+      );
       if (!mounted) return;
       if (showPermissions) {
         AppLogger.i('SplashScreen nav to permissions onboarding');

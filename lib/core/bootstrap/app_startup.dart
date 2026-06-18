@@ -2,7 +2,10 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../env/env_check.dart';
+import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../services/secure_session_store.dart';
 import '../utils/app_logger.dart';
@@ -24,6 +27,9 @@ Future<void> prepareCoreRuntime() async {
   }
 
   await SecureSessionStore.migrateFromSharedPreferencesIfNeeded();
+
+  final prefs = await SharedPreferences.getInstance();
+  ThemeNotifier.prepareBootTheme(prefs);
 }
 
 /// Env validation + native prefs — deferred until after first frame.

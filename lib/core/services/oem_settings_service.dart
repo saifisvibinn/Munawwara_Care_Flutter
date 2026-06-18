@@ -122,44 +122,47 @@ class OemSettingsService {
   }
 
   /// Cold start / splash: re-prompt when steps are pending (clears skip only then).
-  static Future<bool> shouldShowOnboardingAtLaunch() async {
+  static Future<bool> shouldShowOnboardingAtLaunch({String? role}) async {
     if (kIsWeb) return false;
-    final pending = await loadPendingSteps();
+    final pending = await loadPendingSteps(role: role);
     if (pending.isEmpty) return false;
     await _clearOnboardingSkip();
     return true;
   }
 
   /// Dashboard resume: honor skip until the next cold start via splash.
-  static Future<bool> shouldShowOnboardingOnResume({int? gate}) async {
+  static Future<bool> shouldShowOnboardingOnResume({
+    int? gate,
+    String? role,
+  }) async {
     if (kIsWeb) return false;
     if (_skippedForSession) return false;
     if (gate != null && gate != _onboardingGate) return false;
     if (await _hasSkippedOnboarding()) return false;
     if (gate != null && gate != _onboardingGate) return false;
-    final pending = await loadPendingSteps();
+    final pending = await loadPendingSteps(role: role);
     return pending.isNotEmpty;
   }
 
   /// Location-dependent action: prompt again even after skip.
-  static Future<bool> shouldShowOnboardingForLocationUse() async {
+  static Future<bool> shouldShowOnboardingForLocationUse({String? role}) async {
     if (kIsWeb) return false;
-    return !await hasLocationAlwaysPermission();
+    return !(await isLocationStepSatisfied(role));
   }
 
-  static Future<bool> areAllStepsSatisfied() async {
-    final pending = await loadPendingSteps();
+  static Future<bool> areAllStepsSatisfied({String? role}) async {
+    final pending = await loadPendingSteps(role: role);
     return pending.isEmpty;
   }
 
-  static Future<List<DeviceCareStep>> loadPendingSteps() async {
+  static Future<List<DeviceCareStep>> loadPendingSteps({String? role}) async {
     final profile = await detectOemProfile();
-    return _pendingStepsForProfile(profile);
+    return _pendingStepsForProfile(profile, role: role);
   }
 
-  static Future<DeviceCareContent> loadContent() async {
+  static Future<DeviceCareContent> loadContent({String? role}) async {
     final profile = await detectOemProfile();
-    final pending = await _pendingStepsForProfile(profile);
+    final pending = await _pendingStepsForProfile(profile, role: role);
     return DeviceCareContent(steps: pending, profile: profile);
   }
 
@@ -260,12 +263,18 @@ class OemSettingsService {
     return false;
   }
 
-  static Future<bool> isStepSatisfied(DeviceCareActionKind kind) async {
+  static Future<bool> isLocationStepSatisfied(String? role) =>
+      isLocationSatisfiedForOnboarding(role);
+
+  static Future<bool> isStepSatisfied(
+    DeviceCareActionKind kind, {
+    String? role,
+  }) async {
     if (kIsWeb) return true;
     final prefs = await SharedPreferences.getInstance();
     switch (kind) {
       case DeviceCareActionKind.location:
-        return await hasLocationAlwaysPermission();
+        return isLocationStepSatisfied(role);
       case DeviceCareActionKind.battery:
         if (!Platform.isAndroid) return true;
         return await isBatteryUnrestricted() ||
@@ -400,12 +409,13 @@ class OemSettingsService {
   }
 
   static Future<List<DeviceCareStep>> _pendingStepsForProfile(
-    DeviceOemProfile profile,
-  ) async {
+    DeviceOemProfile profile, {
+    String? role,
+  }) async {
     final all = await _stepsForProfile(profile);
     final pending = <DeviceCareStep>[];
     for (final step in all) {
-      if (!await isStepSatisfied(step.kind)) {
+      if (!await isStepSatisfied(step.kind, role: role)) {
         pending.add(step);
       }
     }
@@ -526,15 +536,19 @@ class OemSettingsService {
   static Future<bool> openStepAction(
     DeviceCareActionKind kind, {
     required BuildContext context,
+    String? role,
   }) async {
     if (kIsWeb) return false;
     switch (kind) {
       case DeviceCareActionKind.location:
-        final granted = await requestLocationPermissionsFlow(
+        final granted = await requestLocationPermissionsForOnboarding(
           context,
+          role: role,
           onOpenAppSettings: () => noteOpenedSettings(kind),
         );
-        if (granted && context.mounted) {
+        if (granted &&
+            context.mounted &&
+            onboardingRequiresAlwaysLocation(role)) {
           await TamenyLocationService.enableTracking(
             context,
             forceSkipDisclosure: true,

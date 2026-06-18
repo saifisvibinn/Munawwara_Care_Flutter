@@ -12,6 +12,7 @@ class CallRingbackService {
 
   static final AudioPlayer _player = AudioPlayer();
   static bool _playing = false;
+  static bool _sessionActivatedByRingback = false;
 
   static Future<void> start() async {
     if (_playing) return;
@@ -30,15 +31,12 @@ class CallRingbackService {
       // Missing asset or audio focus — non-fatal; call still works.
       AppLogger.w('[CallRingback] start failed (ignored): $e');
       _playing = false;
+      _sessionActivatedByRingback = false;
     }
   }
 
   static Future<void> stop() async {
     if (!_playing) {
-      try {
-        await _player.stop();
-      } catch (_) {}
-      await _deactivateAudioSession();
       return;
     }
 
@@ -48,15 +46,19 @@ class CallRingbackService {
     } catch (e) {
       AppLogger.w('[CallRingback] stop failed: $e');
     }
-    await _deactivateAudioSession();
+    await _releaseRingbackAudioSession();
   }
 
-  static Future<void> _deactivateAudioSession() async {
+  static Future<void> _releaseRingbackAudioSession() async {
+    if (!_sessionActivatedByRingback) return;
+
     try {
       final session = await AudioSession.instance;
       await session.setActive(false);
     } catch (e) {
       AppLogger.w('[CallRingback] AudioSession deactivate failed: $e');
+    } finally {
+      _sessionActivatedByRingback = false;
     }
   }
 
@@ -84,8 +86,10 @@ class CallRingbackService {
         ),
       );
       await session.setActive(true);
+      _sessionActivatedByRingback = true;
     } catch (e) {
       AppLogger.w('[CallRingback] AudioSession config failed: $e');
+      _sessionActivatedByRingback = false;
     }
   }
 }

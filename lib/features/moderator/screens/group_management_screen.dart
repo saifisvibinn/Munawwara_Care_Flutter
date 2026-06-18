@@ -326,7 +326,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
   // ── Location ──────────────────────────────────────────────────────────────
 
   Future<void> _initLocation() async {
-    final ok = await hasLocationAlwaysPermission();
+    final ok = await hasLocationWhileInUseOrBetter();
     if (!ok || !mounted) return;
 
     try {
@@ -448,8 +448,16 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
     }
   }
 
-  void _toggleNavBeacon(ModeratorGroup group) {
+  Future<void> _toggleNavBeacon(ModeratorGroup group) async {
     final newVal = !_navBeaconEnabled;
+    if (newVal) {
+      final granted = await requestLocationAlwaysForBeacon(context);
+      if (!granted) {
+        if (!mounted) return;
+        StandardSnackBar.showError(context, 'error_location_unavailable'.tr());
+        return;
+      }
+    }
     setState(() => _navBeaconEnabled = newVal);
     // Persist in Riverpod (hot-reload safe) and SharedPreferences (restart safe)
     _navBeaconCache[group.id] = newVal;
@@ -480,6 +488,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
     }
     // If turning ON but no GPS fix yet: _navBeaconEnabled is now true, and
     // _initLocation's first-fix handler will emit as soon as coords arrive.
+    if (!mounted) return;
     if (newVal) {
       StandardSnackBar.showSuccess(context, 'nav_beacon_on'.tr());
     } else {

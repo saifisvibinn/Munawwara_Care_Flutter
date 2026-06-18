@@ -56,7 +56,9 @@ class _DeviceCareOnboardingScreenState
     if (_isRefreshing) return;
     _isRefreshing = true;
     await OemSettingsService.onAppResumed();
-    final content = await OemSettingsService.loadContent();
+    final content = await OemSettingsService.loadContent(
+      role: ref.read(authProvider).role,
+    );
     if (!mounted) {
       _isRefreshing = false;
       return;
@@ -164,6 +166,7 @@ class _DeviceCareOnboardingScreenState
                               index: index + 1,
                               isDark: isDark,
                               oemProfile: _oemProfile,
+                              role: ref.read(authProvider).role,
                               onStepAcknowledged: () => _refreshSteps(),
                             );
                           },
@@ -202,6 +205,7 @@ class _DeviceCareStepCard extends StatelessWidget {
     required this.index,
     required this.isDark,
     required this.oemProfile,
+    required this.role,
     required this.onStepAcknowledged,
   });
 
@@ -209,6 +213,7 @@ class _DeviceCareStepCard extends StatelessWidget {
   final int index;
   final bool isDark;
   final DeviceOemProfile oemProfile;
+  final String? role;
   final VoidCallback onStepAcknowledged;
 
   IconData get _icon => switch (step.kind) {
@@ -240,6 +245,7 @@ class _DeviceCareStepCard extends StatelessWidget {
       await OemSettingsService.openStepAction(
         step.kind,
         context: context,
+        role: role,
       );
       // Step list refreshes on resume after user returns from Settings.
       return;
@@ -247,6 +253,7 @@ class _DeviceCareStepCard extends StatelessWidget {
     await OemSettingsService.openStepAction(
       step.kind,
       context: context,
+      role: role,
     );
     onStepAcknowledged();
   }

@@ -54,7 +54,9 @@ class _IosDeviceSetupScreenState extends ConsumerState<IosDeviceSetupScreen>
     if (_isRefreshing) return;
     _isRefreshing = true;
     await OemSettingsService.onAppResumed();
-    final content = await OemSettingsService.loadContent();
+    final content = await OemSettingsService.loadContent(
+      role: ref.read(authProvider).role,
+    );
     final whileInUseOnly = await hasLocationWhenInUseOnly();
     if (!mounted) {
       _isRefreshing = false;
@@ -93,7 +95,11 @@ class _IosDeviceSetupScreenState extends ConsumerState<IosDeviceSetupScreen>
   }
 
   Future<void> _handlePrimaryAction(DeviceCareStep step) async {
-    await OemSettingsService.openStepAction(step.kind, context: context);
+    await OemSettingsService.openStepAction(
+      step.kind,
+      context: context,
+      role: ref.read(authProvider).role,
+    );
     await _refreshSteps();
   }
 
@@ -306,7 +312,10 @@ class _IosDeviceSetupScreenState extends ConsumerState<IosDeviceSetupScreen>
                             ),
                           ],
                           if (step.kind == DeviceCareActionKind.location &&
-                              _locationWhileInUseOnly) ...[
+                              _locationWhileInUseOnly &&
+                              onboardingRequiresAlwaysLocation(
+                                ref.read(authProvider).role,
+                              )) ...[
                             SizedBox(height: 16.h),
                             Container(
                               width: double.infinity,

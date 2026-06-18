@@ -230,7 +230,7 @@ enum MunawwaraVoipPayloadMapper {
     data.appName = "Munawwara Care"
     data.duration = 35000
     data.supportsVideo = false
-    data.iconName = "AppIcon"
+    data.iconName = "CallKitIcon"
     data.maximumCallsPerCallGroup = 1
     data.configureAudioSession = false
     data.audioSessionMode = "voiceChat"

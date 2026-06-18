@@ -5,16 +5,32 @@ import 'package:shared_preferences/shared_preferences.dart';
 const _kThemeKey = 'app_theme_mode'; // 'light' | 'dark' | 'system'
 
 class ThemeNotifier extends Notifier<ThemeMode> {
+  static ThemeMode? _bootThemeMode;
+
+  /// Call from [main] after [SharedPreferences.getInstance] so the first frame
+  /// uses the saved theme (or system) instead of a transient light default.
+  static void prepareBootTheme(SharedPreferences prefs) {
+    final val = prefs.getString(_kThemeKey) ?? 'system';
+    _bootThemeMode = _fromString(val);
+  }
+
   @override
   ThemeMode build() {
+    final boot = _bootThemeMode;
+    if (boot != null) {
+      _bootThemeMode = null;
+      return boot;
+    }
     _load();
-    return ThemeMode.light; // Default before prefs load
+    return ThemeMode.system;
   }
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final val = prefs.getString(_kThemeKey) ?? 'light'; // First install: light
-    state = _fromString(val);
+    final val = prefs.getString(_kThemeKey) ?? 'system';
+    if (state != _fromString(val)) {
+      state = _fromString(val);
+    }
   }
 
   Future<void> setMode(ThemeMode mode) async {

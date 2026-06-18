@@ -270,7 +270,7 @@ class _AreaPickerScreenState extends ConsumerState<AreaPickerScreen>
 
     Position? lastKnown;
     try {
-      final ok = await hasLocationAlwaysPermission();
+      final ok = await hasLocationWhileInUseOrBetter();
       if (!ok) {
         if (mounted) {
           StandardSnackBar.showError(context, 'error_location_unavailable'.tr());

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/theme_provider.dart';
+import '../theme/app_theme.dart';
 import 'glass/app_glass_theme.dart';
 import 'glass/app_scroll_glass_edge.dart';
 
@@ -8,7 +11,7 @@ import 'glass/app_scroll_glass_edge.dart';
 ///
 /// Place above scroll content and below interactive chrome (nav bars, FABs,
 /// floating back buttons) in a [Stack].
-class AppScrollFadeOverlay extends StatelessWidget {
+class AppScrollFadeOverlay extends ConsumerWidget {
   const AppScrollFadeOverlay({
     super.key,
     required this.child,
@@ -42,8 +45,8 @@ class AppScrollFadeOverlay extends StatelessWidget {
   final bool overPlatformView;
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = AppTheme.isDarkEffective(ref.watch(themeProvider), context);
     final bg =
         backgroundColor ?? AppGlassTheme.dashboardBackgroundColor(isDark);
     final keyboardOpen = AppGlassTheme.isKeyboardVisible(context);

@@ -18,6 +18,9 @@ import '../utils/app_logger.dart';
 /// Shown on CallKit / prefs when a pilgrim receives a moderator call (native asset path).
 const String kCallKitSupportAvatarAsset = 'assets/static/app_icon.png';
 
+/// iOS asset-catalog imageset for CallKit provider icon ([UIImage named:]).
+const String kCallKitIosProviderIconName = 'CallKitIcon';
+
 /// Transparent mark for in-app UI (inbox, headers, in-call branding).
 const String kSupportBrandAvatarAsset = 'assets/static/inapp_icon.png';
 const String kDefaultSupportDisplayName = 'Munawwara Care';
@@ -327,8 +330,8 @@ class CallKitService {
       },
       headers: avatarHeaders,
       android: androidParams,
-      ios: const IOSParams(
-        iconName: 'AppIcon',
+      ios: IOSParams(
+        iconName: kCallKitIosProviderIconName,
         supportsVideo: false,
         maximumCallsPerCallGroup: 1,
         audioSessionMode: 'voiceChat',

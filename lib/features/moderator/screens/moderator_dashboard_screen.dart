@@ -172,7 +172,10 @@ class _ModeratorDashboardScreenState
     final checkId = ++_permissionsCheckGate;
 
     final showOnboarding =
-        await OemSettingsService.shouldShowOnboardingOnResume(gate: gate);
+        await OemSettingsService.shouldShowOnboardingOnResume(
+      gate: gate,
+      role: ref.read(authProvider).role,
+    );
     if (!mounted ||
         checkId != _permissionsCheckGate ||
         OemSettingsService.isOnboardingSkippedForSession ||
