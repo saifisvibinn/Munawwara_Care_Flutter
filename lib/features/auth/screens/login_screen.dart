@@ -95,7 +95,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     context.go(
       role == 'moderator' ? '/moderator-dashboard' : '/pilgrim-dashboard',
     );
-    unawaited(ref.read(authProvider.notifier).ensureFcmTokenRegistered());
   }
 
   Future<void> _handlePilgrimLoginCode(String rawToken) async {

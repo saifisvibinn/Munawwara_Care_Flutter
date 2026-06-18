@@ -133,6 +133,22 @@ void clearQueuedNativeDecline() {
 }
 
 abstract final class NativeCallCoordinator {
+  /// Native AppDelegate accept bridge (iOS). The plugin's Flutter event channel
+  /// sometimes drops [Event.actionCallAccept] (implicit engine race), which used
+  /// to let the ring poll fire a false decline. CallKit's CXAnswerCallAction is
+  /// reliable, so route accept through it the same way decline is routed.
+  static Future<void> handleNativeCallAccepted(
+    Map<String, dynamic> payload,
+  ) async {
+    AppLogger.i('✅ [NativeCallCoordinator] Native accept payload=$payload');
+    await _processAcceptedCall(
+      callerId: payload['callerId']?.toString() ?? '',
+      callerName: payload['callerName']?.toString() ?? '',
+      channelName: payload['channelName']?.toString() ?? '',
+      callerRole: payload['callerRole']?.toString() ?? '',
+    );
+  }
+
   /// Native AppDelegate decline/timeout when the CallKit event channel drops events.
   static void handleNativeCallDeclined(Map<String, dynamic> payload) {
     final callerId = payload['callerId']?.toString() ?? '';
@@ -425,11 +441,23 @@ abstract final class NativeCallCoordinator {
 Future<void> _handleAcceptedCallEvent(CallEvent event) async {
   AppLogger.i('✅ Call ACCEPTED from native call screen');
 
-  String channelName = _extractCallEventValue(event, 'channelName');
-  String callerId = _extractCallEventValue(event, 'callerId');
-  String callerName = _extractCallEventValue(event, 'callerName');
-  String callerRole = _extractCallEventValue(event, 'callerRole');
+  await _processAcceptedCall(
+    channelName: _extractCallEventValue(event, 'channelName'),
+    callerId: _extractCallEventValue(event, 'callerId'),
+    callerName: _extractCallEventValue(event, 'callerName'),
+    callerRole: _extractCallEventValue(event, 'callerRole'),
+  );
+}
 
+/// Shared accept handling for both the plugin event channel and the native
+/// CallKit accept bridge. Recovers missing fields from the persisted pending
+/// call, persists the accept for cold-start recovery, then accepts + navigates.
+Future<void> _processAcceptedCall({
+  required String channelName,
+  required String callerId,
+  required String callerName,
+  required String callerRole,
+}) async {
   if (channelName.isEmpty || callerId.isEmpty) {
     final pending = await CallKitService.readRecentPendingIncomingCall(
       maxAgeSeconds: 90,

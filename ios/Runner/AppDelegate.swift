@@ -11,12 +11,16 @@ import flutter_callkit_incoming
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate,
   PKPushRegistryDelegate, CallkitIncomingAppDelegate {
   private var voipRegistry: PKPushRegistry?
+  /// CallKit can emit a spurious end/decline a few ms before accept on the same
+  /// call. Defer decline notification so a near-simultaneous accept cancels it.
+  private var pendingDeclineNotify: DispatchWorkItem?
 
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     setupVoipPushRegistryIfEntitled()
+    registerForStandardPushIfEntitled()
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self
     }
@@ -60,6 +64,19 @@ import flutter_callkit_incoming
       forPlugin: "CallKitAudioChannelHandler",
     ) {
       CallKitAudioChannelHandler.register(with: registrar)
+    }
+  }
+
+  /// FCM on iOS requires a standard APNS device token (separate from PushKit VoIP).
+  private func registerForStandardPushIfEntitled() {
+    guard hasPushEntitlement() else {
+      NSLog(
+        "[Runner] Skipping registerForRemoteNotifications — no aps-environment entitlement"
+      )
+      return
+    }
+    DispatchQueue.main.async {
+      UIApplication.shared.registerForRemoteNotifications()
     }
   }
 
@@ -175,11 +192,19 @@ import flutter_callkit_incoming
   // MARK: - CallkitIncomingAppDelegate (Dart handles signaling)
 
   func onAccept(_ call: Call, _ action: CXAnswerCallAction) {
+    pendingDeclineNotify?.cancel()
+    pendingDeclineNotify = nil
+    CallKitAudioChannelHandler.notifyCallAccepted(call: call)
     action.fulfill()
   }
 
   func onDecline(_ call: Call, _ action: CXEndCallAction) {
-    CallKitAudioChannelHandler.notifyCallDeclined(call: call, noAnswer: false)
+    pendingDeclineNotify?.cancel()
+    let work = DispatchWorkItem {
+      CallKitAudioChannelHandler.notifyCallDeclined(call: call, noAnswer: false)
+    }
+    pendingDeclineNotify = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: work)
     action.fulfill()
   }
 
@@ -218,11 +243,19 @@ enum MunawwaraVoipPayloadMapper {
       keys: ["callerProfilePicture", "caller_profile_picture"],
     )
 
-    let callId = (callRecordId?.isEmpty == false) ? callRecordId! : UUID().uuidString
+    // CallKit requires a RFC-4122 UUID for `id`. MongoDB ObjectIds and test ids
+    // like "test_123" are not valid — always generate a UUID and keep the server
+    // record id in `extra.callRecordId` (same as the Flutter CallKitService path).
+    let callKitId: String
+    if let callRecordId, !callRecordId.isEmpty, UUID(uuidString: callRecordId) != nil {
+      callKitId = callRecordId
+    } else {
+      callKitId = UUID().uuidString
+    }
     let nativeCallerLine = (displayName?.isEmpty == false) ? displayName! : callerName
 
     let data = flutter_callkit_incoming.Data(
-      id: callId,
+      id: callKitId,
       nameCaller: nativeCallerLine,
       handle: callerRole,
       type: 0,

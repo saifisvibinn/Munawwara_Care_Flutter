@@ -18,8 +18,14 @@ abstract final class CallKitAudioBridge {
   static bool _activated = false;
   static Completer<void>? _waiter;
 
+  /// True after CallKit has activated AVAudioSession for the current call.
+  static bool get isActivated => _activated;
+
   /// Set from [main] to route native decline without circular imports.
   static void Function(Map<String, dynamic> payload)? onNativeCallDeclined;
+
+  /// Set from [main] to route native accept without circular imports.
+  static void Function(Map<String, dynamic> payload)? onNativeCallAccepted;
 
   /// Register before async startup so native didActivate is not missed.
   static void registerEarly() {
@@ -30,6 +36,13 @@ abstract final class CallKitAudioBridge {
           await _onActivated(source: 'native');
         case 'audioSessionDeactivated':
           _onDeactivated();
+        case 'callAccepted':
+          final raw = call.arguments;
+          final payload = raw is Map
+              ? Map<String, dynamic>.from(raw)
+              : <String, dynamic>{};
+          AppLogger.i('[CallKitAudio] Native accept payload=$payload');
+          onNativeCallAccepted?.call(payload);
         case 'callDeclined':
           final raw = call.arguments;
           final payload = raw is Map

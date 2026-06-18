@@ -31,10 +31,30 @@ class AppLanguageService {
     unawaited(
       CallKitService.refreshCachedSupportDisplayName(languageCode: code),
     );
+    await syncToBackend(code);
+  }
+
+  /// Aligns MongoDB [User.language] with the in-app locale so FCM titles match UI.
+  static Future<void> syncToBackendIfNeeded({String? profileLanguage}) async {
+    final local = (await LocalePrefs.readLanguageCode()).trim().toLowerCase();
+    if (local.isEmpty) return;
+
+    final profile = profileLanguage?.trim().toLowerCase() ?? '';
+    if (profile.isNotEmpty && profile == local) return;
+
+    await syncToBackend(local);
+  }
+
+  static Future<void> syncToBackend(String code) async {
+    final normalized = code.trim().toLowerCase();
+    if (normalized.isEmpty) return;
+    if (!await ApiService.hasStoredAuthToken()) return;
+
     try {
+      await ApiService.ensureAuthHeaderFromPrefs();
       await ApiService.dio.put(
         '/auth/update-language',
-        data: {'language': code},
+        data: {'language': normalized},
       );
     } catch (_) {
       // Non-fatal — local language is already applied.

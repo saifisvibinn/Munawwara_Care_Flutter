@@ -1,6 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,14 +9,11 @@ import '../services/api_service.dart';
 import '../services/secure_session_store.dart';
 import '../utils/app_logger.dart';
 
-/// Minimum work before [runApp]: Firebase, localization, env file load.
+/// Minimum work before [runApp]: Firebase, localization.
+/// Env keys come from `--dart-define` / `--dart-define-from-file=.env`
+/// (see [lib/core/env/app_env.dart]); `.env` is not bundled as an asset.
 Future<void> prepareCoreRuntime() async {
   await EasyLocalization.ensureInitialized();
-  try {
-    await dotenv.load(fileName: '.env');
-  } catch (e, st) {
-    AppLogger.e('[Startup] dotenv.load failed: $e\n$st');
-  }
 
   try {
     await Firebase.initializeApp();

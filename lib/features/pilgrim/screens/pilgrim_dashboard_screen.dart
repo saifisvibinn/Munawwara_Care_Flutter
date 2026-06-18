@@ -540,7 +540,6 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         _sosPulseController.repeat(reverse: true);
       }
       unawaited(_checkRequiredPermissions());
-      unawaited(ref.read(authProvider.notifier).ensureFcmTokenRegistered());
       unawaited(_bootstrapDashboard());
     });
   }

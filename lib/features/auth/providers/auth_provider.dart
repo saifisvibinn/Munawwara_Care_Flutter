@@ -10,8 +10,11 @@ import 'package:uuid/uuid.dart';
 
 import '../../pilgrim/models/insurance_company.dart';
 import '../models/wakel_info.dart';
+import '../../../core/bootstrap/mobile_messaging_bootstrap.dart'
+    show kIosVoipPushTokenPrefsKey;
 import '../../../core/services/api_service.dart';
 import '../../../core/services/app_data_cache.dart';
+import '../../../core/services/fcm_token_helper.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/services/secure_session_store.dart';
 import '../../../core/services/socket_service.dart';
@@ -164,9 +167,13 @@ class AuthState {
 
 class AuthNotifier extends Notifier<AuthState> {
   Completer<void>? _remoteValidationCompleter;
+  Future<void>? _fcmRegistrationInFlight;
+  static String? Function()? _fcmTokenGetter;
 
-  /// Called once from main.dart after the FCM token is obtained.
-  static void setFcmTokenGetter(String? Function() getter) {}
+  /// Reuses the token obtained during [bindMobileMessagingServices] when set.
+  static void setFcmTokenGetter(String? Function() getter) {
+    _fcmTokenGetter = getter;
+  }
 
   @override
   AuthState build() {
@@ -403,6 +410,7 @@ class AuthNotifier extends Notifier<AuthState> {
     await ApiService.clearAuthToken();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('last_registered_fcm_token');
+    await prefs.remove('last_registered_voip_token');
     state = const AuthState(isRestoringSession: false);
   }
 
@@ -437,7 +445,11 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> _runPostLoginSetup() async {
     try {
       await _requestNotificationPermissions();
-      await _registerFcmTokenAfterLogin();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('last_registered_fcm_token');
+      await prefs.remove('last_registered_voip_token');
+      await ensureFcmTokenRegistered();
+      await ensureVoipTokenRegistered();
     } catch (e, st) {
       AppLogger.e('AuthNotifier post-login setup failed: $e\n$st');
     }
@@ -780,7 +792,20 @@ class AuthNotifier extends Notifier<AuthState> {
   /// Ensures the backend has a current FCM token (calls, TTS, chat pushes).
   Future<void> ensureFcmTokenRegistered() async {
     if (!state.isAuthenticated) return;
-    await _registerFcmTokenAfterLogin();
+    final inFlight = _fcmRegistrationInFlight;
+    if (inFlight != null) {
+      await inFlight;
+      return;
+    }
+    final registration = _registerFcmTokenAfterLogin();
+    _fcmRegistrationInFlight = registration;
+    try {
+      await registration;
+    } finally {
+      if (identical(_fcmRegistrationInFlight, registration)) {
+        _fcmRegistrationInFlight = null;
+      }
+    }
   }
 
   /// Upload device push token right after login when the JWT is guaranteed valid.
@@ -788,26 +813,18 @@ class AuthNotifier extends Notifier<AuthState> {
     if (!Platform.isAndroid && !Platform.isIOS) {
       return;
     }
-    String? fcm;
-    try {
-      fcm = await FirebaseMessaging.instance.getToken().timeout(
-        const Duration(seconds: 12),
-        onTimeout: () {
-          AppLogger.w(
-            'AuthNotifier: FCM getToken timed out — continuing without upload',
-          );
-          return null;
-        },
-      );
-    } catch (e) {
-      AppLogger.w('AuthNotifier: FCM getToken failed: $e');
-      return;
+    String? fcm = _fcmTokenGetter?.call();
+    if (fcm == null || fcm.isEmpty) {
+      try {
+        fcm = await obtainFcmRegistrationToken();
+      } catch (e) {
+        AppLogger.w('AuthNotifier: FCM getToken failed: $e');
+        return;
+      }
     }
     if (fcm == null || fcm.isEmpty) {
       return;
     }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('last_registered_fcm_token');
     await updateFcmToken(fcm);
   }
 
@@ -855,6 +872,69 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  /// Uploads the locally-cached iOS PushKit VoIP token (if any) after login.
+  /// No-op on non-iOS platforms or when no token has been issued yet.
+  Future<void> ensureVoipTokenRegistered() async {
+    if (!Platform.isIOS) return;
+    if (!state.isAuthenticated) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(kIosVoipPushTokenPrefsKey);
+      if (token == null || token.isEmpty) return;
+      await updateVoipToken(token);
+    } catch (e) {
+      AppLogger.w('ensureVoipTokenRegistered failed: $e');
+    }
+  }
+
+  // ── Update iOS VoIP (PushKit) Token ─────────────────────────────────────────
+  /// Uploads the iOS PushKit VoIP token so the backend can deliver incoming
+  /// calls via APNs VoIP pushes (reliable while backgrounded/terminated).
+  /// Stored separately from the FCM token — never send one to the other's API.
+  Future<void> updateVoipToken(String voipToken) async {
+    if (voipToken.isEmpty) return;
+    if (!await ApiService.hasStoredAuthToken()) {
+      AppLogger.d('Skip VoIP register — not logged in');
+      return;
+    }
+    try {
+      await ApiService.ensureAuthHeaderFromPrefs();
+      final prefs = await SharedPreferences.getInstance();
+      final lastRegistered = prefs.getString('last_registered_voip_token');
+      if (lastRegistered == voipToken) {
+        return;
+      }
+
+      AppLogger.d(
+        'Attempting to register VoIP token with backend: '
+        '${voipToken.substring(0, min(20, voipToken.length))}...',
+      );
+
+      final response = await ApiService.dio.put(
+        '/auth/voip-token',
+        data: {'voip_token': voipToken},
+      );
+
+      await prefs.setString('last_registered_voip_token', voipToken);
+
+      AppLogger.i(
+        '✅ VoIP token registered with backend successfully. '
+        'Status: ${response.statusCode}',
+      );
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      AppLogger.e(
+        '⚠️ Failed to register VoIP token API error: $code - ${e.response?.data}',
+      );
+      if (code == 401) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('last_registered_voip_token');
+      }
+    } catch (e) {
+      AppLogger.e('⚠️ Failed to register VoIP token unknown error: $e');
+    }
+  }
+
   // ── Logout ──────────────────────────────────────────────────────────────────
   Future<void> logout() async {
     try {
@@ -871,9 +951,10 @@ class AuthNotifier extends Notifier<AuthState> {
     // Clear local auth token and state
     await ApiService.clearAuthToken();
 
-    // Clear cached FCM token so the next login always re-registers
+    // Clear cached push tokens so the next login always re-registers
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('last_registered_fcm_token');
+    await prefs.remove('last_registered_voip_token');
 
     state = const AuthState();
   }

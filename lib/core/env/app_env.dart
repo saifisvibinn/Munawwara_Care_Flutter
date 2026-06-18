@@ -6,6 +6,8 @@ import 'dotenv_safe.dart';
 const String kAgoraAppId = String.fromEnvironment('AGORA_APP_ID');
 const String kUmmahApiKey = String.fromEnvironment('UMMAH_API_KEY');
 const String kGoogleMapsApiKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY');
+const String kSocketBaseUrl = String.fromEnvironment('SOCKET_BASE_URL');
+const String kApiAndroidHost = String.fromEnvironment('API_ANDROID_HOST');
 
 /// Resolves an env value: dart-define first, then loaded `.env`.
 String envValue(String envKey, String fromDefine) {
@@ -20,6 +22,10 @@ String get ummahApiKey => envValue('UMMAH_API_KEY', kUmmahApiKey);
 
 String get googleMapsApiKey =>
     envValue('GOOGLE_MAPS_API_KEY', kGoogleMapsApiKey);
+
+String get socketBaseUrl => envValue('SOCKET_BASE_URL', kSocketBaseUrl);
+
+String get apiAndroidHost => envValue('API_ANDROID_HOST', kApiAndroidHost);
 
 /// Same resolution as [ApiService.baseUrl] for env validation.
 String get resolvedApiBaseUrl =>

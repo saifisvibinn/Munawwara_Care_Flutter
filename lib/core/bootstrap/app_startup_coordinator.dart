@@ -6,6 +6,7 @@ import '../../features/auth/providers/auth_provider.dart';
 import '../../features/moderator/providers/moderator_provider.dart';
 import '../../features/moderator/providers/moderator_sos_engagement_provider.dart';
 import '../../features/pilgrim/providers/pilgrim_provider.dart';
+import '../services/app_language_service.dart';
 import '../services/callkit_service.dart';
 import '../services/notification_service.dart';
 import '../utils/app_logger.dart';
@@ -82,7 +83,9 @@ class AppStartupCoordinator {
 
     auth = ref.read(authProvider);
     if (auth.isAuthenticated) {
-      await ref.read(authProvider.notifier).ensureFcmTokenRegistered();
+      await AppLanguageService.syncToBackendIfNeeded(
+        profileLanguage: auth.language,
+      );
     }
 
     AppLogger.i('[Startup] coordinator done in ${sw.elapsedMilliseconds}ms');

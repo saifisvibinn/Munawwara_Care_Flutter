@@ -5,6 +5,7 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import '../env/app_env.dart';
 import '../utils/app_logger.dart';
 import 'api_service.dart';
+import 'callkit_audio_bridge.dart';
 import 'secure_session_store.dart';
 
 /// Agora voice RTC lifecycle per
@@ -101,6 +102,9 @@ class AgoraRtcService {
         },
       );
       _joinedChannelName = channel;
+      if (Platform.isIOS && CallKitAudioBridge.isActivated) {
+        await onCallKitAudioSessionActivated();
+      }
     } finally {
       _joinCompleter = null;
       _isJoining = false;
@@ -130,7 +134,13 @@ class AgoraRtcService {
 
   /// CallKit activated AVAudioSession — let Agora use the system session (iOS).
   Future<void> onCallKitAudioSessionActivated() async {
-    if (!Platform.isIOS || _engine == null) return;
+    if (!Platform.isIOS) return;
+    if (_engine == null) {
+      AppLogger.d(
+        '[AgoraRtc] CallKit handoff deferred — engine not ready yet',
+      );
+      return;
+    }
     try {
       await _engine!.setAudioSessionOperationRestriction(
         AudioSessionOperationRestriction.audioSessionOperationRestrictionNone,
@@ -201,6 +211,17 @@ class AgoraRtcService {
       await engine.setAudioSessionOperationRestriction(
         AudioSessionOperationRestriction.audioSessionOperationRestrictionAll,
       );
+      // User may answer via CallKit before Agora initializes; the activation
+      // callback fires while _engine is still null. Hand off here so Agora can
+      // publish/subscribe on the system-owned session.
+      if (CallKitAudioBridge.isActivated) {
+        await engine.setAudioSessionOperationRestriction(
+          AudioSessionOperationRestriction.audioSessionOperationRestrictionNone,
+        );
+        AppLogger.i(
+          '[AgoraRtc] CallKit session already active — handoff at engine init',
+        );
+      }
     }
     await engine.setAudioProfile(
       profile: AudioProfileType.audioProfileDefault,

@@ -152,6 +152,13 @@ class CallNotifier extends Notifier<CallState> {
   int _iosEmptyActiveCallsStreak = 0;
   bool _declineSignalingInFlight = false;
   DateTime? _outgoingCallStartedAt;
+  // CallKit on iOS can emit a spurious end/decline a few ms *before* the accept
+  // for the same call. [_acceptInProgress] makes accept idempotent across the
+  // native bridge, plugin event channel and activeCalls poll, and lets a
+  // briefly-deferred decline ([_pendingDeclineTimer]) be cancelled by an accept.
+  bool _acceptInProgress = false;
+  Timer? _pendingDeclineTimer;
+  static const Duration _declineGrace = Duration(milliseconds: 450);
 
   static const int _sessionWatchdogSeconds = 40;
   static const int _connectingTimeoutSeconds = 30;
@@ -500,6 +507,9 @@ class CallNotifier extends Notifier<CallState> {
     _stopRingPoll();
     _stopSessionWatchdog();
     _stopConnectingTimeout();
+    _pendingDeclineTimer?.cancel();
+    _pendingDeclineTimer = null;
+    _acceptInProgress = false;
     _cleanup();
     state = state.copyWith(
       status: CallStatus.ended,
@@ -677,9 +687,24 @@ class CallNotifier extends Notifier<CallState> {
 
   /// Accept an incoming call (status must be [CallStatus.ringing]).
   Future<void> acceptCall() async {
+    // Idempotent: the native accept bridge, the plugin event channel and the
+    // activeCalls poll can all fire for a single user tap. Without this guard
+    // the second call slips past the status check during the awaited
+    // call-answer HTTP below and triggers duplicate mic-permission requests
+    // (ERROR_ALREADY_REQUESTING_PERMISSIONS) and a duplicate Agora join (-3).
+    if (_acceptInProgress) {
+      return;
+    }
     if (state.status != CallStatus.ringing || _pendingChannelName == null) {
       return;
     }
+    _acceptInProgress = true;
+    // Win the accept/decline race: cancel any decline deferred by the grace
+    // window (CallKit can emit a spurious end just before the accept) and stop
+    // the poll so it cannot re-enter accept/decline.
+    _pendingDeclineTimer?.cancel();
+    _pendingDeclineTimer = null;
+    _stopIosCallKitRingPoll();
 
     final fromId = _pendingFromId;
     final channelName = _pendingChannelName!;
@@ -722,15 +747,18 @@ class CallNotifier extends Notifier<CallState> {
       await _joinMediaChannel(channelName);
       _pendingChannelName = null;
       _pendingFromId = null;
-      // Android: mark call connected so native prefs use isAccepted=true; otherwise
-      // endCall() routes to DECLINE and never stops CallkitNotificationService FGS.
-      final callKitId = await CallKitService.instance
-          .peekCallKitNotificationId();
-      if (callKitId != null && callKitId.isNotEmpty) {
-        try {
-          await FlutterCallkitIncoming.setCallConnected(callKitId);
-        } catch (e) {
-          AppLogger.w('[CallProvider] setCallConnected failed: $e');
+      // Android only: mark call connected so native prefs use isAccepted=true.
+      // On iOS the user already answered via CallKit; setCallConnected would
+      // request a duplicate CXAnswerCallAction (CallKit error 4).
+      if (!Platform.isIOS) {
+        final callKitId = await CallKitService.instance
+            .peekCallKitNotificationId();
+        if (callKitId != null && callKitId.isNotEmpty) {
+          try {
+            await FlutterCallkitIncoming.setCallConnected(callKitId);
+          } catch (e) {
+            AppLogger.w('[CallProvider] setCallConnected failed: $e');
+          }
         }
       }
       await CallKitService.instance.dismissIncomingCallNotification();
@@ -751,12 +779,32 @@ class CallNotifier extends Notifier<CallState> {
 
   /// Decline an incoming call.
   void declineCall() {
-    unawaited(_declineCallInternal(noAnswer: false));
+    _scheduleDecline(noAnswer: false);
   }
 
   /// Incoming ring timed out (CallKit) — server records **missed**, not declined.
   void declineCallAsNoAnswer() {
-    unawaited(_declineCallInternal(noAnswer: true));
+    _scheduleDecline(noAnswer: true);
+  }
+
+  /// Defer a decline by a short grace window so a near-simultaneous accept can
+  /// cancel it. CallKit on iOS sometimes emits an end/decline a few ms before
+  /// the accept for the same call; without this the caller is told the call was
+  /// declined even though the user accepted.
+  void _scheduleDecline({required bool noAnswer}) {
+    if (_acceptInProgress) {
+      AppLogger.w('[CallProvider] decline ignored — accept in progress');
+      return;
+    }
+    _pendingDeclineTimer?.cancel();
+    _pendingDeclineTimer = Timer(_declineGrace, () {
+      _pendingDeclineTimer = null;
+      if (_acceptInProgress || state.status != CallStatus.ringing) {
+        AppLogger.w('[CallProvider] deferred decline cancelled (accepted)');
+        return;
+      }
+      unawaited(_declineCallInternal(noAnswer: noAnswer));
+    });
   }
 
   Future<void> _declineCallInternal({required bool noAnswer}) async {
@@ -811,7 +859,20 @@ class CallNotifier extends Notifier<CallState> {
   /// Decline a call when we only have the caller id (killed-state fallback).
   /// [noAnswer] — native ring timeout / no pickup (counts as missed, not declined).
   void declineCallFromCallerId(String callerId, {bool noAnswer = false}) {
-    unawaited(_declineFromCallerId(callerId, noAnswer: noAnswer));
+    if (_acceptInProgress) {
+      AppLogger.w('[CallProvider] decline(callerId) ignored — accept in progress');
+      return;
+    }
+    // Same accept/decline grace window as [_scheduleDecline] (cold-start path).
+    _pendingDeclineTimer?.cancel();
+    _pendingDeclineTimer = Timer(_declineGrace, () {
+      _pendingDeclineTimer = null;
+      if (_acceptInProgress) {
+        AppLogger.w('[CallProvider] deferred decline(callerId) cancelled (accepted)');
+        return;
+      }
+      unawaited(_declineFromCallerId(callerId, noAnswer: noAnswer));
+    });
   }
 
   Future<void> _declineFromCallerId(
@@ -945,7 +1006,13 @@ class CallNotifier extends Notifier<CallState> {
     required String callerName,
     required String channelName,
   }) async {
+    // Idempotent across native accept bridge + plugin event + poll (see acceptCall).
+    if (_acceptInProgress) return;
     if (state.isInCall) return;
+    _acceptInProgress = true;
+    _pendingDeclineTimer?.cancel();
+    _pendingDeclineTimer = null;
+    _stopIosCallKitRingPoll();
 
     final role = await SecureSessionStore.getRole();
     final isPilgrimCallee = role == 'pilgrim';
@@ -1167,6 +1234,11 @@ class CallNotifier extends Notifier<CallState> {
       );
       return;
     }
+
+    // Fresh ring: clear any stale accept/decline race guards from a prior call.
+    _acceptInProgress = false;
+    _pendingDeclineTimer?.cancel();
+    _pendingDeclineTimer = null;
 
     _pendingChannelName = channelName;
     _pendingFromId = payload['from'] as String?;

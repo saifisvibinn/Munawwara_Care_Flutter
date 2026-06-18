@@ -39,6 +39,8 @@ void main() async {
   CallKitAudioBridge.registerEarly();
   CallKitAudioBridge.onNativeCallDeclined =
       NativeCallCoordinator.handleNativeCallDeclined;
+  CallKitAudioBridge.onNativeCallAccepted =
+      NativeCallCoordinator.handleNativeCallAccepted;
 
   await Future.wait<void>([
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge),
@@ -89,20 +91,13 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       _syncSystemUi(next);
     });
     ref.listenManual<AuthState>(authProvider, (previous, next) {
-      final wasRestoringOrUnauthenticated =
-          previous == null ||
-          previous.isRestoringSession ||
-          !previous.isAuthenticated;
-      if (next.isAuthenticated && wasRestoringOrUnauthenticated) {
-        unawaited(ref.read(authProvider.notifier).ensureFcmTokenRegistered());
-        if (next.token != null) {
-          unawaited(
-            TamenyLocationService.initialize(
-              serverUrl: ApiService.baseUrl,
-              authToken: next.token!,
-            ),
-          );
-        }
+      if (next.isAuthenticated && next.token != null) {
+        unawaited(
+          TamenyLocationService.initialize(
+            serverUrl: ApiService.baseUrl,
+            authToken: next.token!,
+          ),
+        );
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {

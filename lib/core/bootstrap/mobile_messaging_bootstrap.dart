@@ -361,6 +361,7 @@ Future<void> bindMobileMessagingServices() async {
     final auth = container.read(authProvider);
     if (auth.isAuthenticated) {
       await container.read(authProvider.notifier).ensureFcmTokenRegistered();
+      await container.read(authProvider.notifier).ensureVoipTokenRegistered();
     }
   }
 
@@ -371,10 +372,10 @@ Future<void> bindMobileMessagingServices() async {
   _mobileMessagingBound = true;
 }
 
-/// Caches the PushKit VoIP device token for future backend upload.
-///
-/// Backend `voip_token` API is not wired yet — do not send to `/auth/fcm-token`
-/// or it would overwrite the FCM registration token.
+/// Caches the PushKit VoIP device token and uploads it to the backend via
+/// `PUT /auth/voip-token` (kept separate from the FCM registration token).
+/// The backend uses it to send APNs VoIP pushes for reliable backgrounded
+/// incoming calls.
 Future<void> bindIosVoipTokenLifecycle() async {
   if (_iosVoipTokenBound) return;
   _iosVoipTokenBound = true;
@@ -382,12 +383,14 @@ Future<void> bindIosVoipTokenLifecycle() async {
   Future<void> cacheVoipToken(String token) async {
     if (token.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
-    final previous = prefs.getString(kIosVoipPushTokenPrefsKey);
-    if (previous == token) return;
     await prefs.setString(kIosVoipPushTokenPrefsKey, token);
-    AppLogger.i(
-      'iOS VoIP token cached locally (awaiting backend voip_token endpoint)',
-    );
+    AppLogger.i('iOS VoIP token cached locally');
+
+    // Upload immediately when logged in; updateVoipToken de-dupes by token.
+    final container = CallingScope.riverpod;
+    if (container != null && container.read(authProvider).isAuthenticated) {
+      await container.read(authProvider.notifier).updateVoipToken(token);
+    }
   }
 
   FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {

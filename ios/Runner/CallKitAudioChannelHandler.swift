@@ -29,6 +29,23 @@ final class CallKitAudioChannelHandler: NSObject, FlutterPlugin {
     }
   }
 
+  /// Fires when the user taps Accept (CallKit → AppDelegate). Mirrors the
+  /// decline bridge so accept is delivered reliably even when the plugin's
+  /// Flutter event channel drops `ACTION_CALL_ACCEPT` (implicit engine race).
+  static func notifyCallAccepted(call: Call) {
+    var args: [String: Any] = [:]
+    if let extra = call.data.extra as? [String: Any] {
+      for key in ["callerId", "callerName", "callerRole", "channelName", "callRecordId"] {
+        if let value = extra[key] as? String, !value.isEmpty {
+          args[key] = value
+        }
+      }
+    }
+    DispatchQueue.main.async {
+      channel?.invokeMethod("callAccepted", arguments: args)
+    }
+  }
+
   /// Fires when the user taps Decline or the ring times out (CallKit → AppDelegate).
   static func notifyCallDeclined(call: Call, noAnswer: Bool) {
     var args: [String: Any] = ["noAnswer": noAnswer]

@@ -1,5 +1,4 @@
 import '../env/app_env.dart';
-import '../env/dotenv_safe.dart';
 import '../services/api_service.dart';
 import '../utils/app_logger.dart';
 
@@ -34,16 +33,16 @@ Future<void> verifyEnv() async {
     AppLogger.w('Missing optional .env keys: ${missingOptional.join(', ')}');
   }
 
-  final socketExplicit = dotenvOptional('SOCKET_BASE_URL');
-  if (socketExplicit == null || socketExplicit.isEmpty) {
-    AppLogger.w(
-      '[Env] SOCKET_BASE_URL unset — using socketOrigin=${ApiService.socketOrigin} '
-      '(must support Socket.IO for call-offer signaling)',
+  final socketExplicit = socketBaseUrl;
+  if (socketExplicit.isEmpty) {
+    AppLogger.d(
+      '[Env] SOCKET_BASE_URL unset — socketOrigin=${ApiService.socketOrigin} '
+      '(defaults to API host)',
     );
   }
 
   _warnIfPrivateNetworkBackend(resolvedApiBaseUrl, label: 'API_BASE_URL');
-  if (socketExplicit != null && socketExplicit.isNotEmpty) {
+  if (socketExplicit.isNotEmpty) {
     _warnIfPrivateNetworkBackend(socketExplicit, label: 'SOCKET_BASE_URL');
   }
 }

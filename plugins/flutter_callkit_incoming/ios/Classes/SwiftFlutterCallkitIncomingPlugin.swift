@@ -598,6 +598,9 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             self?.sharedProvider?.reportOutgoingCall(with: call.uuid, connectedAt: call.connectedData)
         }
         self.data?.isAccepted = true
+        // Also mark the call's own data so `activeCalls()` reports isAccepted=true
+        // (self.data is a separate instance from the call stored in callManager).
+        call.data.isAccepted = true
         self.answerCall = call
         sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ACCEPT, self.data?.toJSON())
         if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {

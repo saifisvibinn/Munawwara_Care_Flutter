@@ -15,6 +15,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../config/backend_config.dart';
 import 'api_service.dart';
 import 'callkit_service.dart';
+import 'fcm_token_helper.dart';
 import 'secure_session_store.dart';
 import 'speech_service.dart';
 import 'locale_prefs.dart';
@@ -41,6 +42,10 @@ import '../utils/route_id_utils.dart';
 
 /// Wait after the urgent notification sound before starting TTS (extra 2 s).
 const Duration kUrgentAlertToTtsDelay = Duration(milliseconds: 4200);
+
+/// Bundled in ios/Runner Copy Bundle Resources for APNS + local notifications.
+const String kIosDefaultNotificationSound = 'background_app.caf';
+const String kIosUrgentNotificationSound = 'urgent_tts.caf';
 
 const _notificationTrayChannel = MethodChannel(
   'com.munawwaracare.android/notification_tray',
@@ -185,6 +190,49 @@ bool _isReminderTtsFcm(RemoteMessage message) {
   final dataType = message.data['type']?.toString() ?? '';
   final msgType = message.data['messageType']?.toString() ?? '';
   return dataType == 'urgent' && msgType == 'reminder_tts';
+}
+
+bool _isUrgentFcmData(Map<String, dynamic> data) {
+  final type = data['type']?.toString() ?? '';
+  if (type == 'urgent') return true;
+  return data['is_urgent']?.toString().toLowerCase() == 'true';
+}
+
+bool _isUrgentFcm(RemoteMessage message) => _isUrgentFcmData(message.data);
+
+Future<void> _playUrgentTtsFromBackground(
+  RemoteMessage message, {
+  bool showTray = true,
+}) async {
+  final text = urgentTtsSpokenBackupText(message, isReminder: false);
+  if (text.isEmpty) return;
+
+  final lang = await _resolveTtsLang(message);
+  final messageKey =
+      message.data['message_id']?.toString() ??
+      message.messageId ??
+      '';
+
+  AppLogger.i('🔊 Urgent TTS [background]: "$text" (lang=$lang)');
+
+  if (showTray) {
+    await NotificationService.instance.showNotificationFromMessage(message);
+  }
+  await Future.delayed(kUrgentAlertToTtsDelay);
+
+  var audioUrl = message.data['audio_url']?.toString().trim();
+  if (audioUrl == null || audioUrl.isEmpty) {
+    await ApiService.restoreForBackgroundIsolate();
+    audioUrl = await TtsCloudApi.fetchAudioUrl(text: text, lang: lang);
+  }
+
+  await SpeechService.playRobust(
+    audioUrl: audioUrl,
+    backupText: text,
+    lang: lang,
+    isUrgent: true,
+    messageKey: messageKey.isEmpty ? null : messageKey,
+  );
 }
 
 Future<String> _resolveTtsLang(RemoteMessage message) async {
@@ -336,12 +384,13 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // ── Incoming call → show native call screen (like WhatsApp) ─────────────
   final callControlType = CallKitService.fcmCallControlType(message.data);
   final handled = await CallKitService.handleFcmMessage(message);
-  if (handled) {
-    if (callControlType == 'call_cancel' ||
-        callControlType == 'call_declined' ||
-        callControlType == 'call_ended') {
-      return;
-    }
+    if (handled) {
+      if (callControlType == 'call_cancel' ||
+          callControlType == 'call_declined' ||
+          callControlType == 'call_ended' ||
+          callControlType == 'call_answered') {
+        return;
+      }
     // ── CRITICAL: Keep this isolate alive while the call is ringing ─────────
     // The background isolate lives only as long as this function is awaited.
     // If we return immediately, the isolate is killed and no CallKit event
@@ -445,6 +494,30 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     return;
   }
 
+  if (Platform.isIOS) {
+    if (_isUrgentFcm(message)) {
+      await NotificationService.instance.initialize();
+      final msgType =
+          message.data['messageType']?.toString().toLowerCase() ?? '';
+      if (msgType == 'tts') {
+        // APNS alert + sound are sent server-side; only run TTS here.
+        await _playUrgentTtsFromBackground(message, showTray: false);
+      } else if (message.notification == null) {
+        await NotificationService.instance.showNotificationFromMessage(message);
+      }
+      return;
+    }
+    if (message.notification != null) {
+      AppLogger.i(
+        '📩 iOS notification block displayed by system — skipping local duplicate',
+      );
+      return;
+    }
+    await NotificationService.instance.initialize();
+    await NotificationService.instance.showNotificationFromMessage(message);
+    return;
+  }
+
   // ── If the FCM payload contains a 'notification' block, Android already
   //    showed a system notification automatically — skip showing another one
   //    to avoid duplicates. We only create a local notification for
@@ -477,35 +550,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
   // ── Urgent broadcast TTS (not reminders — handled above) ─────────────────
   if (dataType == 'urgent' && msgType == 'tts') {
-    var text = urgentTtsSpokenBackupText(message, isReminder: false);
-    if (text.isEmpty) return;
-
-    final lang = await _resolveTtsLang(message);
-    final messageKey =
-        message.data['message_id']?.toString() ??
-        message.messageId ??
-        '';
-
-    AppLogger.i(
-      '🔊 Urgent TTS [background]: "$text" (lang=$lang)',
-    );
-
-    await NotificationService.instance.showNotificationFromMessage(message);
-    await Future.delayed(kUrgentAlertToTtsDelay);
-
-    var audioUrl = message.data['audio_url']?.toString().trim();
-    if (audioUrl == null || audioUrl.isEmpty) {
-      await ApiService.restoreForBackgroundIsolate();
-      audioUrl = await TtsCloudApi.fetchAudioUrl(text: text, lang: lang);
-    }
-
-    await SpeechService.playRobust(
-      audioUrl: audioUrl,
-      backupText: text,
-      lang: lang,
-      isUrgent: true,
-      messageKey: messageKey.isEmpty ? null : messageKey,
-    );
+    await _playUrgentTtsFromBackground(message);
     return;
   }
 
@@ -583,7 +628,7 @@ class NotificationService {
         unawaited(_uploadFcmTokenWhenAuthenticated(newToken));
       });
     }
-    return FirebaseMessaging.instance.getToken();
+    return obtainFcmRegistrationToken();
   }
 
   /// Uploads FCM token only when the user has a logged-in session.
@@ -846,7 +891,7 @@ class NotificationService {
     }
 
     // Handle urgent notifications
-    if (type == 'urgent') {
+    if (_isUrgentFcm(message)) {
       AppLogger.w('🚨 Urgent notification detected');
       await showUrgentNotification(title: title, body: body, data: data);
       return;
@@ -933,7 +978,7 @@ class NotificationService {
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
-      sound: 'urgent_tts.wav',
+      sound: kIosUrgentNotificationSound,
       interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
@@ -989,6 +1034,7 @@ class NotificationService {
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      sound: kIosDefaultNotificationSound,
     );
 
     final details = NotificationDetails(

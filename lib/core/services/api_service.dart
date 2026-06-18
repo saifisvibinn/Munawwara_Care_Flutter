@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/backend_config.dart';
+import '../env/app_env.dart';
 import '../env/dotenv_safe.dart';
 import 'app_data_cache.dart';
 import 'secure_session_store.dart';
@@ -26,8 +27,8 @@ class ApiService {
     }
 
     if (Platform.isAndroid) {
-      final hostOverride = dotenvOptional('API_ANDROID_HOST');
-      if (hostOverride != null && hostOverride.isNotEmpty) {
+      final hostOverride = apiAndroidHost;
+      if (hostOverride.isNotEmpty) {
         try {
           final uri = Uri.parse(url);
           url = uri.replace(host: hostOverride).toString();
@@ -48,8 +49,8 @@ class ApiService {
   /// Set `SOCKET_BASE_URL` when realtime runs on a different host than REST
   /// (e.g. Cloud Run REST only — use your Node URL that mounts socket.io).
   static String get socketOrigin {
-    final explicit = dotenvOptional('SOCKET_BASE_URL');
-    if (explicit != null && explicit.isNotEmpty) {
+    final explicit = socketBaseUrl;
+    if (explicit.isNotEmpty) {
       return _normalizeHttpOrigin(explicit);
     }
     return apiOrigin;
@@ -101,7 +102,8 @@ class ApiService {
         path.contains('/auth/forgot-password') ||
         path.contains('/auth/reset-password') ||
         path.contains('/auth/logout') ||
-        path.contains('/auth/fcm-token');
+        path.contains('/auth/fcm-token') ||
+        path.contains('/auth/voip-token');
   }
 
   /// True when a stored session token exists (for guarded FCM upload).

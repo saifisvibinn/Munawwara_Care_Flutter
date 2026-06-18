@@ -234,7 +234,6 @@ class _ModeratorDashboardScreenState
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_checkRequiredPermissions());
-      unawaited(ref.read(authProvider.notifier).ensureFcmTokenRegistered());
       unawaited(_bootstrapDashboard());
     });
   }
