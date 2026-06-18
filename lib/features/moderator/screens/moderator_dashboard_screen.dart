@@ -21,6 +21,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_liquid_glass_bottom_bar.dart';
 import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/widgets/keep_alive_tab.dart';
+import '../../../core/widgets/offline_data_banner.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/services/callkit_service.dart';
@@ -607,40 +608,7 @@ class _ModeratorDashboardScreenState
             Column(
               children: [
                 if (moderatorState.usingOfflineSnapshot)
-                  Material(
-                    color: AppColors.primary.withValues(alpha: 0.14),
-                    child: SafeArea(
-                      bottom: false,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12.w,
-                          vertical: 8.h,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Symbols.cloud_off,
-                              size: 18.w,
-                              color: AppColors.primary,
-                            ),
-                            SizedBox(width: 8.w),
-                            Expanded(
-                              child: Text(
-                                'offline_showing_saved_data'.tr(),
-                                style: TextStyle(
-                                  fontSize: 12.sp,
-                                  fontWeight: FontWeight.w500,
-                                  color: isDark
-                                      ? Colors.white70
-                                      : AppColors.textDark,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  OfflineDataBanner(isDark: isDark),
                 Expanded(
                   child: AppScrollFadeOverlay(
                     useDashboardBottomExtent: true,

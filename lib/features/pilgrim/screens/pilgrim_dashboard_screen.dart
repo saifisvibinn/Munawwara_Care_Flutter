@@ -28,6 +28,7 @@ import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/providers/theme_provider.dart';
+import '../../../core/widgets/offline_data_banner.dart';
 import '../../../core/widgets/glass/app_glass.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/keep_alive_tab.dart';
@@ -1859,41 +1860,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
             Column(
               children: [
                 if (pilgrimState.usingOfflineSnapshot)
-                  Material(
-                    color: AppColors.primary.withValues(alpha: 0.14),
-                    child: SafeArea(
-                      bottom: false,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12.w,
-                          vertical: 8.h,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Symbols.cloud_off,
-                              size: 18.w,
-                              color: AppColors.primary,
-                            ),
-                            SizedBox(width: 8.w),
-                            Expanded(
-                              child: Text(
-                                'offline_showing_saved_data'.tr(),
-                                style: TextStyle(
-                                  fontFamily: 'Lexend',
-                                  fontSize: 12.sp,
-                                  fontWeight: FontWeight.w500,
-                                  color: isDark
-                                      ? Colors.white70
-                                      : AppColors.textDark,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  OfflineDataBanner(isDark: isDark),
                 Expanded(
                   child: AppScrollFadeOverlay(
                     useDashboardBottomExtent: true,
