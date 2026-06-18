@@ -115,6 +115,17 @@ class CallKitService {
   String? _lastShownCallRecordId;
   String? _lastShownChannelName;
 
+  /// Synchronous in-isolate reservation that closes the foreground socket+FCM
+  /// race. The async guards below only commit their dedup keys after several
+  /// `await`s, so two near-simultaneous [showIncomingCall] invocations (one
+  /// from the socket `call-offer` handler, one from the FCM `incoming_call`
+  /// handler — both on the main isolate) could otherwise both slip through and
+  /// show two native call screens. This pair is set without any preceding
+  /// `await`, so the second invocation observes it before the event loop can
+  /// interleave.
+  String? _inFlightRingClaim;
+  DateTime? _inFlightRingClaimAt;
+
   /// Show a native incoming call screen.
   /// Call this from both foreground and background FCM handlers.
   ///
@@ -135,6 +146,31 @@ class CallKitService {
     String? callerProfilePicture,
     bool skipServerVerify = false,
   }) async {
+    final now = DateTime.now();
+    final recordKey = callRecordId?.trim() ?? '';
+
+    // ── Guard 0: synchronous in-isolate claim (closes socket+FCM race) ──
+    // The server delivers the same ring via BOTH the socket `call-offer` and
+    // the FCM `incoming_call`; in the foreground both are handled on the main
+    // isolate. Reserve the ring synchronously here (no `await` before this) so
+    // the second concurrent invocation bails before any await can interleave.
+    final ringClaimKey = recordKey.isNotEmpty
+        ? 'r:$recordKey'
+        : (channelName.isNotEmpty ? 'c:$channelName' : '');
+    if (ringClaimKey.isNotEmpty) {
+      if (_inFlightRingClaim == ringClaimKey &&
+          _inFlightRingClaimAt != null &&
+          now.difference(_inFlightRingClaimAt!) < _incomingRingDedupeWindow) {
+        AppLogger.w(
+          '📞 [CallKit] duplicate incoming ring (sync claim) — ignoring '
+          '$ringClaimKey',
+        );
+        return;
+      }
+      _inFlightRingClaim = ringClaimKey;
+      _inFlightRingClaimAt = now;
+    }
+
     // ── Guard 1: Dart-side flag (with stale-state recovery) ─────────────
     if (_currentCallId != null) {
       try {
@@ -159,7 +195,6 @@ class CallKitService {
     }
 
     // ── Guard 2: Same call attempt (record / channel) ───────────────────
-    final recordKey = callRecordId?.trim() ?? '';
     if (recordKey.isNotEmpty && recordKey == _lastShownCallRecordId) {
       AppLogger.w(
         '📞 [CallKit] duplicate callRecordId=$recordKey — ignoring',
@@ -177,7 +212,6 @@ class CallKitService {
     }
 
     // ── Guard 3: Timestamp-based dedup (5 s window) ─────────────────────
-    final now = DateTime.now();
     if (_lastShowTime != null && now.difference(_lastShowTime!).inSeconds < 5) {
       AppLogger.w('📞 [CallKit] showIncomingCall called within 5 s — ignoring');
       return;
@@ -491,6 +525,8 @@ class CallKitService {
     _lastShowTime = null;
     _lastShownCallRecordId = null;
     _lastShownChannelName = null;
+    _inFlightRingClaim = null;
+    _inFlightRingClaimAt = null;
   }
 
   /// End/dismiss the current incoming call UI.
@@ -514,6 +550,8 @@ class CallKitService {
     _lastShowTime = null;
     _lastShownCallRecordId = null;
     _lastShownChannelName = null;
+    _inFlightRingClaim = null;
+    _inFlightRingClaimAt = null;
     await clearPendingIncomingCall();
     await resetCallAudio();
   }
@@ -553,6 +591,8 @@ class CallKitService {
     _lastShowTime = null;
     _lastShownCallRecordId = null;
     _lastShownChannelName = null;
+    _inFlightRingClaim = null;
+    _inFlightRingClaimAt = null;
     await clearPendingIncomingCall();
     await resetCallAudio();
   }
@@ -565,6 +605,8 @@ class CallKitService {
     _lastShowTime = null;
     _lastShownCallRecordId = null;
     _lastShownChannelName = null;
+    _inFlightRingClaim = null;
+    _inFlightRingClaimAt = null;
     await clearPendingIncomingCall();
   }
 
