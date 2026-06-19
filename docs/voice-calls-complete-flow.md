@@ -169,6 +169,7 @@ idle → calling | ringing → connecting → connected → ended → idle
 | `POST` | `/answer` | **no** | `{ callerId, answererId? }` | `{ success }`; emits socket `call-answer`; FCM backup |
 | `POST` | `/decline` | **no** | `{ callerId?, declinerId?, callRecordId?, noAnswer? }` | `{ success }` or `{ ignored: true }` |
 | `POST` | `/cancel` | **no** | `{ callerId, receiverId?, callRecordId?, groupCancel? }` | Cancels ringing; notifies callee(s) |
+| `POST` | `/end` | **no** | `{ peerId, enderId?, callRecordId?, quiet? }` | Ends `ringing`/`in-progress` row; emits socket `call-end`; FCM `call_ended` unless `quiet: true` |
 | `GET` | `/agora-token` | yes | `?channelName=` | `{ token, uid, appId, channelName, tokenRequired }` |
 
 **`check-active` semantics:** Finds latest `CallHistory` where `caller_id = callerId` and `status ∈ {ringing, in-progress}`. If `callRecordId` query provided, `active` is true only when IDs match.
@@ -608,13 +609,20 @@ sequenceDiagram
 
 1. `pilgrim_dashboard_screen.onCallBackSos` → `callProvider.startCall(remoteUserId: _sosCallbackModeratorId)`
 2. Guards: `sosActive`, `!isInCall`, `cooldownSeconds == 0`
-3. `prepareForOutgoingCall`: end CallKit, `discardPendingAcceptRecovery`, cancel stale server rings
+3. `prepareForOutgoingCall(targetPeerId: modId)`: end CallKit, `discardPendingAcceptRecovery`, cancel stale server rings; if mod still has active leg as caller, `POST /end` with **`quiet: true`** (no `call_ended` FCM race before new offer)
 4. `CallSignaling.placeOutgoingOffer(preferHttpOnly: true)` → **always HTTP** (ghost socket after SOS)
 5. `state = calling`, `_outgoingChannelName = call_<timestamp>`
 6. `_startRingPoll`, `_startSessionWatchdog`, ringback audio
-7. Moderator receives Scenario A as callee
+7. Moderator receives Scenario A as callee (VoIP on killed iOS)
+
+**Callback hardening (mod killed/background):**
+- **Quiet end:** stale-leg cleanup uses `quiet: true` so `call_ended` FCM does not dismiss the new VoIP ring
+- **CallKit grace:** mod ignores `call_ended` FCM within 8s of showing incoming ring
+- **Busy bypass:** mod `_handleIncomingOffer` force-idles same-peer callback instead of `call-busy`
 
 **Key rule:** Never socket-only offer for pilgrim outgoing.
+
+**Log grep (callback):** `POST /end quiet=true`, `VoIP push delivered`, **no** `call_ended FCM sent` between end and offer, no `call-busy`.
 
 ---
 
@@ -663,7 +671,8 @@ sequenceDiagram
   participant Agora as AgoraRTC
 
   User->>Dart: endCall or remote offline
-  Dart->>Server: call-end socket
+  Dart->>Server: call-end socket + POST /call-history/end
+  Note over Server: Updates CallHistory; FCM call_ended to peer
   Dart->>Agora: leaveChannel
   Dart->>Dart: forceIdleCallSession
   Note over Dart: 10s cooldown
@@ -672,12 +681,20 @@ sequenceDiagram
 | Step | Action |
 |------|--------|
 | 1 | `endCall()` or `_onRemoteUserOffline` |
-| 2 | `CallSignaling.emitWhenConnected('call-end', {to})` |
-| 3 | `AgoraRtcService.leaveChannel` |
-| 4 | `CallKitService.endAllCalls` / `clearLocalCallTracking` |
-| 5 | Android: `resetCallAudio` MethodChannel |
-| 6 | iOS: `CallKitAudioBridge.reset()` |
-| 7 | `state = ended` → 10s cooldown → `idle` |
+| 2 | Capture `remoteId`, `callRecordId`, `myId` **before** teardown |
+| 3 | `CallSignaling.emitWhenConnected('call-end', {to})` |
+| 4 | `CallSignaling.notifyEndHttp({ peerId, enderId, callRecordId })` — REST fallback when socket is down; callee hang-up always hits HTTP so DB + mod FCM reconcile |
+| 5 | `forceIdleCallSession` → `AgoraRtcService.leaveChannel` |
+| 6 | `CallKitService.endAllCalls` / `clearLocalCallTracking` |
+| 7 | Android: `resetCallAudio` MethodChannel |
+| 8 | iOS: `CallKitAudioBridge.reset()` |
+| 9 | `state = ended` → 10s cooldown → `idle` |
+
+**Moderator FCM reconcile:** `_reconcilePendingOutgoingStopFromFcm` tears down when status is `calling`, `ringing`, `connecting`, or `connected` (not only pre-connect).
+
+**SOS callback prep:** `prepareForOutgoingCall(targetPeerId: modId)` calls `check-active?callerId={modId}` and `POST /end quiet=true` if the prior mod→pilgrim leg is still `in-progress`.
+
+**Log grep (GCP):** `POST /end quiet=true`, `VoIP push delivered`, no `call_ended FCM sent` between callback end and offer, no `call-busy` after `POST /offer`.
 
 **`PopScope` on `VoiceCallScreen`:** back gesture blocked until `ended` or `idle`.
 

@@ -225,7 +225,12 @@ Future<void> bindMobileMessagingServices() async {
             ),
           );
         }
-        await SosAlertCoordinator.showOnceFromMap(sosData);
+        await SosAlertCoordinator.queueSosAlertIfStillActive(sosData);
+        return;
+      }
+      if (notifType == 'missed_call') {
+        unawaited(NotificationService.refreshAlertsFromFcm());
+        await NotificationService.instance.showNotificationFromMessage(msg);
         return;
       }
       if (isReminderTts) {
@@ -362,6 +367,7 @@ Future<void> bindMobileMessagingServices() async {
     if (auth.isAuthenticated) {
       await container.read(authProvider.notifier).ensureFcmTokenRegistered();
       await container.read(authProvider.notifier).ensureVoipTokenRegistered();
+      await NotificationService.consumePendingAlertsRefetch();
     }
   }
 

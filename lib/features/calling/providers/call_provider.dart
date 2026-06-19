@@ -281,13 +281,15 @@ class CallNotifier extends Notifier<CallState> {
   /// Moderator initiates an internet call to [remoteUserId].
   /// Pilgrim one-to-one ring (e.g. SOS auto-route): show support branding, not
   /// the moderator’s personal name or raw id in UI.
-  Future<void> startCall({
+  Future<bool> startCall({
     required String remoteUserId,
     required String remoteUserName,
     String? remotePeerGender,
     String? remotePeerProfilePicture,
   }) async {
-    if (!await prepareForOutgoingCall()) return;
+    if (!await prepareForOutgoingCall(targetPeerId: remoteUserId)) {
+      return false;
+    }
     final isPilgrimCaller =
         ref.read(authProvider).role?.toLowerCase() == 'pilgrim';
     final displayName = isPilgrimCaller
@@ -324,7 +326,7 @@ class CallNotifier extends Notifier<CallState> {
           '[CallProvider] call-offer failed (HTTP + socket unavailable)',
         );
         await forceIdleCallSession(endReason: 'error');
-        return;
+        return false;
       }
       final callRecordId = (placedResult == 'socket' || placedResult == 'http_success')
           ? null
@@ -336,8 +338,10 @@ class CallNotifier extends Notifier<CallState> {
       // and the HTTP decline from the background isolate fails for any reason.
       _startRingPoll(remoteUserId, callRecordId: callRecordId);
       _startSessionWatchdog();
+      return true;
     } catch (e) {
       await forceIdleCallSession(endReason: 'error');
+      return false;
     }
   }
 
@@ -554,7 +558,7 @@ class CallNotifier extends Notifier<CallState> {
   }
 
   /// Before placing a call: reset local state and clear stale server ringing.
-  Future<bool> prepareForOutgoingCall() async {
+  Future<bool> prepareForOutgoingCall({String? targetPeerId}) async {
     if (_outgoingCleanupInFlight != null) {
       await _outgoingCleanupInFlight;
     }
@@ -581,6 +585,24 @@ class CallNotifier extends Notifier<CallState> {
     }
 
     final myId = await _getMyUserId() ?? '';
+
+    final staleCallerId = targetPeerId?.trim() ?? '';
+    if (myId.isNotEmpty &&
+        staleCallerId.isNotEmpty &&
+        staleCallerId != myId &&
+        await _isCallActiveOnServer(staleCallerId)) {
+      AppLogger.w(
+        '[CallProvider] Stale server leg with $staleCallerId as caller — '
+        'HTTP end before new call',
+      );
+      await CallSignaling.notifyEndHttp(
+        peerId: staleCallerId,
+        enderId: myId,
+        quiet: true,
+      );
+      await _waitForServerCallInactive(staleCallerId);
+    }
+
     if (myId.isNotEmpty && await _isCallActiveOnServer(myId)) {
       AppLogger.w(
         '[CallProvider] Stale server ring for caller — cancel-all before new call',
@@ -923,27 +945,42 @@ class CallNotifier extends Notifier<CallState> {
     final wasActive =
         state.status == CallStatus.connected ||
         state.status == CallStatus.connecting;
-    await forceIdleCallSession(endReason: 'ended', awaitTeardown: true);
-    unawaited(
-      _emitCallEndSignaling(
-        remoteId: remoteId,
-        isMod: isMod,
-        wasActive: wasActive,
-      ),
+    var callRecordId = _activeIncomingCallRecordId;
+    if (callRecordId == null || callRecordId.isEmpty) {
+      callRecordId = await _fetchActiveOutgoingCallRecordId();
+    }
+    final myId = await _getMyUserId();
+    await _emitCallEndSignaling(
+      remoteId: remoteId,
+      isMod: isMod,
+      wasActive: wasActive,
+      enderId: myId,
+      callRecordId: callRecordId,
     );
+    await forceIdleCallSession(endReason: 'ended', awaitTeardown: true);
   }
 
   Future<void> _emitCallEndSignaling({
     required String? remoteId,
     required bool isMod,
     required bool wasActive,
+    String? enderId,
+    String? callRecordId,
   }) async {
     var peerId = remoteId;
+    if (peerId == null || peerId.isEmpty) {
+      peerId = _pendingFromId;
+    }
     if (peerId == null || peerId.isEmpty) {
       peerId = await _readPersistedOutgoingReceiverId();
     }
     if (peerId != null && peerId.isNotEmpty) {
       CallSignaling.emitWhenConnected('call-end', {'to': peerId});
+      await CallSignaling.notifyEndHttp(
+        peerId: peerId,
+        enderId: enderId,
+        callRecordId: callRecordId,
+      );
     }
     if (isMod && wasActive && peerId != null && peerId.isNotEmpty) {
       unawaited(SosAlertCoordinator.afterModeratorEndedCall(peerId));
@@ -1243,7 +1280,9 @@ class CallNotifier extends Notifier<CallState> {
     final reason = await CallKitService.consumePendingOutgoingStop();
     if (reason == null) return;
     if (state.status == CallStatus.calling ||
-        state.status == CallStatus.ringing) {
+        state.status == CallStatus.ringing ||
+        state.status == CallStatus.connecting ||
+        state.status == CallStatus.connected) {
       stopLocalCallSession(endReason: reason);
     }
   }
@@ -1281,14 +1320,29 @@ class CallNotifier extends Notifier<CallState> {
     AppLogger.d('[CallProvider] ← call-offer received: $payload');
 
     if (state.isInCall) {
-      AppLogger.w(
-        '[CallProvider] Already in call (status=${state.status}) – sending busy',
-      );
-      final busyTo = payload['from']?.toString();
-      if (busyTo != null && busyTo.isNotEmpty) {
-        CallSignaling.emitWhenConnected('call-busy', {'to': busyTo});
+      final callerId = payload['from']?.toString() ?? '';
+      final isModerator =
+          ref.read(authProvider).role?.toLowerCase() != 'pilgrim';
+      final samePeerCallback = isModerator &&
+          callerId.isNotEmpty &&
+          callerId == state.remoteUserId;
+      if (samePeerCallback) {
+        AppLogger.w(
+          '[CallProvider] Same-peer callback while in-call — force idle and ring',
+        );
+        await forceIdleCallSession(
+          endReason: 'ended',
+          goIdleImmediately: true,
+        );
+      } else {
+        AppLogger.w(
+          '[CallProvider] Already in call (status=${state.status}) – sending busy',
+        );
+        if (callerId.isNotEmpty) {
+          CallSignaling.emitWhenConnected('call-busy', {'to': callerId});
+        }
+        return;
       }
-      return;
     }
 
     final channelName = payload['channelName'] as String?;

@@ -152,6 +152,7 @@ class _ModeratorDashboardScreenState
     if (state == AppLifecycleState.resumed && mounted && !kIsWeb) {
       unawaited(() async {
         await _checkRequiredPermissions();
+        await NotificationService.consumePendingAlertsRefetch();
         if (mounted) {
           unawaited(
             ref.read(pendingInvitationsProvider.notifier).fetchPending(),

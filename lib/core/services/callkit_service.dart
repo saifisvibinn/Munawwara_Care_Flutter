@@ -111,6 +111,15 @@ class CallKitService {
   /// rapid duplicate invocations that slip past the _currentCallId guard.
   DateTime? _lastShowTime;
 
+  static const Duration _callEndedGraceAfterIncoming = Duration(seconds: 8);
+
+  /// Ignore [call_ended] FCM right after a new incoming ring (callback prep race).
+  bool shouldIgnoreCallEndedDueToRecentIncoming() {
+    final last = _lastShowTime;
+    if (last == null) return false;
+    return DateTime.now().difference(last) < _callEndedGraceAfterIncoming;
+  }
+
   /// Last ring we surfaced — blocks duplicate socket+FCM for the same attempt.
   String? _lastShownCallRecordId;
   String? _lastShownChannelName;
@@ -900,6 +909,12 @@ class CallKitService {
     }
 
     if (controlType == 'call_ended') {
+      if (CallKitService.instance.shouldIgnoreCallEndedDueToRecentIncoming()) {
+        AppLogger.w(
+          '📞 Ignoring call_ended — incoming ring shown within grace window',
+        );
+        return true;
+      }
       AppLogger.i('📞 FCM call_ended detected — stopping active call');
       await persistPendingOutgoingStop('ended');
       try {

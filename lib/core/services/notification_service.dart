@@ -30,6 +30,7 @@ import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../features/pilgrim/screens/group_inbox_screen.dart';
 import '../../features/moderator/screens/group_messages_screen.dart';
+import '../../features/notifications/providers/notification_provider.dart';
 import '../../features/moderator/services/sos_alert_coordinator.dart';
 import '../../features/pilgrim/services/pilgrim_sos_coordinator.dart';
 import '../../features/notifications/screens/alerts_tab_v2.dart';
@@ -478,9 +479,21 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         body: body,
         data: Map<String, dynamic>.from(data),
       );
+    } else if (Platform.isIOS) {
+      AppLogger.i(
+        '[NotificationService] SOS APNS alert shown — playing in-app audio only',
+      );
     }
     await _playSosAlertAudioInBackground(message);
     return;
+  }
+
+  final bgNotifType =
+      message.data['notification_type']?.toString() ??
+      message.data['type']?.toString() ??
+      '';
+  if (bgNotifType == 'missed_call') {
+    await NotificationService.markAlertsRefetchPending();
   }
 
   // Reminders: always cloud TTS (data-only FCM; legacy notif payloads too).
@@ -571,6 +584,40 @@ class NotificationService {
   static String chatTrayTag(String groupId) => 'chat_$groupId';
 
   static const String missedCallTrayTag = 'missed_call';
+
+  static const String _pendingAlertsRefetchKey = 'pending_alerts_refetch';
+
+  /// Refetch in-app alerts list after missed-call FCM (foreground / resume).
+  static Future<void> refreshAlertsFromFcm() async {
+    final c = CallingScope.riverpod;
+    if (c == null) return;
+    try {
+      await c.read(notificationProvider.notifier).refetch();
+      await c.read(notificationProvider.notifier).fetchUnreadCount();
+    } catch (e) {
+      AppLogger.w('[NotificationService] refreshAlertsFromFcm failed: $e');
+    }
+  }
+
+  static Future<void> markAlertsRefetchPending() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_pendingAlertsRefetchKey, true);
+    } catch (e) {
+      AppLogger.w('[NotificationService] markAlertsRefetchPending failed: $e');
+    }
+  }
+
+  static Future<void> consumePendingAlertsRefetch() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_pendingAlertsRefetchKey) != true) return;
+      await prefs.remove(_pendingAlertsRefetchKey);
+      await refreshAlertsFromFcm();
+    } catch (e) {
+      AppLogger.w('[NotificationService] consumePendingAlertsRefetch failed: $e');
+    }
+  }
 
   /// Dismisses a tray notification by Android tag (FCM + local plugin).
   static Future<void> dismissTrayByTag(String tag) async {
@@ -863,8 +910,9 @@ class NotificationService {
     // default path below. No extra guard needed — fall through is correct.
     // We only skip if the FCM already had a notification block AND we are
     // NOT in foreground (which is guaranteed: onMessage only fires in foreground).
-    if (type == 'missed_call') {
+    if (notificationType == 'missed_call') {
       final callerId = data['callerId']?.toString() ?? '';
+      unawaited(refreshAlertsFromFcm());
       if (callerId.isNotEmpty) {
         final pending = await CallKitService.readRecentPendingIncomingCall(
           maxAgeSeconds: 120,

@@ -1752,10 +1752,14 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           if (!ref.read(pilgrimProvider).sosActive) return;
           if (ref.read(callProvider).isInCall) return;
           if (ref.read(callProvider).cooldownSeconds > 0) return;
-          await ref.read(callProvider.notifier).startCall(
+          final placed = await ref.read(callProvider.notifier).startCall(
                 remoteUserId: to,
                 remoteUserName: 'call_support_display_name'.tr(),
               );
+          if (!placed && mounted) {
+            AppLogger.w('[PilgrimDashboard] SOS callback blocked or failed');
+            StandardSnackBar.showError(context, 'call_error'.tr());
+          }
         },
         showResolvedSosCard: _showResolvedSosCard,
         sosHelpStatusKey: _sosHelpStatusKey,

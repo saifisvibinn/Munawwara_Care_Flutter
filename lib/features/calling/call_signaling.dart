@@ -137,6 +137,41 @@ class CallSignaling {
     AppLogger.e('[CallSignaling] HTTP call-cancel gave up: $lastError');
   }
 
+  static Future<void> notifyEndHttp({
+    required String peerId,
+    String? enderId,
+    String? callRecordId,
+    bool quiet = false,
+  }) async {
+    final data = <String, dynamic>{
+      'peerId': peerId,
+      if (enderId != null && enderId.isNotEmpty) 'enderId': enderId,
+      if (callRecordId != null && callRecordId.isNotEmpty)
+        'callRecordId': callRecordId,
+      if (quiet) 'quiet': true,
+    };
+    Object? lastError;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        await ApiService.dio.post('/call-history/end', data: data);
+        AppLogger.i(
+          '[CallSignaling] HTTP call-end OK peer=$peerId '
+          'ender=${enderId ?? ""} record=${callRecordId ?? ""} quiet=$quiet',
+        );
+        return;
+      } catch (e) {
+        lastError = e;
+        AppLogger.e(
+          '[CallSignaling] HTTP call-end attempt ${attempt + 1} failed: $e',
+        );
+        if (attempt < 2) {
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+        }
+      }
+    }
+    AppLogger.e('[CallSignaling] HTTP call-end gave up: $lastError');
+  }
+
   /// Places outgoing 1:1 call on the server.
   ///
   /// [preferHttpOnly] — pilgrim SOS callback: always REST (socket may be ghost).
