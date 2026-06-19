@@ -409,5 +409,23 @@ Future<void> bindIosVoipTokenLifecycle() async {
   } catch (e) {
     AppLogger.w('iOS VoIP getDevicePushTokenVoIP failed: $e');
   }
+
+  // PushKit registration can lag behind Dart startup on cold launch.
+  unawaited(_pollIosVoipToken(cacheVoipToken));
+}
+
+Future<void> _pollIosVoipToken(Future<void> Function(String) cacheVoipToken) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 45));
+  while (DateTime.now().isBefore(deadline)) {
+    await Future.delayed(const Duration(seconds: 2));
+    try {
+      final token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
+      if (token is String && token.isNotEmpty) {
+        await cacheVoipToken(token);
+        return;
+      }
+    } catch (_) {}
+  }
+  AppLogger.w('iOS VoIP token poll ended without a token');
 }
 

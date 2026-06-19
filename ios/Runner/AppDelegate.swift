@@ -29,18 +29,31 @@ import flutter_callkit_incoming
   }
 
   /// PushKit requires `aps-environment` (paid Apple Developer + Push capability).
-  /// Free Personal Team builds have no push entitlement — skip VoIP registration.
+  ///
+  /// Release/TestFlight/App Store builds do not ship `embedded.mobileprovision`
+  /// on device, so we always register push there — entitlements are in the signed
+  /// binary (`Runner-Release.entitlements`). Debug USB builds still gate on the
+  /// embedded profile so free Personal Team installs fail gracefully.
   private func hasPushEntitlement() -> Bool {
+    #if !DEBUG
+    return true
+    #else
     guard let provisionURL = Bundle.main.url(
       forResource: "embedded",
       withExtension: "mobileprovision",
     ),
       let data = try? Data(contentsOf: provisionURL),
-      let raw = String(data: data, encoding: .isoLatin1)
+      let raw = String(data: data, encoding: .isoLatin1),
+      raw.contains("<key>aps-environment</key>")
     else {
+      NSLog(
+        "[Runner] No aps-environment entitlement — push registration skipped "
+          + "(expected on free Apple ID until Push Notifications is enabled)"
+      )
       return false
     }
-    return raw.contains("<key>aps-environment</key>")
+    return true
+    #endif
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {

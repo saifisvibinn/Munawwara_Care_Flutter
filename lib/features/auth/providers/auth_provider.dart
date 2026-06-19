@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -879,8 +880,32 @@ class AuthNotifier extends Notifier<AuthState> {
     if (!state.isAuthenticated) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString(kIosVoipPushTokenPrefsKey);
-      if (token == null || token.isEmpty) return;
+      var token = prefs.getString(kIosVoipPushTokenPrefsKey);
+
+      // PushKit can deliver the VoIP token slightly after login on TestFlight.
+      if (token == null || token.isEmpty) {
+        final deadline = DateTime.now().add(const Duration(seconds: 30));
+        while (DateTime.now().isBefore(deadline)) {
+          try {
+            final fresh = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
+            if (fresh is String && fresh.isNotEmpty) {
+              token = fresh;
+              await prefs.setString(kIosVoipPushTokenPrefsKey, fresh);
+              AppLogger.i('iOS VoIP token obtained after login poll');
+              break;
+            }
+          } catch (_) {}
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+      }
+
+      if (token == null || token.isEmpty) {
+        AppLogger.w(
+          'ensureVoipTokenRegistered: no VoIP token after 30s — '
+          'check Push Notifications capability and notification permission',
+        );
+        return;
+      }
       await updateVoipToken(token);
     } catch (e) {
       AppLogger.w('ensureVoipTokenRegistered failed: $e');
