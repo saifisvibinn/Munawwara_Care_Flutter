@@ -138,6 +138,7 @@ import flutter_callkit_incoming
     }
 
     let data = MunawwaraVoipPayloadMapper.callData(from: payload.dictionaryPayload)
+    CallSignalingBridge.persistPendingCall(from: payload.dictionaryPayload)
     SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(
       data,
       fromPushKit: true,
@@ -207,12 +208,16 @@ import flutter_callkit_incoming
   func onAccept(_ call: Call, _ action: CXAnswerCallAction) {
     pendingDeclineNotify?.cancel()
     pendingDeclineNotify = nil
+    CallSignalingBridge.postAnswer(for: call)
     CallKitAudioChannelHandler.notifyCallAccepted(call: call)
     action.fulfill()
   }
 
   func onDecline(_ call: Call, _ action: CXEndCallAction) {
     pendingDeclineNotify?.cancel()
+    // HTTP must fire immediately — a 450ms defer loses the POST when iOS suspends
+    // the VoIP-woken process after the user declines from a killed state.
+    CallSignalingBridge.postDecline(for: call, noAnswer: false)
     let work = DispatchWorkItem {
       CallKitAudioChannelHandler.notifyCallDeclined(call: call, noAnswer: false)
     }
@@ -226,7 +231,12 @@ import flutter_callkit_incoming
   }
 
   func onTimeOut(_ call: Call) {
+    CallSignalingBridge.postDecline(for: call, noAnswer: true)
     CallKitAudioChannelHandler.notifyCallDeclined(call: call, noAnswer: true)
+  }
+
+  func onDeclineIncomingWithoutManagedCall(extra: [String: Any]?) {
+    CallSignalingBridge.postDecline(extra: extra, noAnswer: false)
   }
 
   func didActivateAudioSession(_ audioSession: AVAudioSession) {

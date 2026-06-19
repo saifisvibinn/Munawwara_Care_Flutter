@@ -54,6 +54,31 @@ abstract final class CallKitAudioBridge {
           break;
       }
     });
+    unawaited(recoverMissedCallKitActivation());
+  }
+
+  /// CallKit may activate AVAudioSession before Flutter registers this bridge
+  /// (common on VoIP cold start). Recover so Agora join is not stuck on
+  /// "connecting".
+  static Future<void> recoverMissedCallKitActivation() async {
+    if (!Platform.isIOS) return;
+    try {
+      final raw = await FlutterCallkitIncoming.activeCalls();
+      if (raw is! List || raw.isEmpty) return;
+      var accepted = false;
+      for (final item in raw) {
+        if (item is! Map) continue;
+        if (item['isAccepted'] == true || item['accepted'] == true) {
+          accepted = true;
+          break;
+        }
+      }
+      if (accepted && !_activated) {
+        await _onActivated(source: 'recovery');
+      }
+    } catch (e) {
+      AppLogger.w('[CallKitAudio] Activation recovery failed: $e');
+    }
   }
 
   /// Plugin event-channel fallback (same moment as native didActivate).

@@ -20,6 +20,9 @@ public protocol CallkitIncomingAppDelegate : NSObjectProtocol {
     
     func onTimeOut(_ call: Call);
 
+    /// Incoming ring declined but CallManager no longer holds the call (killed-state race).
+    func onDeclineIncomingWithoutManagedCall(extra: [String: Any]?)
+
     func didActivateAudioSession(_ audioSession: AVAudioSession)
     
     func didDeactivateAudioSession(_ audioSession: AVAudioSession)

@@ -532,6 +532,7 @@ class CallNotifier extends Notifier<CallState> {
   Future<void> _tearDownCallKitInBackground() async {
     try {
       await CallKitService.instance.endAllCalls();
+      await CallKitService.instance.clearLocalCallTracking();
     } catch (e) {
       AppLogger.w('[CallProvider] forceIdle endAllCalls failed: $e');
     }
@@ -559,6 +560,9 @@ class CallNotifier extends Notifier<CallState> {
     }
 
     clearQueuedNativeDecline();
+    await NativeCallCoordinator.discardPendingAcceptRecovery(
+      reason: 'new outgoing call',
+    );
     await CallKitService.consumePendingOutgoingStop();
     try {
       await CallKitService.instance.endAllCalls();
@@ -1009,10 +1013,30 @@ class CallNotifier extends Notifier<CallState> {
     // Idempotent across native accept bridge + plugin event + poll (see acceptCall).
     if (_acceptInProgress) return;
     if (state.isInCall) return;
-    _acceptInProgress = true;
     _pendingDeclineTimer?.cancel();
     _pendingDeclineTimer = null;
     _stopIosCallKitRingPoll();
+
+    if (channelName.isEmpty || callerId.isEmpty) {
+      final fromFile = await NativeCallCoordinator.readPendingAcceptFromFile();
+      if (fromFile != null) {
+        callerId = callerId.isNotEmpty
+            ? callerId
+            : (fromFile['callerId'] ?? '');
+        callerName = callerName.isNotEmpty
+            ? callerName
+            : (fromFile['callerName'] ?? 'Unknown');
+        channelName = channelName.isNotEmpty
+            ? channelName
+            : (fromFile['channelName'] ?? '');
+      }
+    }
+    if (channelName.isEmpty || callerId.isEmpty) {
+      AppLogger.w(
+        '[CallProvider] acceptCallFromFcm missing channel/caller — aborting',
+      );
+      return;
+    }
 
     final role = await SecureSessionStore.getRole();
     final isPilgrimCallee = role == 'pilgrim';
@@ -1041,12 +1065,12 @@ class CallNotifier extends Notifier<CallState> {
       AppLogger.w(
         '[CallProvider] Call from $callerName is no longer active on server',
       );
-      state = CallState(
-        remoteUserId: callerId,
-        remoteUserName: calleeDisplayName,
-        displayPeerAsSupportBranding: isPilgrimCallee,
+      await CallKitService.clearPendingIncomingCall();
+      await NativeCallCoordinator.clearPendingAcceptFileAfterAnswer();
+      await forceIdleCallSession(
+        endReason: 'cancelled',
+        goIdleImmediately: true,
       );
-      await forceIdleCallSession(endReason: 'cancelled');
       return;
     }
 
@@ -1082,15 +1106,55 @@ class CallNotifier extends Notifier<CallState> {
   Future<void> checkPendingAcceptedCall() async {
     final pending = consumePendingAcceptedCall();
     if (pending != null && pending['channelName']?.isNotEmpty == true) {
+      final callerId = pending['callerId'] ?? '';
+      if (callerId.isEmpty) {
+        await NativeCallCoordinator.discardPendingAcceptRecovery(
+          reason: 'pending accept missing callerId',
+        );
+        return;
+      }
+      final allowed = await CallKitService.verifyIncomingCallActive(
+        callerId: callerId,
+      );
+      if (!allowed) {
+        AppLogger.w(
+          '[CallProvider] Dropping stale pending accepted call for $callerId',
+        );
+        await CallKitService.clearPendingIncomingCall();
+        await NativeCallCoordinator.discardPendingAcceptRecovery(
+          reason: 'server inactive',
+        );
+        if (state.isInCall &&
+            state.status != CallStatus.calling &&
+            state.remoteUserId == callerId) {
+          await forceIdleCallSession(
+            endReason: 'cancelled',
+            goIdleImmediately: true,
+          );
+        }
+        return;
+      }
+      if (state.status == CallStatus.calling) {
+        AppLogger.w(
+          '[CallProvider] Dropping pending accept — outgoing call in progress',
+        );
+        await NativeCallCoordinator.discardPendingAcceptRecovery(
+          reason: 'outgoing call in progress',
+        );
+        return;
+      }
       AppLogger.i('[CallProvider] Found pending accepted call: $pending');
       await acceptCallFromFcm(
-        callerId: pending['callerId'] ?? '',
+        callerId: callerId,
         callerName: pending['callerName'] ?? 'Unknown',
         channelName: pending['channelName'] ?? '',
       );
-      // Navigate to VoiceCallScreen (the main.dart handler might already
-      // be retrying, but if it gave up this is the reliable fallback).
-      if (!isNavigatingToCall && !VoiceCallScreen.isActive) {
+      final status = state.status;
+      if (!isNavigatingToCall &&
+          !VoiceCallScreen.isActive &&
+          (status == CallStatus.ringing ||
+              status == CallStatus.connecting ||
+              status == CallStatus.connected)) {
         Future.delayed(const Duration(milliseconds: 200), () {
           openVoiceCallScreen();
         });
@@ -1134,10 +1198,11 @@ class CallNotifier extends Notifier<CallState> {
         AppLogger.d(
           '[CallProvider] Skip ghost reconcile — outgoing grace window',
         );
+        return;
       }
-      return;
     }
-    if (state.status != CallStatus.ringing) {
+    if (state.status != CallStatus.ringing &&
+        state.status != CallStatus.connecting) {
       return;
     }
     final checkCallerId =
@@ -1146,6 +1211,9 @@ class CallNotifier extends Notifier<CallState> {
       await forceIdleCallSession(
         endReason: 'cancelled',
         goIdleImmediately: true,
+      );
+      await NativeCallCoordinator.discardPendingAcceptRecovery(
+        reason: 'ghost in-call without caller id',
       );
       return;
     }
@@ -1160,6 +1228,9 @@ class CallNotifier extends Notifier<CallState> {
     if (!active) {
       AppLogger.w(
         '[CallProvider] Resume reconcile — ghost ${state.status}, forceIdle',
+      );
+      await NativeCallCoordinator.discardPendingAcceptRecovery(
+        reason: 'ghost ${state.status}',
       );
       await forceIdleCallSession(
         endReason: 'cancelled',
@@ -1360,7 +1431,32 @@ class CallNotifier extends Notifier<CallState> {
             AppLogger.i(
               '[CallProvider] iOS native accept detected (activeCalls poll)',
             );
-            await acceptCall();
+            final pending =
+                await CallKitService.readRecentPendingIncomingCall(
+                  maxAgeSeconds: 120,
+                );
+            final channelName =
+                _pendingChannelName ??
+                pending?['channelName'] ??
+                '';
+            final callerId =
+                _pendingFromId ??
+                pending?['callerId'] ??
+                state.remoteUserId ??
+                '';
+            final callerName =
+                pending?['callerName'] ??
+                state.remoteUserName ??
+                'Unknown';
+            if (channelName.isNotEmpty && callerId.isNotEmpty) {
+              await acceptCallFromFcm(
+                callerId: callerId,
+                callerName: callerName,
+                channelName: channelName,
+              );
+            } else {
+              await acceptCall();
+            }
             if (!VoiceCallScreen.isActive && !isNavigatingToCall) {
               openVoiceCallScreen(bypassNavigatingGuard: true);
             }
@@ -1745,6 +1841,8 @@ class CallNotifier extends Notifier<CallState> {
       AppLogger.w(
         '[CallProvider] Pending native call is no longer active on server',
       );
+      await CallKitService.clearPendingIncomingCall();
+      await NativeCallCoordinator.clearPendingAcceptFileAfterAnswer();
       if (state.isInCall) {
         await forceIdleCallSession(endReason: 'cancelled');
       } else {

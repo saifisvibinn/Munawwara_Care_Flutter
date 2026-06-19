@@ -187,13 +187,6 @@ abstract final class NativeCallCoordinator {
       if (event == null) return;
       AppLogger.i('📞 CallKit event: ${event.event}');
 
-      final eventName = event.event.toString().toLowerCase();
-      if (eventName.contains('start') && eventName.contains('call')) {
-        AppLogger.i('✅ Call START event treated as ACCEPT');
-        await _handleAcceptedCallEvent(event);
-        return;
-      }
-
       switch (event.event) {
         case Event.actionCallAccept:
           await _handleAcceptedCallEvent(event);
@@ -328,8 +321,18 @@ abstract final class NativeCallCoordinator {
             }
             await CallKitService.instance.endCurrentCall();
           }
-          _pendingAcceptedCall = null;
-          unawaited(_clearPendingAcceptFile());
+          final preserveAcceptRecovery =
+              isNavigatingToCall ||
+              _pendingAcceptedCall != null ||
+              _readPendingAcceptFromFileSync() != null;
+          if (!preserveAcceptRecovery) {
+            _pendingAcceptedCall = null;
+            unawaited(_clearPendingAcceptFile());
+          } else {
+            AppLogger.i(
+              '📵 Preserving pending accept recovery after CallKit ended',
+            );
+          }
           await CallKitService.instance.clearLocalCallTracking();
           break;
 
@@ -347,25 +350,70 @@ abstract final class NativeCallCoordinator {
     );
   }
 
+  /// Same JSON file native [CallSignalingBridge] writes on killed accept.
+  static Future<Map<String, String>?> readPendingAcceptFromFile() =>
+      _readPendingAcceptFromFile();
+
+  /// Drop stale accept recovery payload (incoming leg ended / new outgoing call).
+  static Future<void> discardPendingAcceptRecovery({String reason = ''}) async {
+    _pendingAcceptedCall = null;
+    await _clearPendingAcceptFile();
+    if (reason.isNotEmpty) {
+      AppLogger.i('[NativeCallCoordinator] Discarded pending accept ($reason)');
+    }
+  }
+
+  static Future<bool> _isPendingAcceptStillActive(
+    Map<String, String> payload,
+  ) async {
+    final callerId = payload['callerId']?.trim() ?? '';
+    if (callerId.isEmpty) return false;
+    return CallKitService.verifyIncomingCallActive(callerId: callerId);
+  }
+
   /// If user accepted from native UI before Flutter ran, restore pending join.
   static Future<void> recoverAcceptedCallOnStartup() async {
     try {
       final fromFile = await _readPendingAcceptFromFile();
       if (fromFile != null) {
-        _pendingAcceptedCall = fromFile;
-        AppLogger.i(
-          '📞 Startup recovery: restored pending accepted call from file',
-        );
+        if (await _isPendingAcceptStillActive(fromFile)) {
+          _pendingAcceptedCall = fromFile;
+          AppLogger.i(
+            '📞 Startup recovery: restored pending accepted call from file',
+          );
+        } else {
+          await discardPendingAcceptRecovery(
+            reason: 'stale accept file on startup',
+          );
+        }
+        await CallKitAudioBridge.recoverMissedCallKitActivation();
         return;
       }
 
       final activeCalls = await FlutterCallkitIncoming.activeCalls();
       if (activeCalls is List && activeCalls.isNotEmpty) {
+        var hasAccepted = false;
+        for (final item in activeCalls) {
+          if (item is Map &&
+              (item['isAccepted'] == true || item['accepted'] == true)) {
+            hasAccepted = true;
+            break;
+          }
+        }
+        if (!hasAccepted) {
+          await CallKitService.clearPendingIncomingCall();
+          await discardPendingAcceptRecovery(
+            reason: 'CallKit ring without accept on startup',
+          );
+          await CallKitAudioBridge.recoverMissedCallKitActivation();
+          return;
+        }
+
         final pending = await CallKitService.readRecentPendingIncomingCall(
           maxAgeSeconds: 90,
         );
         if (pending != null && (pending['channelName'] ?? '').isNotEmpty) {
-          _pendingAcceptedCall = {
+          final recovered = {
             'callerId': pending['callerId'] ?? '',
             'callerName': (pending['callerName'] ?? '').isNotEmpty
                 ? (pending['callerName'] ?? 'Unknown')
@@ -373,13 +421,24 @@ abstract final class NativeCallCoordinator {
             'channelName': pending['channelName'] ?? '',
             'callerRole': pending['callerRole'] ?? '',
           };
-          AppLogger.i(
-            '📞 Startup recovery: restored pending accepted call from persisted CallKit payload',
-          );
+          if (await _isPendingAcceptStillActive(recovered)) {
+            _pendingAcceptedCall = recovered;
+            AppLogger.i(
+              '📞 Startup recovery: restored pending accepted call from persisted CallKit payload',
+            );
+          } else {
+            await discardPendingAcceptRecovery(
+              reason: 'stale CallKit accept on startup',
+            );
+          }
         }
       } else {
-        await CallKitService.readRecentPendingIncomingCall(maxAgeSeconds: 90);
+        await CallKitService.clearPendingIncomingCall();
+        await discardPendingAcceptRecovery(
+          reason: 'no active CallKit session on startup',
+        );
       }
+      await CallKitAudioBridge.recoverMissedCallKitActivation();
     } catch (e) {
       AppLogger.e('📞 Startup recovery failed: $e');
     }
@@ -497,11 +556,11 @@ Future<void> _processAcceptedCall({
 
     if (currentState.status == CallStatus.ringing) {
       _navigatingToCall = true;
-      notifier.acceptCall();
+      await notifier.acceptCall();
       _navigateToVoiceCallScreen();
     } else if (!currentState.isInCall) {
       _navigatingToCall = true;
-      notifier.acceptCallFromFcm(
+      await notifier.acceptCallFromFcm(
         callerId: callerId,
         callerName: callerName.isNotEmpty ? callerName : 'Unknown',
         channelName: channelName,

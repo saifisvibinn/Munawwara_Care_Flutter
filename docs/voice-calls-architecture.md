@@ -1,5 +1,7 @@
 # Durrah Care — Voice Calls Architecture & Handoff Guide
 
+> For the complete A→Z flow (all app states, iOS + Android, backend contracts, and scenario traces), see [voice-calls-complete-flow.md](./voice-calls-complete-flow.md).
+
 > [!CAUTION]
 > # CRITICAL DEVELOPER & AI AGENT WARNING
 > **THE VOICE-CALLING WORKFLOW IN THIS APPLICATION IS HIGHLY DELICATE AND COALESCES NATIVE DEVICE SYSTEMS, OS BACKGROUND ISOLATES, FIREBASE CLOUD MESSAGING (FCM), SOCKET.IO, AND AGORA RTC MEDIA LAYERS.**
