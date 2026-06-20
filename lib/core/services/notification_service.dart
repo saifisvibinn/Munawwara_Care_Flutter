@@ -10,6 +10,7 @@ import 'package:dio/dio.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:app_badge_plus/app_badge_plus.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 import '../config/backend_config.dart';
@@ -180,11 +181,7 @@ String urgentTtsSpokenBackupText(
 }
 
 bool _isSosAlertFcm(RemoteMessage message) {
-  final data = message.data;
-  final t = data['notification_type']?.toString() ??
-      data['type']?.toString() ??
-      '';
-  return t == 'sos_alert';
+  return SosAlertCoordinator.isSosAlertPayload(message.data);
 }
 
 bool _isReminderTtsFcm(RemoteMessage message) {
@@ -267,7 +264,7 @@ void _sendReminderPopupToMainIsolate(RemoteMessage message) {
 @pragma('vm:entry-point')
 Future<void> _playSosAlertAudioInBackground(RemoteMessage message) async {
   try {
-    final role = await SecureSessionStore.getRole();
+    final role = await SecureSessionStore.getRoleForBackground();
     if (role != 'moderator') {
       AppLogger.i('🔊 SOS audio [background]: skipped (role=$role)');
       return;
@@ -277,6 +274,9 @@ Future<void> _playSosAlertAudioInBackground(RemoteMessage message) async {
       Map<String, dynamic>.from(message.data),
     );
     final storageKey = payload.storageKey;
+
+    // iOS may kill the isolate before MP3 finishes — queue for resume regardless.
+    await SosAlertAudio.queuePendingLanguagePlay(storageKey);
 
     var wakelockOn = false;
     if (Platform.isAndroid || Platform.isIOS) {
@@ -289,9 +289,9 @@ Future<void> _playSosAlertAudioInBackground(RemoteMessage message) async {
     }
 
     try {
-      if (await SosAlertAudio.wasHandledByMainIsolate(storageKey)) {
+      if (await SosAlertAudio.wasLanguagePlayed(storageKey)) {
         AppLogger.i(
-          '🔊 SOS audio [background]: skipped (main isolate handled)',
+          '🔊 SOS audio [background]: skipped (language already played)',
         );
         return;
       }
@@ -586,6 +586,18 @@ class NotificationService {
   static const String missedCallTrayTag = 'missed_call';
 
   static const String _pendingAlertsRefetchKey = 'pending_alerts_refetch';
+
+  /// Updates the launcher icon badge (iOS + supported Android launchers).
+  static Future<void> syncAppIconBadge(int count) async {
+    if (!Platform.isIOS && !Platform.isAndroid) return;
+    try {
+      final supported = await AppBadgePlus.isSupported();
+      if (!supported) return;
+      await AppBadgePlus.updateBadge(count.clamp(0, 999999));
+    } catch (e) {
+      AppLogger.w('[NotificationService] syncAppIconBadge failed: $e');
+    }
+  }
 
   /// Refetch in-app alerts list after missed-call FCM (foreground / resume).
   static Future<void> refreshAlertsFromFcm() async {

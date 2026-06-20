@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../theme/app_colors.dart';
 import 'app_glass_surface.dart';
@@ -27,6 +28,13 @@ class AppGlassIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final side = size ?? 44.w;
+    final iconWidget = Icon(
+      icon,
+      size: 22.sp,
+      color: iconColor ?? AppColors.primary,
+    );
+    final mirrorBack = Directionality.of(context) == TextDirection.rtl &&
+        (icon.matchTextDirection || icon == Symbols.arrow_back);
 
     return GestureDetector(
       onTap: onTap,
@@ -40,11 +48,13 @@ class AppGlassIconButton extends StatelessWidget {
             width: side,
             height: side,
             child: Center(
-              child: Icon(
-                icon,
-                size: 22.sp,
-                color: iconColor ?? AppColors.primary,
-              ),
+              child: mirrorBack
+                  ? Transform(
+                      alignment: Alignment.center,
+                      transform: Matrix4.identity()..scaleByDouble(-1.0, 1.0, 1.0, 1.0),
+                      child: iconWidget,
+                    )
+                  : iconWidget,
             ),
           ),
           ?badge,

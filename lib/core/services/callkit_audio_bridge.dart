@@ -27,6 +27,9 @@ abstract final class CallKitAudioBridge {
   /// Set from [main] to route native accept without circular imports.
   static void Function(Map<String, dynamic> payload)? onNativeCallAccepted;
 
+  /// Set from [main] to route native CallKit End (lock-screen hangup).
+  static void Function(Map<String, dynamic> payload)? onNativeCallEnded;
+
   /// Register before async startup so native didActivate is not missed.
   static void registerEarly() {
     if (!Platform.isIOS) return;
@@ -50,6 +53,13 @@ abstract final class CallKitAudioBridge {
               : <String, dynamic>{};
           AppLogger.i('[CallKitAudio] Native decline payload=$payload');
           onNativeCallDeclined?.call(payload);
+        case 'callEnded':
+          final raw = call.arguments;
+          final payload = raw is Map
+              ? Map<String, dynamic>.from(raw)
+              : <String, dynamic>{};
+          AppLogger.i('[CallKitAudio] Native end payload=$payload');
+          onNativeCallEnded?.call(payload);
         default:
           break;
       }

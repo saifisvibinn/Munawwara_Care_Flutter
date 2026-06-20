@@ -1730,7 +1730,10 @@
   "resources_hospitals": "ہسپتال",
   "resources_rooms_list": "کمرے",
   "resources_hospitals_list": "ہسپتال",
-  "resources_room_number": "کمرہ {0}",
-  "resources_floor": "منزل {0}",
-  "resources_capacity": "گنجائش {0}"
+  "resources_room_number": "کمرہ {}",
+  "resources_floor": "منزل {}",
+  "resources_capacity": "گنجائش {}",
+  "resources_room_unassigned": "کمرہ: تفویض نہیں",
+  "resources_floor_unassigned": "منزل: تفویض نہیں",
+  "resources_capacity_unassigned": "گنجائش: تفویض نہیں"
 }

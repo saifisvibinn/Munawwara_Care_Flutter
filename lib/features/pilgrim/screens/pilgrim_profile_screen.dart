@@ -192,38 +192,44 @@ class _PilgrimProfileScreenState extends ConsumerState<PilgrimProfileScreen> {
 
     return Scaffold(
       backgroundColor: bg,
-      body: SafeArea(
+      body: ColoredBox(
+        color: bg,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Header ──────────────────────────────────────────────────
-            if (Navigator.canPop(context))
-              _SettingsHeader(isDark: isDark, textPrimary: textPrimary)
-            else
-              Padding(
-                padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 0),
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(
-                    'settings_title'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 24.sp,
-                      color: textPrimary,
+            SafeArea(
+              bottom: false,
+              child: Navigator.canPop(context)
+                  ? _SettingsHeader(isDark: isDark, textPrimary: textPrimary)
+                  : Padding(
+                      padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 0),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          'settings_title'.tr(),
+                          style: TextStyle(
+                            fontFamily: 'Lexend',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 24.sp,
+                            color: textPrimary,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
+            ),
 
             // ── Scrollable body ─────────────────────────────────────────
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                padding: EdgeInsets.fromLTRB(
+                  20.w,
+                  16.h,
+                  20.w,
+                  MediaQuery.viewPaddingOf(context).bottom + 24.h,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: 16.h),
-
                     // ── Profile card ─────────────────────────────────────
                     Container(
                       width: double.infinity,

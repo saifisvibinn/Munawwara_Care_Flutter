@@ -107,6 +107,7 @@ class _ModeratorProfileScreenState
                       textPrimary: textPrimary,
                       safeAreaTop: safeAreaTop,
                       backgroundColor: fadeBg,
+                      locale: context.locale,
                     ),
                   ),
                   SliverPadding(
@@ -264,12 +265,14 @@ class _ModeratorProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.textPrimary,
     required this.safeAreaTop,
     required this.backgroundColor,
+    required this.locale,
   });
 
   final bool isDark;
   final Color textPrimary;
   final double safeAreaTop;
   final Color backgroundColor;
+  final Locale locale;
 
   static const double _topPadding = 8;
   static const double _headerHeight = 28;
@@ -336,7 +339,8 @@ class _ModeratorProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     return oldDelegate.isDark != isDark ||
         oldDelegate.textPrimary != textPrimary ||
         oldDelegate.safeAreaTop != safeAreaTop ||
-        oldDelegate.backgroundColor != backgroundColor;
+        oldDelegate.backgroundColor != backgroundColor ||
+        oldDelegate.locale != locale;
   }
 }
 

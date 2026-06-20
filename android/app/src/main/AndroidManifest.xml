@@ -205,5 +205,15 @@
             <action android:name="android.intent.action.CALL"/>
             <data android:scheme="tel"/>
         </intent>
+        <!-- Required on Android 11+ to detect and launch Google Maps navigation -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="google.navigation" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="geo" />
+        </intent>
+        <package android:name="com.google.android.apps.maps" />
     </queries>
 </manifest>

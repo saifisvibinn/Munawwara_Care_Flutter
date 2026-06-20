@@ -33,6 +33,19 @@ bool get isNavigatingToCall => _navigatingToCall;
 
 Map<String, String>? _pendingAcceptedCall;
 
+DateTime? _lastCallKitAcceptAt;
+
+const Duration _callKitAcceptGrace = Duration(seconds: 3);
+
+/// iOS fires a spurious [Event.actionCallEnded] right after accept while connecting.
+bool _shouldIgnoreSpuriousCallKitEnd(CallStatus status) {
+  if (isNavigatingToCall || _pendingAcceptedCall != null) return true;
+  final accepted = _lastCallKitAcceptAt;
+  if (accepted == null) return false;
+  if (DateTime.now().difference(accepted) >= _callKitAcceptGrace) return false;
+  return status == CallStatus.connecting;
+}
+
 const String _pendingAcceptFileName = 'pending_call_accept.json';
 
 String? _documentsPath;
@@ -180,6 +193,20 @@ abstract final class NativeCallCoordinator {
     }
   }
 
+  /// Native AppDelegate end when user hangs up from lock-screen CallKit UI.
+  static void handleNativeCallEnded(Map<String, dynamic> payload) {
+    AppLogger.i('[NativeCallCoordinator] Native end payload=$payload');
+    final c = CallingScope.riverpod;
+    if (c == null) return;
+    final notifier = c.read(callProvider.notifier);
+    final status = c.read(callProvider).status;
+    if (status == CallStatus.connecting || status == CallStatus.connected) {
+      notifier.endCall();
+    } else if (c.read(callProvider).isInCall) {
+      notifier.stopLocalCallSession(endReason: 'ended');
+    }
+  }
+
   /// Subscribe to CallKit **before** async Firebase init so cold-start accept
   /// events are not dropped.
   static void registerEarlyListeners() {
@@ -282,14 +309,9 @@ abstract final class NativeCallCoordinator {
           if (c != null) {
             final notifier = c.read(callProvider.notifier);
             final currentState = c.read(callProvider);
-            // iOS dismisses the incoming CallKit UI with actionCallEnded right
-            // after accept — must not decline/end the session we just started.
-            if (isNavigatingToCall ||
-                _pendingAcceptedCall != null ||
-                currentState.status == CallStatus.connecting ||
-                currentState.status == CallStatus.connected) {
+            if (_shouldIgnoreSpuriousCallKitEnd(currentState.status)) {
               AppLogger.i(
-                '📵 Ignoring CallKit ended during accept/active call '
+                '📵 Ignoring spurious CallKit end '
                 '(status=${currentState.status})',
               );
               break;
@@ -321,10 +343,9 @@ abstract final class NativeCallCoordinator {
             }
             await CallKitService.instance.endCurrentCall();
           }
-          final preserveAcceptRecovery =
-              isNavigatingToCall ||
-              _pendingAcceptedCall != null ||
-              _readPendingAcceptFromFileSync() != null;
+          final preserveAcceptRecovery = _shouldIgnoreSpuriousCallKitEnd(
+            c?.read(callProvider).status ?? CallStatus.idle,
+          );
           if (!preserveAcceptRecovery) {
             _pendingAcceptedCall = null;
             unawaited(_clearPendingAcceptFile());
@@ -481,7 +502,7 @@ abstract final class NativeCallCoordinator {
       final notifier = c.read(callProvider.notifier);
       final cs = c.read(callProvider);
       if (cs.isInCall) {
-        if (notifier.shouldIgnoreStaleCallControlFcm(dataType)) {
+        if (notifier.shouldIgnoreStaleCallControlFcm(dataType, data: data)) {
           AppLogger.w(
             '📵 Ignoring stale FCM $dataType during outgoing grace',
           );
@@ -542,6 +563,7 @@ Future<void> _processAcceptedCall({
     'channelName': channelName,
     'callerRole': callerRole,
   };
+  _lastCallKitAcceptAt = DateTime.now();
   await _persistPendingAcceptToFile(acceptPayload);
   _pendingAcceptedCall = acceptPayload;
 

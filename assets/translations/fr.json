@@ -1724,7 +1724,10 @@
   "resources_hospitals": "hôpitaux",
   "resources_rooms_list": "Chambres",
   "resources_hospitals_list": "Hôpitaux",
-  "resources_room_number": "Chambre {0}",
-  "resources_floor": "Étage {0}",
-  "resources_capacity": "Cap. {0}"
+  "resources_room_number": "Chambre {}",
+  "resources_floor": "Étage {}",
+  "resources_capacity": "Cap. {}",
+  "resources_room_unassigned": "Chambre : Non attribué",
+  "resources_floor_unassigned": "Étage : Non attribué",
+  "resources_capacity_unassigned": "Cap. : Non attribué"
 }

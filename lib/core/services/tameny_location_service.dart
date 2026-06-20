@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'native_prefs_bridge.dart';
 import 'battery_optimization_helper.dart';
+import '../../features/auth/widgets/background_location_disclosure_dialog.dart';
 
 @pragma('vm:entry-point')
 class TamenyLocationService {
@@ -54,7 +55,7 @@ class TamenyLocationService {
   }) async {
     // 1. Show prominent disclosure dialog first
     if (!forceSkipDisclosure) {
-      final confirmed = await _showProminentDisclosure(context);
+      final confirmed = await showBackgroundLocationDisclosure(context);
       if (!confirmed) return false;
     }
     
@@ -229,35 +230,5 @@ class TamenyLocationService {
     
     return permission == LocationPermission.always ||
            permission == LocationPermission.whileInUse;
-  }
-
-  // ─── PROMINENT DISCLOSURE DIALOG ─────────────────────────────
-
-  static Future<bool> _showProminentDisclosure(BuildContext context) async {
-    return await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('مشاركة الموقع في الخلفية', textDirection: TextDirection.rtl),
-        content: const Text(
-          'سيقوم تطبيق منوارة كير بجمع بيانات الموقع في الخلفية '
-          'لتمكين تتبع السلامة في الوقت الفعلي وتنبيهات SOS '
-          'حتى عند إغلاق التطبيق أو عدم استخدامه.\n\n'
-          'Munawwara Care collects location data in the background '
-          'to enable real-time safety tracking even when the app '
-          'is closed or not in use.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('لا شكراً (No Thanks)'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('موافق (Agree)'),
-          ),
-        ],
-      ),
-    ) ?? false;
   }
 }

@@ -27,6 +27,7 @@ import 'features/calling/calling_scope.dart';
 import 'features/calling/native_call_coordinator.dart';
 import 'features/calling/providers/call_provider.dart';
 import 'features/moderator/services/sos_alert_coordinator.dart';
+import 'features/notifications/providers/notification_provider.dart';
 import 'core/config/app_locales.dart';
 import 'core/services/tameny_location_service.dart';
 
@@ -41,6 +42,8 @@ void main() async {
       NativeCallCoordinator.handleNativeCallDeclined;
   CallKitAudioBridge.onNativeCallAccepted =
       NativeCallCoordinator.handleNativeCallAccepted;
+  CallKitAudioBridge.onNativeCallEnded =
+      NativeCallCoordinator.handleNativeCallEnded;
 
   await Future.wait<void>([
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge),
@@ -98,8 +101,18 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
             authToken: next.token!,
           ),
         );
+      } else if (previous?.isAuthenticated == true && !next.isAuthenticated) {
+        unawaited(NotificationService.syncAppIconBadge(0));
       }
     });
+    ref.listenManual<int>(
+      notificationProvider.select((s) => s.unreadCount),
+      (previous, next) {
+        final authed = ref.read(authProvider).isAuthenticated;
+        if (!authed) return;
+        unawaited(NotificationService.syncAppIconBadge(next));
+      },
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final lang = context.locale.languageCode;
@@ -143,6 +156,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       unawaited(
         ref.read(callProvider.notifier).reconcileCallStateAfterProcessDeath(),
       );
+      if (ref.read(authProvider).isAuthenticated) {
+        unawaited(ref.read(notificationProvider.notifier).fetchUnreadCount());
+      }
     }
   }
 

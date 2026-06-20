@@ -1759,7 +1759,10 @@
   "resources_hospitals": "مستشفيات",
   "resources_rooms_list": "الغرف",
   "resources_hospitals_list": "المستشفيات",
-  "resources_room_number": "غرفة {0}",
-  "resources_floor": "الطابق {0}",
-  "resources_capacity": "سعة {0}"
+  "resources_room_number": "غرفة {}",
+  "resources_floor": "الطابق {}",
+  "resources_capacity": "سعة {}",
+  "resources_room_unassigned": "غرفة: لم يتم التعيين",
+  "resources_floor_unassigned": "الطابق: لم يتم التعيين",
+  "resources_capacity_unassigned": "سعة: لم يتم التعيين"
 }

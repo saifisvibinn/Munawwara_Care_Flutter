@@ -12,6 +12,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/bootstrap/app_startup_coordinator.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/notification_service.dart';
+import '../../../core/services/sos_alert_audio.dart';
 import '../../../core/services/oem_settings_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/services/socket_service.dart';
@@ -153,6 +154,7 @@ class _ModeratorDashboardScreenState
       unawaited(() async {
         await _checkRequiredPermissions();
         await NotificationService.consumePendingAlertsRefetch();
+        await SosAlertAudio.consumePendingLanguagePlay();
         if (mounted) {
           unawaited(
             ref.read(pendingInvitationsProvider.notifier).fetchPending(),
@@ -558,6 +560,7 @@ class _ModeratorDashboardScreenState
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final moderatorState = ref.watch(moderatorProvider);
 
@@ -624,6 +627,9 @@ class _ModeratorDashboardScreenState
                         onPageChanged: _handlePageChanged,
                         children: [
                           _GroupsHomeTab(
+                            key: ValueKey(
+                              'groups-tab-${context.locale.languageCode}',
+                            ),
                             searchController: _searchController,
                             onNotificationTap: () =>
                                 openModeratorAlertsWithReveal(context),
@@ -646,7 +652,7 @@ class _ModeratorDashboardScreenState
             if (_currentTab == 0 && !AppGlassTheme.isKeyboardVisible(context))
               PositionedDirectional(
                 end: 16.w,
-                bottom: AppGlassTheme.floatingBottomBarHeight(context) + 16.h,
+                bottom: AppGlassTheme.dashboardFabBottomOffset(context),
                 child: ModeratorGroupsSpeedDial(
                   onCreateGroup: () =>
                       Navigator.of(context).push(
@@ -700,6 +706,7 @@ class _GroupsHomeHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.safeAreaTop,
     required this.backgroundColor,
     required this.notifCount,
+    required this.title,
     required this.onResourcesTap,
     required this.onNotificationTap,
   });
@@ -709,6 +716,7 @@ class _GroupsHomeHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double safeAreaTop;
   final Color backgroundColor;
   final int notifCount;
+  final String title;
   final VoidCallback onResourcesTap;
   final VoidCallback onNotificationTap;
 
@@ -738,9 +746,9 @@ class _GroupsHomeHeaderDelegate extends SliverPersistentHeaderDelegate {
           icon: Symbols.notifications,
           onTap: onNotificationTap,
           badge: notifCount > 0
-              ? Positioned(
+              ? PositionedDirectional(
                   top: -2,
-                  right: -2,
+                  end: -2,
                   child: _CountBadge(count: notifCount, isDark: isDark),
                 )
               : null,
@@ -755,13 +763,11 @@ class _GroupsHomeHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    context.locale;
     final collapseRange = maxExtent - minExtent;
     final t = collapseRange > 0
         ? (shrinkOffset / collapseRange).clamp(0.0, 1.0)
         : 0.0;
     final currentHeight = (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
-    final title = 'dashboard_my_groups'.tr();
     final titleFontSize = ui.lerpDouble(22.sp, 17.sp, t)!;
     final topPadding = safeAreaTop + ui.lerpDouble(_topPadding.h, 6.h, t)!;
     final showExpanded = t < 0.85;
@@ -847,7 +853,8 @@ class _GroupsHomeHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.textPrimary != textPrimary ||
         oldDelegate.safeAreaTop != safeAreaTop ||
         oldDelegate.backgroundColor != backgroundColor ||
-        oldDelegate.notifCount != notifCount;
+        oldDelegate.notifCount != notifCount ||
+        oldDelegate.title != title;
   }
 }
 
@@ -856,6 +863,7 @@ class _GroupsHomeTab extends ConsumerStatefulWidget {
   final VoidCallback onNotificationTap;
 
   const _GroupsHomeTab({
+    super.key,
     required this.searchController,
     required this.onNotificationTap,
   });
@@ -1197,6 +1205,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
 
   @override
   Widget build(BuildContext context) {
+    context.locale;
     final state = ref.watch(moderatorProvider);
     final notifCount = ref.watch(notificationProvider).unreadCount;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1238,6 +1247,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                   ),
                   slivers: [
                     SliverPersistentHeader(
+                      key: ValueKey(context.locale.languageCode),
                       pinned: true,
                       delegate: _GroupsHomeHeaderDelegate(
                         isDark: isDark,
@@ -1245,6 +1255,7 @@ class _GroupsHomeTabState extends ConsumerState<_GroupsHomeTab> {
                         safeAreaTop: safeAreaTop,
                         backgroundColor: fadeBg,
                         notifCount: notifCount,
+                        title: 'dashboard_my_groups'.tr(),
                         onResourcesTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
@@ -1723,28 +1734,28 @@ class _GroupCard extends ConsumerWidget {
                         ),
                       );
                     },
-                    child: Container(
-                      alignment: Alignment.center,
-                      padding: EdgeInsets.symmetric(
-                        vertical: 8.h,
-                        horizontal: 10.w,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF6B7BAE).withValues(alpha: 0.1)
-                            : const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(10.r),
-                        border: Border.all(
-                          color: isDark
-                              ? const Color(0xFF6B7BAE).withValues(alpha: 0.2)
-                              : const Color(0xFFE2E8F0),
-                        ),
-                      ),
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        alignment: Alignment.center,
-                        children: [
-                          Row(
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          alignment: Alignment.center,
+                          padding: EdgeInsets.symmetric(
+                            vertical: 8.h,
+                            horizontal: 10.w,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF6B7BAE).withValues(alpha: 0.1)
+                                : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(10.r),
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFF6B7BAE).withValues(alpha: 0.2)
+                                  : const Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Icon(
@@ -1780,17 +1791,17 @@ class _GroupCard extends ConsumerWidget {
                               ),
                             ],
                           ),
-                          if (group.unreadCount > 0)
-                            Positioned(
-                              top: -2,
-                              right: -2,
-                              child: _CountBadge(
-                                count: group.unreadCount,
-                                isDark: isDark,
-                              ),
+                        ),
+                        if (group.unreadCount > 0)
+                          PositionedDirectional(
+                            top: -2,
+                            end: -2,
+                            child: _CountBadge(
+                              count: group.unreadCount,
+                              isDark: isDark,
                             ),
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
                   ),
                 ),

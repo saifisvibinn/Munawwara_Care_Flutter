@@ -32,11 +32,13 @@ class MarkerTailPainter extends CustomPainter {
 class CircleButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  final bool enableGlass;
 
   const CircleButton({
     super.key,
     required this.icon,
     required this.onTap,
+    this.enableGlass = true,
   });
 
   @override
@@ -44,15 +46,57 @@ class CircleButton extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fg = isDark ? Colors.white : AppColors.textDark;
     final sz = 42.w;
+    final iconWidget = Icon(icon, size: sz * 0.48, color: fg);
+    final mirrorBack = Directionality.of(context) == TextDirection.rtl &&
+        (icon.matchTextDirection || icon == Symbols.arrow_back);
     return GestureDetector(
       onTap: onTap,
       child: AppGlassSurface(
         isDark: isDark,
+        enableGlass: enableGlass,
         borderRadius: BorderRadius.circular(sz / 2),
         width: sz,
         height: sz,
         child: Center(
-          child: Icon(icon, size: sz * 0.48, color: fg),
+          child: mirrorBack
+              ? Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.identity()..scaleByDouble(-1.0, 1.0, 1.0, 1.0),
+                  child: iconWidget,
+                )
+              : iconWidget,
+        ),
+      ),
+    );
+  }
+}
+
+/// Full-width top overlay for the glass back control (matches Groups / map screens).
+///
+/// Uses a [Positioned] bar instead of edge [PositionedDirectional] so the button
+/// stays visible during iOS interactive back-swipe transitions.
+class FloatingGlassBackButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const FloatingGlassBackButton({super.key, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsetsDirectional.fromSTEB(14.w, 10.h, 14.w, 0),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: CircleButton(
+              icon: Symbols.arrow_back,
+              onTap: onTap,
+            ),
+          ),
         ),
       ),
     );

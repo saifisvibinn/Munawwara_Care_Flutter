@@ -158,6 +158,14 @@ class AppGlassTheme {
   static double scrollFadeBottomExtentDashboard(BuildContext context) =>
       floatingBottomBarHeight(context) + scrollEdgeBottomFadeBand;
 
+  /// Bottom offset for dashboard glass FABs (e.g. create/join group speed dial).
+  ///
+  /// Must sit above [scrollFadeBottomExtentDashboard] so [AppGlassSurface]
+  /// backdrop blur samples scroll content only — not the scroll-edge fade band
+  /// (which would double-blur and show a horizontal seam through the circle).
+  static double dashboardFabBottomOffset(BuildContext context) =>
+      scrollFadeBottomExtentDashboard(context) + 16.h;
+
   /// Native map / visual glass band at bottom — covers tab bar, not full scroll pad.
   static double mapScrollEdgeBottomExtent(BuildContext context) =>
       floatingBottomBarHeight(context) + 28.h;

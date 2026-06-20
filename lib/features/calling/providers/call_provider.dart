@@ -142,6 +142,7 @@ class CallNotifier extends Notifier<CallState> {
   String? _pendingFromId;
   String? _outgoingChannelName;
   String? _activeIncomingCallRecordId;
+  String? _outgoingCallRecordId;
   Future<void>? _outgoingCleanupInFlight;
   Timer? _callTimer;
   Timer? _ringPollTimer; // polls backend while outgoing call is ringing
@@ -331,6 +332,9 @@ class CallNotifier extends Notifier<CallState> {
       final callRecordId = (placedResult == 'socket' || placedResult == 'http_success')
           ? null
           : placedResult;
+      if (callRecordId != null && callRecordId.isNotEmpty) {
+        _outgoingCallRecordId = callRecordId;
+      }
       if (!isPilgrimCaller) {
         unawaited(SosAlertCoordinator.afterModeratorPlacedCall(remoteUserId));
       }
@@ -356,10 +360,28 @@ class CallNotifier extends Notifier<CallState> {
   }
 
   /// Stale `call_declined` / `call_cancel` FCM from the previous leg.
-  bool shouldIgnoreStaleCallControlFcm(String? dataType) {
+  bool shouldIgnoreStaleCallControlFcm(
+    String? dataType, {
+    Map<String, dynamic>? data,
+  }) {
+    if (dataType == 'call_ended' && data != null && shouldIgnoreStaleCallEndedFcm(data)) {
+      return true;
+    }
     if (state.status != CallStatus.calling) return false;
     if (dataType == 'call_ended') return false;
     return shouldIgnoreStaleCallKitTeardown();
+  }
+
+  /// Ignore [call_ended] FCM from a prior leg when [callRecordId] does not match.
+  bool shouldIgnoreStaleCallEndedFcm(Map<String, dynamic> data) {
+    final incomingId = data['callRecordId']?.toString().trim() ?? '';
+    if (incomingId.isEmpty) return false;
+    final current =
+        _activeIncomingCallRecordId?.trim() ??
+        _outgoingCallRecordId?.trim() ??
+        '';
+    if (current.isEmpty) return false;
+    return incomingId != current;
   }
 
   // ── Ring poll: moderator polls backend every 3 s while outgoing call rings ──
@@ -476,6 +498,7 @@ class CallNotifier extends Notifier<CallState> {
     _outgoingChannelName = null;
     _outgoingCallStartedAt = null;
     _activeIncomingCallRecordId = null;
+    _outgoingCallRecordId = null;
     CallSignaling.clearPendingOutgoingEmits();
     CallKitAudioBridge.reset();
     unawaited(_clearOutgoingCallPersistence());
@@ -1239,11 +1262,35 @@ class CallNotifier extends Notifier<CallState> {
       }
     }
     if (state.status != CallStatus.ringing &&
-        state.status != CallStatus.connecting) {
+        state.status != CallStatus.connecting &&
+        state.status != CallStatus.connected) {
       return;
     }
-    final checkCallerId =
-        state.remoteUserId ?? _pendingFromId ?? '';
+    final myId = await _getMyUserId() ?? '';
+    final remoteId = state.remoteUserId ?? _pendingFromId ?? '';
+    if (state.status == CallStatus.connected) {
+      var active = false;
+      if (myId.isNotEmpty) {
+        active = await _isCallActiveOnServer(myId);
+      }
+      if (!active && remoteId.isNotEmpty) {
+        active = await _isCallActiveOnServer(remoteId);
+      }
+      if (!active) {
+        AppLogger.w(
+          '[CallProvider] Resume reconcile — ghost connected, forceIdle',
+        );
+        await NativeCallCoordinator.discardPendingAcceptRecovery(
+          reason: 'ghost connected',
+        );
+        await forceIdleCallSession(
+          endReason: 'ended',
+          goIdleImmediately: true,
+        );
+      }
+      return;
+    }
+    final checkCallerId = remoteId;
     if (checkCallerId.isEmpty) {
       await forceIdleCallSession(
         endReason: 'cancelled',

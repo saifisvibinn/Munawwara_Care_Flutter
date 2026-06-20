@@ -227,6 +227,8 @@ import flutter_callkit_incoming
   }
 
   func onEnd(_ call: Call, _ action: CXEndCallAction) {
+    CallSignalingBridge.postEnd(for: call)
+    CallKitAudioChannelHandler.notifyCallEnded(call: call)
     action.fulfill()
   }
 

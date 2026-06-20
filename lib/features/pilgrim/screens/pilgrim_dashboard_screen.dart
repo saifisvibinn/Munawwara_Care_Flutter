@@ -1756,7 +1756,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                 remoteUserId: to,
                 remoteUserName: 'call_support_display_name'.tr(),
               );
-          if (!placed && mounted) {
+          if (!placed) {
+            if (!context.mounted) return;
             AppLogger.w('[PilgrimDashboard] SOS callback blocked or failed');
             StandardSnackBar.showError(context, 'call_error'.tr());
           }

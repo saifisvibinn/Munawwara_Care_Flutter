@@ -211,6 +211,7 @@ class _ResolvedSosTileState extends ConsumerState<_ResolvedSosTile> {
               children: [
                 Text(
                   record.pilgrimName.isEmpty ? '—' : record.pilgrimName,
+                  textAlign: TextAlign.start,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14.sp,
@@ -224,6 +225,7 @@ class _ResolvedSosTileState extends ConsumerState<_ResolvedSosTile> {
                       'group': record.groupName.isEmpty ? '—' : record.groupName,
                     },
                   ),
+                  textAlign: TextAlign.start,
                   style: TextStyle(
                     fontSize: 12.sp,
                     color: muted,
@@ -235,6 +237,7 @@ class _ResolvedSosTileState extends ConsumerState<_ResolvedSosTile> {
                   'moderator_resolved_sos_card_time'.tr(
                     namedArgs: {'when': whenLabel},
                   ),
+                  textAlign: TextAlign.start,
                   style: TextStyle(
                     fontSize: 11.sp,
                     fontWeight: FontWeight.w600,
@@ -285,8 +288,8 @@ class _ResolvedSosAvatar extends StatelessWidget {
               ),
             ),
           ),
-          Positioned(
-            right: -1,
+          PositionedDirectional(
+            end: -1,
             bottom: -1,
             child: Container(
               width: badgeSize,

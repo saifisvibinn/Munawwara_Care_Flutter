@@ -95,7 +95,7 @@ class SpeechService {
 
   /// Plays a bundled Flutter asset (no cloud URL, no TTS fallback).
   @pragma('vm:entry-point')
-  static Future<void> playAsset({
+  static Future<bool> playAsset({
     required String assetPath,
     bool isUrgent = false,
     String? messageKey,
@@ -108,19 +108,20 @@ class SpeechService {
       );
       if (!shouldSpeak) {
         AppLogger.i('[Speech] Deduped messageKey=$messageKey — skipping');
-        return;
+        return false;
       }
     }
 
     await stop();
     final playEpoch = _playbackEpoch;
     await _configureAudioSession(isUrgent: isUrgent);
-    if (_playbackEpoch != playEpoch) return;
+    if (_playbackEpoch != playEpoch) return false;
 
     final result = await _tryAssetPlay(assetPath, playEpoch);
-    if (result == _CloudPlayResult.success) return;
-    if (result == _CloudPlayResult.cancelled) return;
+    if (result == _CloudPlayResult.success) return true;
+    if (result == _CloudPlayResult.cancelled) return false;
     AppLogger.w('[Speech] Bundled asset failed: $assetPath');
+    return false;
   }
 
   // ── Public: urgent repetition loop (background handler) ──────────────────
@@ -440,6 +441,7 @@ class SpeechService {
           androidWillPauseWhenDucked: false,
         ),
       );
+      await session.setActive(true);
     } catch (e) {
       AppLogger.w('[Speech] AudioSession config failed (non-fatal): $e');
     }

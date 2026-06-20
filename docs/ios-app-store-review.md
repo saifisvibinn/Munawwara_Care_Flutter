@@ -2,7 +2,7 @@
 
 **Purpose:** Issues that may cause App Store rejection or a failed review.  
 **App:** Munawwara Care (Flutter iOS) — bundle ID `com.munawwaracare.ios`, branch `IOS`  
-**Last updated:** June 14, 2026
+**Last updated:** June 2026
 
 Items marked **Done** were implemented on branch `IOS`. Re-verify before submission.
 
@@ -12,7 +12,7 @@ Items marked **Done** were implemented on branch `IOS`. Re-verify before submiss
 
 | # | Issue | Status | Notes |
 |---|--------|--------|-------|
-| 1 | **Push / VoIP entitlements empty** | **Blocked — paid Apple account** | `Runner.entitlements` is empty `<dict>` (free Personal Team). Enroll → Xcode Push + Background Modes → restore `aps-environment`. Test killed-state CallKit. |
+| 1 | **Push / VoIP entitlements** | **Done** | `Runner-Release.entitlements` has `aps-environment: production`. Verify Push capability on paid team before Archive. Test killed-state CallKit + lock-screen hangup (`POST /end`). See [pushkit_doc.md](./pushkit_doc.md). |
 | 2 | **Background modes `voip` + `remote-notification`** | **Done** | Added to `Info.plist` `UIBackgroundModes`. |
 | 3 | **In-app account deletion** | **Done** | `DELETE /api/auth/account` + About → confirm → delete → sign out. Moderators see admin note only. |
 | 4 | **Release `API_BASE_URL`** | **Done** | `.env` removed from assets; use `--dart-define=API_BASE_URL=...`. See `docs/env-and-release-builds.md`. |
@@ -56,8 +56,8 @@ Do these **after** enrollment at [developer.apple.com/programs](https://develope
 | 2 | Xcode → Runner → Signing & Capabilities → paid **Team** |
 | 3 | Restore `aps-environment` in `ios/Runner/Runner.entitlements` |
 | 4 | Apple Developer → Keys → APNs Auth Key (`.p8`) → Firebase Console (`munawwaracare-5353a`) → Cloud Messaging → upload for iOS app |
-| 5 | Rebuild; verify `PUT /api/auth/fcm-token` after login |
-| 6 | Test push: SOS, chat; CallKit: foreground → background → **killed** |
+| 5 | Rebuild; verify `PUT /api/auth/fcm-token` and **`PUT /api/auth/voip-token`** after login |
+| 6 | Test push: SOS, chat; CallKit: foreground → background → **killed** → **lock-screen end** |
 | 7 | **Optional:** backend `voip_token` field for reliable killed-state VoIP |
 | 8 | Xcode → Archive → **TestFlight** internal test |
 | 9 | **App Store Connect:** app record, screenshots, age rating, **App Privacy** labels, support URL |

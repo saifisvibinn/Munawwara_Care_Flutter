@@ -135,17 +135,6 @@ class _ResourcesScreenState extends ConsumerState<ResourcesScreen>
     super.dispose();
   }
 
-  Widget _floatingBackButton() {
-    return PositionedDirectional(
-      start: 14.w,
-      top: MediaQuery.paddingOf(context).top + 10.h,
-      child: CircleButton(
-        icon: Symbols.arrow_back,
-        onTap: () => Navigator.of(context).pop(),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(_resourcesProvider);
@@ -166,80 +155,83 @@ class _ResourcesScreenState extends ConsumerState<ResourcesScreen>
       value: statusBarStyle,
       child: Scaffold(
         backgroundColor: bgColor,
-        body: Stack(
-          clipBehavior: Clip.none,
+        body: Column(
           children: [
-            Column(
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: headerBg,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : const Color(0xFFE2E8F0),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: headerBg,
+                border: Border(
+                  bottom: BorderSide(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : const Color(0xFFE2E8F0),
+                  ),
+                ),
+              ),
+              child: Padding(
+                padding: EdgeInsets.only(top: topInset),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsetsDirectional.fromSTEB(14.w, 6.h, 16.w, 0),
+                      child: Row(
+                        children: [
+                          CircleButton(
+                            icon: Symbols.arrow_back,
+                            onTap: () => Navigator.of(context).pop(),
+                            enableGlass: false,
+                          ),
+                          SizedBox(width: 10.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'resources_title'.tr(),
+                                  style: TextStyle(
+                                    fontSize: 18.sp,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark
+                                        ? Colors.white
+                                        : AppColors.textDark,
+                                  ),
+                                ),
+                                Text(
+                                  'resources_subtitle'.tr(),
+                                  style: TextStyle(
+                                    fontSize: 11.sp,
+                                    color: isDark
+                                        ? AppColors.textMutedLight
+                                        : AppColors.textMutedDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (state.isLoading)
+                            SizedBox(
+                              width: 18.w,
+                              height: 18.w,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primary,
+                              ),
+                            )
+                          else
+                            IconButton(
+                              tooltip: 'Refresh',
+                              icon: Icon(
+                                Symbols.refresh,
+                                color: AppColors.primary,
+                                size: 22.w,
+                              ),
+                              onPressed: () => ref
+                                  .read(_resourcesProvider.notifier)
+                                  .load(),
+                            ),
+                        ],
                       ),
                     ),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.only(top: topInset),
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.fromLTRB(62.w, 6.h, 16.w, 0),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'resources_title'.tr(),
-                                      style: TextStyle(
-                                        fontSize: 18.sp,
-                                        fontWeight: FontWeight.w800,
-                                        color: isDark
-                                            ? Colors.white
-                                            : AppColors.textDark,
-                                      ),
-                                    ),
-                                    Text(
-                                      'resources_subtitle'.tr(),
-                                      style: TextStyle(
-                                        fontSize: 11.sp,
-                                        color: isDark
-                                            ? AppColors.textMutedLight
-                                            : AppColors.textMutedDark,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (state.isLoading)
-                                SizedBox(
-                                  width: 18.w,
-                                  height: 18.w,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.primary,
-                                  ),
-                                )
-                              else
-                                IconButton(
-                                  tooltip: 'Refresh',
-                                  icon: Icon(
-                                    Symbols.refresh,
-                                    color: AppColors.primary,
-                                    size: 22.w,
-                                  ),
-                                  onPressed: () => ref
-                                      .read(_resourcesProvider.notifier)
-                                      .load(),
-                                ),
-                            ],
-                          ),
-                        ),
                         SizedBox(height: 4.h),
                         TabBar(
                           controller: _tabController,
@@ -319,9 +311,6 @@ class _ResourcesScreenState extends ConsumerState<ResourcesScreen>
                             ),
                   ),
                 ),
-              ],
-            ),
-            _floatingBackButton(),
           ],
         ),
       ),
@@ -577,6 +566,17 @@ class _RoomsList extends StatelessWidget {
         ...rooms.asMap().entries.map((e) {
           final i = e.key;
           final room = e.value;
+          final roomNumber = room.roomNumber.trim();
+          final floor = room.floor.trim();
+          final roomLabel = roomNumber.isEmpty
+              ? 'resources_room_unassigned'.tr()
+              : 'resources_room_number'.tr(args: [roomNumber]);
+          final floorLabel = floor.isEmpty
+              ? 'resources_floor_unassigned'.tr()
+              : 'resources_floor'.tr(args: [floor]);
+          final capacityLabel = room.capacity <= 0
+              ? 'resources_capacity_unassigned'.tr()
+              : 'resources_capacity'.tr(args: ['${room.capacity}']);
           return Column(
             children: [
               if (i > 0) Divider(height: 1, color: dividerColor),
@@ -607,27 +607,26 @@ class _RoomsList extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'resources_room_number'.tr(args: [room.roomNumber]),
+                            roomLabel,
                             style: TextStyle(
                               fontSize: 13.sp,
                               fontWeight: FontWeight.w700,
                               color: textPrimary,
                             ),
                           ),
-                          if (room.floor.isNotEmpty)
-                            Text(
-                              'resources_floor'.tr(args: [room.floor]),
-                              style: TextStyle(
-                                fontSize: 11.sp,
-                                color: textMuted,
-                              ),
+                          Text(
+                            floorLabel,
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              color: textMuted,
                             ),
+                          ),
                         ],
                       ),
                     ),
                     _InfoBadge(
                       icon: Symbols.person,
-                      label: 'resources_capacity'.tr(args: ['${room.capacity}']),
+                      label: capacityLabel,
                       isDark: isDark,
                     ),
                   ],

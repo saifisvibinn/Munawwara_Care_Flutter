@@ -503,13 +503,6 @@ class _JoinGroupBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PositionedDirectional(
-      start: 14.w,
-      top: MediaQuery.paddingOf(context).top + 10.h,
-      child: CircleButton(
-        icon: Symbols.arrow_back,
-        onTap: onTap,
-      ),
-    );
+    return FloatingGlassBackButton(onTap: onTap);
   }
 }

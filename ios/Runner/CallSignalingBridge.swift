@@ -52,6 +52,54 @@ enum CallSignalingBridge {
     postDecline(payload: extractPayload(from: call), noAnswer: noAnswer)
   }
 
+  /// Native HTTP end for lock-screen / background CallKit hangup (callee or caller).
+  static func postEnd(for call: Call) {
+    postEnd(payload: extractPayload(from: call))
+  }
+
+  static func postEndFromPersisted() {
+    postEnd(payload: payloadFromPersistedPrefs())
+  }
+
+  private static func postEnd(payload: Payload) {
+    let defaults = UserDefaults.standard
+    let outgoingReceiver =
+      defaults.string(forKey: prefsPrefix + "outgoing_call_receiver_id") ?? ""
+
+    var peerId = payload.callerId
+    if peerId.isEmpty && !outgoingReceiver.isEmpty {
+      peerId = outgoingReceiver
+    }
+
+    guard !peerId.isEmpty, !payload.apiBaseUrl.isEmpty else {
+      NSLog(
+        "[CallSignaling] End skipped — peerId=\(peerId) "
+          + "callRecordId=\(payload.callRecordId) api=\(payload.apiBaseUrl)"
+      )
+      return
+    }
+
+    var body: [String: Any] = ["peerId": peerId]
+    if !payload.currentUserId.isEmpty {
+      body["enderId"] = payload.currentUserId
+    }
+    if !payload.callRecordId.isEmpty {
+      body["callRecordId"] = payload.callRecordId
+    }
+
+    NSLog(
+      "[CallSignaling] Native END -> \(payload.apiBaseUrl) "
+        + "peerId=\(peerId) enderId=\(payload.currentUserId) "
+        + "callRecordId=\(payload.callRecordId)"
+    )
+    postJson(
+      to: "\(payload.apiBaseUrl)/call-history/end",
+      body: body,
+      label: "end",
+      onSuccess: clearPendingCallPrefs,
+    )
+  }
+
   /// Used when PushKit woke the app but CallKit no longer has the call in memory.
   static func postDeclineFromPersisted(noAnswer: Bool) {
     postDecline(payload: payloadFromPersistedPrefs(), noAnswer: noAnswer)

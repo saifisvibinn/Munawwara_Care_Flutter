@@ -2,9 +2,10 @@
 
 > **Purpose:** Master reference for how voice calling works end-to-end across backend, Flutter, Android native, and iOS native — in **foreground**, **background**, and **killed** app states. Written so an AI agent or engineer can reason about the system without reading source first.
 >
-> **Related:** [voice-calls-architecture.md](./voice-calls-architecture.md) — regression guards, historical bugs, and “do not touch” safeguards.
+> **Related:** [voice-calls-architecture.md](./voice-calls-architecture.md) — regression guards, historical bugs, and “do not touch” safeguards.  
+> **PushKit checklist:** [pushkit_doc.md](./pushkit_doc.md)
 >
-> **Last aligned with codebase:** June 2026 (includes iOS `CallSignalingBridge`, killed-state accept/decline fixes, stale accept recovery).
+> **Last aligned with codebase:** June 2026 (lock-screen CallKit hangup fix, `CallSignalingBridge.postEnd`, connected ghost reconcile).
 
 ---
 
@@ -698,6 +699,26 @@ sequenceDiagram
 
 **`PopScope` on `VoiceCallScreen`:** back gesture blocked until `ended` or `idle`.
 
+### Scenario H2: Lock-screen CallKit hangup (iOS) — ghost call fix
+
+**Repro:** App foreground → screen off (locked) → incoming call → answer on CallKit → talk → tap **End** on native CallKit UI while locked.
+
+**Previous bug:** Dart ignored `actionCallEnded` when `connected`; `AppDelegate.onEnd` was a no-op → no `POST /end`, caller still in-call, callee re-opens app still `connected`, audio resumes.
+
+**Fix (current):**
+
+| Layer | Behavior |
+|-------|----------|
+| `AppDelegate.onEnd` | `CallSignalingBridge.postEnd` + `CallKitAudioChannelHandler.notifyCallEnded` |
+| `CallSignalingBridge.postEnd` | `POST /call-history/end` with `{ peerId, enderId, callRecordId }` even when Dart is suspended |
+| `native_call_coordinator` | `actionCallEnded` only ignored during **accept grace** (~3s, `connecting` only) — **not** when `connected` |
+| `handleNativeCallEnded` | Dart idempotent `endCall()` when bridge fires |
+| `_reconcileGhostInCallState` | Includes `connected`; `check-active` on resume self-heals |
+
+**Log grep:** `[CallSignaling] Native END ->`, must **not** see `Ignoring CallKit ended during accept/active call` on user hangup (only `Ignoring spurious CallKit end` within accept grace).
+
+**Related:** [pushkit_doc.md](./pushkit_doc.md)
+
 ---
 
 ## 7. Platform-native layers
@@ -774,7 +795,7 @@ flowchart TB
 | `onDecline` | `postDecline` immediate | `notifyCallDeclined` **deferred 450ms** |
 | `onTimeOut` | `postDecline(noAnswer: true)` | `notifyCallDeclined` immediate |
 | `onDeclineIncomingWithoutManagedCall` | `postDecline(extra:)` | — |
-| `onEnd` | — | no-op (teardown via `actionCallEnded`) |
+| `onEnd` | `postEnd` immediate | `notifyCallEnded` immediate |
 | `didActivateAudioSession` | — | `notifyAudioSessionActivated` |
 
 **VoIP wake path:**
@@ -813,10 +834,11 @@ flowchart TB
 | Accept + decline race | 450ms `_scheduleDecline`; native iOS decline HTTP immediate | `call_provider.dart`, `AppDelegate.swift` |
 | Duplicate accept | `_acceptInProgress` | `call_provider.dart` |
 | Duplicate navigation | `_navigatingToCall`, `bypassNavigatingGuard` | `native_call_coordinator.dart`, `call_navigation.dart` |
-| `actionCallEnded` after accept | Ignore teardown when connecting; **preserve** `pending_call_accept.json` | `native_call_coordinator.dart` |
-| Stale FCM during new outgoing | `shouldIgnoreStaleCallControlFcm`, 5s grace | `call_provider.dart` |
-| Stale CallKit end during outgoing | `shouldIgnoreStaleCallKitTeardown`, 5s grace | `call_provider.dart` |
-| Ghost in-call after crash | `_reconcileGhostInCallState`, `check-active` | `call_provider.dart` |
+| `actionCallEnded` after accept | Ignore only during accept grace (~3s, `connecting`); **end** when `connected` | `native_call_coordinator.dart` |
+| Lock-screen CallKit hangup | Native `postEnd` + Dart `endCall` | `CallSignalingBridge.swift`, `AppDelegate.swift` |
+| Stale `call_ended` FCM | `callRecordId` in payload; ignore when record mismatch | `call_decline_service.js`, `call_provider.dart` |
+| Socket `call-end` delivery | Always `io.to(user_{peer})` room broadcast | `call_end_service.js` |
+| Ghost in-call after crash | `_reconcileGhostInCallState` includes `connected` | `call_provider.dart` |
 | Stale server DB rows | 5 min sweep in `check-active`; 45s ring timeout | `call_history_controller.js` |
 | Wrong ring poll match | Pass `callRecordId` to `_startRingPoll` | `call_signaling.dart`, `call_provider.dart` |
 | iOS false decline from poll | Require 3 empty `activeCalls` polls after saw ring | `_startIosCallKitRingPoll` |
@@ -915,6 +937,8 @@ Use this for QA or agent verification. Check GCP/backend logs for HTTP evidence.
 | 3 | Killed | Same | `POST /answer` **before** Flutter boot; then `agora-token` for pilgrim | No ghost call after end |
 | 4 | Killed | Pilgrim declines | `POST /decline`; caller stops ringing | No stuck connecting |
 | 5 | Foreground | Mod cancels while ringing | `POST /cancel` or socket; FCM `call_cancel` | Pilgrim idle |
+| 5b | Foreground, screen off | Answer on CallKit → End on lock screen | `POST /end`, `Call record → completed` | Caller idle; callee not in-call on unlock |
+| 5c | After 5b | Immediate second call | New `POST /offer` | Connects; no instant teardown |
 
 ### Outgoing: Pilgrim SOS callback → Moderator
 
@@ -938,6 +962,7 @@ Use this for QA or agent verification. Check GCP/backend logs for HTTP evidence.
 POST /call-history/offer
 POST /call-history/answer
 POST /call-history/decline
+POST /call-history/end
 GET /agora-token
 call-answer emitted
 VoIP push delivered

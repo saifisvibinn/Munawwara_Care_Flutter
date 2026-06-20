@@ -209,10 +209,10 @@ Future<void> bindMobileMessagingServices() async {
         await PilgrimSosCoordinator.handleModeratorResolvedPush();
         return;
       }
-      if (notifType == 'sos_alert') {
+      if (SosAlertCoordinator.isSosAlertPayload(msg.data)) {
         final sosData = Map<String, dynamic>.from(msg.data);
         AppLogger.i(
-          'FCM onMessage: SOS — in-app only (no tray; dismiss if posted)',
+          'FCM onMessage: SOS — in-app dialog (no local tray in foreground)',
         );
         if (WidgetsBinding.instance.lifecycleState ==
             AppLifecycleState.resumed) {
@@ -224,8 +224,10 @@ Future<void> bindMobileMessagingServices() async {
               sosId: payload.sosId,
             ),
           );
+          await SosAlertCoordinator.presentForegroundFromPush(sosData);
+        } else {
+          await SosAlertCoordinator.queueSosAlertIfStillActive(sosData);
         }
-        await SosAlertCoordinator.queueSosAlertIfStillActive(sosData);
         return;
       }
       if (notifType == 'missed_call') {

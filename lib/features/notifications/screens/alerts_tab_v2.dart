@@ -125,15 +125,18 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
     final hasBack = widget.onBack != null;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        hasBack ? 62.w : 20.w,
-        6.h,
-        16.w,
-        0,
-      ),
+      padding: EdgeInsetsDirectional.fromSTEB(14.w, 6.h, 16.w, 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          if (hasBack) ...[
+            CircleButton(
+              icon: Symbols.arrow_back,
+              onTap: widget.onBack!,
+              enableGlass: false,
+            ),
+            SizedBox(width: 10.w),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,18 +238,6 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
     );
   }
 
-  Widget _floatingBackButton() {
-    if (widget.onBack == null) return const SizedBox.shrink();
-    return PositionedDirectional(
-      start: 14.w,
-      top: MediaQuery.paddingOf(context).top + 10.h,
-      child: CircleButton(
-        icon: Symbols.arrow_back,
-        onTap: widget.onBack!,
-      ),
-    );
-  }
-
   Widget _moderatorActiveSosTab({
     required List<ModeratorGroup> groups,
   }) {
@@ -328,39 +319,33 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
           statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
           statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
         ),
-        child: Stack(
-          clipBehavior: Clip.none,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _alertsChrome(
-                  isDark: isDark,
-                  isModerator: true,
-                  tabController: tc,
-                ),
-                Expanded(
-                  child: AppScrollFadeOverlay(
-                    showTop: false,
-                    backgroundColor: contentBg,
-                    child: TabBarView(
-                      controller: tc,
-                      children: [
-                        _moderatorActiveSosTab(groups: groups),
-                        _moderatorResolvedSosTab(isDark: isDark),
-                        _callHistoryTab(missedOnly: false, isModerator: true),
-                        RefreshIndicator(
-                          color: AppColors.primary,
-                          onRefresh: _refresh,
-                          child: const ModeratorUpdatesTab(),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+            _alertsChrome(
+              isDark: isDark,
+              isModerator: true,
+              tabController: tc,
             ),
-            _floatingBackButton(),
+            Expanded(
+              child: AppScrollFadeOverlay(
+                showTop: false,
+                backgroundColor: contentBg,
+                child: TabBarView(
+                  controller: tc,
+                  children: [
+                    _moderatorActiveSosTab(groups: groups),
+                    _moderatorResolvedSosTab(isDark: isDark),
+                    _callHistoryTab(missedOnly: false, isModerator: true),
+                    RefreshIndicator(
+                      color: AppColors.primary,
+                      onRefresh: _refresh,
+                      child: const ModeratorUpdatesTab(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       );
@@ -372,26 +357,20 @@ class _AlertsTabState extends ConsumerState<AlertsTab>
         statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
         statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _alertsChrome(isDark: isDark, isModerator: false),
-              Expanded(
-                child: AppScrollFadeOverlay(
-                  showTop: false,
-                  backgroundColor: contentBg,
-                  child: _callHistoryTab(
-                    missedOnly: widget.pilgrimMissedCallsOnly,
-                    isModerator: false,
-                  ),
-                ),
+          _alertsChrome(isDark: isDark, isModerator: false),
+          Expanded(
+            child: AppScrollFadeOverlay(
+              showTop: false,
+              backgroundColor: contentBg,
+              child: _callHistoryTab(
+                missedOnly: widget.pilgrimMissedCallsOnly,
+                isModerator: false,
               ),
-            ],
+            ),
           ),
-          _floatingBackButton(),
         ],
       ),
     );

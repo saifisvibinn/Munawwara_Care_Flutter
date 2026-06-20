@@ -981,6 +981,8 @@ class AuthNotifier extends Notifier<AuthState> {
     await prefs.remove('last_registered_fcm_token');
     await prefs.remove('last_registered_voip_token');
 
+    await NotificationService.syncAppIconBadge(0);
+
     state = const AuthState();
   }
 

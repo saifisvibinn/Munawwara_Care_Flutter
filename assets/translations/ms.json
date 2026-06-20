@@ -1715,7 +1715,10 @@
   "resources_hospitals": "hospital",
   "resources_rooms_list": "Bilik",
   "resources_hospitals_list": "Hospital",
-  "resources_room_number": "Bilik {0}",
-  "resources_floor": "Tingkat {0}",
-  "resources_capacity": "Tudung. {0}"
+  "resources_room_number": "Bilik {}",
+  "resources_floor": "Tingkat {}",
+  "resources_capacity": "Kap. {}",
+  "resources_room_unassigned": "Bilik: Belum ditentukan",
+  "resources_floor_unassigned": "Tingkat: Belum ditentukan",
+  "resources_capacity_unassigned": "Kap.: Belum ditentukan"
 }

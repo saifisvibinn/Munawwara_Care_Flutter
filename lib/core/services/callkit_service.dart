@@ -14,6 +14,8 @@ import '../config/backend_config.dart';
 import 'api_service.dart';
 import 'secure_session_store.dart';
 import '../utils/app_logger.dart';
+import '../../features/calling/calling_scope.dart';
+import '../../features/calling/providers/call_provider.dart';
 
 /// Shown on CallKit / prefs when a pilgrim receives a moderator call (native asset path).
 const String kCallKitSupportAvatarAsset = 'assets/static/app_icon.png';
@@ -914,6 +916,16 @@ class CallKitService {
           '📞 Ignoring call_ended — incoming ring shown within grace window',
         );
         return true;
+      }
+      final container = CallingScope.riverpod;
+      if (container != null) {
+        final notifier = container.read(callProvider.notifier);
+        if (notifier.shouldIgnoreStaleCallEndedFcm(data)) {
+          AppLogger.w(
+            '📞 Ignoring stale call_ended FCM — callRecordId mismatch',
+          );
+          return true;
+        }
       }
       AppLogger.i('📞 FCM call_ended detected — stopping active call');
       await persistPendingOutgoingStop('ended');

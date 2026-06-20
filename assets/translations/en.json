@@ -1752,7 +1752,10 @@
   "resources_hospitals": "hospitals",
   "resources_rooms_list": "Rooms",
   "resources_hospitals_list": "Hospitals",
-  "resources_room_number": "Room {0}",
-  "resources_floor": "Floor {0}",
-  "resources_capacity": "Cap. {0}"
+  "resources_room_number": "Room {}",
+  "resources_floor": "Floor {}",
+  "resources_capacity": "Cap. {}",
+  "resources_room_unassigned": "Room: Not assigned",
+  "resources_floor_unassigned": "Floor: Not assigned",
+  "resources_capacity_unassigned": "Cap. Not assigned"
 }

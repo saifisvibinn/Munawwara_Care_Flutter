@@ -200,6 +200,26 @@ class SosAlertCoordinator {
     return false;
   }
 
+  static bool isSosAlertPayload(Map<String, dynamic> data) {
+    final notifType = data['notification_type']?.toString() ?? '';
+    final type = data['type']?.toString() ?? '';
+    return notifType == 'sos_alert' || type == 'sos_alert';
+  }
+
+  /// Foreground FCM/SOS: mirror socket path (mark active + show dialog).
+  static Future<void> presentForegroundFromPush(
+    Map<String, dynamic> data,
+  ) async {
+    final payload = SosModeratorPayload.fromMap(data);
+    final pid = payload.pilgrimId?.trim() ?? '';
+    final c = CallingScope.riverpod;
+    if (pid.isNotEmpty && c != null) {
+      c.read(moderatorProvider.notifier).markPilgrimSOS(pid, active: true);
+      unawaited(c.read(notificationProvider.notifier).refetch());
+    }
+    await showOnceFromMap(data);
+  }
+
   /// Queues SOS dialog only if the pilgrim still has an active request.
   static Future<void> queueSosAlertIfStillActive(
     Map<String, dynamic> data,
@@ -375,7 +395,11 @@ class SosAlertCoordinator {
           sosId: payload.sosId,
         ),
       );
-      unawaited(SosAlertAudio.playAlertSequence(storageKey: storageKey));
+      unawaited(SosAlertAudio.consumePendingLanguagePlay());
+      unawaited(() async {
+        await SosAlertAudio.playAlertSequence(storageKey: storageKey);
+        await SosAlertAudio.playLanguageIfNeeded(storageKey: storageKey);
+      }());
     }
 
     final groupLabel = payload.groupName.isEmpty ? '—' : payload.groupName;

@@ -1719,7 +1719,10 @@
   "resources_hospitals": "بیمارستان ها",
   "resources_rooms_list": "اتاق ها",
   "resources_hospitals_list": "بیمارستان ها",
-  "resources_room_number": "اتاق {0}",
-  "resources_floor": "طبقه {0}",
-  "resources_capacity": "سرپوش {0}"
+  "resources_room_number": "اتاق {}",
+  "resources_floor": "طبقه {}",
+  "resources_capacity": "ظرفیت {}",
+  "resources_room_unassigned": "اتاق: اختصاص داده نشده",
+  "resources_floor_unassigned": "طبقه: اختصاص داده نشده",
+  "resources_capacity_unassigned": "ظرفیت: اختصاص داده نشده"
 }

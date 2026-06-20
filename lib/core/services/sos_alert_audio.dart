@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,12 +16,11 @@ class SosAlertAudio {
   static const _urgentAsset = 'assets/static/urgent_tts.wav';
   static const _assetDir = 'assets/audio/sos';
   static const _dedupeWindow = Duration(seconds: 30);
-  static const _bundledClaimPrefsKey = 'sos_bundled_claim_v2';
-  static const _mainHandledPrefsKey = 'sos_main_handled_v1';
+  static const _chimeClaimPrefsKey = 'sos_chime_claim_v1';
+  static const _languagePlayedKey = 'sos_language_played_v1';
+  static const _pendingLanguageKey = 'sos_pending_language_v1';
 
-  static final Map<String, DateTime> _syncGateAt = {};
   static final Set<String> _keysInFlight = {};
-  static final Map<String, int> _mainHandledAtMs = {};
 
   /// True when the app UI is in the foreground.
   static bool get isAppInForeground =>
@@ -29,51 +29,42 @@ class SosAlertAudio {
   /// Stops playback and clears gates (language change, SOS cancel).
   static Future<void> stopAndReset() async {
     _keysInFlight.clear();
-    _syncGateAt.clear();
-    _mainHandledAtMs.clear();
     await SpeechService.markDismissed();
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_bundledClaimPrefsKey);
-      await prefs.remove(_mainHandledPrefsKey);
+      await prefs.remove(_chimeClaimPrefsKey);
+      await prefs.remove(_languagePlayedKey);
+      await prefs.remove(_pendingLanguageKey);
+      await prefs.remove('sos_language_claim_v1');
+      await prefs.remove('sos_bundled_claim_v2');
+      await prefs.remove('sos_main_handled_v1');
+      await prefs.remove('sos_main_language_played_v1');
     } catch (_) {}
   }
 
   static void resetPlayState() {
     _keysInFlight.clear();
-    _syncGateAt.clear();
-    _mainHandledAtMs.clear();
   }
 
-  /// Main isolate handled SOS — background must not play language clip.
-  static void markMainIsolateHandled(String storageKey) {
+  static Future<void> markLanguagePlayed(String storageKey) async {
     if (storageKey.isEmpty) return;
-    _mainHandledAtMs[storageKey] = DateTime.now().millisecondsSinceEpoch;
-    unawaited(_persistMainHandled(storageKey));
-  }
-
-  static Future<void> _persistMainHandled(String storageKey) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-        _mainHandledPrefsKey,
+        _languagePlayedKey,
         '$storageKey|${DateTime.now().millisecondsSinceEpoch}',
       );
+      await prefs.remove(_pendingLanguageKey);
     } catch (_) {}
   }
 
-  static Future<bool> wasHandledByMainIsolate(String storageKey) async {
+  static Future<bool> wasLanguagePlayed(String storageKey) async {
     if (storageKey.isEmpty) return false;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final local = _mainHandledAtMs[storageKey];
-    if (local != null && nowMs - local <= _dedupeWindow.inMilliseconds) {
-      return true;
-    }
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs
-          .reload(); // FIX: Ensure background isolate sees main isolate's claim
-      final raw = prefs.getString(_mainHandledPrefsKey) ?? '';
+      await prefs.reload();
+      final raw = prefs.getString(_languagePlayedKey) ?? '';
       if (raw.isEmpty) return false;
       final parts = raw.split('|');
       if (parts.length < 2) return false;
@@ -84,35 +75,75 @@ class SosAlertAudio {
     }
   }
 
-  /// Sync gate — must run before any await (prevents socket+FCM double play).
-  static bool _tryAcquireSyncGate(String storageKey) {
+  /// Queue language MP3 for main isolate (iOS background isolate often cannot finish).
+  static Future<void> queuePendingLanguagePlay(String storageKey) async {
+    if (storageKey.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _pendingLanguageKey,
+        '$storageKey|${DateTime.now().millisecondsSinceEpoch}',
+      );
+      AppLogger.i('[SosAlertAudio] Queued pending language $storageKey');
+    } catch (e) {
+      AppLogger.w('[SosAlertAudio] Pending language queue failed: $e');
+    }
+  }
+
+  /// Play queued language clip after resume / foreground (iOS background fallback).
+  static Future<void> consumePendingLanguagePlay() async {
+    if (!isAppInForeground) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      final raw = prefs.getString(_pendingLanguageKey) ?? '';
+      if (raw.isEmpty) return;
+
+      final parts = raw.split('|');
+      if (parts.length < 2) {
+        await prefs.remove(_pendingLanguageKey);
+        return;
+      }
+
+      final storageKey = parts[0];
+      final queuedMs = int.tryParse(parts[1]) ?? 0;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      if (nowMs - queuedMs > _dedupeWindow.inMilliseconds) {
+        await prefs.remove(_pendingLanguageKey);
+        return;
+      }
+      if (await wasLanguagePlayed(storageKey)) {
+        await prefs.remove(_pendingLanguageKey);
+        return;
+      }
+
+      AppLogger.i('[SosAlertAudio] Consuming pending language $storageKey');
+      await playLanguageIfNeeded(storageKey: storageKey);
+    } catch (e) {
+      AppLogger.w('[SosAlertAudio] consumePendingLanguagePlay failed: $e');
+    }
+  }
+
+  static bool _tryAcquireInFlight(String storageKey) {
     if (storageKey.isEmpty) return false;
     if (_keysInFlight.contains(storageKey)) {
-      AppLogger.i('[SosAlertAudio] Sync gate: in flight $storageKey');
-      return false;
-    }
-    final now = DateTime.now();
-    final last = _syncGateAt[storageKey];
-    if (last != null && now.difference(last) < _dedupeWindow) {
-      AppLogger.i('[SosAlertAudio] Sync gate: deduped $storageKey');
+      AppLogger.i('[SosAlertAudio] In flight $storageKey');
       return false;
     }
     _keysInFlight.add(storageKey);
-    _syncGateAt[storageKey] = now;
     return true;
   }
 
-  static void _releaseSyncGate(String storageKey) {
+  static void _releaseInFlight(String storageKey) {
     _keysInFlight.remove(storageKey);
   }
 
-  static Future<bool> _tryClaimBundledPlayback(String storageKey) async {
+  static Future<bool> _tryClaimChimePlayback(String storageKey) async {
     if (storageKey.isEmpty) return false;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs
-          .reload(); // FIX: Ensure background isolate sees foreground clears
-      final raw = prefs.getString(_bundledClaimPrefsKey) ?? '';
+      await prefs.reload();
+      final raw = prefs.getString(_chimeClaimPrefsKey) ?? '';
       final nowMs = DateTime.now().millisecondsSinceEpoch;
       if (raw.isNotEmpty) {
         final parts = raw.split('|');
@@ -120,19 +151,29 @@ class SosAlertAudio {
           final id = parts[0];
           final ms = int.tryParse(parts[1]) ?? 0;
           if (id == storageKey && nowMs - ms <= _dedupeWindow.inMilliseconds) {
-            AppLogger.i(
-              '[SosAlertAudio] Prefs deduped (cross-isolate) $storageKey',
-            );
+            AppLogger.i('[SosAlertAudio] Chime claim deduped $storageKey');
             return false;
           }
         }
       }
-      await prefs.setString(_bundledClaimPrefsKey, '$storageKey|$nowMs');
+      await prefs.setString(_chimeClaimPrefsKey, '$storageKey|$nowMs');
       return true;
     } catch (e) {
-      AppLogger.w('[SosAlertAudio] Bundled claim failed: $e');
+      AppLogger.w('[SosAlertAudio] Chime claim failed: $e');
       return false;
     }
+  }
+
+  static bool _shouldPlayInAppChime({required bool fromBackgroundIsolate}) {
+    if (Platform.isAndroid) return true;
+    return !fromBackgroundIsolate;
+  }
+
+  static Future<String> _resolveLanguage({required bool fromBackgroundIsolate}) {
+    if (fromBackgroundIsolate) {
+      return _resolveBackgroundLanguage();
+    }
+    return LocalePrefs.readLanguageCode().then(TtsCloudApi.normalizeLang);
   }
 
   static Future<String> _resolveBackgroundLanguage() async {
@@ -141,58 +182,110 @@ class SosAlertAudio {
 
   static const _gapBeforeLanguage = Duration(milliseconds: 500);
 
-  /// One urgent chime, then one bundled language clip (deduped per SOS).
+  static bool _shouldAbortSequence(String storageKey) =>
+      !_keysInFlight.contains(storageKey);
+
+  static Future<bool> _playLanguageClip({
+    required String storageKey,
+    required bool fromBackgroundIsolate,
+  }) async {
+    if (await wasLanguagePlayed(storageKey)) {
+      AppLogger.i('[SosAlertAudio] Language already played $storageKey');
+      return false;
+    }
+    if (_shouldAbortSequence(storageKey)) return false;
+    if (await SpeechService.isDismissed()) return false;
+
+    final lang = await _resolveLanguage(fromBackgroundIsolate: fromBackgroundIsolate);
+    final path = assetPathForLang(lang);
+    AppLogger.i('[SosAlertAudio] Language clip (lang=$lang, path=$path)');
+    final ok = await SpeechService.playAsset(assetPath: path, isUrgent: true);
+    if (ok) {
+      await markLanguagePlayed(storageKey);
+    } else {
+      AppLogger.w('[SosAlertAudio] Language clip failed $path');
+      if (fromBackgroundIsolate || Platform.isIOS) {
+        await queuePendingLanguagePlay(storageKey);
+      }
+    }
+    return ok;
+  }
+
+  /// One urgent chime (platform-dependent), then one bundled language clip.
   static Future<void> playAlertSequence({
     required String storageKey,
     bool fromBackgroundIsolate = false,
   }) async {
     if (storageKey.isEmpty) return;
 
-    if (fromBackgroundIsolate) {
-      if (await wasHandledByMainIsolate(storageKey)) {
-        AppLogger.i(
-          '[SosAlertAudio] Skip sequence (main isolate handled) $storageKey',
-        );
-        return;
-      }
-    } else {
-      if (!isAppInForeground) return;
-      markMainIsolateHandled(storageKey);
+    if (await wasLanguagePlayed(storageKey)) {
+      AppLogger.i(
+        '[SosAlertAudio] Skip sequence (language already played) $storageKey',
+      );
+      return;
     }
 
-    if (!_tryAcquireSyncGate(storageKey)) return;
+    if (!fromBackgroundIsolate && !isAppInForeground) return;
+
+    if (fromBackgroundIsolate) {
+      await queuePendingLanguagePlay(storageKey);
+    }
+
+    if (!_tryAcquireInFlight(storageKey)) return;
 
     try {
-      if (!await _tryClaimBundledPlayback(storageKey)) return;
-
       await SpeechService.clearDismissed();
       await SpeechService.stop();
 
-      AppLogger.i('[SosAlertAudio] Urgent chime: $_urgentAsset');
-      await SpeechService.playAsset(assetPath: _urgentAsset, isUrgent: true);
+      final playChime = _shouldPlayInAppChime(
+        fromBackgroundIsolate: fromBackgroundIsolate,
+      );
+      if (playChime) {
+        if (await _tryClaimChimePlayback(storageKey)) {
+          AppLogger.i('[SosAlertAudio] Urgent chime: $_urgentAsset');
+          await SpeechService.playAsset(assetPath: _urgentAsset, isUrgent: true);
+        } else {
+          AppLogger.i('[SosAlertAudio] Chime skipped (deduped) $storageKey');
+        }
 
-      if (fromBackgroundIsolate && await wasHandledByMainIsolate(storageKey)) {
-        return;
+        if (_shouldAbortSequence(storageKey)) return;
+        if (await SpeechService.isDismissed()) return;
+        if (await wasLanguagePlayed(storageKey)) return;
+
+        await Future.delayed(_gapBeforeLanguage);
+      } else {
+        AppLogger.i(
+          '[SosAlertAudio] Chime skipped (iOS background — APNS chime)',
+        );
       }
-      if (!_keysInFlight.contains(storageKey)) return;
-      if (await SpeechService.isDismissed()) return;
 
-      await Future.delayed(_gapBeforeLanguage);
-
-      if (fromBackgroundIsolate && await wasHandledByMainIsolate(storageKey)) {
-        return;
+      final played = await _playLanguageClip(
+        storageKey: storageKey,
+        fromBackgroundIsolate: fromBackgroundIsolate,
+      );
+      if (!played && fromBackgroundIsolate) {
+        await queuePendingLanguagePlay(storageKey);
       }
-      if (!_keysInFlight.contains(storageKey)) return;
-      if (await SpeechService.isDismissed()) return;
-
-      final lang = fromBackgroundIsolate
-          ? await _resolveBackgroundLanguage()
-          : TtsCloudApi.normalizeLang(await LocalePrefs.readLanguageCode());
-      final path = assetPathForLang(lang);
-      AppLogger.i('[SosAlertAudio] Language clip (lang=$lang, path=$path)');
-      await SpeechService.playAsset(assetPath: path, isUrgent: true);
     } finally {
-      _releaseSyncGate(storageKey);
+      _releaseInFlight(storageKey);
+    }
+  }
+
+  /// Foreground-only language retry when chime/background path did not finish.
+  static Future<void> playLanguageIfNeeded({
+    required String storageKey,
+  }) async {
+    if (storageKey.isEmpty || !isAppInForeground) return;
+    if (await wasLanguagePlayed(storageKey)) return;
+    if (!_tryAcquireInFlight(storageKey)) return;
+    try {
+      await SpeechService.clearDismissed();
+      await _playLanguageClip(
+        storageKey: storageKey,
+        fromBackgroundIsolate: false,
+      );
+    } finally {
+      _releaseInFlight(storageKey);
     }
   }
 

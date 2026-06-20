@@ -40,8 +40,24 @@ class SecureSessionStore {
 
   static Future<String?> getRole() => _storage.read(key: _keyUserRole);
 
-  static Future<void> setRole(String role) =>
-      _storage.write(key: _keyUserRole, value: role);
+  static Future<void> setRole(String role) async {
+    await _storage.write(key: _keyUserRole, value: role);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyUserRole, role);
+    } catch (_) {}
+  }
+
+  /// Background FCM isolate may not read Keychain when the device is locked.
+  static Future<String?> getRoleForBackground() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      final mirrored = prefs.getString(_keyUserRole)?.trim();
+      if (mirrored != null && mirrored.isNotEmpty) return mirrored;
+    } catch (_) {}
+    return getRole();
+  }
 
   static Future<String?> getFullName() => _storage.read(key: _keyUserFullName);
 
@@ -143,11 +159,17 @@ class SecureSessionStore {
   /// Mirrors [user_id] to [SharedPreferences] for Android native CallKit paths.
   static Future<void> syncNativeMirrorPrefs() async {
     final userId = await getUserId();
+    final role = await getRole();
     final prefs = await SharedPreferences.getInstance();
     if (userId != null && userId.isNotEmpty) {
       await prefs.setString(_keyUserId, userId);
     } else {
       await prefs.remove(_keyUserId);
+    }
+    if (role != null && role.isNotEmpty) {
+      await prefs.setString(_keyUserRole, role);
+    } else {
+      await prefs.remove(_keyUserRole);
     }
   }
 }

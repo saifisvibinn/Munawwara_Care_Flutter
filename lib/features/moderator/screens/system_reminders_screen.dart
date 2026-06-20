@@ -316,6 +316,7 @@ class _SystemRemindersScreenState extends ConsumerState<SystemRemindersScreen>
                       textPrimary: textPrimary,
                       safeAreaTop: safeAreaTop,
                       backgroundColor: fadeBg,
+                      locale: context.locale,
                     ),
                   ),
                   SliverPadding(
@@ -1180,12 +1181,14 @@ class _RemindersPageHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.textPrimary,
     required this.safeAreaTop,
     required this.backgroundColor,
+    required this.locale,
   });
 
   final bool isDark;
   final Color textPrimary;
   final double safeAreaTop;
   final Color backgroundColor;
+  final Locale locale;
 
   static const double _topPadding = 12;
   static const double _expandedRowHeight = 36;
@@ -1304,7 +1307,8 @@ class _RemindersPageHeaderDelegate extends SliverPersistentHeaderDelegate {
     return oldDelegate.isDark != isDark ||
         oldDelegate.textPrimary != textPrimary ||
         oldDelegate.safeAreaTop != safeAreaTop ||
-        oldDelegate.backgroundColor != backgroundColor;
+        oldDelegate.backgroundColor != backgroundColor ||
+        oldDelegate.locale != locale;
   }
 }
 

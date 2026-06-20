@@ -62,6 +62,22 @@ final class CallKitAudioChannelHandler: NSObject, FlutterPlugin {
     }
   }
 
+  /// Fires when the user taps End on the native CallKit UI (lock screen / banner).
+  static func notifyCallEnded(call: Call) {
+    var args: [String: Any] = [:]
+    if let extra = call.data.extra as? [String: Any] {
+      if let callerId = extra["callerId"] as? String, !callerId.isEmpty {
+        args["callerId"] = callerId
+      }
+      if let recordId = extra["callRecordId"] as? String, !recordId.isEmpty {
+        args["callRecordId"] = recordId
+      }
+    }
+    DispatchQueue.main.async {
+      channel?.invokeMethod("callEnded", arguments: args)
+    }
+  }
+
   func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     result(FlutterMethodNotImplemented)
   }

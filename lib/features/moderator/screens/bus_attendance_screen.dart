@@ -16,6 +16,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:gal/gal.dart';
 
+import '../../../core/utils/share_utils.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass/app_glass.dart';
@@ -375,8 +376,12 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
     );
   }
 
-  Future<void> _shareQrCode(BusAttendanceState st) async {
+  Future<void> _shareQrCode(
+    BusAttendanceState st,
+    BuildContext shareContext,
+  ) async {
     if (st.session == null || st.attendanceCode == null) return;
+    final shareOrigin = sharePositionOriginFor(shareContext);
     try {
       final screenshotController = ScreenshotController();
       final qrData = 'mcare://bus-attendance?session_id=${st.session!.id}';
@@ -405,6 +410,7 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
       await Share.shareXFiles(
         [XFile(file.path)],
         text: 'Munawwara Care Boarding: ${st.session?.busIdentifier ?? 'Trip'}',
+        sharePositionOrigin: shareOrigin,
       );
     } catch (e) {
       if (mounted) {
@@ -1153,26 +1159,28 @@ class _BusAttendanceScreenState extends ConsumerState<BusAttendanceScreen>
                   ),
                 ),
                 SizedBox(width: 12.w),
-                ElevatedButton.icon(
-                  onPressed: () => _shareQrCode(st),
-                  icon: Icon(Symbols.share, size: 18.w, color: Colors.white),
-                  label: Text(
-                    'attendance_share_qr_btn'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'Lexend',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12.sp,
-                      color: Colors.white,
+                Builder(
+                  builder: (shareBtnContext) => ElevatedButton.icon(
+                    onPressed: () => _shareQrCode(st, shareBtnContext),
+                    icon: Icon(Symbols.share, size: 18.w, color: Colors.white),
+                    label: Text(
+                      'attendance_share_qr_btn'.tr(),
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12.sp,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10.r),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10.r),
+                      ),
+                      elevation: 0,
                     ),
-                    elevation: 0,
                   ),
                 ),
               ],

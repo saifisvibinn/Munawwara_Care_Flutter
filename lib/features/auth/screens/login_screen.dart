@@ -142,94 +142,99 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isLoading = ref.watch(authProvider).isLoading;
 
-    return Scaffold(
-      backgroundColor: isDark
-          ? AppColors.backgroundDark
-          : AppColors.backgroundLight,
-      body: Stack(
-        children: [
-          // Background blurs — must not intercept touches.
-          IgnorePointer(
-            child: Stack(
-              children: [
-                Positioned(
-                  top: -96.h,
-                  right: -96.w,
-                  width: 384.w,
-                  height: 384.w,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.primary.withValues(
-                        alpha: isDark ? 0.05 : 0.1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(
-                            alpha: isDark ? 0.05 : 0.1,
-                          ),
-                          blurRadius: 100,
-                          spreadRadius: 20,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: MediaQuery.of(context).size.height / 2,
-                  left: -96.w,
-                  width: 288.w,
-                  height: 288.w,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.accentGold.withValues(
-                        alpha: isDark ? 0.05 : 0.1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.accentGold.withValues(
-                            alpha: isDark ? 0.05 : 0.1,
-                          ),
-                          blurRadius: 100,
-                          spreadRadius: 20,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+    final bg = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
 
-          SafeArea(
-            child: Column(
-              children: [
-                // Header (Language dropdown)
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 24.w,
-                    vertical: 8.h,
+    return Scaffold(
+      backgroundColor: bg,
+      body: ColoredBox(
+        color: bg,
+        child: Stack(
+          children: [
+            // Background blurs — must not intercept touches.
+            IgnorePointer(
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: -96.h,
+                    right: -96.w,
+                    width: 384.w,
+                    height: 384.w,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.primary.withValues(
+                          alpha: isDark ? 0.05 : 0.1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(
+                              alpha: isDark ? 0.05 : 0.1,
+                            ),
+                            blurRadius: 100,
+                            spreadRadius: 20,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [_buildLanguageDropdown(isDark)],
+                  Positioned(
+                    top: MediaQuery.of(context).size.height / 2,
+                    left: -96.w,
+                    width: 288.w,
+                    height: 288.w,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.accentGold.withValues(
+                          alpha: isDark ? 0.05 : 0.1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.accentGold.withValues(
+                              alpha: isDark ? 0.05 : 0.1,
+                            ),
+                            blurRadius: 100,
+                            spreadRadius: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 24.w,
+                      vertical: 8.h,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [_buildLanguageDropdown(isDark)],
+                    ),
                   ),
                 ),
 
                 Expanded(
                   child: AppScrollFadeOverlay(
                     showTop: false,
-                    backgroundColor: isDark
-                        ? AppColors.backgroundDark
-                        : AppColors.backgroundLight,
+                    showBottom: false,
+                    backgroundColor: bg,
                     child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 24.w,
-                      vertical: 16.h,
-                    ),
-                    physics: const BouncingScrollPhysics(),
-                    child: Column(
+                      padding: EdgeInsets.fromLTRB(
+                        24.w,
+                        16.h,
+                        24.w,
+                        MediaQuery.viewPaddingOf(context).bottom + 24.h,
+                      ),
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         SizedBox(height: 24.h),
@@ -368,8 +373,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
