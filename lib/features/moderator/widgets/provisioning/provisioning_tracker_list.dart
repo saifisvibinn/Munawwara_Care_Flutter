@@ -203,10 +203,10 @@ class ProvisioningTrackerList extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: 18.h),
+        SizedBox(height: 12.h),
         if (isLoading)
           Padding(
-            padding: EdgeInsets.symmetric(vertical: 36.h),
+            padding: EdgeInsets.symmetric(vertical: 24.h),
             child: Center(
               child: CircularProgressIndicator(
                 color: AppColors.primary,
@@ -217,29 +217,30 @@ class ProvisioningTrackerList extends StatelessWidget {
         else if (items.isEmpty)
           _buildEmptyState()
         else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return _TrackerItemCard(
-                item: item,
-                isDark: isDark,
-                onShowQr: () => onShowQr(item),
-                onShareQr: () => onShareQr(item),
-                onReissue: () => onReissue(item),
-                onDelete: () => onDelete(item),
-                isSelectionMode: isSelectionMode,
-                isSelected: selectedIds.contains(item.pilgrimId),
-                onSelectionChanged: (selected) => onSelectionChanged(item.pilgrimId, selected ?? false),
-                onLongPress: () {
-                  if (onLongPressSelect != null) {
-                    onLongPressSelect!(item.pilgrimId);
-                  }
-                },
-              );
-            },
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final item in items)
+                _TrackerItemCard(
+                  key: ValueKey(item.pilgrimId),
+                  item: item,
+                  isDark: isDark,
+                  onShowQr: () => onShowQr(item),
+                  onShareQr: () => onShareQr(item),
+                  onReissue: () => onReissue(item),
+                  onDelete: () => onDelete(item),
+                  isSelectionMode: isSelectionMode,
+                  isSelected: selectedIds.contains(item.pilgrimId),
+                  onSelectionChanged: (selected) =>
+                      onSelectionChanged(item.pilgrimId, selected ?? false),
+                  onLongPress: () {
+                    if (onLongPressSelect != null) {
+                      onLongPressSelect!(item.pilgrimId);
+                    }
+                  },
+                ),
+            ],
           ),
       ],
     );
@@ -320,6 +321,7 @@ class _TrackerItemCard extends StatelessWidget {
   final VoidCallback? onLongPress;
 
   const _TrackerItemCard({
+    super.key,
     required this.item,
     required this.isDark,
     required this.onShowQr,
