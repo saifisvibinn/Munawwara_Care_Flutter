@@ -51,6 +51,13 @@ post_install do |installer|
       config.build_settings['CODE_SIGN_IDENTITY'] = ''
       config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = '-'
 
+      # permission_handler_apple 9.4.x: the umbrella header uses double-quoted includes
+      # and PermissionHandlerPlugin.h imports <Flutter/Flutter.h>, which the Clang module
+      # verifier rejects during Release/Archive builds. Disable only for this pod.
+      if target.name == 'permission_handler_apple'
+        config.build_settings['ENABLE_MODULE_VERIFIER'] = 'NO'
+      end
+
       # permission_handler: without these macros iOS location requests are no-ops
       # and the app incorrectly falls through to opening Settings.
       definitions = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
