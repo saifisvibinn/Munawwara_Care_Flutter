@@ -188,15 +188,15 @@ class AppSelectionField<T> extends StatelessWidget {
           useExternalLabel: false,
         ).copyWith(
           enabled: enabled,
-          suffixIcon:
-              trailingIcon ?? AppDropdownTheme.disclosureIcon(isDark),
+          suffixIcon: trailingIcon ??
+              AppDropdownTheme.disclosureIcon(isDark, compact: true),
+          suffixIconConstraints: BoxConstraints(minWidth: 24.w, maxHeight: 32.h),
         ),
         isEmpty: !hasValue,
         child: hasValue
             ? Text(
                 display,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                softWrap: true,
                 style: AppDropdownTheme.valueStyle(isDark),
               )
             : const SizedBox.shrink(),

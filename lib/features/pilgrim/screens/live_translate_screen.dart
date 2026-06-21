@@ -14,6 +14,7 @@ import '../../../core/widgets/app_selection_field.dart';
 import '../../../core/widgets/standard_snackbar.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import '../providers/live_translate_provider.dart';
+import '../widgets/trip_check_in_chrome.dart';
 import '../../../core/services/oem_settings_service.dart';
 
 class LiveTranslateScreen extends ConsumerStatefulWidget {
@@ -183,17 +184,32 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
     );
   }
 
+  Widget _glassCardShell({
+    required bool isDark,
+    required Widget child,
+    EdgeInsetsGeometry? padding,
+    BoxConstraints? constraints,
+  }) {
+    Widget inner = child;
+    if (constraints != null) {
+      inner = ConstrainedBox(constraints: constraints, child: inner);
+    }
+    return AppGlassCard(
+      isDark: isDark,
+      padding: padding ?? EdgeInsets.zero,
+      child: inner,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(liveTranslateProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? AppColors.backgroundDark : const Color(0xFFF7F9FB);
-    final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
-    final inputCardBg = isDark ? AppColors.surfaceDark : AppColors.iconBgLight.withValues(alpha: 0.5);
-    final textDarkColor = isDark ? Colors.white : const Color(0xFF1E293B);
-    final outlineColor = isDark
-        ? Colors.white.withValues(alpha: 0.1)
-        : const Color(0xFFFFEDD5); // orange-100
+    final fadeBg = AppGlassTheme.dashboardBackgroundColor(isDark);
+    final textDarkColor = isDark ? AppColors.textLight : AppColors.textDark;
+    final textMutedColor =
+        isDark ? AppColors.textMutedLight : AppColors.textMutedDark;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     ref.listen<LiveTranslateState>(liveTranslateProvider, (previous, next) {
       if (next.status == TranslationStatus.listening) {
@@ -217,130 +233,113 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
 
     final modelsDownloaded = state.isSourceModelDownloaded && state.isTargetModelDownloaded;
 
-    return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        backgroundColor: bg,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: const Color(0xFFC2410C),
-            size: 20.w,
-          ),
-        ),
-        title: Text(
-          'live_translate'.tr(),
-          style: TextStyle(
-            fontSize: 18.sp,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFFC2410C),
-          ),
-        ),
-        centerTitle: false,
-      ),
-      body: SafeArea(
-        child: AppScrollFadeOverlay(
-          showTop: false,
-          backgroundColor: isDark
-              ? AppColors.backgroundDark
-              : const Color(0xFFFFF7ED),
-          child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 16.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── Language Selector Card ──────────────────────────────────────
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(24.r),
-                  border: Border.all(color: outlineColor, width: 1.2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: AppSelectionField<String>(
-                        value: state.fromLang,
-                        isDark: isDark,
-                        style: AppSelectionStyle.minimal,
-                        label: 'translate_from'.tr(),
-                        sheetTitle: 'translate_from'.tr(),
-                        options: AppLocales.liveTranslateLanguageCodes
-                            .map(
-                              (code) => AppSelectionOption(
-                                value: code,
-                                label: 'lang_${_getName(code)}'.tr(),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            ref
-                                .read(liveTranslateProvider.notifier)
-                                .setSourceLanguage(val);
-                          }
-                        },
-                      ),
-                    ),
-                    SizedBox(width: 8.w),
-                    GestureDetector(
-                      onTap: () {
-                        ref.read(liveTranslateProvider.notifier).swapLanguages();
-                        HapticFeedback.lightImpact();
-                      },
-                      child: Container(
-                        padding: EdgeInsets.all(10.w),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : const Color(0xFFEEF2F6),
+    return AppDashboardBackground(
+      isDark: isDark,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: true,
+        body: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            SafeArea(
+              bottom: false,
+              child: AppScrollFadeOverlay(
+                showTop: false,
+                useDashboardBottomExtent: false,
+                backgroundColor: fadeBg,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    20.w,
+                    0,
+                    20.w,
+                    bottomInset +
+                        AppGlassTheme.scrollFadeBottomExtentStandalone(
+                          context,
                         ),
-                        child: Icon(
-                          Symbols.swap_horiz,
-                          color: const Color(0xFFEA580C),
-                          size: 20.w,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 8.w),
-                    Expanded(
-                      child: AppSelectionField<String>(
-                        value: state.toLang,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TripCheckInPageHeader(
                         isDark: isDark,
-                        style: AppSelectionStyle.minimal,
-                        label: 'translate_to'.tr(),
-                        sheetTitle: 'translate_to'.tr(),
-                        options: AppLocales.liveTranslateLanguageCodes
-                            .map(
-                              (code) => AppSelectionOption(
-                                value: code,
-                                label: 'lang_${_getName(code)}'.tr(),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            ref
-                                .read(liveTranslateProvider.notifier)
-                                .setTargetLanguage(val);
-                          }
-                        },
+                        title: 'live_translate'.tr(),
                       ),
-                    ),
-                  ],
-                ),
+                      SizedBox(height: 16.h),
+                      // ── Language Selector Card ──────────────────────────────
+                      _glassCardShell(
+                        isDark: isDark,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 14.w,
+                          vertical: 12.h,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: AppSelectionField<String>(
+                                value: state.fromLang,
+                                isDark: isDark,
+                                style: AppSelectionStyle.minimal,
+                                label: 'translate_from'.tr(),
+                                sheetTitle: 'translate_from'.tr(),
+                                options: AppLocales.liveTranslateLanguageCodes
+                                    .map(
+                                      (code) => AppSelectionOption(
+                                        value: code,
+                                        label: 'lang_${_getName(code)}'.tr(),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    ref
+                                        .read(liveTranslateProvider.notifier)
+                                        .setSourceLanguage(val);
+                                  }
+                                },
+                              ),
+                            ),
+                            SizedBox(width: 8.w),
+                            AppGlassIconButton(
+                              isDark: isDark,
+                              icon: Symbols.swap_horiz,
+                              iconColor: AppColors.primary,
+                              size: 40.w,
+                              onTap: () {
+                                ref
+                                    .read(liveTranslateProvider.notifier)
+                                    .swapLanguages();
+                                HapticFeedback.lightImpact();
+                              },
+                            ),
+                            SizedBox(width: 8.w),
+                            Expanded(
+                              child: AppSelectionField<String>(
+                                value: state.toLang,
+                                isDark: isDark,
+                                style: AppSelectionStyle.minimal,
+                                label: 'translate_to'.tr(),
+                                sheetTitle: 'translate_to'.tr(),
+                                options: AppLocales.liveTranslateLanguageCodes
+                                    .map(
+                                      (code) => AppSelectionOption(
+                                        value: code,
+                                        label: 'lang_${_getName(code)}'.tr(),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    ref
+                                        .read(liveTranslateProvider.notifier)
+                                        .setTargetLanguage(val);
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
               ),
               SizedBox(height: 16.h),
 
@@ -350,14 +349,10 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                   _inputFocusNode.requestFocus();
                 },
                 behavior: HitTestBehavior.opaque,
-                child: Container(
+                child: _glassCardShell(
+                  isDark: isDark,
                   padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 18.h),
                   constraints: BoxConstraints(minHeight: 120.h, maxHeight: 200.h),
-                  decoration: BoxDecoration(
-                    color: inputCardBg,
-                    borderRadius: BorderRadius.circular(24.r),
-                    border: Border.all(color: outlineColor, width: 1.2),
-                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -443,7 +438,7 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                                 fontSize: 16.sp,
                                 fontStyle: FontStyle.italic,
                                 fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                                color: textMutedColor.withValues(alpha: 0.85),
                               ),
                               filled: false,
                               border: InputBorder.none,
@@ -462,14 +457,10 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
               SizedBox(height: 16.h),
 
               // ── Translation Display Card ──────────────────────────────────
-              Container(
+              _glassCardShell(
+                isDark: isDark,
                 padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 18.h),
                 constraints: BoxConstraints(minHeight: 120.h, maxHeight: 200.h),
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(24.r),
-                  border: Border.all(color: outlineColor, width: 1.2),
-                ),
                 child: state.status == TranslationStatus.translating
                     ? const Center(child: CircularProgressIndicator(strokeWidth: 3))
                     : Column(
@@ -483,7 +474,7 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                                 style: TextStyle(
                                   fontSize: 10.sp,
                                   fontWeight: FontWeight.w800,
-                                  color: const Color(0xFFEA580C),
+                                  color: AppColors.primary,
                                   letterSpacing: 0.5,
                                 ),
                               ),
@@ -496,7 +487,7 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                                   size: 20.w,
                                   color: state.translatedText.isEmpty
                                       ? Colors.grey
-                                      : const Color(0xFFEA580C),
+                                      : AppColors.primary,
                                 ),
                               ),
                             ],
@@ -520,7 +511,7 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                                     fontSize: 20.sp,
                                     fontWeight: FontWeight.w800,
                                     color: state.translatedText.isEmpty
-                                        ? (isDark ? Colors.white38 : const Color(0xFF94A3B8))
+                                        ? textMutedColor.withValues(alpha: 0.85)
                                         : textDarkColor,
                                     height: 1.35,
                                   ),
@@ -604,18 +595,14 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
 
               // ── Model Downloader Prompt / Speech mic control ───────────────
               if (!modelsDownloaded)
-                Container(
+                _glassCardShell(
+                  isDark: isDark,
                   padding: EdgeInsets.all(18.w),
-                  decoration: BoxDecoration(
-                    color: cardBg,
-                    borderRadius: BorderRadius.circular(24.r),
-                    border: Border.all(color: outlineColor, width: 1.2),
-                  ),
                   child: Column(
                     children: [
                       Icon(
                         Icons.download_for_offline_rounded,
-                        color: const Color(0xFFEA580C),
+                        color: AppColors.primary,
                         size: 40.w,
                       ),
                       SizedBox(height: 12.h),
@@ -633,7 +620,7 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12.sp,
-                          color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                          color: textMutedColor,
                         ),
                       ),
                       SizedBox(height: 14.h),
@@ -658,7 +645,7 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                                     child: LinearProgressIndicator(
                                       value: state.downloadProgress / 100.0,
                                       backgroundColor: isDark ? Colors.white12 : const Color(0xFFF1F5F9),
-                                      color: const Color(0xFFEA580C),
+                                      color: AppColors.primary,
                                       minHeight: 6.h,
                                     ),
                                   ),
@@ -669,7 +656,7 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                                   style: TextStyle(
                                     fontSize: 12.sp,
                                     fontWeight: FontWeight.w700,
-                                    color: const Color(0xFFEA580C),
+                                    color: AppColors.primary,
                                   ),
                                 ),
                               ],
@@ -679,7 +666,7 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                                 ref.read(liveTranslateProvider.notifier).startDownload();
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFEA580C),
+                                backgroundColor: AppColors.primary,
                                 padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16.r),
@@ -718,7 +705,7 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                                     height: 76.w,
                                     decoration: const BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: Color(0xFFEA580C),
+                                      color: AppColors.primary,
                                     ),
                                   ),
                                 ),
@@ -747,10 +734,10 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                                   shape: BoxShape.circle,
                                   color: state.status == TranslationStatus.listening
                                       ? Colors.red.shade700
-                                      : const Color(0xFF9A3412),
+                                      : AppColors.primaryDark,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF9A3412).withValues(alpha: 0.35),
+                                      color: AppColors.primaryDark.withValues(alpha: 0.35),
                                       blurRadius: 18,
                                       offset: const Offset(0, 6),
                                     ),
@@ -773,9 +760,7 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                     Container(
                       padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : const Color(0xFFFFF7ED),
+                        color: AppColors.primary.withValues(alpha: isDark ? 0.14 : 0.08),
                         borderRadius: BorderRadius.circular(20.r),
                       ),
                       child: Text(
@@ -785,7 +770,7 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                         style: TextStyle(
                           fontSize: 10.sp,
                           fontWeight: FontWeight.w800,
-                          color: const Color(0xFFC2410C),
+                          color: AppColors.primary,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -801,24 +786,19 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                   style: TextStyle(
                     fontSize: 11.sp,
                     fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                    color: textMutedColor,
                     letterSpacing: 0.5,
                   ),
                 ),
                 SizedBox(height: 8.h),
-                ...state.recents.map((item) => Container(
-                      margin: EdgeInsets.only(bottom: 10.h),
-                      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                      decoration: BoxDecoration(
-                        color: cardBg,
+                ...state.recents.map((item) => Padding(
+                      padding: EdgeInsets.only(bottom: 10.h),
+                      child: AppGlassCard(
+                        isDark: isDark,
+                        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                         borderRadius: BorderRadius.circular(16.r),
-                        border: Border.all(
-                          color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFE2E8F0),
-                          width: 1.0,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
+                        child: Row(
+                          children: [
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -834,11 +814,11 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                                   ),
                                 ),
                                 SizedBox(height: 3.h),
-                                  Text(
-                                    "${'lang_${_getName(item.fromLang)}'.tr()} ${'translate_to_connector'.tr()} ${'lang_${_getName(item.toLang)}'.tr()}",
-                                    style: TextStyle(
+                                Text(
+                                  "${'lang_${_getName(item.fromLang)}'.tr()} ${'translate_to_connector'.tr()} ${'lang_${_getName(item.toLang)}'.tr()}",
+                                  style: TextStyle(
                                     fontSize: 10.sp,
-                                    color: const Color(0xFF94A3B8),
+                                    color: textMutedColor,
                                   ),
                                 ),
                               ],
@@ -851,17 +831,25 @@ class _LiveTranslateScreenState extends ConsumerState<LiveTranslateScreen>
                             icon: Icon(
                               Symbols.history,
                               size: 20.w,
-                              color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                              color: textMutedColor,
                             ),
                           ),
                         ],
                       ),
-                    )),
+                    ),
+                  )),
               ],
               SizedBox(height: 18.h),
             ],
           ),
         ),
+      ),
+    ),
+            TripCheckInFloatingBackButton(
+              isDark: isDark,
+              onTap: () => Navigator.of(context).pop(),
+            ),
+          ],
         ),
       ),
     );

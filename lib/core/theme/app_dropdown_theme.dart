@@ -58,15 +58,22 @@ class AppDropdownTheme {
       BorderRadius.circular(menuCornerRadius());
 
   /// Settings-style disclosure chevron (44×44 min touch target per HIG).
-  static Widget disclosureIcon(bool isDark, {double? size}) {
+  static Widget disclosureIcon(bool isDark, {double? size, bool compact = false}) {
+    final iconSize = size ?? 20.sp;
+    final color = isDark ? AppColors.textMutedLight : const Color(0xFFC7C7CC);
+    final icon = Icon(Symbols.chevron_right, size: iconSize, color: color);
+
+    if (compact) {
+      return Padding(
+        padding: EdgeInsetsDirectional.only(end: 6.w),
+        child: icon,
+      );
+    }
+
     return SizedBox(
       width: 44.w,
       height: 44.h,
-      child: Icon(
-        Symbols.chevron_right,
-        size: size ?? 20.sp,
-        color: isDark ? AppColors.textMutedLight : const Color(0xFFC7C7CC),
-      ),
+      child: icon,
     );
   }
 
@@ -96,7 +103,7 @@ class AppDropdownTheme {
     final radius = minimal ? 10.r : fieldCornerRadius();
     final pad = contentPadding ??
         (minimal
-            ? EdgeInsets.fromLTRB(14.w, 8.h, 8.w, 10.h)
+            ? EdgeInsets.fromLTRB(12.w, 8.h, 4.w, 10.h)
             : EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h));
 
     if (minimal) {
