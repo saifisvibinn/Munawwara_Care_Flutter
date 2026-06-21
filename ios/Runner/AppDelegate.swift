@@ -12,8 +12,12 @@ import flutter_callkit_incoming
   PKPushRegistryDelegate, CallkitIncomingAppDelegate {
   private var voipRegistry: PKPushRegistry?
   /// CallKit can emit a spurious end/decline a few ms before accept on the same
-  /// call. Defer decline notification so a near-simultaneous accept cancels it.
+  /// call. Defer BOTH the HTTP decline POST and the Dart notification so a
+  /// near-simultaneous accept cancels them before they reach the server.
   private var pendingDeclineNotify: DispatchWorkItem?
+  /// Timestamp of the last onAccept call — used to suppress a racing onDecline
+  /// that arrives within 1 s of an accept (belt-and-suspenders guard).
+  private var lastAcceptAt: Date?
 
   override func application(
     _ application: UIApplication,
@@ -208,6 +212,7 @@ import flutter_callkit_incoming
   func onAccept(_ call: Call, _ action: CXAnswerCallAction) {
     pendingDeclineNotify?.cancel()
     pendingDeclineNotify = nil
+    lastAcceptAt = Date()
     CallSignalingBridge.postAnswer(for: call)
     CallKitAudioChannelHandler.notifyCallAccepted(call: call)
     action.fulfill()
@@ -215,10 +220,24 @@ import flutter_callkit_incoming
 
   func onDecline(_ call: Call, _ action: CXEndCallAction) {
     pendingDeclineNotify?.cancel()
-    // HTTP must fire immediately — a 450ms defer loses the POST when iOS suspends
-    // the VoIP-woken process after the user declines from a killed state.
-    CallSignalingBridge.postDecline(for: call, noAnswer: false)
-    let work = DispatchWorkItem {
+    // Guard: if onAccept fired within the last second, this is a race-condition
+    // decline from the banner dismissal — skip it entirely.
+    if let accepted = lastAcceptAt, Date().timeIntervalSince(accepted) < 1.0 {
+      NSLog("[AppDelegate] onDecline ignored — onAccept fired \(Date().timeIntervalSince(accepted))s ago")
+      action.fulfill()
+      return
+    }
+    // Defer BOTH the HTTP POST and the Dart notification inside the work item.
+    // onAccept cancels pendingDeclineNotify, which now also cancels the HTTP call,
+    // preventing a spurious decline from reaching the server on a banner-tap race.
+    let work = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      // Re-check in case onAccept fired while we were waiting.
+      if let accepted = self.lastAcceptAt, Date().timeIntervalSince(accepted) < 1.0 {
+        NSLog("[AppDelegate] Deferred decline cancelled — onAccept fired during grace")
+        return
+      }
+      CallSignalingBridge.postDecline(for: call, noAnswer: false)
       CallKitAudioChannelHandler.notifyCallDeclined(call: call, noAnswer: false)
     }
     pendingDeclineNotify = work

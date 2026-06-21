@@ -293,9 +293,19 @@ abstract final class NativeCallCoordinator {
               AppLogger.i(
                 '📞 CallKit audio session active while ringing — accepting',
               );
-              unawaited(c.read(callProvider.notifier).acceptCall());
+              // Set the guard flags BEFORE awaiting acceptCall so that a
+              // near-simultaneous actionCallEnded (iOS always fires one when
+              // the CallKit ringing UI is dismissed on banner tap) is treated
+              // as spurious and does NOT signal a decline to the caller.
+              _lastCallKitAcceptAt = DateTime.now();
               _navigatingToCall = true;
+              await c.read(callProvider.notifier).acceptCall();
               _navigateToVoiceCallScreen();
+              // Dismiss the compact CallKit banner notification so it no longer
+              // floats over the in-app call screen.
+              unawaited(
+                CallKitService.instance.dismissIncomingCallNotification(),
+              );
             }
           } else {
             CallKitAudioBridge.onPluginAudioSessionDeactivated();
