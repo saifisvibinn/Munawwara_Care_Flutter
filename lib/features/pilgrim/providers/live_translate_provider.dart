@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_mlkit_translation/google_mlkit_translation.dart';
-import 'package:google_mlkit_language_id/google_mlkit_language_id.dart';
+import 'package:on_device_translation/on_device_translation.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -98,31 +97,9 @@ class LiveTranslateState {
   }
 }
 
-TranslateLanguage _mapCodeToTranslateLanguage(String code) {
-  switch (code) {
-    case 'ar':
-      return TranslateLanguage.arabic;
-    case 'en':
-      return TranslateLanguage.english;
-    case 'ur':
-      return TranslateLanguage.urdu;
-    case 'tr':
-      return TranslateLanguage.turkish;
-    case 'id':
-      return TranslateLanguage.indonesian;
-    case 'fr':
-      return TranslateLanguage.french;
-    case 'fa':
-      return TranslateLanguage.persian;
-    case 'ms':
-      return TranslateLanguage.malay;
-    default:
-      return TranslateLanguage.english;
-  }
-}
-
 class LiveTranslateNotifier extends Notifier<LiveTranslateState> {
-  final OnDeviceTranslatorModelManager _modelManager = OnDeviceTranslatorModelManager();
+  final OnDeviceTranslationModelManager _modelManager =
+      OnDeviceTranslationModelManager();
   final SpeechToText _speech = SpeechToText();
   List<LocaleName> _speechLocales = [];
   bool _speechInitialized = false;
@@ -201,8 +178,8 @@ class LiveTranslateNotifier extends Notifier<LiveTranslateState> {
 
   Future<void> checkModelStatus() async {
     try {
-      final sourceLang = _mapCodeToTranslateLanguage(state.fromLang);
-      final targetLang = _mapCodeToTranslateLanguage(state.toLang);
+      final sourceLang = mapCodeToTranslateLanguage(state.fromLang);
+      final targetLang = mapCodeToTranslateLanguage(state.toLang);
       final sourceDownloaded = await _modelManager.isModelDownloaded(sourceLang.bcpCode);
       final targetDownloaded = await _modelManager.isModelDownloaded(targetLang.bcpCode);
       state = state.copyWith(
@@ -322,8 +299,8 @@ class LiveTranslateNotifier extends Notifier<LiveTranslateState> {
         }
       });
 
-      final sourceLang = _mapCodeToTranslateLanguage(state.fromLang);
-      final targetLang = _mapCodeToTranslateLanguage(state.toLang);
+      final sourceLang = mapCodeToTranslateLanguage(state.fromLang);
+      final targetLang = mapCodeToTranslateLanguage(state.toLang);
 
       if (!state.isSourceModelDownloaded) {
         final success = await _modelManager.downloadModel(sourceLang.bcpCode);
@@ -384,10 +361,10 @@ class LiveTranslateNotifier extends Notifier<LiveTranslateState> {
     );
 
     OnDeviceTranslator? translator;
-    LanguageIdentifier? identifier;
+    OnDeviceLanguageIdentifier? identifier;
     try {
-      final sourceLang = _mapCodeToTranslateLanguage(state.fromLang);
-      final targetLang = _mapCodeToTranslateLanguage(state.toLang);
+      final sourceLang = mapCodeToTranslateLanguage(state.fromLang);
+      final targetLang = mapCodeToTranslateLanguage(state.toLang);
 
       final sourceDownloaded = await _modelManager.isModelDownloaded(sourceLang.bcpCode);
       final targetDownloaded = await _modelManager.isModelDownloaded(targetLang.bcpCode);
@@ -400,7 +377,7 @@ class LiveTranslateNotifier extends Notifier<LiveTranslateState> {
         return;
       }
 
-      identifier = LanguageIdentifier(confidenceThreshold: 0.5);
+      identifier = OnDeviceLanguageIdentifier(confidenceThreshold: 0.5);
       final langCode = await identifier.identifyLanguage(text);
       debugPrint("Language Identifier matched input to: $langCode");
 

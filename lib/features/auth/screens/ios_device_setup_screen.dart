@@ -13,7 +13,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass/app_glass.dart';
 import '../providers/auth_provider.dart';
 
-/// iPhone-first setup wizard: location, notifications, Background App Refresh.
+/// iPhone-first setup wizard: location and notifications.
 class IosDeviceSetupScreen extends ConsumerStatefulWidget {
   const IosDeviceSetupScreen({super.key});
 
@@ -75,6 +75,11 @@ class _IosDeviceSetupScreenState extends ConsumerState<IosDeviceSetupScreen>
     _isRefreshing = false;
     if (_steps.isEmpty) {
       await _goToDashboard();
+      return;
+    }
+    final role = ref.read(authProvider).role;
+    if (await isLocationSatisfiedForOnboarding(role)) {
+      await _goToDashboard();
     }
   }
 
@@ -100,12 +105,12 @@ class _IosDeviceSetupScreenState extends ConsumerState<IosDeviceSetupScreen>
       context: context,
       role: ref.read(authProvider).role,
     );
-    await _refreshSteps();
-  }
-
-  Future<void> _handleManualAck(DeviceCareStep step) async {
-    if (step.kind == DeviceCareActionKind.backgroundAppRefresh) {
-      await OemSettingsService.markBackgroundRefreshManuallyAcknowledged();
+    final role = ref.read(authProvider).role;
+    if (step.kind == DeviceCareActionKind.location &&
+        await isLocationSatisfiedForOnboarding(role)) {
+      if (!mounted) return;
+      await _goToDashboard();
+      return;
     }
     await _refreshSteps();
   }
@@ -113,7 +118,6 @@ class _IosDeviceSetupScreenState extends ConsumerState<IosDeviceSetupScreen>
   IconData _iconFor(DeviceCareActionKind kind) => switch (kind) {
         DeviceCareActionKind.location => Symbols.location_on,
         DeviceCareActionKind.notifications => Symbols.notifications_active,
-        DeviceCareActionKind.backgroundAppRefresh => Symbols.refresh,
         _ => Symbols.settings,
       };
 
@@ -381,21 +385,6 @@ class _IosDeviceSetupScreenState extends ConsumerState<IosDeviceSetupScreen>
                     ),
                   ),
                 ),
-                if (step.kind == DeviceCareActionKind.backgroundAppRefresh) ...[
-                  SizedBox(height: 4.h),
-                  TextButton(
-                    onPressed: () => _handleManualAck(step),
-                    child: Text(
-                      'ios_setup_already_set'.tr(),
-                      style: TextStyle(
-                        fontFamily: 'Lexend',
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w600,
-                        color: muted,
-                      ),
-                    ),
-                  ),
-                ],
                 if (safeIndex > 0)
                   TextButton(
                     onPressed: () => setState(() => _currentIndex--),

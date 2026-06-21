@@ -29,7 +29,6 @@ enum DeviceCareActionKind {
   autostart,
   notifications,
   lockScreenCalls,
-  backgroundAppRefresh,
 }
 
 class DeviceCareStep {
@@ -82,7 +81,6 @@ class OemSettingsService {
   static const _prefAutostartAck = 'device_care_autostart_ack_v1';
   static const _prefBatteryManualAck = 'device_care_battery_manual_ack_v1';
   static const _prefLockScreenCallAck = 'device_care_lock_screen_call_ack_v1';
-  static const _prefBackgroundRefreshAck = 'device_care_ios_bg_refresh_ack_v1';
   static const _channel = MethodChannel('com.munawwaracare.android/oem_settings');
 
   static DeviceCareActionKind? _pendingReturnKind;
@@ -203,9 +201,6 @@ class OemSettingsService {
       case DeviceCareActionKind.lockScreenCalls:
         await _reconcileLockScreenCallAfterSettingsReturn();
         break;
-      case DeviceCareActionKind.backgroundAppRefresh:
-        await markBackgroundRefreshManuallyAcknowledged();
-        break;
     }
   }
 
@@ -291,9 +286,6 @@ class OemSettingsService {
           return prefs.getBool(_prefLockScreenCallAck) ?? false;
         }
         return await _canUseFullScreenForCalls();
-      case DeviceCareActionKind.backgroundAppRefresh:
-        if (!Platform.isIOS) return true;
-        return prefs.getBool(_prefBackgroundRefreshAck) ?? false;
     }
   }
 
@@ -311,11 +303,6 @@ class OemSettingsService {
   static Future<void> markLockScreenCallStepManuallyAcknowledged() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefLockScreenCallAck, true);
-  }
-
-  static Future<void> markBackgroundRefreshManuallyAcknowledged() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefBackgroundRefreshAck, true);
   }
 
   static Future<void> _reconcileLockScreenCallAfterSettingsReturn() async {
@@ -352,7 +339,6 @@ class OemSettingsService {
       DeviceCareActionKind.autostart => _autostartGuide(profile),
       DeviceCareActionKind.notifications => _notificationsGuide(profile),
       DeviceCareActionKind.lockScreenCalls => _lockScreenCallGuide(profile),
-      DeviceCareActionKind.backgroundAppRefresh => _iosBackgroundRefreshGuide(),
     };
   }
 
@@ -432,7 +418,7 @@ class OemSettingsService {
     return _buildStepsList(profile, includeLockScreen: includeLock);
   }
 
-  /// iOS: location Always, notifications, Background App Refresh guidance.
+  /// iOS: location Always and notifications.
   static List<DeviceCareStep> _buildIosStepsList() {
     return const [
       DeviceCareStep(
@@ -448,13 +434,6 @@ class OemSettingsService {
         descriptionKey: 'ios_setup_notifications_desc',
         actionLabelKey: 'ios_setup_notifications_btn',
         footnoteKey: 'ios_setup_notifications_footnote',
-      ),
-      DeviceCareStep(
-        kind: DeviceCareActionKind.backgroundAppRefresh,
-        titleKey: 'ios_setup_bg_refresh_title',
-        descriptionKey: 'ios_setup_bg_refresh_desc',
-        actionLabelKey: 'ios_setup_bg_refresh_btn',
-        footnoteKey: 'ios_setup_bg_refresh_footnote',
       ),
     ];
   }
@@ -612,10 +591,6 @@ class OemSettingsService {
           }
         }
         return false;
-      case DeviceCareActionKind.backgroundAppRefresh:
-        noteOpenedSettings(kind);
-        await openAppSettings();
-        return false;
     }
   }
 
@@ -693,15 +668,6 @@ class OemSettingsService {
         'device_care_decoy_lock_screen',
         'device_care_decoy_silent_notifications',
       ],
-    );
-  }
-
-  static DeviceCareSettingsGuide _iosBackgroundRefreshGuide() {
-    return const DeviceCareSettingsGuide(
-      titleKey: 'ios_setup_bg_refresh_title',
-      instructionKey: 'ios_setup_bg_refresh_desc',
-      highlightLabelKey: 'ios_setup_bg_refresh_footnote',
-      decoyLabelKeys: [],
     );
   }
 

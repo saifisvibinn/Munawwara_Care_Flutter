@@ -42,6 +42,9 @@ post_install do |installer|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
       config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
       config.build_settings['SWIFT_SUPPRESS_WARNINGS'] = 'YES'
+      # iOS 26+ simulators are arm64-only; MLKit pods still ship arm64 exclusion
+      # for legacy Rosetta simulators, so override it here.
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
 
       # Xcode "Update to recommended settings" for Pods — re-applied on each pod install.
       # Disable signing on pod frameworks only; do not enable ENABLE_MODULE_VERIFIER globally
@@ -83,6 +86,7 @@ post_install do |installer|
     next unless target.name == 'Runner'
 
     target.build_configurations.each do |config|
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
       config.build_settings['CLANG_WARN_OBJC_IMPLICIT_OWNERSHIP'] = 'NO'
       config.build_settings['OTHER_LDFLAGS'] ||= ['$(inherited)']
       flags = config.build_settings['OTHER_LDFLAGS']

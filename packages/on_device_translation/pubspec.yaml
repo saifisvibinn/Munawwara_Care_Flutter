@@ -1,0 +1,6 @@
+name: on_device_translation
+description: On-device translation stub for iOS simulator builds (no ML Kit).
+publish_to: none
+
+environment:
+  sdk: ^3.11.0

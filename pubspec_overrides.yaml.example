@@ -1,0 +1,9 @@
+# Copy to pubspec_overrides.yaml for physical-device builds that need ML Kit
+# on-device translation (iOS/Android). Do not use on the iOS simulator.
+#
+#   cp pubspec_overrides.yaml.example pubspec_overrides.yaml
+#   flutter pub get
+#
+dependency_overrides:
+  on_device_translation:
+    path: packages/on_device_translation_mlkit
