@@ -23,6 +23,7 @@ class MapCircleFab extends StatelessWidget {
       onTap: onTap,
       child: AppGlassSurface(
         isDark: isDark,
+        glassTheme: AppGlassTheme.chromeOf(isDark),
         borderRadius: BorderRadius.circular(24.r),
         width: 48.w,
         height: 48.w,

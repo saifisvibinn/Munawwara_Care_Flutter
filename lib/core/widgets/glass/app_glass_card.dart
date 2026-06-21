@@ -30,6 +30,7 @@ class AppGlassCard extends StatelessWidget {
 
     return AppGlassSurface(
       isDark: isDark,
+      glassTheme: AppGlassTheme.cardOf(isDark),
       borderRadius: radius,
       onTap: onTap,
       child: ClipRRect(

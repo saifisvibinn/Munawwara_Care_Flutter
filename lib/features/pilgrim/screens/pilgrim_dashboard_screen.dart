@@ -177,6 +177,9 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
   LatLng? _myLatLng;
   /// True after opening the map tab before the first GPS fix (recenter then).
   bool _pilgrimMapAwaitingFirstFix = false;
+  static const int _mapTabIndex = 1;
+  /// MapKit / FlutterMap mount only on (or swiping through) the map tab.
+  bool _mapTabMounted = false;
   WeatherAlert _weatherAlert = const WeatherAlert.loading();
   DateTime? _lastWeatherFetchAt;
   LatLng? _lastWeatherFetchLatLng;
@@ -411,6 +414,8 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
+
+    _pageController.addListener(_syncMapTabMount);
 
     ref.listenManual(callProvider, (prev, next) {
       final sosActive = ref.read(pilgrimProvider).sosActive;
@@ -965,6 +970,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
     _hasModeratorCalledForThisSos = false;
     _weatherRefreshTimer?.cancel();
     _serviceStatusSub?.cancel();
+    _pageController.removeListener(_syncMapTabMount);
     WidgetsBinding.instance.removeObserver(this);
     _locationSub?.cancel();
     _sfxPlayer.dispose();
@@ -1023,7 +1029,24 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         _pilgrimMapAwaitingFirstFix = true;
       }
     });
+    _syncMapTabMount();
     _applyTabSideEffects(index);
+  }
+
+  bool _shouldMountMapTab() {
+    if (_currentTab == _mapTabIndex) return true;
+    if (!_pageController.hasClients) return false;
+    final page = _pageController.page;
+    if (page == null) return false;
+    // Mount briefly while swiping to/from the map tab.
+    return page > 0.2 && page < 1.8;
+  }
+
+  void _syncMapTabMount() {
+    if (!mounted) return;
+    final mount = _shouldMountMapTab();
+    if (mount == _mapTabMounted) return;
+    setState(() => _mapTabMounted = mount);
   }
 
   void _openProfileScreen() {
@@ -1053,6 +1076,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
           _pilgrimMapAwaitingFirstFix = true;
         }
       });
+      _syncMapTabMount();
       _applyTabSideEffects(index);
       return;
     }
@@ -1826,13 +1850,16 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
         },
         onWeatherTap: () => showWeatherDetailBottomSheet(context, _weatherAlert),
       ),
-      PilgrimMapTab(
-        myLocation: _myLatLng,
-        resolveMyLocation: () => _myLatLng,
-        mapController: _mapController,
-        pilgrimState: pilgrimState,
-        profileGender: pilgrimState.profile?.gender,
-        areas: ref.watch(suggestedAreaProvider).areas,
+      DeferredDashboardTab(
+        mount: _mapTabMounted,
+        child: PilgrimMapTab(
+          myLocation: _myLatLng,
+          resolveMyLocation: () => _myLatLng,
+          mapController: _mapController,
+          pilgrimState: pilgrimState,
+          profileGender: pilgrimState.profile?.gender,
+          areas: ref.watch(suggestedAreaProvider).areas,
+        ),
       ),
       const IslamicCornerHubScreen(),
       pilgrimState.groupInfo != null
@@ -1884,6 +1911,7 @@ class _PilgrimDashboardScreenState extends ConsumerState<PilgrimDashboardScreen>
                           ? const NeverScrollableScrollPhysics()
                           : const PageScrollPhysics(),
                       onPageChanged: _handlePageChanged,
+                      keepAliveForTab: const [true, false, false, true],
                       children: tabs,
                     ),
                   ),

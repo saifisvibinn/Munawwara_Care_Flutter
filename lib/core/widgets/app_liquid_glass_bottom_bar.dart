@@ -230,6 +230,7 @@ class _AppLiquidGlassBottomBarState extends State<AppLiquidGlassBottomBar>
       padding: EdgeInsetsDirectional.fromSTEB(margin, 0, margin, bottomInset),
       child: AppGlassSurface(
         isDark: widget.isDark,
+        glassTheme: AppGlassTheme.chromeOf(widget.isDark),
         borderRadius: AppGlassTheme.borderRadius,
         padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 6.h),
         child: SizedBox(

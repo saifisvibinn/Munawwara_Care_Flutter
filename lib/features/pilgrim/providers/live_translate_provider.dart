@@ -31,6 +31,8 @@ class RecentTranslation {
 }
 
 class LiveTranslateState {
+  static const Object _unset = Object();
+
   final TranslationStatus status;
   final String fromLang; // 'ar', 'en', 'ur', 'tr', 'id', 'fr'
   final String toLang;   // 'ar', 'en', 'ur', 'tr', 'id', 'fr'
@@ -67,7 +69,7 @@ class LiveTranslateState {
     String? toLang,
     String? inputText,
     String? translatedText,
-    String? errorMessage,
+    Object? errorMessage = _unset,
     bool? isSourceModelDownloaded,
     bool? isTargetModelDownloaded,
     bool? requiresWifiConfirmation,
@@ -82,7 +84,9 @@ class LiveTranslateState {
       toLang: toLang ?? this.toLang,
       inputText: inputText ?? this.inputText,
       translatedText: translatedText ?? this.translatedText,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: identical(errorMessage, _unset)
+          ? this.errorMessage
+          : errorMessage as String?,
       isSourceModelDownloaded: isSourceModelDownloaded ?? this.isSourceModelDownloaded,
       isTargetModelDownloaded: isTargetModelDownloaded ?? this.isTargetModelDownloaded,
       requiresWifiConfirmation: requiresWifiConfirmation ?? this.requiresWifiConfirmation,
@@ -376,6 +380,7 @@ class LiveTranslateNotifier extends Notifier<LiveTranslateState> {
     state = state.copyWith(
       status: TranslationStatus.translating,
       inputText: text,
+      errorMessage: null,
     );
 
     OnDeviceTranslator? translator;
@@ -422,6 +427,7 @@ class LiveTranslateNotifier extends Notifier<LiveTranslateState> {
         status: TranslationStatus.done,
         translatedText: translation,
         recents: updatedRecents.take(15).toList(),
+        errorMessage: null,
       );
     } catch (e) {
       state = state.copyWith(
@@ -521,22 +527,28 @@ class LiveTranslateNotifier extends Notifier<LiveTranslateState> {
   }
 
   Future<void> stopListening() async {
-    if (state.status == TranslationStatus.listening) {
-      await _speech.stop();
-      if (state.inputText.trim().isNotEmpty) {
-        translateText(state.inputText);
-      } else {
-        await Future.delayed(const Duration(milliseconds: 300));
-        if (state.inputText.trim().isNotEmpty) {
-          translateText(state.inputText);
-        } else {
-          state = state.copyWith(
-            status: TranslationStatus.error,
-            errorMessage: "Could not detect speech, please try again",
-          );
-        }
-      }
+    if (state.status != TranslationStatus.listening) return;
+
+    await _speech.stop();
+
+    // Final recognition results often arrive after stop() — wait before failing.
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (state.status == TranslationStatus.translating ||
+        state.status == TranslationStatus.done) {
+      return;
     }
+
+    final text = state.inputText.trim();
+    if (text.isNotEmpty) {
+      await translateText(text);
+      return;
+    }
+
+    state = state.copyWith(
+      status: TranslationStatus.error,
+      errorMessage: "Could not detect speech, please try again",
+    );
   }
   
   void openSettings() {

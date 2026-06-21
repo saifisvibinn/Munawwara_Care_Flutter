@@ -44,6 +44,7 @@ class AppGlassIconButton extends StatelessWidget {
         children: [
           AppGlassSurface(
             isDark: isDark,
+            glassTheme: AppGlassTheme.chromeOf(isDark),
             borderRadius: AppGlassTheme.iconButtonRadius,
             width: side,
             height: side,

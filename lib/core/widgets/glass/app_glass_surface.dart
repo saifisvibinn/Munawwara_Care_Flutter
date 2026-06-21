@@ -44,7 +44,6 @@ class AppGlassSurface extends StatelessWidget {
       ),
       child: CupertinoLiquidGlass(
         theme: resolvedTheme,
-        blurSigma: glassTheme == null ? AppGlassTheme.blurSigma : null,
         borderRadius: radius,
         padding: padding,
         width: width,

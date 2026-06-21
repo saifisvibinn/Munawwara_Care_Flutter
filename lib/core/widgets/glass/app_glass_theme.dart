@@ -24,8 +24,11 @@ import '../../theme/app_colors.dart';
 class AppGlassTheme {
   AppGlassTheme._();
 
-  /// Backdrop blur intensity. Reduce if profiling shows scroll jank.
-  static const double blurSigma = 28;
+  /// Backdrop blur for dashboard cards — kept moderate so text stays legible.
+  static const double blurSigma = 16;
+
+  /// Slightly stronger frost for floating chrome (nav bar, map FABs).
+  static const double chromeBlurSigma = 18;
 
   /// Blur for scroll-edge bands — slightly lighter than card glass for map perf.
   static const double scrollEdgeBlurSigma = 20;
@@ -58,14 +61,13 @@ class AppGlassTheme {
   /// Tight gap between a toolbar control and its anchored popover (iOS inline).
   static Offset get popoverGapBelowTrigger => Offset(0, 8.h);
 
-  /// Lighter glass for anchored popovers — map/content stays visible through
-  /// the panel (Apple context-menu / dock-style material, not a solid sheet).
+  /// Anchored popovers — readable menu rows with a light glass wash.
   static LiquidGlassThemeData popoverOf(bool isDark) {
     return of(isDark).copyWith(
-      blurSigma: 18,
-      tintOpacity: isDark ? 0.38 : 0.32,
-      vibrancyIntensity: isDark ? 0.1 : 0.06,
-      specularOpacity: isDark ? 0.16 : 0.18,
+      blurSigma: 14,
+      tintOpacity: isDark ? 0.84 : 0.90,
+      vibrancyIntensity: isDark ? 0.03 : 0.02,
+      specularOpacity: isDark ? 0.08 : 0.10,
     );
   }
 
@@ -87,8 +89,47 @@ class AppGlassTheme {
   static double groupBroadcastNavGlassHeight(BuildContext context) =>
       MediaQuery.viewPaddingOf(context).top + 10.h + 44.w + 6.h;
 
-  static LiquidGlassThemeData of(bool isDark) =>
-      isDark ? LiquidGlassThemeData.dark() : LiquidGlassThemeData.light();
+  /// Default dashboard card material — frosted but mostly opaque for contrast.
+  static LiquidGlassThemeData of(bool isDark) {
+    final base =
+        isDark ? LiquidGlassThemeData.dark() : LiquidGlassThemeData.light();
+    return base.copyWith(
+      blurSigma: blurSigma,
+      tintOpacity: isDark ? 0.78 : 0.88,
+      vibrancyIntensity: isDark ? 0.04 : 0.02,
+      specularOpacity: isDark ? 0.08 : 0.10,
+      noiseOpacity: 0.01,
+    );
+  }
+
+  /// Alias used by [AppGlassCard].
+  static LiquidGlassThemeData cardOf(bool isDark) => of(isDark);
+
+  /// Floating nav bar and small circular map/header controls.
+  static LiquidGlassThemeData chromeOf(bool isDark) {
+    return of(isDark).copyWith(
+      blurSigma: chromeBlurSigma,
+      tintOpacity: isDark ? 0.70 : 0.80,
+      vibrancyIntensity: isDark ? 0.05 : 0.03,
+      specularOpacity: isDark ? 0.11 : 0.13,
+    );
+  }
+
+  /// Dialogs and confirmation sheets — near-opaque so body copy stays sharp.
+  static LiquidGlassThemeData modalOf(bool isDark) {
+    return of(isDark).copyWith(
+      blurSigma: 10,
+      tintOpacity: isDark ? 0.92 : 0.96,
+      vibrancyIntensity: 0,
+      specularOpacity: isDark ? 0.06 : 0.08,
+      noiseOpacity: 0.008,
+      borderWidth: 0.5,
+    );
+  }
+
+  /// Secondary body text on modal glass — higher contrast than [AppColors] muted.
+  static Color modalBodyTextColor(bool isDark) =>
+      isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569);
 
   /// Matches [AppDashboardBackground] so PageView underlays never peek through.
   static Color dashboardBackgroundColor(bool isDark) =>

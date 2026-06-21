@@ -9,9 +9,16 @@ const dashboardTabAnimCurve = Curves.easeInOut;
 
 /// Wraps a dashboard tab so [PageView] keeps its state when off-screen.
 class KeepAliveTab extends StatefulWidget {
-  const KeepAliveTab({super.key, required this.child});
+  const KeepAliveTab({
+    super.key,
+    required this.child,
+    this.keepAlive = true,
+  });
 
   final Widget child;
+
+  /// When false, the tab may be disposed once scrolled off-screen.
+  final bool keepAlive;
 
   @override
   State<KeepAliveTab> createState() => _KeepAliveTabState();
@@ -20,7 +27,7 @@ class KeepAliveTab extends StatefulWidget {
 class _KeepAliveTabState extends State<KeepAliveTab>
     with AutomaticKeepAliveClientMixin {
   @override
-  bool get wantKeepAlive => true;
+  bool get wantKeepAlive => widget.keepAlive;
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +35,27 @@ class _KeepAliveTabState extends State<KeepAliveTab>
     // Rebuild keep-alive tabs when the app language changes.
     context.locale;
     return widget.child;
+  }
+}
+
+/// Builds [child] only while [mount] is true so heavy subtrees (e.g. MapKit)
+/// are torn down when the user leaves the tab.
+class DeferredDashboardTab extends StatelessWidget {
+  const DeferredDashboardTab({
+    super.key,
+    required this.mount,
+    required this.child,
+    this.placeholder,
+  });
+
+  final bool mount;
+  final Widget child;
+  final Widget? placeholder;
+
+  @override
+  Widget build(BuildContext context) {
+    if (mount) return child;
+    return placeholder ?? const SizedBox.expand();
   }
 }
 
@@ -40,6 +68,7 @@ class DashboardTabPageView extends StatelessWidget {
     required this.children,
     this.backgroundColor,
     this.physics,
+    this.keepAliveForTab,
   });
 
   final PageController controller;
@@ -47,6 +76,10 @@ class DashboardTabPageView extends StatelessWidget {
   final List<Widget> children;
   final Color? backgroundColor;
   final ScrollPhysics? physics;
+
+  /// Per-tab keep-alive flags aligned with [children]. Omitted indices default
+  /// to true (preserves moderator dashboard behaviour).
+  final List<bool>? keepAliveForTab;
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +99,7 @@ class DashboardTabPageView extends StatelessWidget {
           for (var i = 0; i < children.length; i++)
             KeepAliveTab(
               key: ValueKey<int>(i),
+              keepAlive: _keepAliveForIndex(i),
               child: children[i],
             ),
         ],
@@ -74,5 +108,11 @@ class DashboardTabPageView extends StatelessWidget {
     final bg = backgroundColor;
     if (bg == null) return pageView;
     return ColoredBox(color: bg, child: pageView);
+  }
+
+  bool _keepAliveForIndex(int index) {
+    final flags = keepAliveForTab;
+    if (flags == null || index >= flags.length) return true;
+    return flags[index];
   }
 }

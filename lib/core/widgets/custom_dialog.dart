@@ -25,9 +25,7 @@ class StandardDialog {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPrimary = isDark ? AppColors.textLight : AppColors.textDark;
-    final textMuted = isDark
-        ? AppColors.textMutedLight
-        : AppColors.textMutedDark;
+    final textMuted = AppGlassTheme.modalBodyTextColor(isDark);
     final accent = isDestructive ? const Color(0xFFDC2626) : AppColors.primary;
     final resolvedContent = contentWidget ??
         (content != null
@@ -65,6 +63,7 @@ class StandardDialog {
         insetPadding: EdgeInsets.symmetric(horizontal: 28.w),
         child: AppGlassSurface(
           isDark: isDark,
+          glassTheme: AppGlassTheme.modalOf(isDark),
           borderRadius: BorderRadius.circular(28.r),
           padding: EdgeInsets.fromLTRB(24.w, 28.h, 24.w, 20.h),
           child: Column(
@@ -171,6 +170,7 @@ class StandardDialog {
           insetPadding: EdgeInsets.symmetric(horizontal: 28.w),
           child: AppGlassSurface(
             isDark: isDark,
+            glassTheme: AppGlassTheme.modalOf(isDark),
             borderRadius: BorderRadius.circular(28.r),
             padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 28.h),
             child: Column(

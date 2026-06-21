@@ -2026,10 +2026,9 @@ class _DeleteGroupSheet extends StatelessWidget {
     context.locale;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPrimary = isDark ? Colors.white : AppColors.textDark;
-    final textMuted = isDark
-        ? AppColors.textMutedLight
-        : AppColors.textMutedDark;
+    final textMuted = AppGlassTheme.modalBodyTextColor(isDark);
     final sheetRadius = BorderRadius.circular(28.r);
+    final modalGlass = AppGlassTheme.modalOf(isDark);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 8.h),
@@ -2038,6 +2037,7 @@ class _DeleteGroupSheet extends StatelessWidget {
         children: [
           AppGlassSurface(
             isDark: isDark,
+            glassTheme: modalGlass,
             borderRadius: sheetRadius,
             padding: EdgeInsets.fromLTRB(24.w, 12.h, 24.w, 20.h),
             child: Column(
@@ -2125,6 +2125,7 @@ class _DeleteGroupSheet extends StatelessWidget {
           SizedBox(height: 8.h),
           AppGlassSurface(
             isDark: isDark,
+            glassTheme: modalGlass,
             borderRadius: sheetRadius,
             onTap: () => Navigator.of(context).pop(false),
             child: SizedBox(
